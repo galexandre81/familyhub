@@ -1,0 +1,29 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // Users : chacun lit/écrit son propre doc
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Households : seuls les membres lisent/écrivent
+    match /households/{hid} {
+      allow read: if request.auth != null
+                  && request.auth.uid in resource.data.membres;
+      allow update: if request.auth != null
+                    && request.auth.uid in resource.data.membres;
+      allow create: if request.auth != null
+                    && request.auth.uid == request.resource.data.ownerUid;
+      allow delete: if request.auth != null
+                    && request.auth.uid == resource.data.ownerUid;
+
+      // Sous-collections : lecture/écriture si membre du foyer
+      match /{collection}/{docId=**} {
+        allow read, write: if request.auth != null
+                           && request.auth.uid in
+                              get(/databases/$(database)/documents/households/$(hid)).data.membres;
+      }
+    }
+  }
+}

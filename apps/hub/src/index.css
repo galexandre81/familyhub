@@ -1,0 +1,31 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+@layer base {
+  body {
+    @apply bg-bg-principal text-text-principal;
+  }
+
+  h1, h2, h3, h4, h5, h6 {
+    @apply font-serif;
+  }
+}
+
+@layer components {
+  .tile-card {
+    @apply bg-bg-card rounded-tile shadow-tile p-6;
+  }
+
+  .tile-title {
+    @apply font-serif text-sm text-text-secondaire mb-2;
+  }
+
+  .btn-primary {
+    @apply bg-accent-chaud text-text-clair px-4 py-2 rounded-md hover:opacity-90 transition;
+  }
+
+  .btn-secondary {
+    @apply bg-bg-card text-text-principal px-4 py-2 rounded-md border border-bordure hover:bg-bordure transition;
+  }
+}

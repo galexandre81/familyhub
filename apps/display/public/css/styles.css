@@ -1,0 +1,227 @@
+/* Family Hub — Display vanilla CSS, iPad mini 1 (iOS 9.3.6) compatible.
+   Flexbox uniquement, pas de CSS Grid, pas de variables, pas de calc avec virgules. */
+
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+
+html, body {
+  margin: 0;
+  padding: 0;
+  height: 100%;
+  background: #FAFAF7;
+  color: #1F2933;
+  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Inter", sans-serif;
+  -webkit-font-smoothing: antialiased;
+  overflow: hidden;
+}
+
+body {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+}
+
+#display-root {
+  -webkit-flex: 1;
+  flex: 1;
+  display: -webkit-flex;
+  display: flex;
+  position: relative;
+  overflow: hidden;
+}
+
+/* Boot / setup screens */
+.boot-message {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  -webkit-justify-content: center;
+  justify-content: center;
+  -webkit-align-items: center;
+  align-items: center;
+  width: 100%;
+  height: 100%;
+  text-align: center;
+  padding: 40px;
+}
+.boot-title {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 48px;
+  color: #C8553D;
+  margin-bottom: 16px;
+}
+.boot-status {
+  font-size: 18px;
+  color: #6B7280;
+}
+.setup-detail {
+  font-size: 14px;
+  color: #6B7280;
+  margin-top: 24px;
+  max-width: 480px;
+  line-height: 1.5;
+}
+
+/* Error overlay */
+.error-overlay {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: #FAFAF7;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  -webkit-justify-content: center;
+  justify-content: center;
+  -webkit-align-items: center;
+  align-items: center;
+  padding: 40px;
+  text-align: center;
+  z-index: 100;
+}
+.error-title {
+  font-family: Georgia, serif;
+  font-size: 32px;
+  color: #C8553D;
+  margin-bottom: 12px;
+}
+.error-text {
+  font-size: 16px;
+  color: #6B7280;
+  margin-bottom: 24px;
+  max-width: 600px;
+}
+.error-link {
+  background: #C8553D;
+  color: #FAFAF7;
+  padding: 12px 24px;
+  border-radius: 8px;
+  text-decoration: none;
+  font-size: 18px;
+}
+
+/* Grid des tuiles */
+.grid {
+  -webkit-flex: 1;
+  flex: 1;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  padding: 16px;
+}
+
+.grid-cell {
+  background: #FFFFFF;
+  border-radius: 12px;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.08);
+  margin: 8px;
+  padding: 16px;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  position: relative;
+  overflow: hidden;
+}
+
+.tile-title {
+  font-family: Georgia, serif;
+  font-size: 14px;
+  color: #6B7280;
+  margin-bottom: 8px;
+}
+
+/* Tuile horloge */
+.tile-clock {
+  -webkit-justify-content: center;
+  justify-content: center;
+  -webkit-align-items: center;
+  align-items: center;
+  text-align: center;
+}
+.tile-clock-time {
+  font-family: Georgia, serif;
+  font-size: 96px;
+  color: #1F2933;
+  line-height: 1;
+}
+.tile-clock-date {
+  font-size: 18px;
+  color: #6B7280;
+  margin-top: 12px;
+}
+
+/* Tuile météo */
+.tile-weather {
+  -webkit-align-items: center;
+  align-items: center;
+  text-align: center;
+}
+.tile-weather-icon { width: 96px; height: 96px; margin-bottom: 8px; }
+.tile-weather-icon svg { width: 100%; height: 100%; }
+.tile-weather-temp {
+  font-family: Georgia, serif;
+  font-size: 56px;
+  color: #1F2933;
+  line-height: 1;
+}
+.tile-weather-label { font-size: 16px; color: #1F2933; margin-top: 4px; }
+.tile-weather-range { font-size: 13px; color: #6B7280; margin-top: 8px; }
+.tile-weather-ville { font-size: 12px; color: #6B7280; }
+
+/* Tuile radio */
+.tile-radio {
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+}
+.tile-radio-stations {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+}
+.tile-radio-btn {
+  -webkit-flex: 1;
+  flex: 1;
+  min-width: 120px;
+  margin: 4px;
+  padding: 10px 14px;
+  background: #FAFAF7;
+  border: 1px solid #E5E5E0;
+  border-radius: 8px;
+  font-size: 15px;
+  color: #1F2933;
+  text-align: center;
+  cursor: pointer;
+  -webkit-appearance: none;
+}
+.tile-radio-btn.active {
+  background: #C8553D;
+  color: #FAFAF7;
+  border-color: #C8553D;
+}
+.tile-radio-status {
+  margin-top: 12px;
+  font-size: 13px;
+  color: #6B7280;
+  min-height: 18px;
+}
+.tile-radio-controls {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-justify-content: center;
+  justify-content: center;
+  margin-top: 8px;
+}
+.tile-radio-toggle {
+  background: #C8553D;
+  color: #FAFAF7;
+  border: 0;
+  border-radius: 60px;
+  width: 60px;
+  height: 60px;
+  font-size: 24px;
+  cursor: pointer;
+}
