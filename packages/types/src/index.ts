@@ -8,3 +8,4 @@ export * from "./tiles/clock";
 export * from "./tiles/weather";
 export * from "./tiles/radio";
 export * from "./tiles/timer";
+export * from "./tiles/calendar";

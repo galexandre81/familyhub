@@ -10,6 +10,7 @@ setGlobalOptions({ region: "europe-west1", maxInstances: 10 });
 
 // Tuiles
 export { refreshWeatherTile, scheduledWeatherRefresh } from "./tiles/weather";
+export { syncCalendarTile, scheduledCalendarRefresh } from "./tiles/calendar";
 
 // Auth display
 export {

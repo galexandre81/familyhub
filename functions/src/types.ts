@@ -68,12 +68,40 @@ export interface WeatherDaily {
   sunset: string;
 }
 
+export interface WeatherWeeklyDay {
+  date: string;
+  minC: number;
+  maxC: number;
+  weatherCode: number;
+  iconKey: WeatherIconKey;
+}
+
 export interface WeatherSingleLocationData {
   current: WeatherCurrent;
   forecast: WeatherForecastPoint[];
   daily: WeatherDaily;
+  weekly: WeatherWeeklyDay[];
 }
 
 export interface WeatherData {
   byLocation: Record<string, WeatherSingleLocationData>;
+}
+
+export interface CalendarConfig {
+  daysAhead: number;
+  maxEvents: number;
+}
+
+export interface CalendarEvent {
+  id: string;
+  summary: string;
+  startISO: string;
+  endISO: string;
+  allDay: boolean;
+  location?: string;
+}
+
+export interface CalendarData {
+  events: CalendarEvent[];
+  fetchedAt: string;
 }

@@ -68,8 +68,32 @@ export default function DisplayEditor() {
     );
   }
 
-  function save() {
-    void updateLayout.mutate({ householdId: householdId!, displayId: display!.id, layout });
+  async function save() {
+    const previousIds = new Set((display!.layout ?? []).map((e) => e.tileId));
+    const newWeatherTiles = layout
+      .map((e) => tilesById.get(e.tileId))
+      .filter((t): t is NonNullable<typeof t> =>
+        !!t && t.type === "weather" && !previousIds.has(t.id),
+      );
+
+    await updateLayout.mutateAsync({
+      householdId: householdId!,
+      displayId: display!.id,
+      layout,
+    });
+
+    if (newWeatherTiles.length > 0) {
+      setRefreshStatus("Pré-chargement météo…");
+      await Promise.allSettled(
+        newWeatherTiles.map((t) =>
+          refreshWeather.mutateAsync({ householdId: householdId!, tileId: t.id }),
+        ),
+      );
+      setRefreshStatus(
+        `${newWeatherTiles.length} nouvelle${newWeatherTiles.length > 1 ? "s" : ""} tuile${newWeatherTiles.length > 1 ? "s" : ""} météo pré-chargée${newWeatherTiles.length > 1 ? "s" : ""}.`,
+      );
+      setTimeout(() => setRefreshStatus(null), 4000);
+    }
   }
 
   async function refreshTilesData() {

@@ -20,12 +20,16 @@ export default function Layout() {
 
   return (
     <div className="min-h-screen flex flex-col">
-      {/* Editorial masthead */}
-      <header className="bg-ivory/80 backdrop-blur-sm sticky top-0 z-20" style={{ borderBottom: "1px solid #E5DCC8" }}>
+      <header
+        className="bg-ebony-panel/90 backdrop-blur-md sticky top-0 z-20"
+        style={{
+          borderBottom: "1px solid #3A2E22",
+          boxShadow: "0 1px 0 rgba(217,160,91,0.08)",
+        }}
+      >
         <div className="max-w-6xl mx-auto px-8 py-5">
-          {/* Top row: date + user */}
-          <div className="flex items-center justify-between text-xs tracking-widest uppercase text-ink-mute mb-4">
-            <span className="italic font-serif normal-case tracking-normal text-ink-mute">
+          <div className="flex items-center justify-between text-xs tracking-widest uppercase text-cream-mute mb-4">
+            <span className="italic font-serif normal-case tracking-normal">
               {today}
             </span>
             <div className="flex items-center gap-3">
@@ -33,15 +37,16 @@ export default function Layout() {
                 <img
                   src={user.photoURL}
                   alt=""
-                  className="w-7 h-7 rounded-full border border-hairline"
+                  className="w-7 h-7 rounded-full"
+                  style={{ border: "1px solid #3A2E22" }}
                 />
               )}
-              <span className="text-[10px] tracking-widest">
+              <span className="text-[10px] tracking-widest text-cream-mute">
                 {user?.displayName?.split(" ")[0]}
               </span>
               <button
                 onClick={() => void signOut()}
-                className="text-ink-mute hover:text-terracotta transition"
+                className="text-cream-mute hover:text-brass transition"
                 title="Déconnexion"
               >
                 <LogOut size={14} />
@@ -49,16 +54,15 @@ export default function Layout() {
             </div>
           </div>
 
-          {/* Logo + nav */}
           <div className="flex items-end justify-between gap-8">
             <Link to="/" className="block">
               <div className="flex items-center gap-3">
-                <span className="h-px w-8 bg-terracotta opacity-50" />
+                <span className="h-px w-8 bg-brass opacity-60" />
                 <span className="eyebrow">Famille</span>
               </div>
               <div className="font-serif text-3xl leading-none mt-1">
-                <span className="text-ink">Family</span>
-                <span className="italic text-terracotta">Hub</span>
+                <span className="text-cream">Family</span>
+                <span className="italic text-brass">Hub</span>
               </div>
             </Link>
             <nav className="flex items-center gap-1 mb-1">
@@ -71,8 +75,8 @@ export default function Layout() {
                     clsx(
                       "px-4 py-2 flex items-center gap-2 text-[11px] uppercase tracking-widest transition rounded-sm",
                       isActive
-                        ? "bg-terracotta-soft text-terracotta"
-                        : "text-ink-mute hover:text-ink",
+                        ? "bg-ebony-ridge text-brass"
+                        : "text-cream-mute hover:text-cream",
                     )
                   }
                 >
@@ -89,7 +93,7 @@ export default function Layout() {
         <Outlet />
       </main>
 
-      <footer className="text-center text-xs text-ink-mute py-8 italic font-serif">
+      <footer className="text-center text-xs text-cream-mute py-8 italic font-serif">
         ✦ La maison où il fait bon vivre ✦
       </footer>
     </div>

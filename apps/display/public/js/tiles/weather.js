@@ -114,11 +114,14 @@
     var minC = Math.round(ld.daily.minC);
     var maxC = Math.round(ld.daily.maxC);
 
+    /* Layout : icône + temp côte à côte, puis label, puis min/max, puis hint. */
     wrap.innerHTML =
-      '<div class="tile-weather-icon">' + iconSVG(ld.current.iconKey) + '</div>' +
-      '<div class="tile-weather-temp">' + temp + '°</div>' +
+      '<div class="tile-weather-row">' +
+        '<div class="tile-weather-icon">' + iconSVG(ld.current.iconKey) + '</div>' +
+        '<div class="tile-weather-temp">' + temp + '°</div>' +
+      '</div>' +
       '<div class="tile-weather-label">' + ld.current.label + '</div>' +
-      '<div class="tile-weather-range">Min ' + minC + '° / Max ' + maxC + '°</div>' +
+      '<div class="tile-weather-range">Min ' + minC + '° &nbsp;·&nbsp; Max ' + maxC + '°</div>' +
       (locs.length > 1 ? '<div class="tile-weather-hint">Touche pour changer de ville</div>' : '');
   }
 
@@ -126,13 +129,19 @@
     container.innerHTML = '';
   }
 
-  /* --- Vue PLEIN ÉCRAN (overlay) --- */
+  /* --- Vue PLEIN ÉCRAN (overlay) ---
+     Layout :
+       1. Hero : ville sélectionnée — gros temp/icône, label, min/max, sunrise/sunset
+       2. Semaine : 7 colonnes (jour + icône + max/min) pour la ville sélectionnée
+       3. Autres villes : chips compactes (nom + icône + temp) — tap pour switcher
+  */
   function expand(container, data, config) {
     container.innerHTML = '';
     container.className = 'tile-overlay-content tile-weather-expand';
 
     var locs = (config && config.locations) || [];
     var selectedId = config && config.selectedLocationId;
+    if (!selectedId && locs.length > 0) selectedId = locs[0].id;
 
     var headerEl = document.createElement('h1');
     headerEl.className = 'tile-overlay-h1';
@@ -146,80 +155,117 @@
       return;
     }
 
-    var hint = document.createElement('p');
-    hint.className = 'tile-weather-expand-hint';
-    hint.innerHTML = 'Touche une ville pour la mettre en avant dans la tuile principale.';
-    container.appendChild(hint);
+    var bodyEl = document.createElement('div');
+    bodyEl.className = 'tile-weather-expand-body';
+    container.appendChild(bodyEl);
 
-    /* DIAG : affiche les clés du snapshot pour débugger un mismatch d'ID. */
-    var diag = document.createElement('p');
-    diag.style.cssText = 'font:11px monospace;color:#6B7280;background:#FAFAF7;padding:6px;border-radius:4px;word-break:break-all';
-    var dataKeys = data ? Object.keys(data).join(',') : '(no data)';
-    var byLocKeys = (data && data.byLocation) ? Object.keys(data.byLocation).join(',') : '(no byLocation)';
-    var configKeys = (config && config.locations) ? config.locations.map(function (l) { return l.id; }).join(',') : '(no config locations)';
-    diag.innerHTML = 'DIAG · data keys: [' + dataKeys + '] · byLocation: [' + byLocKeys + '] · config locs: [' + configKeys + ']';
-    container.appendChild(diag);
-
-    var listEl = document.createElement('div');
-    listEl.className = 'tile-weather-expand-list';
-    container.appendChild(listEl);
-
-    for (var i = 0; i < locs.length; i++) {
-      (function (loc) {
-        var ld = dataFor(data, loc.id);
-        var card = document.createElement('button');
-        card.className = 'tile-weather-expand-card' + (loc.id === selectedId ? ' selected' : '');
-        card.setAttribute('data-loc-id', loc.id);
-
-        var html = '<div class="weather-card-left">';
-        html += '<div class="weather-card-ville">' + loc.ville + '</div>';
-        if (ld) {
-          html += '<div class="weather-card-label">' + ld.current.label + '</div>';
-          html += '<div class="weather-card-range">Min ' + Math.round(ld.daily.minC) + '° · Max ' + Math.round(ld.daily.maxC) + '° · ☀ ' + ld.daily.sunrise + ' / 🌙 ' + ld.daily.sunset + '</div>';
-        } else {
-          html += '<div class="weather-card-label">Données indisponibles</div>';
-        }
-        html += '</div>';
-
-        html += '<div class="weather-card-right">';
-        if (ld) {
-          html += '<div class="weather-card-icon">' + iconSVG(ld.current.iconKey) + '</div>';
-          html += '<div class="weather-card-temp">' + Math.round(ld.current.tempC) + '°</div>';
-        } else {
-          html += '<div class="weather-card-temp">—</div>';
-        }
-        if (loc.id === selectedId) {
-          html += '<div class="weather-card-selected-badge">Affichée</div>';
-        }
-        html += '</div>';
-
-        card.innerHTML = html;
-        card.addEventListener('click', function () {
-          if (loc.id === selectedId) return;
-          /* Met à jour la config tile.selectedLocationId via le helper exposé par core */
-          if (global.FamilyHubUpdateTileConfig) {
-            global.FamilyHubUpdateTileConfig(container._tileId, { selectedLocationId: loc.id });
-          }
-          /* Optimistic UI update */
-          var allCards = listEl.querySelectorAll('.tile-weather-expand-card');
-          for (var k = 0; k < allCards.length; k++) {
-            allCards[k].className = 'tile-weather-expand-card';
-            var badge = allCards[k].querySelector('.weather-card-selected-badge');
-            if (badge) badge.parentNode.removeChild(badge);
-          }
-          card.className = 'tile-weather-expand-card selected';
-          var rightEl = card.querySelector('.weather-card-right');
-          if (rightEl) {
-            var b = document.createElement('div');
-            b.className = 'weather-card-selected-badge';
-            b.innerHTML = 'Affichée';
-            rightEl.appendChild(b);
-          }
-          selectedId = loc.id;
-        });
-        listEl.appendChild(card);
-      })(locs[i]);
+    function findLoc(id) {
+      for (var i = 0; i < locs.length; i++) if (locs[i].id === id) return locs[i];
+      return locs[0];
     }
+
+    function renderBody() {
+      var loc = findLoc(selectedId);
+      var ld = dataFor(data, loc.id);
+      var html = '';
+
+      /* HERO : ville sélectionnée en grand */
+      html += '<section class="weather-hero">';
+      html += '<div class="weather-hero-ville">' + loc.ville + '</div>';
+      html += '<div class="weather-hero-row">';
+      if (ld) {
+        html += '<div class="weather-hero-icon">' + iconSVG(ld.current.iconKey) + '</div>';
+        html += '<div class="weather-hero-temp">' + Math.round(ld.current.tempC) + '°</div>';
+        html += '<div class="weather-hero-meta">';
+        html += '<div class="weather-hero-label">' + ld.current.label + '</div>';
+        html += '<div class="weather-hero-range">Min ' + Math.round(ld.daily.minC) + '° &nbsp;·&nbsp; Max ' + Math.round(ld.daily.maxC) + '°</div>';
+        html += '<div class="weather-hero-sun">☀ ' + ld.daily.sunrise + '&nbsp;&nbsp;/&nbsp;&nbsp;🌙 ' + ld.daily.sunset + '</div>';
+        html += '</div>';
+      } else {
+        html += '<div class="weather-hero-meta"><div class="weather-hero-label">Données indisponibles</div></div>';
+      }
+      html += '</div>';
+      html += '</section>';
+
+      /* SEMAINE : 7 colonnes pour la ville sélectionnée */
+      if (ld && ld.weekly && ld.weekly.length > 0) {
+        html += '<section class="weather-week-section">';
+        html += '<div class="weather-section-title">Cette semaine</div>';
+        html += '<div class="weather-card-week">';
+        for (var d = 0; d < ld.weekly.length; d++) {
+          var day = ld.weekly[d];
+          html += '<div class="weather-day' + (d === 0 ? ' weather-day-today' : '') + '">';
+          html += '<div class="weather-day-name">' + dayLabel(day.date, d) + '</div>';
+          html += '<div class="weather-day-icon">' + iconSVG(day.iconKey) + '</div>';
+          html += '<div class="weather-day-max">' + Math.round(day.maxC) + '°</div>';
+          html += '<div class="weather-day-min">' + Math.round(day.minC) + '°</div>';
+          html += '</div>';
+        }
+        html += '</div>';
+        html += '</section>';
+      }
+
+      /* AUTRES VILLES : chips */
+      if (locs.length > 1) {
+        html += '<section class="weather-others-section">';
+        html += '<div class="weather-section-title">Autres villes — touche pour changer</div>';
+        html += '<div class="weather-chips">';
+        for (var i = 0; i < locs.length; i++) {
+          var l = locs[i];
+          if (l.id === selectedId) continue;
+          var lld = dataFor(data, l.id);
+          html += '<button class="weather-chip" data-loc-id="' + l.id + '">';
+          if (lld) {
+            html += '<div class="weather-chip-icon">' + iconSVG(lld.current.iconKey) + '</div>';
+          }
+          html += '<div class="weather-chip-info">';
+          html += '<div class="weather-chip-ville">' + l.ville + '</div>';
+          if (lld) {
+            html += '<div class="weather-chip-temp">' + Math.round(lld.current.tempC) + '°</div>';
+          } else {
+            html += '<div class="weather-chip-temp">—</div>';
+          }
+          html += '</div>';
+          html += '</button>';
+        }
+        html += '</div>';
+        html += '</section>';
+      }
+
+      bodyEl.innerHTML = html;
+
+      /* Bind clics sur les chips */
+      var chips = bodyEl.querySelectorAll('.weather-chip');
+      for (var k = 0; k < chips.length; k++) {
+        (function (chip) {
+          chip.addEventListener('click', function () {
+            var newId = chip.getAttribute('data-loc-id');
+            if (!newId || newId === selectedId) return;
+            selectedId = newId;
+            /* Persiste sur Firestore — la tuile principale du dashboard se mettra à jour. */
+            if (global.FamilyHubUpdateTileConfig) {
+              global.FamilyHubUpdateTileConfig(container._tileId, { selectedLocationId: newId });
+            }
+            renderBody();
+            /* Scroll vers le haut pour voir le hero mis à jour */
+            container.scrollTop = 0;
+          });
+        })(chips[k]);
+      }
+    }
+
+    renderBody();
+  }
+
+  /* Format court "Lun", "Mar", ... — index 0 = "Auj." */
+  function dayLabel(isoDate, idx) {
+    if (idx === 0) return 'Auj.';
+    var DAYS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
+    /* Parse YYYY-MM-DD comme date locale (sans décalage UTC). */
+    var parts = (isoDate || '').split('-');
+    if (parts.length !== 3) return '';
+    var d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
+    return DAYS[d.getDay()];
   }
 
   function collapse(container) {

@@ -1,5 +1,6 @@
 import { useState, type FormEvent } from "react";
 import type {
+  CalendarConfig,
   ClockConfig,
   RadioConfig,
   RadioStation,
@@ -9,8 +10,13 @@ import type {
   WeatherConfig,
   WeatherLocation,
 } from "@family-hub/types";
-import { defaultClockConfig, defaultRadioStations, defaultTimerPresets } from "@family-hub/types";
-import { useCreateTile } from "../lib/mutations";
+import {
+  defaultCalendarConfig,
+  defaultClockConfig,
+  defaultRadioStations,
+  defaultTimerPresets,
+} from "@family-hub/types";
+import { useCreateTile, useSyncCalendarTile } from "../lib/mutations";
 import { searchCity, formatCityLabel, type GeocodingResult } from "../lib/geocoding";
 import { Trash2, Plus, Search, Star } from "lucide-react";
 
@@ -22,11 +28,12 @@ interface TileFormProps {
   onCancel?: () => void;
 }
 
-const SUPPORTED_TYPES: TileType[] = ["clock", "weather", "radio", "timer"];
+const SUPPORTED_TYPES: TileType[] = ["clock", "weather", "calendar", "radio", "timer"];
 
 const TYPE_LABELS: Partial<Record<TileType, string>> = {
   clock: "Horloge",
   weather: "Météo",
+  calendar: "Calendrier",
   radio: "Radio",
   timer: "Minuteur",
 };
@@ -34,6 +41,7 @@ const TYPE_LABELS: Partial<Record<TileType, string>> = {
 const DEFAULT_REFRESH: Partial<Record<TileType, number>> = {
   clock: 0,
   weather: 1800,
+  calendar: 900,
   radio: 0,
   timer: 0,
 };
@@ -71,6 +79,9 @@ export default function TileForm({
   const [timerCfg, setTimerCfg] = useState<TimerConfig>({
     presets: defaultTimerPresets,
   });
+  const [calendarCfg, setCalendarCfg] = useState<CalendarConfig>(defaultCalendarConfig);
+
+  const syncCalendar = useSyncCalendarTile();
 
   function handleTypeChange(t: TileType) {
     setType(t);
@@ -87,6 +98,8 @@ export default function TileForm({
         return radioCfg as unknown as Record<string, unknown>;
       case "timer":
         return timerCfg as unknown as Record<string, unknown>;
+      case "calendar":
+        return calendarCfg as unknown as Record<string, unknown>;
       default:
         return {};
     }
@@ -107,6 +120,15 @@ export default function TileForm({
         config: getConfig(),
         refreshIntervalSeconds: DEFAULT_REFRESH[type] ?? 0,
       });
+      // Sync initiale calendrier — sinon le 1er affichage attend le scheduler 15 min.
+      if (type === "calendar") {
+        try {
+          await syncCalendar.mutateAsync({ householdId, tileId: id });
+        } catch (err) {
+          // Non bloquant : la tuile est créée, le scheduler la couvrira au pire dans 15 min.
+          console.warn("Sync initiale calendrier échouée", err);
+        }
+      }
       onCreated?.(id);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Erreur inconnue");
@@ -157,6 +179,9 @@ export default function TileForm({
       {type === "timer" && (
         <TimerFields config={timerCfg} onChange={setTimerCfg} />
       )}
+      {type === "calendar" && (
+        <CalendarFields config={calendarCfg} onChange={setCalendarCfg} />
+      )}
 
       {error && <p className="text-accent-chaud text-sm">{error}</p>}
 
@@ -179,7 +204,52 @@ function defaultNomFor(type: TileType, ville?: string): string {
   if (type === "weather") return ville ? `Météo ${ville}` : "Météo";
   if (type === "radio") return "Radio";
   if (type === "timer") return "Minuteur";
+  if (type === "calendar") return "Calendrier famille";
   return "Tuile";
+}
+
+function CalendarFields({
+  config,
+  onChange,
+}: {
+  config: CalendarConfig;
+  onChange: (c: CalendarConfig) => void;
+}) {
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-text-secondaire">
+        Le flux iCal du calendrier Google familial est stocké côté serveur (Secret Manager).
+        Pour ajouter ou changer le calendrier source, il faut redéployer le secret
+        <code className="mx-1 px-1 bg-bordure rounded">CALENDAR_ICAL_URL</code>.
+      </p>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label="Horizon (jours)">
+          <input
+            type="number"
+            min={1}
+            max={90}
+            value={config.daysAhead}
+            onChange={(e) =>
+              onChange({ ...config, daysAhead: Math.max(1, parseInt(e.target.value, 10) || 21) })
+            }
+            className="input"
+          />
+        </Field>
+        <Field label="Nombre max d'événements">
+          <input
+            type="number"
+            min={1}
+            max={100}
+            value={config.maxEvents}
+            onChange={(e) =>
+              onChange({ ...config, maxEvents: Math.max(1, parseInt(e.target.value, 10) || 60) })
+            }
+            className="input"
+          />
+        </Field>
+      </div>
+    </div>
+  );
 }
 
 function TimerFields({

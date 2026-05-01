@@ -7,6 +7,7 @@ import type {
   WeatherIconKey,
   WeatherLocation,
   WeatherSingleLocationData,
+  WeatherWeeklyDay,
 } from "../types";
 import { admin, db } from "../lib/admin";
 import { assertHouseholdMember } from "../lib/household";
@@ -31,6 +32,7 @@ interface OpenMeteoResponse {
     temperature_2m_min: number[];
     sunrise: string[];
     sunset: string[];
+    weather_code?: number[];
   };
 }
 
@@ -93,6 +95,26 @@ function transformOpenMeteoToLocationData(
   });
 
   const daily = json.daily;
+  const weekly: WeatherWeeklyDay[] = [];
+  if (daily) {
+    const len = Math.min(
+      daily.time?.length ?? 0,
+      daily.temperature_2m_max?.length ?? 0,
+      daily.temperature_2m_min?.length ?? 0,
+      daily.weather_code?.length ?? Number.POSITIVE_INFINITY,
+    );
+    for (let i = 0; i < Math.min(len, 7); i++) {
+      const wc = daily.weather_code?.[i] ?? cw.weathercode;
+      weekly.push({
+        date: daily.time[i],
+        minC: daily.temperature_2m_min[i],
+        maxC: daily.temperature_2m_max[i],
+        weatherCode: wc,
+        iconKey: weatherCodeToIconKey(wc, true),
+      });
+    }
+  }
+
   return {
     current: {
       tempC: cw.temperature,
@@ -107,6 +129,7 @@ function transformOpenMeteoToLocationData(
       sunrise: (daily?.sunrise[0] ?? "").slice(11, 16),
       sunset: (daily?.sunset[0] ?? "").slice(11, 16),
     },
+    weekly,
   };
 }
 
@@ -116,7 +139,8 @@ async function fetchOpenMeteo(loc: WeatherLocation): Promise<OpenMeteoResponse> 
     longitude: String(loc.lon),
     current_weather: "true",
     hourly: "temperature_2m,weather_code",
-    daily: "temperature_2m_max,temperature_2m_min,sunrise,sunset",
+    daily: "temperature_2m_max,temperature_2m_min,weather_code,sunrise,sunset",
+    forecast_days: "7",
     timezone: loc.timezone || "auto",
   });
   const url = `${OPEN_METEO_BASE}?${params.toString()}`;

@@ -1,6 +1,6 @@
 /* Family Hub — Display vanilla CSS, iPad mini 1 (iOS 9.3.6) compatible.
-   Esthétique "Maison de Famille" : papier crème, typographie éditoriale, hairlines.
-   Flexbox uniquement, pas de CSS Grid, pas de variables, pas de calc avec virgules. */
+   Esthétique "Caractère" : noir mat, accents laiton/châtaignier, hairlines brass.
+   Flexbox uniquement, pas de CSS Grid, pas de variables, pas de calc() avec virgules. */
 
 * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
 
@@ -8,14 +8,14 @@ html, body {
   margin: 0;
   padding: 0;
   height: 100%;
-  background: #FAF6EE;
+  background: #0F0D0A;
   background-image:
-    -webkit-radial-gradient(circle at 20% 10%, rgba(232,160,66,0.04), transparent 40%),
-    -webkit-radial-gradient(circle at 80% 90%, rgba(184,92,66,0.04), transparent 45%);
+    -webkit-radial-gradient(circle at 18% 8%, rgba(217,160,91,0.08), transparent 38%),
+    -webkit-radial-gradient(circle at 82% 92%, rgba(201,113,46,0.05), transparent 42%);
   background-image:
-    radial-gradient(circle at 20% 10%, rgba(232,160,66,0.04), transparent 40%),
-    radial-gradient(circle at 80% 90%, rgba(184,92,66,0.04), transparent 45%);
-  color: #2B2419;
+    radial-gradient(circle at 18% 8%, rgba(217,160,91,0.08), transparent 38%),
+    radial-gradient(circle at 82% 92%, rgba(201,113,46,0.05), transparent 42%);
+  color: #F2E8D5;
   font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", "Inter", sans-serif;
   -webkit-font-smoothing: antialiased;
   overflow: hidden;
@@ -37,7 +37,7 @@ body {
   overflow: hidden;
 }
 
-/* Boot / setup screens */
+/* ----- Boot / setup ----- */
 .boot-message {
   display: -webkit-flex;
   display: flex;
@@ -55,7 +55,7 @@ body {
 .boot-title {
   font-family: Georgia, "Times New Roman", serif;
   font-size: 56px;
-  color: #B85C42;
+  color: #D9A05B;
   margin-bottom: 20px;
   letter-spacing: -0.02em;
   font-weight: 400;
@@ -63,22 +63,21 @@ body {
 }
 .boot-status {
   font-size: 16px;
-  color: #8B7E6B;
+  color: #9C8A6E;
   letter-spacing: 0.02em;
 }
 .setup-detail {
   font-size: 13px;
-  color: #8B7E6B;
+  color: #9C8A6E;
   margin-top: 24px;
   max-width: 480px;
   line-height: 1.55;
 }
 
-/* Error overlay */
 .error-overlay {
   position: absolute;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: #FAF6EE;
+  background: #0F0D0A;
   display: -webkit-flex;
   display: flex;
   -webkit-flex-direction: column;
@@ -94,30 +93,31 @@ body {
 .error-title {
   font-family: Georgia, serif;
   font-size: 36px;
-  color: #B85C42;
+  color: #C9712E;
   margin-bottom: 14px;
   font-style: italic;
   font-weight: 400;
 }
 .error-text {
   font-size: 15px;
-  color: #8B7E6B;
+  color: #9C8A6E;
   margin-bottom: 28px;
   max-width: 600px;
   line-height: 1.5;
 }
 .error-link {
-  background: #B85C42;
-  color: #FAF6EE;
+  background: #D9A05B;
+  color: #0F0D0A;
   padding: 12px 28px;
   border-radius: 2px;
   text-decoration: none;
-  font-size: 13px;
-  letter-spacing: 0.15em;
+  font-size: 12px;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
+  font-weight: 600;
 }
 
-/* Grid des tuiles */
+/* ----- Grid ----- */
 .grid {
   -webkit-flex: 1;
   flex: 1;
@@ -125,52 +125,58 @@ body {
   display: flex;
   -webkit-flex-wrap: wrap;
   flex-wrap: wrap;
-  padding: 12px;
+  padding: 14px;
 }
 
 .grid-cell {
-  background: #FFFCF6;
-  border: 1px solid #E5DCC8;
+  background: #1C1815;
+  background-image:
+    -webkit-linear-gradient(180deg, rgba(217,160,91,0.04), transparent 60%),
+    -webkit-linear-gradient(90deg, rgba(0,0,0,0.06) 0px, transparent 1px, transparent 40px, rgba(0,0,0,0.04) 41px, transparent 42px);
+  background-image:
+    linear-gradient(180deg, rgba(217,160,91,0.04), transparent 60%),
+    linear-gradient(90deg, rgba(0,0,0,0.06) 0px, transparent 1px, transparent 40px, rgba(0,0,0,0.04) 41px, transparent 42px);
+  border: 1px solid #3A2E22;
   border-radius: 4px;
   margin: 6px;
-  padding: 18px 16px 14px;
+  padding: 22px 22px 18px;
   display: -webkit-flex;
   display: flex;
   -webkit-flex-direction: column;
   flex-direction: column;
   position: relative;
   overflow: hidden;
-  /* Soft "paper" feel : pas d'ombre marquée, juste hairline */
   box-shadow:
-    0 1px 0 rgba(43,36,25,0.02),
-    inset 0 1px 0 rgba(255,255,255,0.6);
+    0 1px 0 rgba(255,228,176,0.04) inset,
+    0 4px 16px -8px rgba(0,0,0,0.5);
 }
 
-/* Petit ornement décoratif en haut à droite des tuiles */
+/* Brass ornament top-right (visible signal of "caractère") */
 .grid-cell:before {
   content: '';
   position: absolute;
-  top: 12px;
-  right: 14px;
-  width: 24px;
-  height: 1px;
-  background: #B85C42;
-  opacity: 0.4;
+  top: 18px;
+  right: 22px;
+  width: 32px;
+  height: 1.5px;
+  background: #D9A05B;
+  opacity: 0.7;
 }
 
+/* Titre tuile : passe de 10px (illisible à 2m) à 18px caps espacé */
 .tile-title {
   font-family: Georgia, serif;
-  font-size: 10px;
-  color: #B85C42;
-  margin-bottom: 8px;
+  font-size: 18px;
+  color: #D9A05B;
+  margin-bottom: 14px;
   text-transform: uppercase;
-  letter-spacing: 0.18em;
+  letter-spacing: 0.16em;
   font-weight: 400;
   -webkit-flex-shrink: 0;
   flex-shrink: 0;
 }
 
-/* Tuile horloge */
+/* ----- Clock — déjà ok à 2m mais on agrandit la date pour lisibilité ----- */
 .tile-clock {
   -webkit-justify-content: center;
   justify-content: center;
@@ -181,8 +187,8 @@ body {
 }
 .tile-clock-time {
   font-family: Georgia, serif;
-  font-size: 76px;
-  color: #2B2419;
+  font-size: 100px;
+  color: #F2E8D5;
   line-height: 1;
   letter-spacing: -0.04em;
   font-weight: 400;
@@ -190,15 +196,16 @@ body {
   -webkit-font-feature-settings: "tnum";
 }
 .tile-clock-date {
-  font-size: 12px;
-  color: #8B7E6B;
-  margin-top: 14px;
+  font-size: 22px;
+  color: #C49B6B;
+  margin-top: 18px;
   text-align: center;
   font-style: italic;
   letter-spacing: 0.02em;
+  text-transform: lowercase;
 }
 
-/* Tuile météo — vue compacte */
+/* ----- Weather compact ----- */
 .tile-weather {
   -webkit-align-items: center;
   align-items: center;
@@ -218,52 +225,72 @@ body {
   -webkit-align-items: center;
   align-items: center;
   text-align: center;
+  padding: 8px 12px;
+  min-width: 0;
+}
+/* Ligne icône + température côte à côte. */
+.tile-weather-row {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: row;
+  flex-direction: row;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+  gap: 12px;
 }
 .tile-weather-icon {
-  width: 68px;
-  height: 68px;
-  margin-bottom: 6px;
+  width: 72px;
+  height: 72px;
   -webkit-flex-shrink: 0;
   flex-shrink: 0;
+  -webkit-filter: drop-shadow(0 2px 4px rgba(217,160,91,0.25));
+  filter: drop-shadow(0 2px 4px rgba(217,160,91,0.25));
 }
-.tile-weather-icon svg { width: 100%; height: 100%; }
+.tile-weather-icon svg { width: 100%; height: 100%; display: block; }
 .tile-weather-temp {
   font-family: Georgia, serif;
-  font-size: 48px;
-  color: #2B2419;
+  font-size: 64px;
+  color: #F2E8D5;
   line-height: 1;
   font-weight: 400;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.04em;
+  -webkit-font-feature-settings: "tnum";
+  font-feature-settings: "tnum";
 }
 .tile-weather-label {
-  font-size: 13px;
-  color: #2B2419;
-  margin-top: 4px;
+  font-size: 18px;
+  color: #F2E8D5;
+  margin-top: 10px;
   font-style: italic;
+  font-family: Georgia, serif;
+  line-height: 1.2;
 }
 .tile-weather-range {
-  font-size: 11px;
-  color: #8B7E6B;
-  margin-top: 8px;
-  letter-spacing: 0.05em;
+  font-size: 14px;
+  color: #C49B6B;
+  margin-top: 6px;
+  letter-spacing: 0.04em;
+  font-family: Georgia, serif;
 }
 .tile-weather-hint {
-  font-size: 10px;
-  color: #8B7E6B;
-  margin-top: 8px;
+  font-size: 12px;
+  color: #9C8A6E;
+  margin-top: 10px;
   font-style: italic;
-  opacity: 0.75;
+  opacity: 0.85;
 }
 
-/* Cell tappable (a une vue détail) */
+/* Cell tappable */
 .tile-clickable { cursor: pointer; }
 .tile-clickable:active {
-  background: #FAF6EE;
+  border-color: #D9A05B;
   -webkit-transform: scale(0.99);
   transform: scale(0.99);
 }
 
-/* Tuile radio — vue COMPACTE */
+/* ----- Radio compact ----- */
 .tile-radio {
   -webkit-justify-content: flex-start;
   justify-content: flex-start;
@@ -281,38 +308,56 @@ body {
   align-items: center;
   text-align: center;
 }
+/* Radio — pas de cercle (qui devenait ovale par flex-shrink dans cells étroites).
+   Juste une grosse icône SVG laiton, comme le sablier minuteur. Mêmes proportions. */
 .tile-radio-compact-btn {
-  width: 64px;
-  height: 64px;
-  border-radius: 50%;
-  border: 1.5px solid #B85C42;
-  background: #FFFCF6;
-  color: #B85C42;
-  font-size: 22px;
-  line-height: 64px;
-  padding: 0;
+  width: auto;
+  height: auto;
+  border-radius: 0;
+  border: 0;
+  background: transparent;
+  color: #D9A05B;
+  padding: 8px;
   cursor: pointer;
   -webkit-appearance: none;
-  -webkit-tap-highlight-color: rgba(184,92,66,0.1);
+  -webkit-tap-highlight-color: rgba(217,160,91,0.15);
   -webkit-transition: all 0.15s ease;
   transition: all 0.15s ease;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+  -webkit-filter: drop-shadow(0 2px 6px rgba(217,160,91,0.3));
+  filter: drop-shadow(0 2px 6px rgba(217,160,91,0.3));
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+}
+.tile-radio-compact-btn:active {
+  -webkit-transform: scale(0.96);
+  transform: scale(0.96);
+  opacity: 0.8;
+}
+.tile-radio-compact-btn svg {
+  display: block;
 }
 .tile-radio-compact-btn.playing {
-  background: #6B8E5E;
-  border-color: #6B8E5E;
-  color: #FFFCF6;
+  background: #7BA471;
+  border-color: #7BA471;
+  color: #0F0D0A;
   -webkit-animation: pulse 1.6s ease-in-out infinite;
   animation: pulse 1.6s ease-in-out infinite;
 }
 .tile-radio-compact-btn.loading {
-  background: #FAF6EE;
-  border-color: #8B7E6B;
-  color: #8B7E6B;
+  background: transparent;
+  border-color: #9C8A6E;
+  color: #9C8A6E;
 }
 .tile-radio-compact-btn.error {
-  border-color: #2B2419;
-  background: #2B2419;
-  color: #FAF6EE;
+  border-color: #C9712E;
+  background: rgba(201,113,46,0.15);
+  color: #C9712E;
 }
 .tile-radio-compact-btn:active {
   -webkit-transform: scale(0.95);
@@ -322,19 +367,31 @@ body {
 @keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.65} }
 .tile-radio-compact-station {
   font-family: Georgia, serif;
-  font-size: 15px;
-  color: #2B2419;
-  margin-top: 14px;
+  font-size: 26px;
+  color: #F2E8D5;
+  margin-top: 16px;
   font-style: italic;
+  text-align: center;
+  line-height: 1.15;
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  padding: 0 4px;
+  font-weight: 500;
 }
 .tile-radio-compact-status {
-  font-size: 10px;
-  color: #8B7E6B;
+  font-size: 12px;
+  color: #C49B6B;
   margin-top: 6px;
   letter-spacing: 0.05em;
+  font-family: Georgia, serif;
+  font-style: italic;
+  text-align: center;
+  text-transform: lowercase;
 }
 
-/* Tuile timer — vue compacte */
+/* ----- Timer compact ----- */
 .tile-timer {
   -webkit-justify-content: flex-start;
   justify-content: flex-start;
@@ -353,24 +410,22 @@ body {
 }
 .timer-compact-empty {
   text-align: center;
-  color: #8B7E6B;
+  color: #9C8A6E;
 }
+/* Timer compact — sablier SVG laiton centré */
 .timer-compact-empty-icon {
-  font-size: 44px;
-  color: #B85C42;
-  line-height: 1;
-  margin-bottom: 12px;
-  opacity: 0.6;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-justify-content: center;
+  justify-content: center;
+  -webkit-filter: drop-shadow(0 2px 4px rgba(217,160,91,0.25));
+  filter: drop-shadow(0 2px 4px rgba(217,160,91,0.25));
 }
-.timer-compact-empty-text {
-  font-size: 12px;
-  line-height: 1.4;
-  font-style: italic;
-}
+.timer-compact-empty-icon svg { display: block; }
 .timer-hero {
   position: relative;
-  width: 130px;
-  height: 130px;
+  width: 180px;
+  height: 180px;
   display: -webkit-flex;
   display: flex;
   -webkit-align-items: center;
@@ -395,42 +450,45 @@ body {
 }
 .timer-hero-time {
   font-family: Georgia, serif;
-  font-size: 24px;
+  font-size: 42px;
   font-weight: 400;
   line-height: 1;
   font-feature-settings: "tnum";
   -webkit-font-feature-settings: "tnum";
+  letter-spacing: -0.02em;
 }
 .timer-hero-label {
-  font-size: 10px;
-  color: #8B7E6B;
-  margin-top: 6px;
-  max-width: 96px;
+  font-size: 14px;
+  color: #C49B6B;
+  margin-top: 10px;
+  max-width: 140px;
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  letter-spacing: 0.05em;
+  letter-spacing: 0.02em;
   font-style: italic;
+  font-family: Georgia, serif;
 }
 .timer-compact-others {
-  font-size: 10px;
-  color: #8B7E6B;
+  font-size: 14px;
+  color: #C49B6B;
   font-style: italic;
-  margin-top: 10px;
-  letter-spacing: 0.05em;
+  margin-top: 14px;
+  letter-spacing: 0.02em;
+  font-family: Georgia, serif;
 }
 
-/* Overlay plein écran "détail tuile" */
+/* ----- Overlay ----- */
 .tile-overlay {
   position: fixed;
   top: 0; left: 0; right: 0; bottom: 0;
-  background: #FAF6EE;
+  background: #0F0D0A;
   background-image:
-    -webkit-radial-gradient(circle at 20% 10%, rgba(232,160,66,0.04), transparent 40%),
-    -webkit-radial-gradient(circle at 80% 90%, rgba(184,92,66,0.04), transparent 45%);
+    -webkit-radial-gradient(circle at 18% 8%, rgba(217,160,91,0.06), transparent 38%),
+    -webkit-radial-gradient(circle at 82% 92%, rgba(201,113,46,0.04), transparent 42%);
   background-image:
-    radial-gradient(circle at 20% 10%, rgba(232,160,66,0.04), transparent 40%),
-    radial-gradient(circle at 80% 90%, rgba(184,92,66,0.04), transparent 45%);
+    radial-gradient(circle at 18% 8%, rgba(217,160,91,0.06), transparent 38%),
+    radial-gradient(circle at 82% 92%, rgba(201,113,46,0.04), transparent 42%);
   z-index: 200;
   display: none;
   -webkit-flex-direction: column;
@@ -441,8 +499,8 @@ body {
   -webkit-flex-shrink: 0;
   flex-shrink: 0;
   padding: 14px 24px;
-  border-bottom: 1px solid #E5DCC8;
-  background: #FFFCF6;
+  border-bottom: 1px solid #3A2E22;
+  background: #15110D;
 }
 .tile-overlay-back {
   background: transparent;
@@ -450,7 +508,7 @@ body {
   font-family: Georgia, serif;
   font-size: 16px;
   font-style: italic;
-  color: #B85C42;
+  color: #D9A05B;
   padding: 6px 0;
   cursor: pointer;
   -webkit-appearance: none;
@@ -473,7 +531,7 @@ body {
 .tile-overlay-h1 {
   font-family: Georgia, serif;
   font-size: 44px;
-  color: #2B2419;
+  color: #F2E8D5;
   margin: 0 0 4px 0;
   font-weight: 400;
   letter-spacing: -0.02em;
@@ -484,20 +542,20 @@ body {
   display: block;
   width: 32px;
   height: 1px;
-  background: #B85C42;
+  background: #D9A05B;
   margin-top: 14px;
   margin-bottom: 24px;
 }
 
-/* Vue plein écran radio */
+/* ----- Radio expand ----- */
 .tile-radio-expand-nowplaying {
   font-family: Georgia, serif;
   font-style: italic;
   font-size: 17px;
-  color: #2B2419;
+  color: #F2E8D5;
   padding: 18px 22px;
-  background: #FFFCF6;
-  border: 1px solid #E5DCC8;
+  background: #1C1815;
+  border: 1px solid #3A2E22;
   border-radius: 4px;
   margin-bottom: 18px;
   text-align: center;
@@ -517,12 +575,12 @@ body {
   width: 100%;
   padding: 18px 22px;
   margin-bottom: 8px;
-  background: #FFFCF6;
-  border: 1px solid #E5DCC8;
+  background: #1C1815;
+  border: 1px solid #3A2E22;
   border-radius: 4px;
   font-family: Georgia, serif;
   font-size: 19px;
-  color: #2B2419;
+  color: #F2E8D5;
   text-align: left;
   cursor: pointer;
   -webkit-appearance: none;
@@ -531,14 +589,15 @@ body {
 }
 .tile-radio-expand-btn:active { -webkit-transform: scale(0.99); transform: scale(0.99); }
 .tile-radio-expand-btn.active {
-  background: #FAF0EC;
-  border-color: #B85C42;
-  color: #B85C42;
+  background: #2A1F15;
+  border-color: #D9A05B;
+  color: #D9A05B;
   font-style: italic;
 }
 .tile-radio-expand-btn.active.playing {
-  background: #B85C42;
-  color: #FFFCF6;
+  background: #7BA471;
+  border-color: #7BA471;
+  color: #0F0D0A;
 }
 .tile-radio-expand-btn.active.playing:before {
   content: '♪ ';
@@ -548,8 +607,8 @@ body {
   margin-top: 16px;
   padding: 14px 28px;
   background: transparent;
-  color: #2B2419;
-  border: 1px solid #2B2419;
+  color: #F2E8D5;
+  border: 1px solid #3A2E22;
   border-radius: 2px;
   font-size: 12px;
   letter-spacing: 0.18em;
@@ -561,97 +620,220 @@ body {
   align-self: center;
 }
 
-/* Vue plein écran météo */
-.tile-weather-expand-hint {
-  font-family: Georgia, serif;
-  font-style: italic;
-  font-size: 14px;
-  color: #8B7E6B;
-  margin: 0 0 18px 0;
+/* ----- Weather expand : hero + semaine + chips ----- */
+.tile-weather-expand {
+  /* Override max-width générique : la météo a besoin de toute la largeur. */
+  max-width: 1100px;
 }
-.tile-weather-expand-list {
+.tile-weather-expand-body {
   display: -webkit-flex;
   display: flex;
   -webkit-flex-direction: column;
   flex-direction: column;
 }
-.tile-weather-expand-card {
+
+/* HERO : ville sélectionnée en grand */
+.weather-hero {
+  background: #1C1815;
+  border: 1px solid #3A2E22;
+  border-radius: 10px;
+  padding: 28px 32px;
+  margin-bottom: 28px;
+}
+.weather-hero-ville {
+  font-family: Georgia, serif;
+  font-size: 36px;
+  color: #F2E8D5;
+  font-style: italic;
+  margin-bottom: 18px;
+  line-height: 1;
+}
+.weather-hero-row {
   display: -webkit-flex;
   display: flex;
   -webkit-flex-direction: row;
   flex-direction: row;
   -webkit-align-items: center;
   align-items: center;
-  -webkit-justify-content: space-between;
-  justify-content: space-between;
-  width: 100%;
-  padding: 18px 22px;
-  margin-bottom: 8px;
-  background: #FFFCF6;
-  border: 1px solid #E5DCC8;
-  border-radius: 4px;
-  cursor: pointer;
-  -webkit-appearance: none;
-  text-align: left;
-  -webkit-transition: all 0.15s ease;
-  transition: all 0.15s ease;
+  gap: 20px;
 }
-.tile-weather-expand-card:active { -webkit-transform: scale(0.99); transform: scale(0.99); }
-.tile-weather-expand-card.selected {
-  background: #FAF0EC;
-  border-color: #B85C42;
-  border-width: 1.5px;
-}
-.weather-card-left { -webkit-flex: 1; flex: 1; }
-.weather-card-ville {
+.weather-hero-icon { width: 110px; height: 110px; -webkit-flex-shrink: 0; flex-shrink: 0; }
+.weather-hero-icon svg { width: 100%; height: 100%; display: block; }
+.weather-hero-temp {
   font-family: Georgia, serif;
-  font-size: 22px;
-  color: #2B2419;
+  font-size: 96px;
+  color: #F2E8D5;
+  line-height: 1;
+  letter-spacing: -0.04em;
+  -webkit-font-feature-settings: "tnum";
+  font-feature-settings: "tnum";
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+}
+.weather-hero-meta {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  -webkit-flex: 1;
+  flex: 1;
+  margin-left: 8px;
+}
+.weather-hero-label {
+  font-family: Georgia, serif;
+  font-size: 26px;
+  color: #F2E8D5;
   font-style: italic;
-  font-weight: 400;
+  margin-bottom: 8px;
 }
-.weather-card-label {
-  font-size: 13px;
-  color: #2B2419;
-  margin-top: 2px;
-  letter-spacing: 0.02em;
-}
-.weather-card-range {
-  font-size: 11px;
-  color: #8B7E6B;
-  margin-top: 6px;
+.weather-hero-range {
+  font-family: Georgia, serif;
+  font-size: 18px;
+  color: #C49B6B;
+  margin-bottom: 4px;
   letter-spacing: 0.04em;
 }
-.weather-card-right {
+.weather-hero-sun {
+  font-family: Georgia, serif;
+  font-size: 16px;
+  color: #9C8A6E;
+  letter-spacing: 0.04em;
+}
+
+/* Section générique : titre + contenu */
+.weather-section-title {
+  font-family: Georgia, serif;
+  font-size: 14px;
+  color: #C49B6B;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  margin: 0 0 14px 4px;
+  font-weight: 600;
+}
+.weather-week-section { margin-bottom: 32px; }
+
+/* Forecast 7 jours : 7 colonnes égales */
+.weather-card-week {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: row;
+  flex-direction: row;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  background: #1C1815;
+  border: 1px solid #3A2E22;
+  border-radius: 10px;
+  padding: 20px 12px;
+  gap: 6px;
+}
+.weather-day {
+  -webkit-flex: 1;
+  flex: 1;
   display: -webkit-flex;
   display: flex;
   -webkit-flex-direction: column;
   flex-direction: column;
   -webkit-align-items: center;
   align-items: center;
-  margin-left: 16px;
+  text-align: center;
+  padding: 8px 4px;
+  border-radius: 6px;
+  min-width: 0;
 }
-.weather-card-icon { width: 52px; height: 52px; }
-.weather-card-icon svg { width: 100%; height: 100%; }
-.weather-card-temp {
+.weather-day-today {
+  background: rgba(217,160,91,0.10);
+}
+.weather-day-name {
   font-family: Georgia, serif;
-  font-size: 30px;
-  color: #2B2419;
-  line-height: 1;
-  margin-top: 4px;
-}
-.weather-card-selected-badge {
-  margin-top: 8px;
-  background: #B85C42;
-  color: #FFFCF6;
-  padding: 3px 10px;
-  border-radius: 12px;
-  font-size: 9px;
-  letter-spacing: 0.18em;
+  font-size: 16px;
+  color: #C49B6B;
+  letter-spacing: 0.08em;
   text-transform: uppercase;
+  margin-bottom: 8px;
+  font-weight: 600;
+}
+.weather-day-today .weather-day-name { color: #D9A05B; }
+.weather-day-icon { width: 56px; height: 56px; margin: 4px 0; }
+.weather-day-icon svg { width: 100%; height: 100%; display: block; }
+.weather-day-max {
+  font-family: Georgia, serif;
+  font-size: 24px;
+  color: #F2E8D5;
+  line-height: 1.1;
+  margin-top: 6px;
+  -webkit-font-feature-settings: "tnum";
+  font-feature-settings: "tnum";
+}
+.weather-day-min {
+  font-family: Georgia, serif;
+  font-size: 18px;
+  color: #9C8A6E;
+  line-height: 1.1;
+  margin-top: 2px;
+  -webkit-font-feature-settings: "tnum";
+  font-feature-settings: "tnum";
 }
 
-/* Vue plein écran timer */
+/* Autres villes : chips (icône + nom + temp) */
+.weather-others-section { margin-bottom: 24px; }
+.weather-chips {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: row;
+  flex-direction: row;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  gap: 10px;
+}
+.weather-chip {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: row;
+  flex-direction: row;
+  -webkit-align-items: center;
+  align-items: center;
+  background: #1C1815;
+  border: 1px solid #3A2E22;
+  border-radius: 999px;
+  padding: 10px 18px 10px 12px;
+  cursor: pointer;
+  -webkit-appearance: none;
+  text-align: left;
+  gap: 10px;
+  -webkit-transition: all 0.15s ease;
+  transition: all 0.15s ease;
+}
+.weather-chip:active {
+  -webkit-transform: scale(0.97);
+  transform: scale(0.97);
+  border-color: #D9A05B;
+}
+.weather-chip-icon { width: 38px; height: 38px; -webkit-flex-shrink: 0; flex-shrink: 0; }
+.weather-chip-icon svg { width: 100%; height: 100%; display: block; }
+.weather-chip-info {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+}
+.weather-chip-ville {
+  font-family: Georgia, serif;
+  font-size: 16px;
+  color: #F2E8D5;
+  font-style: italic;
+  line-height: 1.1;
+}
+.weather-chip-temp {
+  font-family: Georgia, serif;
+  font-size: 18px;
+  color: #C49B6B;
+  line-height: 1.1;
+  margin-top: 2px;
+  -webkit-font-feature-settings: "tnum";
+  font-feature-settings: "tnum";
+}
+
+/* ----- Timer expand ----- */
 .tile-timer-section { margin-bottom: 28px; }
 .timer-test-sound {
   align-self: flex-start;
@@ -664,10 +846,10 @@ body {
 .tile-timer-section-h2 {
   font-family: Georgia, serif;
   font-size: 11px;
-  color: #B85C42;
+  color: #D9A05B;
   margin: 0 0 14px 0;
   text-transform: uppercase;
-  letter-spacing: 0.2em;
+  letter-spacing: 0.22em;
   font-weight: 400;
 }
 .tile-timer-active-list {
@@ -680,7 +862,7 @@ body {
   font-family: Georgia, serif;
   font-style: italic;
   font-size: 14px;
-  color: #8B7E6B;
+  color: #9C8A6E;
   margin: 0;
   padding: 8px 0;
 }
@@ -691,46 +873,46 @@ body {
   align-items: center;
   padding: 16px 20px;
   margin-bottom: 8px;
-  background: #FFFCF6;
-  border: 1px solid #E5DCC8;
+  background: #1C1815;
+  border: 1px solid #3A2E22;
   border-radius: 4px;
 }
 .timer-active-row.ended {
-  background: #FAF0EC;
-  border-color: #B85C42;
+  background: #2A1F15;
+  border-color: #C9712E;
   border-width: 1.5px;
 }
 .timer-active-info { -webkit-flex: 1; flex: 1; }
 .timer-active-label {
   font-family: Georgia, serif;
   font-size: 16px;
-  color: #2B2419;
+  color: #F2E8D5;
   margin-bottom: 4px;
   font-style: italic;
 }
 .timer-active-time {
   font-family: Georgia, serif;
   font-size: 32px;
-  color: #2B2419;
+  color: #F2E8D5;
   line-height: 1;
   font-feature-settings: "tnum";
   -webkit-font-feature-settings: "tnum";
 }
-.timer-active-row.ended .timer-active-time { color: #B85C42; }
-.timer-active-row.paused .timer-active-time { color: #8B7E6B; }
+.timer-active-row.ended .timer-active-time { color: #C9712E; }
+.timer-active-row.paused .timer-active-time { color: #9C8A6E; }
 .timer-active-progress {
   height: 2px;
-  background: #E5DCC8;
+  background: #3A2E22;
   margin-top: 10px;
   overflow: hidden;
 }
 .timer-active-progress-fill {
   height: 100%;
-  background: #B85C42;
+  background: #D9A05B;
   -webkit-transition: width 0.3s linear;
   transition: width 0.3s linear;
 }
-.timer-active-row.paused .timer-active-progress-fill { background: #8B7E6B; }
+.timer-active-row.paused .timer-active-progress-fill { background: #9C8A6E; }
 .timer-active-actions {
   display: -webkit-flex;
   display: flex;
@@ -754,8 +936,8 @@ body {
   min-width: 140px;
   margin: 5px;
   padding: 18px 14px;
-  background: #FFFCF6;
-  border: 1px solid #E5DCC8;
+  background: #1C1815;
+  border: 1px solid #3A2E22;
   border-radius: 4px;
   cursor: pointer;
   -webkit-appearance: none;
@@ -772,18 +954,18 @@ body {
   font-family: Georgia, serif;
   font-style: italic;
   font-size: 17px;
-  color: #2B2419;
+  color: #F2E8D5;
 }
 .preset-duration {
   font-size: 10px;
-  color: #8B7E6B;
+  color: #9C8A6E;
   margin-top: 6px;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.18em;
   text-transform: uppercase;
 }
 .tile-timer-preset-btn:active {
-  background: #FAF0EC;
-  border-color: #B85C42;
+  background: #2A1F15;
+  border-color: #D9A05B;
   -webkit-transform: scale(0.98);
   transform: scale(0.98);
 }
@@ -798,34 +980,23 @@ body {
   padding: 14px 16px;
   font-size: 15px;
   font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-  border: 1px solid #E5DCC8;
+  border: 1px solid #3A2E22;
   border-radius: 4px;
-  background: #FFFCF6;
+  background: #1C1815;
   margin-bottom: 8px;
   -webkit-appearance: none;
-  color: #2B2419;
+  color: #F2E8D5;
 }
 .input-tile-label {
   font-family: Georgia, serif;
   font-style: italic;
   font-size: 12px;
-  color: #8B7E6B;
+  color: #9C8A6E;
   margin-bottom: 6px;
   margin-top: 6px;
 }
-.input-tile-time {
-  font-family: Georgia, serif;
-  font-size: 36px;
-  text-align: center;
-  padding: 18px;
-  letter-spacing: 0.05em;
-  background: #FAF6EE;
-  margin-bottom: 14px;
-  font-feature-settings: "tnum";
-  -webkit-font-feature-settings: "tnum";
-}
 
-/* Picker minutes / secondes — sur iOS, <select> ouvre un wheel natif au tap */
+/* Picker minutes / secondes */
 .timer-picker {
   display: -webkit-flex;
   display: flex;
@@ -833,8 +1004,8 @@ body {
   justify-content: center;
   -webkit-align-items: center;
   align-items: center;
-  background: #FAF6EE;
-  border: 1px solid #E5DCC8;
+  background: #1C1815;
+  border: 1px solid #3A2E22;
   border-radius: 4px;
   padding: 18px 12px;
   margin-bottom: 14px;
@@ -853,7 +1024,7 @@ body {
 .timer-picker-select {
   font-family: Georgia, serif;
   font-size: 44px;
-  color: #2B2419;
+  color: #F2E8D5;
   background: transparent;
   border: 0;
   text-align: center;
@@ -871,7 +1042,7 @@ body {
   font-family: Georgia, serif;
   font-style: italic;
   font-size: 11px;
-  color: #8B7E6B;
+  color: #9C8A6E;
   letter-spacing: 0.18em;
   text-transform: uppercase;
   margin-top: 4px;
@@ -879,30 +1050,32 @@ body {
 .timer-picker-sep {
   font-family: Georgia, serif;
   font-size: 44px;
-  color: #B85C42;
+  color: #D9A05B;
   margin: 0 6px;
   line-height: 1;
   -webkit-align-self: flex-start;
   align-self: flex-start;
   margin-top: 8px;
 }
+
 .btn-tile-primary {
-  background: #B85C42;
-  color: #FAF6EE;
+  background: #D9A05B;
+  color: #0F0D0A;
   border: 0;
   padding: 14px 24px;
   border-radius: 2px;
   font-size: 12px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
+  font-weight: 600;
   cursor: pointer;
   -webkit-appearance: none;
 }
-.btn-tile-primary:active { background: #9D4E38; }
+.btn-tile-primary:active { background: #C28A47; }
 .btn-tile-secondary {
-  background: #FFFCF6;
-  color: #2B2419;
-  border: 1px solid #E5DCC8;
+  background: #1C1815;
+  color: #F2E8D5;
+  border: 1px solid #3A2E22;
   padding: 8px 14px;
   border-radius: 4px;
   font-size: 16px;
@@ -910,4 +1083,342 @@ body {
   -webkit-appearance: none;
   min-width: 44px;
 }
-.btn-tile-secondary:active { background: #FAF6EE; }
+.btn-tile-secondary:active { background: #2A1F15; }
+
+/* ----- Calendar compact ----- */
+.tile-calendar {
+  -webkit-align-items: stretch;
+  align-items: stretch;
+  text-align: left;
+}
+.tile-calendar-compact {
+  -webkit-flex: 1;
+  flex: 1;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  -webkit-justify-content: flex-start;
+  justify-content: flex-start;
+  overflow: hidden;
+}
+.tile-calendar-empty {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 18px;
+  color: #9C8A6E;
+  text-align: center;
+  margin-top: 24px;
+}
+.tile-calendar-next {
+  margin-bottom: 16px;
+  padding-bottom: 14px;
+  border-bottom: 1px solid #3A2E22;
+}
+.tile-calendar-next-when {
+  font-family: Georgia, serif;
+  font-size: 13px;
+  color: #D9A05B;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  margin-bottom: 6px;
+}
+.tile-calendar-next-summary {
+  font-family: Georgia, serif;
+  font-size: 24px;
+  color: #F2E8D5;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+}
+.tile-calendar-next-loc {
+  font-size: 14px;
+  color: #C49B6B;
+  margin-top: 6px;
+  font-style: italic;
+}
+.tile-calendar-list {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+}
+.tile-calendar-row {
+  padding: 6px 0;
+  border-bottom: 1px solid rgba(58,46,34,0.5);
+}
+.tile-calendar-row:last-child { border-bottom: 0; }
+.tile-calendar-row-when {
+  font-size: 11px;
+  color: #9C8A6E;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.tile-calendar-row-summary {
+  font-size: 15px;
+  color: #F2E8D5;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tile-calendar-hint {
+  font-size: 12px;
+  color: #9C8A6E;
+  margin-top: 10px;
+  font-style: italic;
+  text-align: center;
+  opacity: 0.85;
+}
+
+/* ----- Calendar expand : pager 7 jours/page swipeable ----- */
+.tile-overlay-content.tile-calendar-expand {
+  max-width: none;
+  padding: 22px 28px 16px 28px;
+  /* La hauteur est fixée pour que le pager prenne tout sans pousser un scroll global */
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  overflow: hidden;
+}
+
+.cal-head {
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: baseline;
+  align-items: baseline;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  margin-bottom: 16px;
+}
+.cal-head-title {
+  margin: 0;
+  font-size: 36px;
+  line-height: 1.1;
+}
+.cal-head-title:after { display: none; }
+.cal-head-meta {
+  font-size: 12px;
+  color: #9C8A6E;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  font-family: Georgia, serif;
+}
+
+/* Pager viewport + track */
+.cal-pager-viewport {
+  -webkit-flex: 1;
+  flex: 1;
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+}
+.cal-pager-track {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: row;
+  flex-direction: row;
+  height: 100%;
+  will-change: transform;
+}
+.cal-page {
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 4px;
+  box-sizing: border-box;
+}
+
+/* Une ligne = 1 jour */
+.cal-day-row {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: row;
+  flex-direction: row;
+  -webkit-align-items: stretch;
+  align-items: stretch;
+  border-top: 1px solid #2A2118;
+  padding: 10px 0;
+  min-height: 64px;
+}
+.cal-day-row:first-child { border-top: 0; }
+.cal-day-row-today {
+  background: -webkit-linear-gradient(left, rgba(217,160,91,0.10), transparent 35%);
+  background: linear-gradient(to right, rgba(217,160,91,0.10), transparent 35%);
+}
+.cal-day-row-empty .cal-day-pill { opacity: 0.55; }
+
+/* Rail jour à gauche */
+.cal-day-pill {
+  width: 130px;
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+  padding: 4px 14px 4px 4px;
+  border-right: 1px solid #2A2118;
+  text-align: left;
+}
+.cal-day-row-today .cal-day-pill { border-right-color: #D9A05B; }
+.cal-day-pill-name {
+  font-family: Georgia, serif;
+  font-size: 18px;
+  color: #F2E8D5;
+  letter-spacing: 0.02em;
+  text-transform: capitalize;
+  line-height: 1.15;
+}
+.cal-day-row-today .cal-day-pill-name {
+  color: #E8C079;
+  font-style: italic;
+}
+.cal-day-pill-date {
+  font-size: 12px;
+  color: #9C8A6E;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  margin-top: 4px;
+  font-feature-settings: "tnum";
+  -webkit-font-feature-settings: "tnum";
+}
+
+/* Liste d'événements à droite */
+.cal-day-events {
+  -webkit-flex: 1;
+  flex: 1;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  -webkit-justify-content: center;
+  justify-content: center;
+  padding-left: 18px;
+  min-width: 0;
+}
+.cal-day-empty {
+  font-family: Georgia, serif;
+  font-size: 18px;
+  color: #4A3D2E;
+  font-style: italic;
+}
+
+/* Carte événement : ligne avec l'heure puis le résumé */
+.cal-event {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: row;
+  flex-direction: row;
+  -webkit-align-items: baseline;
+  align-items: baseline;
+  padding: 6px 0;
+  min-width: 0;
+}
+.cal-event + .cal-event {
+  border-top: 1px dashed rgba(58,46,34,0.45);
+}
+.cal-event-time {
+  font-family: Georgia, serif;
+  font-size: 17px;
+  color: #D9A05B;
+  width: 130px;
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+  letter-spacing: 0.02em;
+  font-feature-settings: "tnum";
+  -webkit-font-feature-settings: "tnum";
+  line-height: 1.3;
+}
+.cal-event-allday .cal-event-time {
+  font-style: italic;
+  color: #C49B6B;
+}
+.cal-event-body {
+  -webkit-flex: 1;
+  flex: 1;
+  min-width: 0;
+}
+.cal-event-summary {
+  font-size: 19px;
+  color: #F5ECD7;
+  line-height: 1.3;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
+}
+.cal-event-loc {
+  font-size: 13px;
+  color: #9C8A6E;
+  margin-top: 3px;
+  font-style: italic;
+  line-height: 1.3;
+}
+
+/* Navigation pager */
+.cal-pager-nav {
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: row;
+  flex-direction: row;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+  padding: 12px 0 4px 0;
+  margin-top: 6px;
+  border-top: 1px solid #2A2118;
+}
+.cal-pager-arrow {
+  background: transparent;
+  border: 0;
+  color: #D9A05B;
+  font-family: Georgia, serif;
+  font-size: 32px;
+  line-height: 1;
+  padding: 6px 22px;
+  cursor: pointer;
+  -webkit-appearance: none;
+  -webkit-transition: opacity 0.2s;
+  transition: opacity 0.2s;
+  min-width: 56px;
+  min-height: 56px;
+}
+.cal-pager-arrow:disabled { cursor: default; }
+.cal-pager-arrow:active { color: #F2E8D5; }
+.cal-pager-dots {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: row;
+  flex-direction: row;
+  -webkit-align-items: center;
+  align-items: center;
+  padding: 0 8px;
+}
+.cal-pager-dot {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #3A2E22;
+  margin: 0 6px;
+  -webkit-transition: background 0.2s, -webkit-transform 0.2s;
+  transition: background 0.2s, transform 0.2s;
+  cursor: pointer;
+}
+.cal-pager-dot-active {
+  background: #D9A05B;
+  -webkit-transform: scale(1.4);
+  transform: scale(1.4);
+}
+
+/* Vide global */
+.cal-empty-global {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 22px;
+  color: #9C8A6E;
+  text-align: center;
+  margin-top: 80px;
+}
