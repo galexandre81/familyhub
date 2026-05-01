@@ -4,28 +4,120 @@
 
 @layer base {
   body {
-    @apply bg-bg-principal text-text-principal;
+    @apply bg-paper text-ink font-sans;
+    font-feature-settings: "ss01", "cv01";
+    background-image:
+      radial-gradient(circle at 15% 8%, rgba(212, 160, 69, 0.05), transparent 35%),
+      radial-gradient(circle at 85% 92%, rgba(184, 92, 66, 0.04), transparent 40%);
+    background-attachment: fixed;
+  }
+
+  /* Subtle paper grain overlay */
+  body::before {
+    content: "";
+    position: fixed;
+    inset: 0;
+    background-image: theme(backgroundImage.paper-grain);
+    opacity: 0.5;
+    pointer-events: none;
+    z-index: 0;
+    mix-blend-mode: multiply;
+  }
+
+  #root {
+    position: relative;
+    z-index: 1;
   }
 
   h1, h2, h3, h4, h5, h6 {
     @apply font-serif;
+    font-feature-settings: "ss01";
+  }
+
+  /* Number-heavy text uses tabular figures */
+  .nums {
+    font-feature-settings: "tnum";
   }
 }
 
 @layer components {
   .tile-card {
-    @apply bg-bg-card rounded-tile shadow-tile p-6;
+    @apply bg-ivory rounded-tile p-7 relative;
+    border: 1px solid theme(colors.hairline);
+    box-shadow: theme(boxShadow.tile);
+  }
+
+  /* Hairline ornament top-right of cards */
+  .tile-card::before {
+    content: "";
+    position: absolute;
+    top: 18px;
+    right: 22px;
+    width: 28px;
+    height: 1px;
+    background: theme(colors.terracotta.DEFAULT);
+    opacity: 0.45;
   }
 
   .tile-title {
-    @apply font-serif text-sm text-text-secondaire mb-2;
+    @apply font-serif text-eyebrow uppercase text-terracotta mb-3;
   }
 
   .btn-primary {
-    @apply bg-accent-chaud text-text-clair px-4 py-2 rounded-md hover:opacity-90 transition;
+    @apply bg-terracotta text-paper px-6 py-3 transition;
+    border-radius: 2px;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 500;
   }
+  .btn-primary:hover { @apply bg-terracotta-deep; }
+  .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
 
   .btn-secondary {
-    @apply bg-bg-card text-text-principal px-4 py-2 rounded-md border border-bordure hover:bg-bordure transition;
+    @apply bg-ivory text-ink px-6 py-3 transition;
+    border: 1px solid theme(colors.hairline);
+    border-radius: 2px;
+    font-size: 11px;
+    letter-spacing: 0.18em;
+    text-transform: uppercase;
+    font-weight: 500;
+  }
+  .btn-secondary:hover { @apply bg-paper; border-color: theme(colors.ink.mute); }
+
+  .input {
+    @apply w-full px-4 py-3 bg-ivory text-ink text-sm transition;
+    border: 1px solid theme(colors.hairline);
+    border-radius: 2px;
+    font-family: theme(fontFamily.sans);
+  }
+  .input:focus {
+    @apply outline-none;
+    border-color: theme(colors.terracotta.DEFAULT);
+    box-shadow: 0 0 0 3px rgba(184, 92, 66, 0.1);
+  }
+
+  /* Hairline divider with ornament */
+  .rule {
+    @apply flex items-center gap-3;
+    color: theme(colors.terracotta.DEFAULT);
+  }
+  .rule::before, .rule::after {
+    content: "";
+    flex: 1;
+    height: 1px;
+    background: theme(colors.hairline);
+  }
+  .rule-mark {
+    width: 6px;
+    height: 6px;
+    transform: rotate(45deg);
+    background: theme(colors.terracotta.DEFAULT);
+    opacity: 0.5;
+  }
+
+  /* Eyebrow label */
+  .eyebrow {
+    @apply font-serif text-eyebrow uppercase text-terracotta;
   }
 }

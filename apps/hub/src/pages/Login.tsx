@@ -11,17 +11,48 @@ export default function Login() {
   }, [user, navigate]);
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-bg-principal">
-      <div className="tile-card max-w-md w-full mx-6 text-center">
-        <h1 className="font-serif text-4xl text-accent-chaud mb-2">Family Hub</h1>
-        <p className="text-text-secondaire mb-8">Connectez-vous pour accéder à votre foyer.</p>
+    <div className="min-h-screen flex items-center justify-center px-6 py-12">
+      <div className="max-w-md w-full">
+        {/* Eyebrow */}
+        <div className="flex items-center gap-3 mb-12 justify-center">
+          <span className="h-px w-8 bg-terracotta opacity-50" />
+          <span className="eyebrow">N° 1 · Mai 2026</span>
+          <span className="h-px w-8 bg-terracotta opacity-50" />
+        </div>
+
+        <h1 className="font-serif text-7xl text-ink text-center leading-none mb-1 tracking-tight">
+          Family
+        </h1>
+        <h1 className="font-serif italic text-7xl text-terracotta text-center leading-none mb-10 tracking-tight">
+          Hub
+        </h1>
+
+        <p className="text-center text-ink-mute font-serif italic text-lg mb-12 leading-relaxed">
+          La maisonnée connectée — météo,&nbsp;agenda,
+          <br />
+          minuteurs et radios pour la cuisine.
+        </p>
+
         <button
           onClick={() => void signIn()}
           disabled={loading}
           className="btn-primary w-full"
         >
-          {loading ? "Chargement…" : "Se connecter avec Google"}
+          {loading ? "Chargement…" : "Entrer avec Google"}
         </button>
+
+        <div className="mt-10 flex items-center gap-3 text-ink-mute">
+          <span className="h-px flex-1 bg-hairline" />
+          <span
+            className="w-1.5 h-1.5 bg-terracotta opacity-50"
+            style={{ transform: "rotate(45deg)" }}
+          />
+          <span className="h-px flex-1 bg-hairline" />
+        </div>
+
+        <p className="mt-6 text-center text-xs text-ink-mute tracking-wider uppercase">
+          Conçu pour la maison
+        </p>
       </div>
     </div>
   );

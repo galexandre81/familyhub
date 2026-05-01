@@ -32,10 +32,18 @@ export type WeatherIconKey =
   | "fog"
   | "storm";
 
-export interface WeatherConfig {
+export interface WeatherLocation {
+  id: string;
+  ville: string;
+  pays?: string;
   lat: number;
   lon: number;
-  ville: string;
+  timezone?: string;
+}
+
+export interface WeatherConfig {
+  locations: WeatherLocation[];
+  selectedLocationId: string;
   forecastHours: number[];
 }
 
@@ -60,8 +68,12 @@ export interface WeatherDaily {
   sunset: string;
 }
 
-export interface WeatherData {
+export interface WeatherSingleLocationData {
   current: WeatherCurrent;
   forecast: WeatherForecastPoint[];
   daily: WeatherDaily;
+}
+
+export interface WeatherData {
+  byLocation: Record<string, WeatherSingleLocationData>;
 }

@@ -42,6 +42,24 @@
       cell.style.width  = (pos.w   / cols * 100) + '%';
       cell.style.height = (pos.h   / rows * 100) + '%';
 
+      /* Tap handler — si la tuile a une vue plein écran, l'ouvrir au tap.
+         La config est lue dynamiquement depuis state pour refléter les MAJ
+         (ex: changement de selectedLocationId pour weather). */
+      (function (tileType, tileId) {
+        cell.addEventListener('click', function () {
+          var module = global.Tiles && global.Tiles[tileType];
+          if (module && typeof module.expand === 'function' && global.FamilyHubOverlay) {
+            var data = (global.FamilyHubGetTileSnapshot
+              ? global.FamilyHubGetTileSnapshot(tileId)
+              : null);
+            var config = (global.FamilyHubGetTileConfig
+              ? global.FamilyHubGetTileConfig(tileId)
+              : null);
+            global.FamilyHubOverlay.open(tileType, data, config, tileId);
+          }
+        });
+      })(tile.type, entry.tileId);
+
       container.appendChild(cell);
       cellsByTileId[entry.tileId] = cell;
     }
