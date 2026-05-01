@@ -1,12 +1,45 @@
+# Dependencies
 node_modules/
-.firebase/
-*.log
-.DS_Store
-Thumbs.db
+**/node_modules/
+
+# Build outputs
+dist/
+build/
+**/dist/
+**/build/
+lib/
+functions/lib/
+packages/*/dist/
+
+# Env files
 .env
 .env.local
+.env.*.local
+**/.env
+**/.env.local
+**/.env.*.local
+
+# Firebase
+.firebase/
 firebase-debug.log*
 firestore-debug.log*
+ui-debug.log*
+.runtimeconfig.json
+
+# Logs
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+*.log
+
+# Editor / OS
 .vscode/
 .idea/
+.DS_Store
+Thumbs.db
+
+# TypeScript
+*.tsbuildinfo
+
+# Claude / agent artifacts
 .claude/

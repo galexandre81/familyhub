@@ -1,103 +1,85 @@
-# MenuMaster — Cuisine iPad
+# Family Hub
 
-Dashboard mural pour la cuisine, affiché en plein écran sur **iPad mini 1ère génération (iOS 9.3.6)**, en mode "Ajouter à l'écran d'accueil" (web app standalone).
+Plateforme familiale modulaire à base de tuiles, hébergée sur Firebase. Plusieurs écrans dans la maison (cuisine, bureau, mobile) affichent chacun leur sélection de tuiles avec leur propre layout. La logique vit côté serveur ; les écrans ne font qu'afficher.
 
-3 zones :
-- **Menu de la semaine** (lu depuis `public/data/menu-semaine.json`, cliquable → mode recette)
-- **Météo locale** (Le Brassus, via Open-Meteo, sans clé)
-- **Radio web** (presets France Inter / Info / Culture / Musique, RTS La 1ère, Couleur 3)
-
-Mode recette : étapes en plein écran avec gros texte, minuteur intégré et alerte sonore en fin de cuisson.
-
----
+> **Spec produit & technique complète** : voir `family-hub-spec.md` (à la racine du projet ou dans `docs/`).
 
 ## Stack
 
-- HTML / CSS Flexbox / **JavaScript ES5 vanilla**
-- Pas de framework, pas de build, pas de modules ES, pas de service worker
-- Hébergement **Firebase Hosting**
-- Icônes météo en SVG inline (générées dans `weather.js`)
+- **Backend** — Firebase (Auth Google, Firestore, Cloud Functions Node 20, Hosting, Storage), projet `family-hub-guillaume`
+- **Hub React** (`apps/hub/`) — édition/configuration. React 18 + Vite + TS + Tailwind + shadcn/ui. Cible : PC, mobile, tablette moderne
+- **Display vanilla** (`apps/display/`) — affichage uniquement. HTML + JS ES5 + Firebase SDK v8 compat. Cible : iPad mini 1 (iOS 9.3.6) et autres écrans d'affichage
+- **Cloud Functions** (`functions/`) — logique métier des tuiles + jobs programmés (pré-calcul snapshot)
+- **Types partagés** (`packages/types/`) — interfaces Firestore TypeScript partagées Hub / Functions
 
-Compatible Safari 9 (iPad mini 1) — pas de `fetch`, pas d'`async/await`, pas de CSS Grid, pas de variables CSS.
+## Structure du repo
 
----
-
-## Lancer en local
-
-```bash
-firebase serve
+```
+family-hub/
+├── apps/
+│   ├── hub/                  # React app
+│   └── display/              # site vanilla pour iPad
+├── functions/                # Cloud Functions
+├── packages/
+│   └── types/                # types Firestore partagés
+├── firebase.json
+├── firestore.rules
+├── firestore.indexes.json
+├── .firebaserc
+├── .env.example
+└── package.json              # workspaces
 ```
 
-Puis ouvrir `http://localhost:5000` (ou l'IP locale depuis l'iPad sur le même Wi-Fi).
+## Setup local
 
-> Pour tester depuis l'iPad sans déployer, lancer `firebase serve --host 0.0.0.0` et viser `http://<IP-de-ton-PC>:5000`. Note : Open-Meteo et les flux radio restent en HTTPS, ils marcheront depuis l'iPad mais l'origine en HTTP en local peut bloquer certains tests — déployer sur Firebase est le plus fiable.
-
-## Déployer
+Prérequis : Node.js ≥ 20, Firebase CLI (`npm i -g firebase-tools`), accès au projet `family-hub-guillaume`.
 
 ```bash
+# Install dépendances (workspaces)
+npm install
+
+# Copier env exemple, remplir avec les valeurs Firebase Web app
+cp .env.example apps/hub/.env.local
+
+# Login Firebase
 firebase login
-firebase deploy --only hosting
+
+# Dev hub React
+npm run dev:hub        # http://localhost:5173
+
+# Émulateurs Firebase locaux (optionnel)
+npm run emulators      # http://localhost:5000 hosting, 4000 UI
 ```
 
-Avant le premier deploy, vérifier que le project ID dans `.firebaserc` correspond à un projet Firebase existant (ou créer un projet sur https://console.firebase.google.com puis ajuster).
+## Déploiement
 
----
-
-## Éditer le menu
-
-Modifier `public/data/menu-semaine.json` :
-
-- Champ `jours[]` : 7 entrées (un par jour). Chaque entrée a `jour`, `date` (ISO `YYYY-MM-DD`), `midi` et `soir`. Mettre `null` pour un repas absent.
-- Champ `recettes` : dictionnaire `{ "id": { ... } }`. Les `id` référencés dans `jours` doivent exister ici.
-- Format d'une recette : `nom`, `personnes`, `temps_min`, `niveau`, `ingredients[]`, `etapes[]`. Chaque étape a `texte` (string) et `duree_min` (number ou `null`). Si `duree_min` est défini, le bouton minuteur apparaît.
-
-Le fichier est rechargé à chaque ouverture de page (cache busting avec `?t=timestamp`), pas besoin de redéployer pour voir les changements après refresh.
-
----
-
-## Mode standalone iPad
-
-Sur l'iPad :
-
-1. Ouvrir l'URL Firebase dans Safari.
-2. Bouton **Partager** → **Sur l'écran d'accueil**.
-3. L'icône s'ajoute sur l'écran d'accueil (terracotta, couverts blancs).
-4. Lancer l'app depuis l'icône → plein écran sans barre Safari.
-
-À régler une fois sur l'iPad :
-
-- **Réglages → Affichage et luminosité → Verrouillage automatique → Jamais** (l'iPad reste allumé tant qu'il est branché).
-- **Accès guidé** (Réglages → Général → Accessibilité → Accès guidé) si tu veux verrouiller l'app pour empêcher les sorties accidentelles.
-
----
-
-## Structure
-
-```
-public/
-  index.html          # vue principale
-  recipe.html         # mode cuisine
-  manifest.json
-  css/styles.css
-  js/
-    app.js            # horloge, chargement menu, glue
-    weather.js        # Open-Meteo + icônes SVG
-    radio.js          # lecteur audio + presets
-    recipe.js         # étapes + minuteur
-  data/menu-semaine.json
-  icons/icon-180.png  # apple-touch-icon
-firebase.json
-.firebaserc
+```bash
+npm run build           # build types + functions + hub
+firebase deploy         # tout
 ```
 
----
+URLs prod :
+- Hub : https://family-hub-guillaume.web.app
+- Display : https://family-hub-guillaume.web.app/display/
+- Setup display : https://family-hub-guillaume.web.app/display/setup?token=XXX
 
-## Notes techniques
+## Phases
 
-- **TLS** : Safari 9 ne parle pas TLS 1.3. Open-Meteo et les flux Radio France / SRG marchent en TLS 1.2, donc ok. Si un endpoint passe en TLS 1.3-only un jour, prévoir un proxy via Firebase Functions.
-- **Audio iOS** : sur iOS, le minuteur ne sonne que si l'utilisateur a touché l'écran au moins une fois (politique d'auto-play). `recipe.js` débloque l'audio dès le premier `touchstart`.
-- **Cache** : `firebase.json` désactive le cache pour `/data/**` pour que les modifs du JSON soient prises en compte sans redéploiement.
+- **Phase 1** (en cours) — fondation monorepo + tuiles `clock`, `weather`, `radio`. iPad mural en cuisine.
+- **Phase 2** — drag&drop layout, mode édition tactile, tuiles `calendar`, `timer`.
+- **Phase 3** — Kitchen Buddy (recettes IA, meal planner, shopping list).
+- **Phase 4** — extensions famille (photos, todo, anniversaires…).
 
-## Hors scope (plus tard)
+## Ajouter une nouvelle tuile
 
-- Authentification, génération auto du menu, liste de courses, capteur de présence, mode offline complet.
+1. Définir le type dans `packages/types/src/tiles/<type>.ts`
+2. Ajouter le composant React dans `apps/hub/src/components/tiles/<Type>Tile.tsx`
+3. Ajouter le module display dans `apps/display/public/js/tiles/<type>.js`
+4. (Si pré-calcul) Cloud Function dans `functions/src/tiles/<type>.ts`
+5. (Si refresh régulier) entrée dans le scheduler
+
+Pattern strict : pas de `if/else` à rallonge sur `tile.type`, dispatch via dictionnaire.
+
+## Legacy
+
+Le code MenuMaster (ancien dashboard cuisine standalone) est archivé dans le tag git `legacy-menumaster` et toujours servi sur le projet Firebase `menumaster-cuisine` jusqu'au cutover.

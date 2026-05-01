@@ -1,0 +1,86 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <title>Family Hub — Setup</title>
+  <link rel="stylesheet" href="css/styles.css">
+</head>
+<body>
+  <div id="setup-root">
+    <div class="boot-message">
+      <div class="boot-title">Family Hub — Configuration</div>
+      <div class="boot-status" id="setup-status">Échange du token de configuration…</div>
+      <div class="setup-detail" id="setup-detail"></div>
+    </div>
+  </div>
+
+  <script src="lib/firebase-app.js"></script>
+  <script src="lib/firebase-auth.js"></script>
+  <script src="lib/firebase-functions.js"></script>
+  <script src="js/firebase-config.js"></script>
+  <script>
+  (function () {
+    'use strict';
+
+    function getQueryParam(name) {
+      var search = window.location.search.replace(/^\?/, '');
+      var pairs = search.split('&');
+      for (var i = 0; i < pairs.length; i++) {
+        var kv = pairs[i].split('=');
+        if (decodeURIComponent(kv[0]) === name) {
+          return decodeURIComponent(kv[1] || '');
+        }
+      }
+      return '';
+    }
+
+    function show(status, detail) {
+      var s = document.getElementById('setup-status');
+      var d = document.getElementById('setup-detail');
+      if (s && status) s.innerHTML = status;
+      if (d && detail) d.innerHTML = detail;
+    }
+
+    var token = getQueryParam('token');
+    var householdId = getQueryParam('household');
+    var displayId = getQueryParam('display');
+
+    if (!token || !householdId || !displayId) {
+      show('Lien invalide', 'Les paramètres de setup sont incomplets. Reprenez le lien depuis le hub.');
+      return;
+    }
+
+    firebase.initializeApp(window.__FIREBASE_CONFIG__);
+    var functions = firebase.app().functions('europe-west1');
+
+    var exchange = functions.httpsCallable('exchangeSetupToken');
+    exchange({ householdId: householdId, displayId: displayId, setupToken: token })
+      .then(function (res) {
+        var data = res.data || {};
+        if (!data.customToken || !data.authToken) {
+          throw new Error('Réponse invalide du serveur');
+        }
+        try {
+          localStorage.setItem('familyHub.householdId', householdId);
+          localStorage.setItem('familyHub.displayId', displayId);
+          localStorage.setItem('familyHub.authToken', data.authToken);
+          localStorage.setItem('familyHub.authTokenExpiresAt', String(data.authTokenExpiresAt || 0));
+          localStorage.setItem('familyHub.customToken', data.customToken);
+          localStorage.setItem('familyHub.customTokenIssuedAt', String(Date.now()));
+        } catch (e) {
+          show('localStorage indisponible', 'Le mode privé Safari empêche la sauvegarde. Sortez du mode privé puis réessayez.');
+          return;
+        }
+        show('Configuration enregistrée', 'Redirection vers l\'écran…');
+        setTimeout(function () { window.location.href = '/display/'; }, 800);
+      })
+      .catch(function (err) {
+        var msg = (err && err.message) ? err.message : 'Erreur inconnue';
+        show('Échec de la configuration', msg);
+      });
+  })();
+  </script>
+</body>
+</html>
