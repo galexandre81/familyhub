@@ -127,16 +127,7 @@
     headerEl.innerHTML = 'Minuteur';
     container.appendChild(headerEl);
 
-    /* Bouton de test du son — utile pour valider l'unlock iOS 9 */
-    var testBtn = document.createElement('button');
-    testBtn.className = 'btn-tile-secondary timer-test-sound';
-    testBtn.innerHTML = '🔔 Tester le son';
-    testBtn.addEventListener('click', function () {
-      global.FamilyHubTimers.beepSequence(2);
-    });
-    container.appendChild(testBtn);
-
-    /* Section : minuteurs actifs */
+    /* 1. Section : minuteurs actifs (en haut, statut immédiat) */
     var activeSection = document.createElement('div');
     activeSection.className = 'tile-timer-section';
     container.appendChild(activeSection);
@@ -150,37 +141,17 @@
     activeListEl.className = 'tile-timer-active-list';
     activeSection.appendChild(activeListEl);
 
-    /* Section : presets */
-    if (presets.length > 0) {
-      var presetTitle = document.createElement('h2');
-      presetTitle.className = 'tile-timer-section-h2';
-      presetTitle.innerHTML = 'Démarrage rapide';
-      container.appendChild(presetTitle);
+    /* 2. Section : custom — action principale, juste sous l'état actif.
+       Deux <select> minutes / secondes : sur iOS Safari, <select> ouvre
+       nativement un picker à rouleaux. */
+    var customSection = document.createElement('div');
+    customSection.className = 'tile-timer-section';
+    container.appendChild(customSection);
 
-      var presetGrid = document.createElement('div');
-      presetGrid.className = 'tile-timer-preset-grid';
-      container.appendChild(presetGrid);
-
-      for (var i = 0; i < presets.length; i++) {
-        (function (p) {
-          var btn = document.createElement('button');
-          btn.className = 'tile-timer-preset-btn';
-          btn.innerHTML = '<span class="preset-label">' + p.label + '</span>'
-            + '<span class="preset-duration">' + fmtDuration(p.seconds) + '</span>';
-          btn.addEventListener('click', function () {
-            global.FamilyHubTimers.startTimer(p.label, p.seconds);
-          });
-          presetGrid.appendChild(btn);
-        })(presets[i]);
-      }
-    }
-
-    /* Section : custom — deux <select> minutes / secondes.
-       Sur iOS Safari, <select> ouvre nativement un picker à rouleaux (perfect). */
     var customTitle = document.createElement('h2');
     customTitle.className = 'tile-timer-section-h2';
-    customTitle.innerHTML = 'Minuteur custom';
-    container.appendChild(customTitle);
+    customTitle.innerHTML = 'Nouveau minuteur';
+    customSection.appendChild(customTitle);
 
     function buildOptions(max, defaultVal) {
       var html = '';
@@ -208,7 +179,45 @@
       '</div>' +
       '</div>' +
       '<button type="button" id="custom-start" class="btn-tile-primary">Démarrer le minuteur</button>';
-    container.appendChild(customForm);
+    customSection.appendChild(customForm);
+
+    /* 3. Section : presets (suggestions, en bas) */
+    if (presets.length > 0) {
+      var presetSection = document.createElement('div');
+      presetSection.className = 'tile-timer-section';
+      container.appendChild(presetSection);
+
+      var presetTitle = document.createElement('h2');
+      presetTitle.className = 'tile-timer-section-h2';
+      presetTitle.innerHTML = 'Démarrage rapide';
+      presetSection.appendChild(presetTitle);
+
+      var presetGrid = document.createElement('div');
+      presetGrid.className = 'tile-timer-preset-grid';
+      presetSection.appendChild(presetGrid);
+
+      for (var i = 0; i < presets.length; i++) {
+        (function (p) {
+          var btn = document.createElement('button');
+          btn.className = 'tile-timer-preset-btn';
+          btn.innerHTML = '<span class="preset-label">' + p.label + '</span>'
+            + '<span class="preset-duration">' + fmtDuration(p.seconds) + '</span>';
+          btn.addEventListener('click', function () {
+            global.FamilyHubTimers.startTimer(p.label, p.seconds);
+          });
+          presetGrid.appendChild(btn);
+        })(presets[i]);
+      }
+    }
+
+    /* 4. Bouton de test du son — discret, tout en bas */
+    var testBtn = document.createElement('button');
+    testBtn.className = 'btn-tile-secondary timer-test-sound';
+    testBtn.innerHTML = '🔔 Tester le son';
+    testBtn.addEventListener('click', function () {
+      global.FamilyHubTimers.beepSequence(2);
+    });
+    container.appendChild(testBtn);
 
     customForm.querySelector('#custom-start').addEventListener('click', function () {
       var label = customForm.querySelector('#custom-label').value || 'Minuteur';

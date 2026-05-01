@@ -834,15 +834,20 @@ body {
 }
 
 /* ----- Timer expand ----- */
-.tile-timer-section { margin-bottom: 28px; }
+.tile-timer-section { margin-bottom: 32px; }
+.tile-timer-section:last-of-type { margin-bottom: 16px; }
 .timer-test-sound {
-  align-self: flex-start;
+  -webkit-align-self: center;
+  align-self: center;
+  margin-top: 8px;
   margin-bottom: 24px;
   font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-  font-size: 13px;
-  letter-spacing: 0.05em;
-  padding: 8px 16px;
+  font-size: 12px;
+  letter-spacing: 0.08em;
+  padding: 8px 18px;
+  opacity: 0.7;
 }
+.timer-test-sound:active { opacity: 1; }
 .tile-timer-section-h2 {
   font-family: Georgia, serif;
   font-size: 11px;
@@ -927,15 +932,16 @@ body {
   display: flex;
   -webkit-flex-wrap: wrap;
   flex-wrap: wrap;
+  -webkit-align-content: flex-start;
+  align-content: flex-start;
   margin: -5px;
-  margin-bottom: 22px;
 }
 .tile-timer-preset-btn {
-  -webkit-flex: 1 0 calc(33% - 10px);
-  flex: 1 0 calc(33% - 10px);
-  min-width: 140px;
+  /* Largeur fixée (pas de grow), 3 colonnes, sans débordement */
+  -webkit-flex: 0 0 calc(33.333% - 10px);
+  flex: 0 0 calc(33.333% - 10px);
   margin: 5px;
-  padding: 18px 14px;
+  padding: 14px 10px;
   background: #1C1815;
   border: 1px solid #3A2E22;
   border-radius: 4px;
@@ -949,17 +955,20 @@ body {
   align-items: center;
   -webkit-transition: all 0.15s ease;
   transition: all 0.15s ease;
+  min-width: 0;
 }
 .preset-label {
   font-family: Georgia, serif;
   font-style: italic;
-  font-size: 17px;
+  font-size: 15px;
   color: #F2E8D5;
+  text-align: center;
+  line-height: 1.2;
 }
 .preset-duration {
   font-size: 10px;
   color: #9C8A6E;
-  margin-top: 6px;
+  margin-top: 4px;
   letter-spacing: 0.18em;
   text-transform: uppercase;
 }
@@ -1085,7 +1094,7 @@ body {
 }
 .btn-tile-secondary:active { background: #2A1F15; }
 
-/* ----- Calendar compact ----- */
+/* ----- Calendar compact : 1 event focal + compteur ----- */
 .tile-calendar {
   -webkit-align-items: stretch;
   align-items: stretch;
@@ -1098,76 +1107,51 @@ body {
   display: flex;
   -webkit-flex-direction: column;
   flex-direction: column;
-  -webkit-justify-content: flex-start;
-  justify-content: flex-start;
+  -webkit-justify-content: center;
+  justify-content: center;
   overflow: hidden;
 }
-.tile-calendar-empty {
+.cal-compact-empty {
   font-family: Georgia, serif;
   font-style: italic;
   font-size: 18px;
   color: #9C8A6E;
   text-align: center;
-  margin-top: 24px;
 }
-.tile-calendar-next {
-  margin-bottom: 16px;
-  padding-bottom: 14px;
-  border-bottom: 1px solid #3A2E22;
-}
-.tile-calendar-next-when {
+.cal-compact-when {
   font-family: Georgia, serif;
-  font-size: 13px;
+  font-size: 14px;
   color: #D9A05B;
   text-transform: uppercase;
   letter-spacing: 0.18em;
-  margin-bottom: 6px;
+  margin-bottom: 12px;
+  font-feature-settings: "tnum";
+  -webkit-font-feature-settings: "tnum";
 }
-.tile-calendar-next-summary {
+.cal-compact-summary {
   font-family: Georgia, serif;
-  font-size: 24px;
+  font-size: 30px;
   color: #F2E8D5;
-  line-height: 1.2;
+  line-height: 1.15;
   letter-spacing: -0.01em;
+  word-wrap: break-word;
+  overflow-wrap: break-word;
 }
-.tile-calendar-next-loc {
-  font-size: 14px;
+.cal-compact-loc {
+  font-size: 16px;
   color: #C49B6B;
-  margin-top: 6px;
-  font-style: italic;
-}
-.tile-calendar-list {
-  display: -webkit-flex;
-  display: flex;
-  -webkit-flex-direction: column;
-  flex-direction: column;
-}
-.tile-calendar-row {
-  padding: 6px 0;
-  border-bottom: 1px solid rgba(58,46,34,0.5);
-}
-.tile-calendar-row:last-child { border-bottom: 0; }
-.tile-calendar-row-when {
-  font-size: 11px;
-  color: #9C8A6E;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-}
-.tile-calendar-row-summary {
-  font-size: 15px;
-  color: #F2E8D5;
-  margin-top: 2px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-.tile-calendar-hint {
-  font-size: 12px;
-  color: #9C8A6E;
   margin-top: 10px;
   font-style: italic;
-  text-align: center;
-  opacity: 0.85;
+  font-family: Georgia, serif;
+}
+.cal-compact-more {
+  margin-top: auto;
+  padding-top: 16px;
+  font-size: 13px;
+  color: #9C8A6E;
+  font-style: italic;
+  letter-spacing: 0.04em;
+  border-top: 1px solid rgba(58,46,34,0.6);
 }
 
 /* ----- Calendar expand : pager 7 jours/page swipeable ----- */
@@ -1207,20 +1191,24 @@ body {
   font-family: Georgia, serif;
 }
 
-/* Pager viewport + track */
+/* Pager viewport + track.
+   Hack iOS 9 : `min-height: 0` sur le flex item + position absolute sur la track
+   pour que .cal-page hérite d'une hauteur stable et que `overflow-y: auto` marche. */
 .cal-pager-viewport {
   -webkit-flex: 1;
   flex: 1;
   position: relative;
   overflow: hidden;
   width: 100%;
+  min-height: 0; /* critique : permet au flex item de rétrécir et de borner cal-page */
 }
 .cal-pager-track {
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
   display: -webkit-flex;
   display: flex;
   -webkit-flex-direction: row;
   flex-direction: row;
-  height: 100%;
   will-change: transform;
 }
 .cal-page {
@@ -1242,8 +1230,8 @@ body {
   -webkit-align-items: stretch;
   align-items: stretch;
   border-top: 1px solid #2A2118;
-  padding: 10px 0;
-  min-height: 64px;
+  padding: 8px 0;
+  min-height: 52px;
 }
 .cal-day-row:first-child { border-top: 0; }
 .cal-day-row-today {
@@ -1251,6 +1239,9 @@ body {
   background: linear-gradient(to right, rgba(217,160,91,0.10), transparent 35%);
 }
 .cal-day-row-empty .cal-day-pill { opacity: 0.55; }
+/* Jours passés de la semaine en cours : visibles mais dimés. */
+.cal-day-row-past { opacity: 0.45; }
+.cal-day-row-past .cal-day-pill-name { font-style: italic; }
 
 /* Rail jour à gauche */
 .cal-day-pill {
@@ -1387,30 +1378,35 @@ body {
 }
 .cal-pager-arrow:disabled { cursor: default; }
 .cal-pager-arrow:active { color: #F2E8D5; }
-.cal-pager-dots {
+.cal-pager-label {
+  -webkit-flex: 1;
+  flex: 1;
   display: -webkit-flex;
   display: flex;
-  -webkit-flex-direction: row;
-  flex-direction: row;
+  -webkit-flex-direction: column;
+  flex-direction: column;
   -webkit-align-items: center;
   align-items: center;
-  padding: 0 8px;
+  text-align: center;
+  padding: 0 12px;
 }
-.cal-pager-dot {
-  display: inline-block;
-  width: 10px;
-  height: 10px;
-  border-radius: 50%;
-  background: #3A2E22;
-  margin: 0 6px;
-  -webkit-transition: background 0.2s, -webkit-transform 0.2s;
-  transition: background 0.2s, transform 0.2s;
-  cursor: pointer;
+.cal-pager-label-range {
+  font-family: Georgia, serif;
+  font-size: 18px;
+  color: #F2E8D5;
+  letter-spacing: 0.02em;
+  font-feature-settings: "tnum";
+  -webkit-font-feature-settings: "tnum";
+  line-height: 1.2;
 }
-.cal-pager-dot-active {
-  background: #D9A05B;
-  -webkit-transform: scale(1.4);
-  transform: scale(1.4);
+.cal-pager-label-step {
+  display: block;
+  font-family: Georgia, serif;
+  font-size: 11px;
+  color: #9C8A6E;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  margin-top: 4px;
 }
 
 /* Vide global */

@@ -13,6 +13,7 @@
       <div class="boot-title">Family Hub — Configuration</div>
       <div class="boot-status" id="setup-status">Initialisation…</div>
       <div class="setup-detail" id="setup-detail"></div>
+      <button id="setup-reset-btn" class="error-link" style="display:none; margin-top:24px; border:0; cursor:pointer;">Effacer la configuration de cet appareil</button>
     </div>
   </div>
 
@@ -64,6 +65,39 @@
       if (s) return s.toUpperCase();
       return null;
     }
+
+    /* --- Bouton reset : efface la config locale et force un re-setup --- */
+    var resetBtn = document.getElementById('setup-reset-btn');
+    if (resetBtn) {
+      resetBtn.addEventListener('click', function () {
+        try {
+          localStorage.removeItem('familyHub.householdId');
+          localStorage.removeItem('familyHub.displayId');
+          localStorage.removeItem('familyHub.authToken');
+          localStorage.removeItem('familyHub.authTokenExpiresAt');
+          localStorage.removeItem('familyHub.customToken');
+          localStorage.removeItem('familyHub.customTokenIssuedAt');
+        } catch (e) { /* noop */ }
+        show('Configuration effacée.', 'Génère un nouveau lien depuis le hub puis réouvre /d/CODE.');
+        resetBtn.style.display = 'none';
+      });
+    }
+
+    /* --- Court-circuit : si l'iPad est déjà configuré, on saute l'exchange --- */
+    /* Cas typique : bookmark /d/ABCXYZ ré-ouvert après une config réussie,
+       OU restauration d'onglet Safari après reboot. */
+    try {
+      var storedHouseholdId = localStorage.getItem('familyHub.householdId');
+      var storedDisplayId = localStorage.getItem('familyHub.displayId');
+      var storedCustomToken = localStorage.getItem('familyHub.customToken');
+      var storedAuthToken = localStorage.getItem('familyHub.authToken');
+      if (storedHouseholdId && storedDisplayId && storedCustomToken && storedAuthToken) {
+        if (resetBtn) resetBtn.style.display = 'inline-block';
+        show('Cet appareil est déjà configuré.', 'Redirection vers l\'écran…');
+        setTimeout(function () { window.location.href = '/display/'; }, 1500);
+        return;
+      }
+    } catch (e) { /* localStorage indispo : on poursuit le flow setup normal */ }
 
     show('Vérification SDK…', '');
     if (typeof firebase === 'undefined') {

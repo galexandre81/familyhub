@@ -51,6 +51,15 @@ export const createDisplayToken = onCall(
 
     await assertHouseholdMember(uid, householdId);
 
+    const displayRef = db.doc(`households/${householdId}/displays/${displayId}`);
+
+    // Nettoyage : supprime l'ancien setupShortId pour ce display (sinon il s'accumule
+    // et un vieux bookmark /d/{ancienShortId} pourrait revenir résoudre un token mort).
+    const previousDisplaySnap = await displayRef.get().catch(() => null);
+    const previousShortId = previousDisplaySnap?.exists
+      ? (previousDisplaySnap.data()?.setupShortId as string | undefined)
+      : undefined;
+
     const setupToken = generateToken();
     const setupShortId = await generateUniqueShortId();
     const setupTokenExpiresAt = admin.firestore.Timestamp.fromMillis(
@@ -65,7 +74,11 @@ export const createDisplayToken = onCall(
       expiresAt: setupTokenExpiresAt,
     });
 
-    await db.doc(`households/${householdId}/displays/${displayId}`).update({
+    if (previousShortId && previousShortId !== setupShortId) {
+      await db.doc(`setupShortIds/${previousShortId}`).delete().catch(() => {/* noop */});
+    }
+
+    await displayRef.update({
       setupToken,
       setupShortId,
       setupTokenExpiresAt,
@@ -172,13 +185,24 @@ export const exchangeSetupToken = onCall(
       Date.now() + AUTH_TOKEN_TTL_SECONDS * 1000,
     );
 
+    // Récupère le shortId AVANT de l'effacer du doc display, pour pouvoir nettoyer
+    // la lookup table racine `setupShortIds/{shortId}`.
+    const consumedShortId = data.setupShortId as string | undefined;
+
     await displayRef.update({
       authToken,
       authTokenExpiresAt,
       setupToken: admin.firestore.FieldValue.delete(),
       setupTokenExpiresAt: admin.firestore.FieldValue.delete(),
+      setupShortId: admin.firestore.FieldValue.delete(),
       updatedAt: admin.firestore.FieldValue.serverTimestamp(),
     });
+
+    // Supprime la lookup table : empêche un vieux bookmark /d/{shortId} de retomber
+    // dessus et de relancer un échange qui échouerait avec "Token de setup invalide".
+    if (consumedShortId) {
+      await db.doc(`setupShortIds/${consumedShortId}`).delete().catch(() => {/* noop */});
+    }
 
     // Note : le custom token Firebase Auth a une durée de 1h max imposée par Firebase.
     // Le display doit appeler `refreshDisplayToken` avant expiration en utilisant le authToken local.
