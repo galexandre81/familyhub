@@ -9,11 +9,20 @@ export type WeatherIconKey =
   | "fog"
   | "storm";
 
-export interface WeatherConfig {
+export interface WeatherLocation {
+  id: string;
+  ville: string;
+  pays?: string;
   lat: number;
   lon: number;
-  ville: string;
-  /** Heures de prévision relatives au present, ex: [0, 6, 12] */
+  timezone?: string;
+}
+
+export interface WeatherConfig {
+  locations: WeatherLocation[];
+  /** ID de la location à afficher dans la vue compacte de la tuile */
+  selectedLocationId: string;
+  /** Heures de prévision relatives au présent, ex: [0, 6, 12] */
   forecastHours: number[];
 }
 
@@ -39,8 +48,17 @@ export interface WeatherDaily {
   sunset: string;
 }
 
-export interface WeatherData {
+export interface WeatherSingleLocationData {
   current: WeatherCurrent;
   forecast: WeatherForecastPoint[];
   daily: WeatherDaily;
+}
+
+/**
+ * Snapshot data pour une tuile météo : un dict de données par locationId.
+ * La vue compacte lit `byLocation[selectedLocationId]`.
+ * La vue expand affiche toutes les locations.
+ */
+export interface WeatherData {
+  byLocation: Record<string, WeatherSingleLocationData>;
 }

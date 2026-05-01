@@ -8,6 +8,10 @@
     ],
     "rewrites": [
       {
+        "source": "/d/**",
+        "destination": "/display/setup.html"
+      },
+      {
         "source": "/display/**",
         "destination": "/display/index.html"
       },

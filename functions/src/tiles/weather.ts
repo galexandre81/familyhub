@@ -5,6 +5,8 @@ import type {
   WeatherConfig,
   WeatherData,
   WeatherIconKey,
+  WeatherLocation,
+  WeatherSingleLocationData,
 } from "../types";
 import { admin, db } from "../lib/admin";
 import { assertHouseholdMember } from "../lib/household";
@@ -59,14 +61,17 @@ function weatherCodeToLabel(code: number): string {
   return "Inconnu";
 }
 
-function transformOpenMeteoToTileData(json: OpenMeteoResponse, config: WeatherConfig): WeatherData {
+function transformOpenMeteoToLocationData(
+  json: OpenMeteoResponse,
+  forecastHours: number[],
+): WeatherSingleLocationData {
   const cw = json.current_weather;
   if (!cw) {
     throw new HttpsError("internal", "Réponse Open-Meteo invalide (current_weather manquant)");
   }
   const isDay = cw.is_day === 1;
 
-  const forecast = (config.forecastHours ?? [0, 6, 12]).map((hourOffset) => {
+  const forecast = (forecastHours ?? [0, 6, 12]).map((hourOffset) => {
     const idx = Math.max(0, hourOffset);
     const hourly = json.hourly;
     if (!hourly) {
@@ -105,26 +110,70 @@ function transformOpenMeteoToTileData(json: OpenMeteoResponse, config: WeatherCo
   };
 }
 
-async function fetchOpenMeteo(config: WeatherConfig): Promise<OpenMeteoResponse> {
+async function fetchOpenMeteo(loc: WeatherLocation): Promise<OpenMeteoResponse> {
   const params = new URLSearchParams({
-    latitude: String(config.lat),
-    longitude: String(config.lon),
+    latitude: String(loc.lat),
+    longitude: String(loc.lon),
     current_weather: "true",
     hourly: "temperature_2m,weather_code",
     daily: "temperature_2m_max,temperature_2m_min,sunrise,sunset",
-    timezone: "auto",
+    timezone: loc.timezone || "auto",
   });
   const url = `${OPEN_METEO_BASE}?${params.toString()}`;
   const res = await fetch(url);
   if (!res.ok) {
-    throw new HttpsError("internal", `Open-Meteo a répondu ${res.status}`);
+    throw new HttpsError("internal", `Open-Meteo a répondu ${res.status} pour ${loc.ville}`);
   }
   return (await res.json()) as OpenMeteoResponse;
 }
 
+/**
+ * Compat : accepte aussi le vieux format single-location (lat/lon/ville à la racine du config).
+ * Convertit en `{ locations: [...], selectedLocationId }` au runtime.
+ */
+function normalizeWeatherConfig(rawConfig: Record<string, unknown>): WeatherConfig {
+  const cfg = rawConfig as Partial<WeatherConfig> & {
+    lat?: number; lon?: number; ville?: string;
+  };
+  if (cfg.locations && Array.isArray(cfg.locations) && cfg.locations.length > 0) {
+    return {
+      locations: cfg.locations,
+      selectedLocationId: cfg.selectedLocationId || cfg.locations[0].id,
+      forecastHours: cfg.forecastHours || [0, 6, 12],
+    };
+  }
+  // Vieux format : un seul lieu à la racine
+  if (typeof cfg.lat === "number" && typeof cfg.lon === "number" && cfg.ville) {
+    const fallbackId = "default";
+    return {
+      locations: [
+        { id: fallbackId, ville: cfg.ville, lat: cfg.lat, lon: cfg.lon },
+      ],
+      selectedLocationId: fallbackId,
+      forecastHours: cfg.forecastHours || [0, 6, 12],
+    };
+  }
+  throw new HttpsError("failed-precondition", "Config météo invalide : ni locations[] ni lat/lon/ville");
+}
+
+async function buildWeatherDataForConfig(config: WeatherConfig): Promise<WeatherData> {
+  const byLocation: Record<string, WeatherSingleLocationData> = {};
+  for (const loc of config.locations) {
+    try {
+      const json = await fetchOpenMeteo(loc);
+      byLocation[loc.id] = transformOpenMeteoToLocationData(json, config.forecastHours);
+    } catch (err) {
+      logger.error(`Échec fetch météo pour ${loc.ville}`, err);
+      // On continue avec les autres locations ; la location en erreur sera absente de byLocation.
+    }
+  }
+  return { byLocation };
+}
+
 export const refreshWeatherTile = onCall(
-  { region: "europe-west1" },
+  { region: "europe-west1", invoker: "public" },
   async (req) => {
+    logger.info("refreshWeatherTile START", { auth: req.auth?.uid, data: req.data });
     const uid = req.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Auth requise");
 
@@ -134,6 +183,7 @@ export const refreshWeatherTile = onCall(
     }
 
     await assertHouseholdMember(uid, householdId);
+    logger.info("Membership OK", { uid, householdId });
 
     const tileSnap = await db.doc(`households/${householdId}/tiles/${tileId}`).get();
     if (!tileSnap.exists) {
@@ -141,16 +191,25 @@ export const refreshWeatherTile = onCall(
     }
     const tile = tileSnap.data();
     if (tile?.type !== "weather") {
-      throw new HttpsError("failed-precondition", `Tile ${tileId} n'est pas de type weather`);
+      throw new HttpsError("failed-precondition", `Tile ${tileId} n'est pas de type weather (got ${tile?.type})`);
+    }
+    logger.info("Tile loaded", { type: tile.type, config: tile.config });
+
+    const config = normalizeWeatherConfig(tile.config as Record<string, unknown>);
+    logger.info("Refreshing weather for locations", { count: config.locations.length });
+
+    const tileData = await buildWeatherDataForConfig(config);
+    const fetchedIds = Object.keys(tileData.byLocation);
+    logger.info("Open-Meteo fetched", { fetched: fetchedIds, total: config.locations.length });
+
+    if (fetchedIds.length === 0) {
+      throw new HttpsError("internal", "Aucune location n'a pu être rafraîchie");
     }
 
-    const config = tile.config as WeatherConfig;
-    const json = await fetchOpenMeteo(config);
-    const tileData = transformOpenMeteoToTileData(json, config);
-
     await rebuildSnapshotForTile(householdId, tileId, "weather", tileData);
+    logger.info("refreshWeatherTile DONE");
 
-    return { success: true };
+    return { success: true, locationsFetched: fetchedIds.length, locationsTotal: config.locations.length };
   },
 );
 
@@ -165,9 +224,12 @@ export const scheduledWeatherRefresh = onSchedule(
         const tileId = doc.id;
         const householdId = doc.ref.parent.parent?.id;
         if (!householdId) continue;
-        const config = doc.data().config as WeatherConfig;
-        const json = await fetchOpenMeteo(config);
-        const tileData = transformOpenMeteoToTileData(json, config);
+        const config = normalizeWeatherConfig(doc.data().config as Record<string, unknown>);
+        const tileData = await buildWeatherDataForConfig(config);
+        if (Object.keys(tileData.byLocation).length === 0) {
+          logger.warn(`Aucune location fetched pour tile ${doc.ref.path}, skip snapshot update`);
+          continue;
+        }
         await rebuildSnapshotForTile(householdId, tileId, "weather", tileData);
       } catch (err) {
         logger.error(`Échec refresh weather tile ${doc.ref.path}`, err);
@@ -176,4 +238,4 @@ export const scheduledWeatherRefresh = onSchedule(
   },
 );
 
-export { transformOpenMeteoToTileData };
+export { transformOpenMeteoToLocationData };

@@ -117,6 +117,10 @@
       state.tilesById = byId;
       renderInitialGrid();
       attachSnapshotListener(displayRef);
+      /* Démarre le singleton timers une fois auth + db prêts */
+      if (window.FamilyHubTimers) {
+        window.FamilyHubTimers.init(state.db, hid);
+      }
     });
   }
 
@@ -144,6 +148,7 @@
       if (!snap.exists) return;
       var data = snap.data() || {};
       var tiles = data.tiles || {};
+      state.lastSnapshotTiles = tiles;
       for (var tileId in tiles) {
         if (!tiles.hasOwnProperty(tileId)) continue;
         var cell = state.cellsByTileId[tileId];
@@ -156,6 +161,46 @@
       if (window.console && window.console.error) window.console.error('snapshot listener', err);
     });
   }
+
+  /* Permet à render.js de récupérer la dernière data d'un tile pour l'expand. */
+  window.FamilyHubGetTileSnapshot = function (tileId) {
+    var entry = state.lastSnapshotTiles && state.lastSnapshotTiles[tileId];
+    return entry ? entry.data : null;
+  };
+  /* Lecture courante de la config (suit les updates Firestore live via tilesById). */
+  window.FamilyHubGetTileConfig = function (tileId) {
+    var t = state.tilesById[tileId];
+    return t ? t.config : null;
+  };
+  /* Patch partiel sur tile.config (utilisé par weather expand pour basculer la ville sélectionnée). */
+  window.FamilyHubUpdateTileConfig = function (tileId, patch) {
+    if (!tileId || !patch) return;
+    if (!state.householdId) return;
+    var ref = state.db.collection('households').doc(state.householdId)
+      .collection('tiles').doc(tileId);
+    var updates = {};
+    for (var k in patch) {
+      if (patch.hasOwnProperty(k)) updates['config.' + k] = patch[k];
+    }
+    updates['updatedAt'] = firebase.firestore.FieldValue.serverTimestamp();
+    ref.update(updates).then(function () {
+      /* Mise à jour locale immédiate pour réactivité */
+      var t = state.tilesById[tileId];
+      if (t && t.config) {
+        for (var k2 in patch) {
+          if (patch.hasOwnProperty(k2)) t.config[k2] = patch[k2];
+        }
+      }
+      /* Re-render la cell avec la nouvelle config */
+      var cell = state.cellsByTileId[tileId];
+      if (cell && t) {
+        var snapshotData = window.FamilyHubGetTileSnapshot(tileId);
+        window.FamilyHubRender.renderTile(t.type, cell, snapshotData || {}, t.config);
+      }
+    }, function (err) {
+      if (window.console && window.console.error) window.console.error('updateTileConfig failed', err);
+    });
+  };
 
   function boot() {
     setupAudioUnlock();

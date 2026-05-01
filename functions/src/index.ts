@@ -12,4 +12,9 @@ setGlobalOptions({ region: "europe-west1", maxInstances: 10 });
 export { refreshWeatherTile, scheduledWeatherRefresh } from "./tiles/weather";
 
 // Auth display
-export { createDisplayToken, exchangeSetupToken, refreshDisplayToken } from "./auth/displayToken";
+export {
+  createDisplayToken,
+  exchangeSetupToken,
+  refreshDisplayToken,
+  resolveSetupShortId,
+} from "./auth/displayToken";

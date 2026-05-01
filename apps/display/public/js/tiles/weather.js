@@ -1,5 +1,5 @@
-/* tiles/weather.js — rendu météo depuis le snapshot Firestore.
-   ES5 vanilla. SVG icônes héritées du legacy MenuMaster (kitchen-magazine vibe). */
+/* tiles/weather.js — vue compacte (location sélectionnée) + vue plein écran (toutes les locations).
+   ES5 vanilla, iOS 9 OK. SVG icônes héritées du legacy MenuMaster. */
 (function (global) {
   'use strict';
 
@@ -48,8 +48,8 @@
     switch (iconKey) {
       case 'sun': inner = sun; break;
       case 'moon': inner = moon; break;
-      case 'cloud-sun': inner = partly; break;
-      case 'cloud-moon': inner = partly; break; /* fallback */
+      case 'cloud-sun':
+      case 'cloud-moon': inner = partly; break;
       case 'rain': inner = rain; break;
       case 'snow': inner = snow; break;
       case 'fog': inner = fog; break;
@@ -59,37 +59,178 @@
     return '<svg viewBox="0 0 72 72" xmlns="http://www.w3.org/2000/svg">' + inner + '</svg>';
   }
 
-  function render(container, data, config) {
-    container.className = 'grid-cell tile-weather';
-    var ville = (config && config.ville) ? config.ville : '';
+  /* --- Helpers communs --- */
+  function findLocation(config, id) {
+    var locs = (config && config.locations) || [];
+    for (var i = 0; i < locs.length; i++) {
+      if (locs[i].id === id) return locs[i];
+    }
+    return null;
+  }
 
-    if (!data || !data.current) {
-      container.innerHTML = '<div class="tile-title">Météo</div>'
-        + '<div class="tile-weather-label">En attente des données…</div>';
+  function selectedLocation(config) {
+    var locs = (config && config.locations) || [];
+    if (locs.length === 0) return null;
+    var sel = findLocation(config, config.selectedLocationId);
+    return sel || locs[0];
+  }
+
+  function dataFor(data, locId) {
+    var by = data && data.byLocation;
+    return (by && by[locId]) ? by[locId] : null;
+  }
+
+  /* --- Vue COMPACTE (cell de la grille) --- */
+  function render(container, data, config) {
+    container.className = 'grid-cell tile-weather tile-clickable';
+    container.innerHTML = '';
+
+    var loc = selectedLocation(config);
+    var ld = loc ? dataFor(data, loc.id) : null;
+    var locs = (config && config.locations) || [];
+
+    var titleEl = document.createElement('div');
+    titleEl.className = 'tile-title';
+    var titleText = 'Météo';
+    if (loc && loc.ville) titleText += ' — ' + loc.ville;
+    if (locs.length > 1) titleText += ' (' + locs.length + ')';
+    titleEl.innerHTML = titleText;
+    container.appendChild(titleEl);
+
+    var wrap = document.createElement('div');
+    wrap.className = 'tile-weather-compact';
+    container.appendChild(wrap);
+
+    if (!loc) {
+      wrap.innerHTML = '<div class="tile-weather-label">Aucune ville configurée</div>';
+      return;
+    }
+    if (!ld) {
+      wrap.innerHTML = '<div class="tile-weather-label">En attente des données…</div>';
       return;
     }
 
-    var temp = Math.round(data.current.tempC);
-    var label = data.current.label || '';
-    var icon = data.current.iconKey || 'cloud';
-    var minC = (data.daily && typeof data.daily.minC === 'number') ? Math.round(data.daily.minC) : null;
-    var maxC = (data.daily && typeof data.daily.maxC === 'number') ? Math.round(data.daily.maxC) : null;
+    var temp = Math.round(ld.current.tempC);
+    var minC = Math.round(ld.daily.minC);
+    var maxC = Math.round(ld.daily.maxC);
 
-    var html = '';
-    html += '<div class="tile-title">Météo' + (ville ? ' — ' + ville : '') + '</div>';
-    html += '<div class="tile-weather-icon">' + iconSVG(icon) + '</div>';
-    html += '<div class="tile-weather-temp">' + temp + '°</div>';
-    html += '<div class="tile-weather-label">' + label + '</div>';
-    if (minC !== null && maxC !== null) {
-      html += '<div class="tile-weather-range">Min ' + minC + '° / Max ' + maxC + '°</div>';
-    }
-    container.innerHTML = html;
+    wrap.innerHTML =
+      '<div class="tile-weather-icon">' + iconSVG(ld.current.iconKey) + '</div>' +
+      '<div class="tile-weather-temp">' + temp + '°</div>' +
+      '<div class="tile-weather-label">' + ld.current.label + '</div>' +
+      '<div class="tile-weather-range">Min ' + minC + '° / Max ' + maxC + '°</div>' +
+      (locs.length > 1 ? '<div class="tile-weather-hint">Touche pour changer de ville</div>' : '');
   }
 
   function cleanup(container) {
     container.innerHTML = '';
   }
 
+  /* --- Vue PLEIN ÉCRAN (overlay) --- */
+  function expand(container, data, config) {
+    container.innerHTML = '';
+    container.className = 'tile-overlay-content tile-weather-expand';
+
+    var locs = (config && config.locations) || [];
+    var selectedId = config && config.selectedLocationId;
+
+    var headerEl = document.createElement('h1');
+    headerEl.className = 'tile-overlay-h1';
+    headerEl.innerHTML = 'Météo';
+    container.appendChild(headerEl);
+
+    if (locs.length === 0) {
+      var noEl = document.createElement('p');
+      noEl.innerHTML = 'Aucune ville configurée. Configure les villes depuis le hub.';
+      container.appendChild(noEl);
+      return;
+    }
+
+    var hint = document.createElement('p');
+    hint.className = 'tile-weather-expand-hint';
+    hint.innerHTML = 'Touche une ville pour la mettre en avant dans la tuile principale.';
+    container.appendChild(hint);
+
+    /* DIAG : affiche les clés du snapshot pour débugger un mismatch d'ID. */
+    var diag = document.createElement('p');
+    diag.style.cssText = 'font:11px monospace;color:#6B7280;background:#FAFAF7;padding:6px;border-radius:4px;word-break:break-all';
+    var dataKeys = data ? Object.keys(data).join(',') : '(no data)';
+    var byLocKeys = (data && data.byLocation) ? Object.keys(data.byLocation).join(',') : '(no byLocation)';
+    var configKeys = (config && config.locations) ? config.locations.map(function (l) { return l.id; }).join(',') : '(no config locations)';
+    diag.innerHTML = 'DIAG · data keys: [' + dataKeys + '] · byLocation: [' + byLocKeys + '] · config locs: [' + configKeys + ']';
+    container.appendChild(diag);
+
+    var listEl = document.createElement('div');
+    listEl.className = 'tile-weather-expand-list';
+    container.appendChild(listEl);
+
+    for (var i = 0; i < locs.length; i++) {
+      (function (loc) {
+        var ld = dataFor(data, loc.id);
+        var card = document.createElement('button');
+        card.className = 'tile-weather-expand-card' + (loc.id === selectedId ? ' selected' : '');
+        card.setAttribute('data-loc-id', loc.id);
+
+        var html = '<div class="weather-card-left">';
+        html += '<div class="weather-card-ville">' + loc.ville + '</div>';
+        if (ld) {
+          html += '<div class="weather-card-label">' + ld.current.label + '</div>';
+          html += '<div class="weather-card-range">Min ' + Math.round(ld.daily.minC) + '° · Max ' + Math.round(ld.daily.maxC) + '° · ☀ ' + ld.daily.sunrise + ' / 🌙 ' + ld.daily.sunset + '</div>';
+        } else {
+          html += '<div class="weather-card-label">Données indisponibles</div>';
+        }
+        html += '</div>';
+
+        html += '<div class="weather-card-right">';
+        if (ld) {
+          html += '<div class="weather-card-icon">' + iconSVG(ld.current.iconKey) + '</div>';
+          html += '<div class="weather-card-temp">' + Math.round(ld.current.tempC) + '°</div>';
+        } else {
+          html += '<div class="weather-card-temp">—</div>';
+        }
+        if (loc.id === selectedId) {
+          html += '<div class="weather-card-selected-badge">Affichée</div>';
+        }
+        html += '</div>';
+
+        card.innerHTML = html;
+        card.addEventListener('click', function () {
+          if (loc.id === selectedId) return;
+          /* Met à jour la config tile.selectedLocationId via le helper exposé par core */
+          if (global.FamilyHubUpdateTileConfig) {
+            global.FamilyHubUpdateTileConfig(container._tileId, { selectedLocationId: loc.id });
+          }
+          /* Optimistic UI update */
+          var allCards = listEl.querySelectorAll('.tile-weather-expand-card');
+          for (var k = 0; k < allCards.length; k++) {
+            allCards[k].className = 'tile-weather-expand-card';
+            var badge = allCards[k].querySelector('.weather-card-selected-badge');
+            if (badge) badge.parentNode.removeChild(badge);
+          }
+          card.className = 'tile-weather-expand-card selected';
+          var rightEl = card.querySelector('.weather-card-right');
+          if (rightEl) {
+            var b = document.createElement('div');
+            b.className = 'weather-card-selected-badge';
+            b.innerHTML = 'Affichée';
+            rightEl.appendChild(b);
+          }
+          selectedId = loc.id;
+        });
+        listEl.appendChild(card);
+      })(locs[i]);
+    }
+  }
+
+  function collapse(container) {
+    container.innerHTML = '';
+  }
+
   global.Tiles = global.Tiles || {};
-  global.Tiles.weather = { render: render, cleanup: cleanup };
+  global.Tiles.weather = {
+    render: render,
+    cleanup: cleanup,
+    expand: expand,
+    collapse: collapse
+  };
 })(window);
