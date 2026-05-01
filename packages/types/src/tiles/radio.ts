@@ -11,17 +11,22 @@ export interface RadioConfig {
 }
 
 /**
- * Stations par défaut (seed) — France & Suisse romande, flux HTTPS publics.
+ * Stations par défaut (seed) — uniquement des flux HTTPS testés iOS 9.3.6 friendly.
  *
- * Pour les stations Radio France, on utilise les flux HLS (.m3u8) plutôt que les MP3
- * directs depuis icecast.radiofrance.fr : iOS 9 Safari ne supporte plus ces derniers
- * (erreur MEDIA_ERR_SRC_NOT_SUPPORTED) alors que HLS est natif iOS depuis iOS 3.
+ * CDN qui marchent sur iOS 9 : stream.srg-ssr.ch (Suisse), stream-uk1.radioparadise.com,
+ * npr-ice.streamguys1.com. Ce qui ne marche pas : Infomaniak (TLS strict), impek,
+ * radiofrance (icecast et HLS), BBC (migration vers Sounds avec auth).
+ *
+ * Mix : 3 ambiances Radio Paradise (éclectique sans pub), 1 news anglais (NPR),
+ * 4 stations RTS/SRG SSR (FR + culture + jazz CH).
  */
 export const defaultRadioStations: RadioStation[] = [
-  { id: "france-inter", nom: "France Inter", url: "https://stream.radiofrance.fr/franceinter/franceinter_hifi.m3u8" },
-  { id: "france-info", nom: "France Info", url: "https://stream.radiofrance.fr/franceinfo/franceinfo_hifi.m3u8" },
-  { id: "france-culture", nom: "France Culture", url: "https://stream.radiofrance.fr/franceculture/franceculture_hifi.m3u8" },
-  { id: "france-musique", nom: "France Musique", url: "https://stream.radiofrance.fr/francemusique/francemusique_hifi.m3u8" },
+  { id: "radio-paradise", nom: "Radio Paradise", url: "https://stream-uk1.radioparadise.com/mp3-192" },
+  { id: "radio-paradise-mellow", nom: "Radio Paradise · Mellow", url: "https://stream-uk1.radioparadise.com/mellow-192" },
+  { id: "radio-paradise-world", nom: "Radio Paradise · World", url: "https://stream-uk1.radioparadise.com/world-etc-192" },
+  { id: "npr-news", nom: "NPR News (English)", url: "https://npr-ice.streamguys1.com/live.mp3" },
   { id: "rts-la-1ere", nom: "RTS La 1ère", url: "https://stream.srg-ssr.ch/m/la-1ere/mp3_128" },
   { id: "couleur-3", nom: "Couleur 3", url: "https://stream.srg-ssr.ch/m/couleur3/mp3_128" },
+  { id: "rts-espace-2", nom: "RTS Espace 2 (classique)", url: "https://stream.srg-ssr.ch/m/espace-2/mp3_128" },
+  { id: "radio-swiss-jazz", nom: "Radio Swiss Jazz", url: "https://stream.srg-ssr.ch/m/rsj/mp3_128" },
 ];

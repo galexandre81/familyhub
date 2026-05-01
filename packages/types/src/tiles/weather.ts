@@ -48,10 +48,21 @@ export interface WeatherDaily {
   sunset: string;
 }
 
+export interface WeatherWeeklyDay {
+  /** ISO "YYYY-MM-DD" */
+  date: string;
+  minC: number;
+  maxC: number;
+  weatherCode: number;
+  iconKey: WeatherIconKey;
+}
+
 export interface WeatherSingleLocationData {
   current: WeatherCurrent;
   forecast: WeatherForecastPoint[];
   daily: WeatherDaily;
+  /** Prévision sur ~7 jours (jour 0 = aujourd'hui) */
+  weekly: WeatherWeeklyDay[];
 }
 
 /**

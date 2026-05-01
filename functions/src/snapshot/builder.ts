@@ -28,9 +28,11 @@ export async function rebuildSnapshotForTile(
     const update = {
       generatedAt: admin.firestore.FieldValue.serverTimestamp(),
       ttlSeconds: SNAPSHOT_TTL_SECONDS,
-      [`tiles.${tileId}`]: {
-        data,
-        generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      tiles: {
+        [tileId]: {
+          data,
+          generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        },
       },
     };
     writes.push(snapshotRef.set(update, { merge: true }));

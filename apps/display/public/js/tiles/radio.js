@@ -32,11 +32,34 @@
     center.className = 'tile-radio-compact';
     container.appendChild(center);
 
+    /* Icônes SVG laiton 110px — taille comparable au sablier minuteur, sans cercle. */
+    var ICON_PLAY =
+      '<svg viewBox="0 0 100 100" width="96" height="96">' +
+      '<path d="M 26 12 L 88 50 L 26 88 Z" fill="currentColor" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>' +
+      '</svg>';
+    var ICON_PAUSE =
+      '<svg viewBox="0 0 100 100" width="96" height="96">' +
+      '<rect x="22" y="14" width="20" height="72" rx="3" fill="currentColor"/>' +
+      '<rect x="58" y="14" width="20" height="72" rx="3" fill="currentColor"/>' +
+      '</svg>';
+    var ICON_LOADING =
+      '<svg viewBox="0 0 100 100" width="100" height="100">' +
+      '<circle cx="50" cy="50" r="38" fill="none" stroke="currentColor" stroke-width="7" stroke-linecap="round" stroke-dasharray="70 240">' +
+      '<animateTransform attributeName="transform" type="rotate" from="0 50 50" to="360 50 50" dur="1s" repeatCount="indefinite"/>' +
+      '</circle>' +
+      '</svg>';
+    var ICON_ERROR =
+      '<svg viewBox="0 0 100 100" width="100" height="100">' +
+      '<path d="M50 12 L90 82 L10 82 Z" fill="none" stroke="currentColor" stroke-width="7" stroke-linejoin="round"/>' +
+      '<rect x="46" y="36" width="8" height="26" rx="2" fill="currentColor"/>' +
+      '<rect x="46" y="66" width="8" height="8" rx="2" fill="currentColor"/>' +
+      '</svg>';
+
     /* Bouton play/pause (tappable indépendamment de l'expand) */
     var playBtn = document.createElement('button');
     playBtn.className = 'tile-radio-compact-btn';
     playBtn.setAttribute('aria-label', 'Play / Pause');
-    playBtn.innerHTML = '▶';
+    playBtn.innerHTML = ICON_PLAY;
     /* IMPORTANT iOS 9 : play() doit être SYNCHRONE dans le handler de tap. */
     playBtn.addEventListener('click', function (e) {
       e.stopPropagation(); /* ne pas ouvrir l'overlay */
@@ -62,34 +85,41 @@
     statusEl.innerHTML = 'Touche ▶ pour ' + (findDefaultStation() ? findDefaultStation().nom : 'lire');
     center.appendChild(statusEl);
 
-    /* Subscribe to audio singleton state */
+    /* Subscribe to audio singleton state.
+       Le status text est masqué sauf en cas d'erreur — l'icône (play/pause) et
+       la couleur (sage = lecture, brass = pause) communiquent l'état visuellement. */
     var unsub = global.FamilyHubAudio.subscribe(function (state) {
       if (state.error) {
-        playBtn.innerHTML = '⚠';
+        playBtn.innerHTML = ICON_ERROR;
         playBtn.className = 'tile-radio-compact-btn error';
         stationEl.innerHTML = state.currentStation ? state.currentStation.nom : '—';
         statusEl.innerHTML = state.error;
+        statusEl.style.display = '';
       } else if (state.loading) {
-        playBtn.innerHTML = '⋯';
+        playBtn.innerHTML = ICON_LOADING;
         playBtn.className = 'tile-radio-compact-btn loading';
         stationEl.innerHTML = state.currentStation ? state.currentStation.nom : '—';
-        statusEl.innerHTML = 'Chargement…';
+        statusEl.innerHTML = '';
+        statusEl.style.display = 'none';
       } else if (state.playing) {
-        playBtn.innerHTML = '⏸';
+        playBtn.innerHTML = ICON_PAUSE;
         playBtn.className = 'tile-radio-compact-btn playing';
         stationEl.innerHTML = state.currentStation ? state.currentStation.nom : '—';
-        statusEl.innerHTML = '♪ En lecture · Touche pour pause';
+        statusEl.innerHTML = '';
+        statusEl.style.display = 'none';
       } else if (state.currentStation) {
-        playBtn.innerHTML = '▶';
+        playBtn.innerHTML = ICON_PLAY;
         playBtn.className = 'tile-radio-compact-btn';
         stationEl.innerHTML = state.currentStation.nom;
-        statusEl.innerHTML = 'En pause · Touche ▶ pour reprendre';
+        statusEl.innerHTML = '';
+        statusEl.style.display = 'none';
       } else {
-        playBtn.innerHTML = '▶';
+        playBtn.innerHTML = ICON_PLAY;
         playBtn.className = 'tile-radio-compact-btn';
         var def = findDefaultStation();
         stationEl.innerHTML = def ? def.nom : (stations.length + ' station' + (stations.length > 1 ? 's' : ''));
-        statusEl.innerHTML = def ? 'Touche ▶ pour démarrer' : 'Aucune station';
+        statusEl.innerHTML = '';
+        statusEl.style.display = 'none';
       }
     });
 

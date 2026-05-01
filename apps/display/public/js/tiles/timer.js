@@ -50,10 +50,25 @@
       });
 
       if (active.length === 0) {
+        /* Stopwatch SVG dessiné en laiton — beaucoup plus visible à 2m que l'emoji */
+        var hourglassSvg =
+          '<svg viewBox="0 0 80 96" width="120" height="140">' +
+          /* Top + bottom caps en laiton */
+          '<path d="M16 4 H64 V8 H16 Z" fill="#D9A05B"/>' +
+          '<path d="M16 88 H64 V92 H16 Z" fill="#D9A05B"/>' +
+          /* Verre extérieur (contour) */
+          '<path d="M20 8 H60 V20 L42 44 V52 L60 76 V88 H20 V76 L38 52 V44 L20 20 Z" ' +
+          '  fill="none" stroke="#D9A05B" stroke-width="2" stroke-linejoin="round"/>' +
+          /* Sable supérieur (peu rempli — le minuteur attend) */
+          '<path d="M24 12 H56 L42 30 H38 Z" fill="#D9A05B" opacity="0.85"/>' +
+          /* Filet de sable central */
+          '<line x1="40" y1="44" x2="40" y2="52" stroke="#D9A05B" stroke-width="1.5"/>' +
+          /* Sable inférieur (petit tas) */
+          '<path d="M28 84 H52 L46 76 H34 Z" fill="#D9A05B" opacity="0.85"/>' +
+          '</svg>';
         bodyEl.innerHTML = ''
           + '<div class="timer-compact-empty">'
-          + '<div class="timer-compact-empty-icon">⏱</div>'
-          + '<div class="timer-compact-empty-text">Touche pour<br>démarrer un minuteur</div>'
+          + '<div class="timer-compact-empty-icon">' + hourglassSvg + '</div>'
           + '</div>';
         return;
       }

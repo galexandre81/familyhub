@@ -4,24 +4,24 @@
 
 @layer base {
   body {
-    @apply bg-paper text-ink font-sans;
+    @apply bg-ebony text-cream font-sans;
     font-feature-settings: "ss01", "cv01";
     background-image:
-      radial-gradient(circle at 15% 8%, rgba(212, 160, 69, 0.05), transparent 35%),
-      radial-gradient(circle at 85% 92%, rgba(184, 92, 66, 0.04), transparent 40%);
+      radial-gradient(circle at 18% 8%, rgba(217, 160, 91, 0.08), transparent 38%),
+      radial-gradient(circle at 82% 92%, rgba(201, 113, 46, 0.05), transparent 42%);
     background-attachment: fixed;
   }
 
-  /* Subtle paper grain overlay */
+  /* Subtle ebony grain overlay */
   body::before {
     content: "";
     position: fixed;
     inset: 0;
-    background-image: theme(backgroundImage.paper-grain);
-    opacity: 0.5;
+    background-image: theme(backgroundImage.ebony-grain);
+    opacity: 0.4;
     pointer-events: none;
     z-index: 0;
-    mix-blend-mode: multiply;
+    mix-blend-mode: screen;
   }
 
   #root {
@@ -34,20 +34,28 @@
     font-feature-settings: "ss01";
   }
 
-  /* Number-heavy text uses tabular figures */
   .nums {
     font-feature-settings: "tnum";
+  }
+
+  /* Selection in brass */
+  ::selection {
+    background: rgba(217, 160, 91, 0.3);
+    color: #F2E8D5;
   }
 }
 
 @layer components {
   .tile-card {
-    @apply bg-ivory rounded-tile p-7 relative;
-    border: 1px solid theme(colors.hairline);
+    @apply bg-ebony-card rounded-tile p-7 relative;
+    border: 1px solid theme(colors.wood.dark);
     box-shadow: theme(boxShadow.tile);
+    background-image:
+      linear-gradient(180deg, rgba(217, 160, 91, 0.04), transparent 60%),
+      linear-gradient(90deg, rgba(0,0,0,0.04) 0px, transparent 1px, transparent 40px, rgba(0,0,0,0.03) 41px, transparent 42px);
   }
 
-  /* Hairline ornament top-right of cards */
+  /* Brass ornament top-right */
   .tile-card::before {
     content: "";
     position: absolute;
@@ -55,69 +63,72 @@
     right: 22px;
     width: 28px;
     height: 1px;
-    background: theme(colors.terracotta.DEFAULT);
-    opacity: 0.45;
+    background: theme(colors.brass.DEFAULT);
+    opacity: 0.6;
   }
 
   .tile-title {
-    @apply font-serif text-eyebrow uppercase text-terracotta mb-3;
+    @apply font-serif text-eyebrow uppercase text-brass mb-3;
   }
 
   .btn-primary {
-    @apply bg-terracotta text-paper px-6 py-3 transition;
+    @apply bg-brass text-ebony px-6 py-3 transition;
     border-radius: 2px;
     font-size: 11px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
-    font-weight: 500;
+    font-weight: 600;
   }
-  .btn-primary:hover { @apply bg-terracotta-deep; }
+  .btn-primary:hover { @apply bg-brass-deep; }
   .btn-primary:disabled { opacity: 0.4; cursor: not-allowed; }
 
   .btn-secondary {
-    @apply bg-ivory text-ink px-6 py-3 transition;
-    border: 1px solid theme(colors.hairline);
+    @apply bg-ebony-card text-cream px-6 py-3 transition;
+    border: 1px solid theme(colors.wood.dark);
     border-radius: 2px;
     font-size: 11px;
     letter-spacing: 0.18em;
     text-transform: uppercase;
     font-weight: 500;
   }
-  .btn-secondary:hover { @apply bg-paper; border-color: theme(colors.ink.mute); }
+  .btn-secondary:hover {
+    @apply bg-ebony-ridge;
+    border-color: theme(colors.brass.DEFAULT);
+  }
 
   .input {
-    @apply w-full px-4 py-3 bg-ivory text-ink text-sm transition;
-    border: 1px solid theme(colors.hairline);
+    @apply w-full px-4 py-3 bg-ebony-card text-cream text-sm transition;
+    border: 1px solid theme(colors.wood.dark);
     border-radius: 2px;
     font-family: theme(fontFamily.sans);
   }
+  .input::placeholder { color: theme(colors.cream.mute); }
   .input:focus {
     @apply outline-none;
-    border-color: theme(colors.terracotta.DEFAULT);
-    box-shadow: 0 0 0 3px rgba(184, 92, 66, 0.1);
+    border-color: theme(colors.brass.DEFAULT);
+    box-shadow: 0 0 0 3px rgba(217, 160, 91, 0.15);
   }
 
-  /* Hairline divider with ornament */
+  /* Hairline divider with brass diamond */
   .rule {
     @apply flex items-center gap-3;
-    color: theme(colors.terracotta.DEFAULT);
+    color: theme(colors.brass.DEFAULT);
   }
   .rule::before, .rule::after {
     content: "";
     flex: 1;
     height: 1px;
-    background: theme(colors.hairline);
+    background: theme(colors.wood.dark);
   }
   .rule-mark {
     width: 6px;
     height: 6px;
     transform: rotate(45deg);
-    background: theme(colors.terracotta.DEFAULT);
-    opacity: 0.5;
+    background: theme(colors.brass.DEFAULT);
+    opacity: 0.8;
   }
 
-  /* Eyebrow label */
   .eyebrow {
-    @apply font-serif text-eyebrow uppercase text-terracotta;
+    @apply font-serif text-eyebrow uppercase text-brass;
   }
 }

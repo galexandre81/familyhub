@@ -4,8 +4,10 @@
   'use strict';
 
   /**
-   * Beep court (sinusoïdale 880Hz, 250ms, fade in/out, 8kHz mono 16-bit) servi en static.
-   * Élément <audio> pré-créé dans index.html avec id "family-hub-timer-alarm".
+   * Alarme : Web Audio API (oscillateur 880Hz avec ADSR) en primaire, élément
+   * <audio> en fallback. Web Audio est dispo sur iOS 9 (préfixe webkit) et
+   * marche bien plus fiablement que <audio> + WAV statique : pas de chargement
+   * réseau, pas de MIME, pas de bug `currentTime=0` avant load.
    */
   var alarmAudio = document.getElementById('family-hub-timer-alarm');
   if (!alarmAudio) {
@@ -16,7 +18,8 @@
     document.body.appendChild(alarmAudio);
   }
   var alarmTimers = {};
-  var alarmUnlocked = false;
+  var audioCtx = null;
+  var audioCtxFailed = false;
 
   function debugAlarm(msg) {
     if (window.location.search.indexOf('debug=audio') === -1) return;
@@ -32,51 +35,165 @@
     while (el.children.length > 12) el.removeChild(el.lastChild);
   }
 
-  /* iOS 9 : pas d'auto-unlock global (collision avec les play volontaires).
-     L'unlock se fait au premier appel à beepSequence() depuis un user-gesture. */
-
   /* Hook diagnostic supplémentaire */
   ['playing', 'error', 'ended', 'suspend'].forEach
     ? ['playing', 'error', 'ended', 'suspend'].forEach(function (e) {
         alarmAudio.addEventListener(e, function () {
           var extra = '';
           if (e === 'error' && alarmAudio.error) extra = ' code=' + alarmAudio.error.code;
-          debugAlarm(e + extra);
+          debugAlarm('audio:' + e + extra);
         });
       })
     : null;
 
-  function beepSequence(times) {
-    debugAlarm('beepSequence(' + times + ')');
-    /* Premier appel : on en profite pour "warm up" iOS 9. play() sync = unlock. */
+  /* Crée (ou récupère) l'AudioContext. Doit être appelé depuis un user-gesture
+     la première fois sur iOS 9 / Safari pour autoriser la sortie audio. */
+  function ensureAudioCtx() {
+    if (audioCtx || audioCtxFailed) return audioCtx;
+    var Ctor = global.AudioContext || global.webkitAudioContext;
+    if (!Ctor) {
+      audioCtxFailed = true;
+      debugAlarm('no AudioContext support');
+      return null;
+    }
+    try {
+      audioCtx = new Ctor();
+      debugAlarm('audioCtx created state=' + audioCtx.state);
+    } catch (e) {
+      audioCtxFailed = true;
+      debugAlarm('audioCtx ctor threw: ' + (e.message || e));
+      return null;
+    }
+    return audioCtx;
+  }
+
+  /* Joue un beep synthétique. Retourne true si lancé, false sinon. */
+  function playWebAudioBeep(freq, durationMs, whenOffsetSec) {
+    var ctx = ensureAudioCtx();
+    if (!ctx) return false;
+    /* iOS 9 / Safari : si le contexte est suspended, resume() depuis user-gesture. */
+    if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+      try { ctx.resume(); } catch (e) {}
+    }
+    try {
+      var now = ctx.currentTime + (whenOffsetSec || 0);
+      var dur = (durationMs || 250) / 1000;
+      var osc = ctx.createOscillator();
+      var gain = ctx.createGain();
+      osc.type = 'sine';
+      osc.frequency.value = freq || 880;
+      /* ADSR : attack 10ms, hold à 0.6, release 60ms */
+      gain.gain.setValueAtTime(0.0001, now);
+      gain.gain.exponentialRampToValueAtTime(0.6, now + 0.01);
+      gain.gain.setValueAtTime(0.6, now + dur - 0.06);
+      gain.gain.exponentialRampToValueAtTime(0.0001, now + dur);
+      osc.connect(gain);
+      gain.connect(ctx.destination);
+      osc.start(now);
+      osc.stop(now + dur + 0.05);
+      return true;
+    } catch (e) {
+      debugAlarm('webaudio beep threw: ' + (e.message || e));
+      return false;
+    }
+  }
+
+  /* Fallback : <audio> + beep.wav. */
+  function playAudioElementBeep() {
     try {
       alarmAudio.volume = 1;
-      alarmAudio.currentTime = 0;
+      try { alarmAudio.currentTime = 0; } catch (e) {}
       var p = alarmAudio.play();
-      debugAlarm('first play() ' + (typeof p));
+      debugAlarm('audio.play() ' + (typeof p));
       if (p && p['catch']) p['catch'](function (err) {
-        debugAlarm('first play rejected: ' + (err && (err.name || err.message)));
+        debugAlarm('audio rejected: ' + (err && (err.name || err.message)));
       });
-      alarmUnlocked = true;
+      return true;
     } catch (e) {
-      debugAlarm('first play threw: ' + (e.message || e));
+      debugAlarm('audio threw: ' + (e.message || e));
+      return false;
     }
+  }
 
-    /* Bips suivants programmés via setTimeout — iOS 9 les accepte une fois unlock. */
+  /* Joue un "double bip" aigu (di-din) — plus reconnaissable qu'un seul ton. */
+  function playOneAlarmCycle(whenOffsetSec) {
+    var off = whenOffsetSec || 0;
+    var okA = playWebAudioBeep(1320, 180, off);
+    var okB = playWebAudioBeep(1760, 220, off + 0.22);
+    return okA && okB;
+  }
+
+  function beepSequence(times) {
+    debugAlarm('beepSequence(' + times + ')');
+    var n = Math.max(1, times | 0);
+    /* Tente Web Audio en premier — beep planifié sur le contexte = pas besoin
+       de setTimeout, donc pas de risque de perdre le user-gesture. */
+    var ctx = ensureAudioCtx();
+    if (ctx) {
+      if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+        try { ctx.resume(); } catch (e) {}
+      }
+      var ok = true;
+      for (var i = 0; i < n; i++) {
+        if (!playOneAlarmCycle(i * 0.95)) { ok = false; break; }
+      }
+      if (ok) return;
+    }
+    /* Fallback : <audio> + setTimeout pour les répétitions. */
+    playAudioElementBeep();
     var count = 1;
     function step() {
-      if (count >= times) return;
-      try {
-        alarmAudio.currentTime = 0;
-        var p2 = alarmAudio.play();
-        if (p2 && p2['catch']) p2['catch'](function () {});
-      } catch (e) {
-        debugAlarm('beep step threw: ' + (e.message || e));
-      }
+      if (count >= n) return;
+      playAudioElementBeep();
       count++;
       setTimeout(step, 700);
     }
-    setTimeout(step, 700);
+    if (n > 1) setTimeout(step, 700);
+  }
+
+  /* --- Boucle d'alarme continue --- */
+  /* alarmLoop : un seul interval JS qui beepe tant qu'il y a au moins un timer
+     en status 'ended' non acquitté. Web Audio peut planifier plusieurs cycles
+     d'avance ; on en pousse 2 dans le futur à chaque tick pour absorber les
+     micro-jitters de setInterval (et au cas où l'onglet ralentit). */
+  var alarmLoopInterval = null;
+  var alarmCycleSec = 1.1; /* durée d'un cycle "di-din + silence" */
+
+  function alarmLoopActive() {
+    for (var i = 0; i < state.timers.length; i++) {
+      if (state.timers[i].status === 'ended') return true;
+    }
+    return false;
+  }
+
+  function alarmLoopTick() {
+    if (!alarmLoopActive()) {
+      stopAlarmLoop();
+      return;
+    }
+    var ctx = ensureAudioCtx();
+    if (ctx) {
+      if (ctx.state === 'suspended' && typeof ctx.resume === 'function') {
+        try { ctx.resume(); } catch (e) {}
+      }
+      playOneAlarmCycle(0);
+    } else {
+      playAudioElementBeep();
+    }
+  }
+
+  function startAlarmLoop() {
+    if (alarmLoopInterval) return;
+    debugAlarm('alarm loop START');
+    alarmLoopTick();
+    alarmLoopInterval = setInterval(alarmLoopTick, alarmCycleSec * 1000);
+  }
+
+  function stopAlarmLoop() {
+    if (!alarmLoopInterval) return;
+    debugAlarm('alarm loop STOP');
+    clearInterval(alarmLoopInterval);
+    alarmLoopInterval = null;
   }
 
   /* --- État partagé Firestore --- */
@@ -197,8 +314,8 @@
   /* --- Détection des fins de timer (déclenche l'alarme) --- */
 
   function tick() {
-    var now = Date.now();
     var anyChange = false;
+    var hasEnded = false;
     for (var i = 0; i < state.timers.length; i++) {
       var t = state.timers[i];
       if (t.status === 'running' && timerRemainingMs(t) === 0 && !alarmTimers[t.id]) {
@@ -210,10 +327,14 @@
             updatedAt: firebase.firestore.FieldValue.serverTimestamp()
           });
         }
-        beepSequence(5);
         anyChange = true;
       }
+      if (t.status === 'ended') hasEnded = true;
     }
+    /* Démarre / arrête la boucle d'alarme selon qu'il reste ou non un timer
+       'ended' non acquitté. */
+    if (hasEnded) startAlarmLoop();
+    else stopAlarmLoop();
     /* Re-render quel que soit le statut (pour mettre à jour les compteurs) */
     notify();
     return anyChange;
@@ -235,6 +356,9 @@
           arr.push(Object.assign({ id: d.id }, d.data()));
         });
         state.timers = arr;
+        /* Si le timer qui sonnait a été acquitté/supprimé côté Firestore,
+           coupe la boucle d'alarme immédiatement (sans attendre tick). */
+        if (alarmLoopInterval && !alarmLoopActive()) stopAlarmLoop();
         notify();
       });
 
