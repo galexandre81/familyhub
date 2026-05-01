@@ -30,6 +30,13 @@
     return new Date(d.getFullYear(), d.getMonth(), d.getDate() + n);
   }
 
+  /* ISO week : lundi = jour 1. Pour un dim (jour 0 JS), on recule de 6. */
+  function startOfWeekMonday(d) {
+    var day = d.getDay();
+    var diff = (day === 0) ? -6 : (1 - day);
+    return addDays(startOfDay(d), diff);
+  }
+
   function sameDay(a, b) {
     return a.getFullYear() === b.getFullYear()
       && a.getMonth() === b.getMonth()
@@ -69,7 +76,9 @@
       .replace(/"/g, '&quot;');
   }
 
-  /* --- Vue COMPACTE (tile dans la grille) --- */
+  /* --- Vue COMPACTE (tile dans la grille) — minimaliste, façon météo --- */
+  /* Affiche UN seul prochain événement gros & lisible + un compteur de l'à-venir.
+     L'agenda complet est dans la vue plein écran (tap). */
   function render(container, data, _config) {
     container.className = 'grid-cell tile-calendar tile-clickable';
     container.innerHTML = '';
@@ -91,50 +100,34 @@
       var endD = parseISO(ev.endISO);
       if (endD && endD.getTime() < now.getTime()) continue;
       upcoming.push(ev);
-      if (upcoming.length >= 4) break;
     }
 
     if (upcoming.length === 0) {
-      wrap.innerHTML = '<div class="tile-calendar-empty">Aucun événement à venir</div>';
+      wrap.innerHTML = '<div class="cal-compact-empty">Aucun événement à venir</div>';
       return;
     }
 
     var first = upcoming[0];
     var firstStart = parseISO(first.startISO);
     if (!firstStart) {
-      wrap.innerHTML = '<div class="tile-calendar-empty">Données invalides</div>';
+      wrap.innerHTML = '<div class="cal-compact-empty">Données invalides</div>';
       return;
     }
 
+    var when = fmtRelativeDay(firstStart, now);
+    if (!first.allDay) when += ' · ' + fmtTime(firstStart);
+
     var html = '';
-    html += '<div class="tile-calendar-next">';
-    html += '<div class="tile-calendar-next-when">' + escapeHtml(fmtRelativeDay(firstStart, now));
-    if (!first.allDay) html += ' · ' + fmtTime(firstStart);
-    html += '</div>';
-    html += '<div class="tile-calendar-next-summary">' + escapeHtml(first.summary) + '</div>';
+    html += '<div class="cal-compact-when">' + escapeHtml(when) + '</div>';
+    html += '<div class="cal-compact-summary">' + escapeHtml(first.summary) + '</div>';
     if (first.location) {
-      html += '<div class="tile-calendar-next-loc">' + escapeHtml(first.location) + '</div>';
-    }
-    html += '</div>';
-
-    if (upcoming.length > 1) {
-      html += '<div class="tile-calendar-list">';
-      for (var j = 1; j < upcoming.length; j++) {
-        var ev2 = upcoming[j];
-        var s2 = parseISO(ev2.startISO);
-        if (!s2) continue;
-        html += '<div class="tile-calendar-row">';
-        html += '<div class="tile-calendar-row-when">' + escapeHtml(fmtRelativeDay(s2, now));
-        if (!ev2.allDay) html += ' · ' + fmtTime(s2);
-        html += '</div>';
-        html += '<div class="tile-calendar-row-summary">' + escapeHtml(ev2.summary) + '</div>';
-        html += '</div>';
-      }
-      html += '</div>';
+      html += '<div class="cal-compact-loc">' + escapeHtml(first.location) + '</div>';
     }
 
-    if (events.length > upcoming.length) {
-      html += '<div class="tile-calendar-hint">Touche pour voir tout l’agenda</div>';
+    var moreCount = upcoming.length - 1;
+    if (moreCount > 0) {
+      var label = moreCount === 1 ? '+ 1 autre événement' : '+ ' + moreCount + ' autres événements';
+      html += '<div class="cal-compact-more">' + label + '</div>';
     }
 
     wrap.innerHTML = html;
@@ -146,16 +139,18 @@
 
   /* --- Vue PLEIN ÉCRAN — pager 7 jours/page swipeable --- */
 
-  /* Construit les pages : tableau de pages, chaque page = tableau de 7 jours { date, items } */
+  /* Construit les pages alignées sur la semaine Lun→Dim (semaine ISO).
+     Page 1 = semaine de today (avec jours passés visibles mais dimés). */
   function buildPages(events, now, pageCount) {
     var today = startOfDay(now);
+    var weekStart = startOfWeekMonday(now);
     var byDay = {};
     for (var i = 0; i < events.length; i++) {
       var ev = events[i];
       var s = parseISO(ev.startISO);
       var e = parseISO(ev.endISO);
       if (!s) continue;
-      /* On garde les events en cours (start passé, end futur) en les rangeant à today */
+      /* Events dont end est passé : skip. Events en cours (start passé, end futur) → today. */
       var anchor = s;
       if (s.getTime() < today.getTime()) {
         if (!e || e.getTime() < now.getTime()) continue;
@@ -166,17 +161,16 @@
       byDay[k].push({ ev: ev, start: s, end: e, displayedDay: anchor });
     }
 
-    /* Détermine le nombre de pages : minimum 1, maximum pageCount,
-       mais on étend si des events tombent au-delà */
-    var maxOffset = 0;
+    /* Étend le nombre de pages si des events tombent au-delà du défaut. */
+    var maxOffsetFromWeekStart = 0;
     for (var key in byDay) {
       if (!byDay.hasOwnProperty(key)) continue;
       var d = byDay[key][0].displayedDay;
-      var off = Math.round((d.getTime() - today.getTime()) / 86400000);
-      if (off > maxOffset) maxOffset = off;
+      var off = Math.round((d.getTime() - weekStart.getTime()) / 86400000);
+      if (off > maxOffsetFromWeekStart) maxOffsetFromWeekStart = off;
     }
     var actualPages = Math.max(1, Math.min(
-      Math.max(pageCount, Math.ceil((maxOffset + 1) / DAYS_PER_PAGE)),
+      Math.max(pageCount, Math.ceil((maxOffsetFromWeekStart + 1) / DAYS_PER_PAGE)),
       6 /* hard cap : 6 pages = 42 jours */
     ));
 
@@ -184,10 +178,10 @@
     for (var p = 0; p < actualPages; p++) {
       var page = [];
       for (var di = 0; di < DAYS_PER_PAGE; di++) {
-        var date = addDays(today, p * DAYS_PER_PAGE + di);
+        var date = addDays(weekStart, p * DAYS_PER_PAGE + di);
         var items = byDay[dayKey(date)] || [];
         items.sort(function (a, b) { return a.start.getTime() - b.start.getTime(); });
-        page.push({ date: date, items: items });
+        page.push({ date: date, items: items, isPast: date.getTime() < today.getTime() });
       }
       pages.push(page);
     }
@@ -198,6 +192,7 @@
     var row = document.createElement('div');
     row.className = 'cal-day-row';
     if (sameDay(day.date, now)) row.className += ' cal-day-row-today';
+    else if (day.isPast) row.className += ' cal-day-row-past';
     if (day.items.length === 0) row.className += ' cal-day-row-empty';
 
     var pill = document.createElement('div');
@@ -248,6 +243,22 @@
     return pageEl;
   }
 
+  /* Format "1er – 7 mai" ou "29 avril – 5 mai" pour le label de page. */
+  function formatPageRange(page) {
+    if (!page || page.length === 0) return '';
+    var first = page[0].date;
+    var last = page[page.length - 1].date;
+    function dayLabel(d, withMonth) {
+      var num = d.getDate();
+      var prefix = (num === 1) ? '1er' : String(num);
+      return withMonth ? (prefix + ' ' + MONTHS_FR[d.getMonth()]) : prefix;
+    }
+    if (first.getMonth() === last.getMonth() && first.getFullYear() === last.getFullYear()) {
+      return dayLabel(first, false) + ' – ' + dayLabel(last, true);
+    }
+    return dayLabel(first, true) + ' – ' + dayLabel(last, true);
+  }
+
   /* Pager swipeable. Retourne { root, goTo(idx) }. */
   function buildPager(pages, now) {
     var pageCount = pages.length;
@@ -267,7 +278,7 @@
       track.appendChild(pg);
     }
 
-    /* Pagination dots + flèches */
+    /* Navigation : flèches + libellé de page central explicite. */
     var nav = document.createElement('div');
     nav.className = 'cal-pager-nav';
 
@@ -276,18 +287,8 @@
     prevBtn.innerHTML = '‹';
     prevBtn.setAttribute('aria-label', 'Semaine précédente');
 
-    var dots = document.createElement('div');
-    dots.className = 'cal-pager-dots';
-    var dotEls = [];
-    for (var d = 0; d < pageCount; d++) {
-      var dot = document.createElement('span');
-      dot.className = 'cal-pager-dot';
-      dotEls.push(dot);
-      dots.appendChild(dot);
-      (function (idx, dotEl) {
-        dotEl.addEventListener('click', function () { goTo(idx); });
-      })(d, dot);
-    }
+    var label = document.createElement('div');
+    label.className = 'cal-pager-label';
 
     var nextBtn = document.createElement('button');
     nextBtn.className = 'cal-pager-arrow cal-pager-arrow-next';
@@ -295,7 +296,7 @@
     nextBtn.setAttribute('aria-label', 'Semaine suivante');
 
     nav.appendChild(prevBtn);
-    nav.appendChild(dots);
+    nav.appendChild(label);
     nav.appendChild(nextBtn);
 
     function setTransform(x, animate) {
@@ -307,9 +308,10 @@
     }
 
     function updateDots() {
-      for (var i = 0; i < dotEls.length; i++) {
-        dotEls[i].className = 'cal-pager-dot' + (i === currentIdx ? ' cal-pager-dot-active' : '');
-      }
+      var range = formatPageRange(pages[currentIdx]);
+      label.innerHTML =
+        '<span class="cal-pager-label-range">' + escapeHtml(range) + '</span>' +
+        '<span class="cal-pager-label-step">Semaine ' + (currentIdx + 1) + ' / ' + pageCount + '</span>';
       prevBtn.disabled = (currentIdx === 0);
       nextBtn.disabled = (currentIdx === pageCount - 1);
       prevBtn.style.opacity = (currentIdx === 0) ? '0.25' : '1';
