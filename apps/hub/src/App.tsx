@@ -7,6 +7,9 @@ import DisplayEditor from "./pages/DisplayEditor";
 import Tiles from "./pages/Tiles";
 import TileEditor from "./pages/TileEditor";
 import Parametres from "./pages/Parametres";
+import Profils from "./pages/Profils";
+import KitchenBuddy from "./pages/KitchenBuddy";
+import KitchenBuddyWizard from "./pages/KitchenBuddyWizard";
 import Layout from "./components/Layout";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -41,6 +44,9 @@ export default function App() {
           <Route path="tiles" element={<Tiles />} />
           <Route path="tiles/:tileId" element={<TileEditor />} />
           <Route path="parametres" element={<Parametres />} />
+          <Route path="parametres/profils" element={<Profils />} />
+          <Route path="kitchen-buddy" element={<KitchenBuddy />} />
+          <Route path="kitchen-buddy/nouveau-plan" element={<KitchenBuddyWizard />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

@@ -24,6 +24,7 @@ const TYPE_LABEL: Record<TileType, string> = {
   "recipe-mode": "Mode cuisine",
   "shopping-list": "Liste de courses",
   "meal-planner-week": "Menu de la semaine",
+  "livre-recettes": "Livre de recettes",
   "cuisine-quoi": "Cuisine quoi ?",
 };
 
