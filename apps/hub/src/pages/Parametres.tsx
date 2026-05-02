@@ -1,6 +1,6 @@
 import { useState } from "react";
-import { useNavigate } from "react-router-dom";
-import { Pencil } from "lucide-react";
+import { Link, useNavigate } from "react-router-dom";
+import { ChevronRight, Pencil, Users } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useHouseholds } from "../lib/queries";
 import HouseholdForm from "../components/HouseholdForm";
@@ -80,6 +80,27 @@ export default function Parametres() {
           />
         )}
       </section>
+
+      {households && households.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-xl">Kitchen Buddy</h2>
+          <Link
+            to="/parametres/profils"
+            className="tile-card flex items-center justify-between hover:bg-bordure/40 transition"
+          >
+            <div className="flex items-center gap-3">
+              <Users size={20} className="text-text-secondaire" />
+              <div>
+                <p className="font-medium">Profils famille</p>
+                <p className="text-text-secondaire text-sm">
+                  Régimes, aversions, objectifs nutrition utilisés pour les plans de repas.
+                </p>
+              </div>
+            </div>
+            <ChevronRight size={18} className="text-text-secondaire" />
+          </Link>
+        </section>
+      )}
     </div>
   );
 }
