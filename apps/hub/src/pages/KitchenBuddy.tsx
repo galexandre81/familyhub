@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { ChefHat, FileEdit, Plus, Trash2 } from "lucide-react";
+import { BookOpen, ChefHat, FileEdit, Plus, Trash2 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import {
   useActiveHouseholdId,
@@ -13,6 +13,7 @@ import {
 } from "../lib/queries";
 import { useDeleteMealPlan } from "../lib/mutations";
 import MealPlanGrid from "../components/kitchenBuddy/MealPlanGrid";
+import PlanStatusBar from "../components/kitchenBuddy/PlanStatusBar";
 
 export default function KitchenBuddy() {
   const { user } = useAuth();
@@ -40,6 +41,10 @@ export default function KitchenBuddy() {
           Kitchen Buddy
         </h1>
         <div className="flex items-center gap-2">
+          <Link to="/kitchen-buddy/livre" className="btn-secondary text-sm flex items-center gap-2">
+            <BookOpen size={14} />
+            Livre de recettes
+          </Link>
           {draftPlan && (
             <Link to="/kitchen-buddy/nouveau-plan" className="btn-secondary text-sm flex items-center gap-2">
               <FileEdit size={14} />
@@ -85,9 +90,6 @@ export default function KitchenBuddy() {
                     ).toLocaleDateString("fr-FR")}
               </p>
               <p className="text-cream-mute text-xs mt-0.5">
-                {activePlan.tokensUsed != null && (
-                  <>Tokens : {activePlan.tokensUsed.toLocaleString("fr-FR")} / 500 000 · </>
-                )}
                 {courses?.length ?? 0} item{(courses?.length ?? 0) > 1 ? "s" : ""} de courses
               </p>
             </div>
@@ -102,6 +104,8 @@ export default function KitchenBuddy() {
               Supprimer
             </button>
           </div>
+
+          <PlanStatusBar tokensUsed={activePlan.tokensUsed} llmModel={activePlan.llmModel} />
 
           <MealPlanGrid
             slots={slots}

@@ -19,7 +19,8 @@ interface MealPlanGridProps {
   busySlotId?: string | null;
   onAccept?: (slotId: string) => void;
   onRefuse?: (slotId: string) => void;
-  onRegenerate?: (slotId: string) => void;
+  /** Régen avec feedback utilisateur optionnel (ex: "trop redondant"). */
+  onRegenerate?: (slotId: string, feedback?: string) => void;
 }
 
 export default function MealPlanGrid({
@@ -84,7 +85,7 @@ function RowFragment({
   busySlotId?: string | null;
   onAccept?: (slotId: string) => void;
   onRefuse?: (slotId: string) => void;
-  onRegenerate?: (slotId: string) => void;
+  onRegenerate?: (slotId: string, feedback?: string) => void;
 }) {
   return (
     <>
@@ -110,7 +111,7 @@ function RowFragment({
             busy={busySlotId === slotId}
             onAccept={onAccept ? () => onAccept(slotId) : undefined}
             onRefuse={onRefuse ? () => onRefuse(slotId) : undefined}
-            onRegenerate={onRegenerate ? () => onRegenerate(slotId) : undefined}
+            onRegenerate={onRegenerate ? (fb) => onRegenerate(slotId, fb) : undefined}
           />
         );
       })}

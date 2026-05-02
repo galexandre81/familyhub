@@ -1,4 +1,5 @@
-import { Check, Loader2, RefreshCw, X } from "lucide-react";
+import { useState } from "react";
+import { Check, Loader2, RefreshCw, Sparkles, X } from "lucide-react";
 import type { MealPlanSlotWithId, RecetteWithId } from "../../lib/queries";
 import type { Profil } from "@family-hub/types";
 import ProfilBadge from "../ProfilBadge";
@@ -10,7 +11,8 @@ interface SlotCardProps {
   /** Si défini : actions accept/refuse/regen disponibles. */
   onAccept?: () => void;
   onRefuse?: () => void;
-  onRegenerate?: () => void;
+  /** Régénère avec un feedback utilisateur optionnel (ex: "trop redondant"). */
+  onRegenerate?: (feedback?: string) => void;
   /** True si une action backend est en cours sur ce slot. */
   busy?: boolean;
   /** Affiche une barre de statut compact (utile pour vue lecture seule). */
@@ -29,6 +31,14 @@ export default function SlotCard({
 }: SlotCardProps) {
   const isEmpty = slot.profilsPresents.length === 0;
   const recettes = slot.recetteIds.map((id) => recettesById[id]).filter(Boolean);
+  const [feedbackOpen, setFeedbackOpen] = useState(false);
+  const [feedback, setFeedback] = useState("");
+
+  function submitRegen() {
+    onRegenerate?.(feedback.trim() || undefined);
+    setFeedbackOpen(false);
+    setFeedback("");
+  }
 
   return (
     <div
@@ -80,14 +90,61 @@ export default function SlotCard({
         ))}
       </div>
 
-      {(onAccept || onRefuse || onRegenerate) && !isEmpty && recettes.length > 0 && (
+      {feedbackOpen && onRegenerate && (
+        <div className="space-y-1.5 pt-1 border-t border-wood-dark">
+          <textarea
+            value={feedback}
+            onChange={(e) => setFeedback(e.target.value)}
+            rows={2}
+            maxLength={500}
+            autoFocus
+            className="input !py-1.5 !px-2 text-xs"
+            placeholder="ex: trop redondant, ajoute un féculent, plus végé…"
+            onKeyDown={(e) => {
+              if (e.key === "Enter" && (e.ctrlKey || e.metaKey)) {
+                e.preventDefault();
+                submitRegen();
+              }
+              if (e.key === "Escape") {
+                setFeedbackOpen(false);
+                setFeedback("");
+              }
+            }}
+          />
+          <div className="flex items-center justify-between gap-1">
+            <span className="text-[9px] text-cream-mute">
+              ⌘/Ctrl+Entrée pour valider
+            </span>
+            <div className="flex gap-1">
+              <button
+                onClick={() => {
+                  setFeedbackOpen(false);
+                  setFeedback("");
+                }}
+                className="text-cream-mute hover:text-cream text-xs px-2 py-0.5"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={submitRegen}
+                className="text-brass hover:text-brass-deep text-xs px-2 py-0.5 flex items-center gap-1"
+              >
+                <Sparkles size={11} />
+                Régénérer
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {(onAccept || onRefuse || onRegenerate) && !isEmpty && recettes.length > 0 && !feedbackOpen && (
         <div className="flex items-center justify-end gap-1 pt-1">
           {busy && <Loader2 size={14} className="animate-spin text-cream-mute" />}
           {!busy && onRegenerate && (
             <button
-              onClick={onRegenerate}
+              onClick={() => setFeedbackOpen(true)}
               className="p-1.5 text-cream-mute hover:text-brass transition"
-              title="Régénérer ce repas"
+              title="Régénérer (avec feedback optionnel)"
             >
               <RefreshCw size={14} />
             </button>

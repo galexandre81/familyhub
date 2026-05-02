@@ -211,6 +211,35 @@ export function usePlanCourses(householdId: string | undefined, planId: string |
 }
 
 /**
+ * Toutes les recettes du foyer (livre de recettes).
+ * Trie : favorites en premier, puis par création récente.
+ */
+export function useRecettes(householdId: string | undefined) {
+  return useQuery({
+    enabled: !!householdId,
+    queryKey: ["recettes", householdId],
+    queryFn: async (): Promise<RecetteWithId[]> => {
+      if (!householdId) return [];
+      const snap = await getDocs(collection(db, `households/${householdId}/recettes`));
+      const all = snap.docs.map((d) => ({ id: d.id, ...(d.data() as Recette) }));
+      // Tri : favorites > accepted (non-excluded) > excluded, puis alpha
+      const score = (r: RecetteWithId): number => {
+        if (r.excluded) return 3;
+        if (r.statut === "favorite") return 0;
+        if (r.statut === "accepted") return 1;
+        return 2;
+      };
+      return all.sort((a, b) => {
+        const sa = score(a);
+        const sb = score(b);
+        if (sa !== sb) return sa - sb;
+        return a.nom.localeCompare(b.nom, "fr");
+      });
+    },
+  });
+}
+
+/**
  * Recettes référencées par le plan (jointure côté client : on lit les IDs
  * référencés par les slots, puis on charge les docs correspondants).
  */

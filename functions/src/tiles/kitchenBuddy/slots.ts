@@ -107,6 +107,15 @@ export const updateSlotPresence = onCall<UpdatePresenceInput, Promise<{ success:
   },
 );
 
+interface RegenerateSlotInput extends SlotActionInput {
+  /**
+   * Feedback utilisateur optionnel injecté dans le prompt LLM.
+   * Ex: "trop redondant, propose autre chose", "j'aime bien mais ajoute un féculent",
+   * "plus protéiné s'il te plaît". N'est PAS stocké en base.
+   */
+  userFeedback?: string;
+}
+
 interface RegenerateSlotResponse {
   success: true;
   recetteIds: string[];
@@ -118,11 +127,12 @@ interface RegenerateSlotResponse {
  * - profils présents au slot (pour les contraintes)
  * - liste des autres recettes du plan (pour varier)
  * - le frigo + style + saison
+ * - le feedback utilisateur optionnel (ex: "trop redondant", "ajoute un féculent")
  *
  * Réutilise le même prompt système que generateMealPlan, mais avec une seule
  * ligne de présence. Le LLM doit produire 1+ recettes pour ce slot uniquement.
  */
-export const regenerateSlot = onCall<SlotActionInput, Promise<RegenerateSlotResponse>>(
+export const regenerateSlot = onCall<RegenerateSlotInput, Promise<RegenerateSlotResponse>>(
   {
     region: "europe-west1",
     secrets: [GEMINI_API_KEY],
@@ -132,7 +142,7 @@ export const regenerateSlot = onCall<SlotActionInput, Promise<RegenerateSlotResp
   async (req) => {
     const uid = req.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Auth requise");
-    const { householdId, planId, slotId } = req.data;
+    const { householdId, planId, slotId, userFeedback } = req.data;
     await assertHouseholdMember(uid, householdId);
 
     const planRef = db.doc(`households/${householdId}/mealPlans/${planId}`);
@@ -186,10 +196,19 @@ export const regenerateSlot = onCall<SlotActionInput, Promise<RegenerateSlotResp
     }
 
     const ctxStyle = String(plan.contexte?.style ?? "");
-    const styleAvecVariete =
-      recettesActuelles.length > 0
-        ? `${ctxStyle}${ctxStyle ? " ; " : ""}IMPORTANT : varie par rapport aux recettes déjà au plan : ${recettesActuelles.join(", ")}`
-        : ctxStyle;
+    const parts: string[] = [];
+    if (ctxStyle) parts.push(ctxStyle);
+    if (recettesActuelles.length > 0) {
+      parts.push(
+        `IMPORTANT : varie par rapport aux recettes déjà au plan : ${recettesActuelles.join(", ")}`,
+      );
+    }
+    if (userFeedback && userFeedback.trim()) {
+      parts.push(
+        `FEEDBACK UTILISATEUR sur la précédente proposition pour ce slot : "${userFeedback.trim().slice(0, 500)}". Tiens-en compte STRICTEMENT.`,
+      );
+    }
+    const styleAvecVariete = parts.join(" ; ");
 
     // Prompt avec un seul slot
     const ctx: GenerateMealPlanContext = {

@@ -10,6 +10,7 @@ import Parametres from "./pages/Parametres";
 import Profils from "./pages/Profils";
 import KitchenBuddy from "./pages/KitchenBuddy";
 import KitchenBuddyWizard from "./pages/KitchenBuddyWizard";
+import LivreRecettes from "./pages/LivreRecettes";
 import Layout from "./components/Layout";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -47,6 +48,7 @@ export default function App() {
           <Route path="parametres/profils" element={<Profils />} />
           <Route path="kitchen-buddy" element={<KitchenBuddy />} />
           <Route path="kitchen-buddy/nouveau-plan" element={<KitchenBuddyWizard />} />
+          <Route path="kitchen-buddy/livre" element={<LivreRecettes />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>

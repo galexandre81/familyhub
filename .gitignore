@@ -18,6 +18,10 @@ packages/*/dist/
 **/.env.local
 **/.env.*.local
 
+# Service account JSONs (Firebase Admin SDK credentials)
+**/service-account*.json
+service-account*.json
+
 # Firebase
 .firebase/
 firebase-debug.log*

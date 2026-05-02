@@ -388,7 +388,7 @@ interface SlotActionInput {
   slotId: string;
 }
 
-function makeSlotMutation(name: "acceptSlot" | "refuseSlot" | "regenerateSlot") {
+function makeSlotMutation(name: "acceptSlot" | "refuseSlot") {
   return function useSlotAction() {
     const qc = useQueryClient();
     return useMutation({
@@ -406,7 +406,24 @@ function makeSlotMutation(name: "acceptSlot" | "refuseSlot" | "regenerateSlot") 
 
 export const useAcceptSlot = makeSlotMutation("acceptSlot");
 export const useRefuseSlot = makeSlotMutation("refuseSlot");
-export const useRegenerateSlot = makeSlotMutation("regenerateSlot");
+
+/** Régénère un slot, optionnellement avec un feedback utilisateur ("trop redondant", "ajoute un féculent"…). */
+export function useRegenerateSlot() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (input: SlotActionInput & { userFeedback?: string }) => {
+      const fn = httpsCallable<typeof input, { success: true; recetteIds: string[]; tokensUsedTotal: number }>(
+        functions,
+        "regenerateSlot",
+      );
+      await fn(input);
+    },
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ["planSlots", vars.householdId, vars.planId] });
+      void qc.invalidateQueries({ queryKey: ["plan", vars.householdId, vars.planId] });
+    },
+  });
+}
 
 export function useUpdateSlotPresence() {
   const qc = useQueryClient();
@@ -417,6 +434,82 @@ export function useUpdateSlotPresence() {
     },
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["planSlots", vars.householdId, vars.planId] });
+    },
+  });
+}
+
+/* --- Recettes (livre de recettes : upvote / downvote / restore / delete) --- */
+
+interface RecetteRefInput {
+  householdId: string;
+  recetteId: string;
+}
+
+/**
+ * Upvote : passe le statut de la recette en "favorite".
+ * Un upvote depuis "excluded" la réintroduit aussi.
+ */
+export function useUpvoteRecette() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ householdId, recetteId }: RecetteRefInput) => {
+      await updateDoc(doc(db, `households/${householdId}/recettes/${recetteId}`), {
+        statut: "favorite",
+        excluded: false,
+        updatedAt: serverTimestamp(),
+      });
+    },
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ["recettes", vars.householdId] });
+    },
+  });
+}
+
+/**
+ * Downvote : marque excluded=true. La recette n'est plus piochée pour les
+ * futurs plans, mais reste consultable dans le livre (filtre).
+ */
+export function useDownvoteRecette() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ householdId, recetteId }: RecetteRefInput) => {
+      await updateDoc(doc(db, `households/${householdId}/recettes/${recetteId}`), {
+        excluded: true,
+        statut: "accepted", // perd le statut favorite si elle l'avait
+        updatedAt: serverTimestamp(),
+      });
+    },
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ["recettes", vars.householdId] });
+    },
+  });
+}
+
+/** Restore une recette downvotée (excluded=false), garde son statut accepted. */
+export function useRestoreRecette() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ householdId, recetteId }: RecetteRefInput) => {
+      await updateDoc(doc(db, `households/${householdId}/recettes/${recetteId}`), {
+        excluded: false,
+        updatedAt: serverTimestamp(),
+      });
+    },
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ["recettes", vars.householdId] });
+    },
+  });
+}
+
+/** Suppression définitive d'une recette du livre. */
+export function useDeleteRecette() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ householdId, recetteId }: RecetteRefInput) => {
+      await deleteDoc(doc(db, `households/${householdId}/recettes/${recetteId}`));
+    },
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ["recettes", vars.householdId] });
     },
   });
 }
