@@ -45,6 +45,37 @@ export interface Recette {
   /** True si recette pensée pour batch cooking. */
   estBatch: boolean;
   statut: RecetteStatut;
+  /**
+   * Si true, recette downvotée par l'utilisateur — exclue des futures piochées
+   * lors de la génération de plan (mais pas supprimée, on peut la réintroduire).
+   */
+  excluded?: boolean;
+  /**
+   * Tags fins issus du seed (par le LLM lors de la génération en masse).
+   * Permettent le filtrage algorithmique côté génération de plan.
+   */
+  seedTags?: {
+    styleCulinaire?: string;
+    proteinePrincipale?:
+      | "viande-blanche"
+      | "viande-rouge"
+      | "poisson"
+      | "oeufs"
+      | "legumineuses"
+      | "tofu"
+      | "fromage"
+      | "aucune";
+    modeCuissonPrincipal?:
+      | "poele"
+      | "four"
+      | "vapeur"
+      | "mijote"
+      | "grillade"
+      | "cru"
+      | "wok"
+      | "papillote";
+    tempsTotal?: "<15min" | "15-30min" | "30-60min" | ">60min";
+  };
   /** Notation post-repas (1-5 étoiles). */
   notation?: 1 | 2 | 3 | 4 | 5;
   /** Commentaire libre ajouté à la main par l'utilisateur. */

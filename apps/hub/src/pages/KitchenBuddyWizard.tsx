@@ -5,6 +5,7 @@ import { useAuth } from "../lib/auth";
 import {
   useActiveHouseholdId,
   useDraftPlan,
+  usePlan,
   usePlanRecettes,
   usePlanSlots,
   useProfils,
@@ -24,6 +25,7 @@ import PresenceGrid, {
   type PresenceState,
 } from "../components/kitchenBuddy/PresenceGrid";
 import MealPlanGrid from "../components/kitchenBuddy/MealPlanGrid";
+import PlanStatusBar from "../components/kitchenBuddy/PlanStatusBar";
 
 type WizardStep = "date" | "presence" | "contexte" | "review";
 
@@ -378,6 +380,7 @@ function StepReview({
   onAbandon: () => void;
   onValidated: () => void;
 }) {
+  const { data: plan } = usePlan(householdId, planId);
   const { data: slots } = usePlanSlots(householdId, planId);
   const { data: recettesById } = usePlanRecettes(householdId, slots);
   const generate = useGenerateMealPlan();
@@ -474,6 +477,8 @@ function StepReview({
         </div>
       </div>
 
+      <PlanStatusBar tokensUsed={plan?.tokensUsed} llmModel={plan?.llmModel} />
+
       {genError && (
         <div className="tile-card border-copper">
           <p className="text-copper text-sm">{genError}</p>
@@ -492,8 +497,10 @@ function StepReview({
           onRefuse={(slotId) =>
             withBusy(slotId, () => refuse.mutateAsync({ householdId, planId, slotId }))
           }
-          onRegenerate={(slotId) =>
-            withBusy(slotId, () => regen.mutateAsync({ householdId, planId, slotId }))
+          onRegenerate={(slotId, userFeedback) =>
+            withBusy(slotId, () =>
+              regen.mutateAsync({ householdId, planId, slotId, userFeedback }),
+            )
           }
         />
       )}
