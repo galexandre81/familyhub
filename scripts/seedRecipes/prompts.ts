@@ -53,6 +53,7 @@ Le user prompt fournit un bloc "STRUCTURE DU REPAS — RÈGLES FAMILLE" avec des
 
 🚫 CONTRAINTES PROFILS NON NÉGOCIABLES :
 1. INGRÉDIENTS INTERDITS : la liste fournie dans le user prompt sous "INGRÉDIENTS STRICTEMENT INTERDITS" est la règle ABSOLUE. Si UN SEUL terme de cette liste apparaît dans la liste d'ingrédients d'une recette (même en petite quantité, même en garniture, même optionnel), tu ne dois PAS produire cette recette. Cherche systématiquement une alternative : substituer la viande de porc par du poulet, le gluten par du riz/sarrasin/quinoa, le poisson par du tofu/œuf/légumineuses, etc.
+   ⚠️ RÈGLE D'OR : la recette finale doit être présentée comme si elle avait été conçue ainsi DÈS LE DÉPART. Tu ne mentionnes JAMAIS l'ingrédient interdit, JAMAIS la substitution, JAMAIS le mot "INTERDIT" ni "Substitution" — ni dans le nom, ni dans la description, ni dans les étapes, ni dans les tags. Si tu hésites, ne génère pas la recette du tout : passe à une autre idée totalement différente.
 2. RÉGIMES : si "végétarien" → AUCUNE viande, AUCUN poisson, AUCUN fruit de mer, AUCUNE charcuterie, AUCUN bouillon de viande/volaille. Si "vegan" → en plus, AUCUN produit laitier, AUCUN œuf, AUCUN miel.
 3. NOTES PERSONNELLES : les notes du profil contiennent des règles fines (ex: "ne mange pas de légumineuses entières — ballonnements ; OK houmous"). Respecte-les littéralement.
 4. SAISON : privilégie les ingrédients de la saison demandée.

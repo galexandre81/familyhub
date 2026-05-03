@@ -107,6 +107,18 @@ npm run seed -- --household VOTRE_HID
 
 → Génère ~500 recettes (24 batches couvrant petit-déj salé majoritaire, déjeuner light, dîner familial varié) pour la saison printemps-été, avec rejet automatique des recettes qui violent les contraintes des profils.
 
+### Alternative gratuite : import depuis Claude.ai (web)
+
+Si tu as un abonnement Claude Pro/Max, tu peux générer un JSON via l'interface web (gratuit dans la limite de ton abonnement) puis l'importer :
+
+```bash
+npm run import -- --household VOTRE_HID --file recettes.json --repas dejeuner
+```
+
+Voir **`PROMPT_FOR_CLAUDE_WEB.md`** pour le prompt à coller dans Claude.ai et le workflow complet.
+
+L'import applique exactement les mêmes validations que le seed : contraintes profils, règles nutrition, dédoublonnage. Coût : 0€ (pas d'appel API).
+
 ### Options
 
 | Flag | Effet |
