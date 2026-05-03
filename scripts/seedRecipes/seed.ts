@@ -283,7 +283,8 @@ async function main() {
 
   // 1. Init Firebase Admin
   if (!opts.dryRun) {
-    if (!admin.apps.length) {
+    // firebase-admin v12 : admin.apps peut être undefined avant initialisation
+    if (!admin.apps || admin.apps.length === 0) {
       const projectId = process.env.FIREBASE_PROJECT_ID;
       try {
         admin.initializeApp(
