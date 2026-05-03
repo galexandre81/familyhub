@@ -22,7 +22,13 @@
 
 import "dotenv/config";
 import { Command } from "commander";
-import * as admin from "firebase-admin";
+import { applicationDefault, getApps, initializeApp } from "firebase-admin/app";
+import {
+  FieldValue,
+  getFirestore,
+  type DocumentData,
+  type Firestore,
+} from "firebase-admin/firestore";
 import { LMStudioClient } from "./lmstudio.ts";
 import { GeminiSeedClient } from "./gemini.ts";
 import {
@@ -124,7 +130,7 @@ function buildLLMClient(opts: CliOptions): { client: LLMClient; model: string } 
 }
 
 async function loadProfils(
-  db: admin.firestore.Firestore,
+  db: Firestore,
   householdId: string,
 ): Promise<ProfilForSeed[]> {
   const snap = await db.collection(`households/${householdId}/profils`).get();
@@ -149,7 +155,7 @@ async function loadProfils(
 }
 
 async function loadExistingRecetteNames(
-  db: admin.firestore.Firestore,
+  db: Firestore,
   householdId: string,
 ): Promise<Set<string>> {
   const snap = await db.collection(`households/${householdId}/recettes`).get();
@@ -283,12 +289,11 @@ async function main() {
 
   // 1. Init Firebase Admin
   if (!opts.dryRun) {
-    // firebase-admin v12 : admin.apps peut être undefined avant initialisation
-    if (!admin.apps || admin.apps.length === 0) {
+    if (getApps().length === 0) {
       const projectId = process.env.FIREBASE_PROJECT_ID;
       try {
-        admin.initializeApp(
-          projectId ? { projectId, credential: admin.credential.applicationDefault() } : undefined,
+        initializeApp(
+          projectId ? { projectId, credential: applicationDefault() } : undefined,
         );
       } catch (err) {
         console.error(
@@ -301,8 +306,8 @@ async function main() {
     }
   }
   const db = opts.dryRun
-    ? (null as unknown as admin.firestore.Firestore)
-    : admin.firestore();
+    ? (null as unknown as Firestore)
+    : getFirestore();
 
   // 2. Charge profils + recettes existantes (pour dédup) + règles nutrition
   let profils: ProfilForSeed[];
@@ -507,8 +512,7 @@ function buildFirestoreRecette(
   saisonsContexte: Array<"hiver" | "printemps" | "ete" | "automne">,
   repas: SeedBatchRequest["repas"],
   regles: ReglesNutrition,
-): admin.firestore.DocumentData {
-  const FieldValue = admin.firestore.FieldValue;
+): DocumentData {
   // On tague la recette comme convenant au preset actif au moment du seed.
   // Si le preset est "custom", on n'ajoute pas de tag preset (rien de comparable).
   const convientAuxPresets =
