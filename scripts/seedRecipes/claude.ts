@@ -54,7 +54,12 @@ export class ClaudeSeedClient {
     }
     this.client = new Anthropic({
       apiKey,
-      maxRetries: config.maxRetries ?? 2,
+      // SDK retry sur 408/409/429/5xx — bumpé à 5 vu qu'on a observé des
+      // 'terminated' (connexion streaming coupée par le serveur).
+      maxRetries: config.maxRetries ?? 5,
+      // Timeout par requête (10 min). Sur Haiku 4.5 un batch de 5 recettes
+      // prend ~30-40s, donc 10 min laisse une grosse marge même avec retries.
+      timeout: 10 * 60 * 1000,
     });
     this.model = config.model;
   }
@@ -76,6 +81,49 @@ export class ClaudeSeedClient {
     const start = Date.now();
     const maxTokens = opts.maxTokens ?? 16000;
 
+    // Retry manuel pour gérer les erreurs réseau type 'terminated' (stream
+    // coupé par le serveur) que le SDK ne retry pas systématiquement. On
+    // tente jusqu'à 3 fois avec backoff exponentiel.
+    const maxAttempts = 3;
+    let lastErr: unknown;
+    for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+      try {
+        return await this.attemptGeneration<T>(opts, maxTokens, start);
+      } catch (err) {
+        lastErr = err;
+        const msg = err instanceof Error ? err.message : String(err);
+        // Erreurs transientes connues : connexion coupée, timeout, ECONNRESET
+        const isTransient =
+          msg.includes("terminated") ||
+          msg.includes("ECONNRESET") ||
+          msg.includes("ETIMEDOUT") ||
+          msg.includes("socket hang up") ||
+          msg.includes("Premature close");
+        if (!isTransient || attempt === maxAttempts) throw err;
+        const backoffMs = 1000 * Math.pow(2, attempt - 1); // 1s, 2s, 4s
+        console.log(
+          `   ⚠️  Erreur transiente (${msg.slice(0, 60)}…), retry ${attempt}/${maxAttempts - 1} dans ${backoffMs / 1000}s…`,
+        );
+        await new Promise((r) => setTimeout(r, backoffMs));
+      }
+    }
+    throw lastErr;
+  }
+
+  private async attemptGeneration<T>(
+    opts: { systemPrompt: string; userPrompt: string; maxTokens?: number },
+    maxTokens: number,
+    start: number,
+  ): Promise<{
+    data: T;
+    rawText: string;
+    usage: {
+      prompt: number;
+      completion: number;
+      cacheCreation?: number;
+      cacheRead?: number;
+    };
+  }> {
     // Stream pour éviter les timeouts SDK sur de gros max_tokens.
     // System prompt avec cache_control pour économiser ~90% sur les
     // batches suivants (le system prompt ne change jamais d'un batch à l'autre).
