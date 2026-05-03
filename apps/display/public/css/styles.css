@@ -1443,8 +1443,8 @@ body {
 }
 
 .tile-livre-icon {
-  font-size: 56px;
-  line-height: 1;
+  /* Conteneur du SVG livre laiton — taille fixée par le SVG */
+  line-height: 0;
   margin-bottom: 14px;
   -webkit-flex-shrink: 0;
   flex-shrink: 0;
@@ -1803,6 +1803,15 @@ body {
 .wiz-cols-2 .wiz-icon-btn { -webkit-flex: 1 1 calc(50% - 16px); flex: 1 1 calc(50% - 16px); min-width: 200px; }
 .wiz-cols-3 .wiz-icon-btn { -webkit-flex: 1 1 calc(33.333% - 16px); flex: 1 1 calc(33.333% - 16px); min-width: 160px; }
 .wiz-cols-4 .wiz-icon-btn { -webkit-flex: 1 1 calc(25% - 16px); flex: 1 1 calc(25% - 16px); min-width: 140px; }
+.wiz-cols-5 .wiz-icon-btn { -webkit-flex: 1 1 calc(20% - 16px); flex: 1 1 calc(20% - 16px); min-width: 130px; }
+
+/* Picto SVG (accompagnements) — équivalent visuel d'un emoji 42px */
+.wiz-icon-svg {
+  display: block;
+  line-height: 0;
+  margin-bottom: 8px;
+}
+.wiz-icon-btn-sm .wiz-icon-svg { margin-bottom: 8px; }
 
 .wiz-icon-btn {
   margin: 8px;
@@ -1854,9 +1863,37 @@ body {
   color: #D9A05B;
   text-transform: uppercase;
   letter-spacing: 0.2em;
+}
+
+/* Ligne titre + bouton "Tout cocher" alignés horizontalement */
+.wiz-section-row {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: baseline;
+  align-items: baseline;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
   margin: 26px 0 8px;
   padding-bottom: 6px;
   border-bottom: 1px solid rgba(217, 160, 91, 0.18);
+}
+
+.wiz-toggle-all {
+  background: transparent;
+  border: 1px solid rgba(217, 160, 91, 0.35);
+  color: #D9A05B;
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 13px;
+  padding: 5px 12px;
+  border-radius: 999px;
+  cursor: pointer;
+  letter-spacing: 0.04em;
+}
+
+.wiz-toggle-all:active {
+  background: rgba(217, 160, 91, 0.14);
+  border-color: #D9A05B;
 }
 
 .wiz-actions {
@@ -1954,19 +1991,26 @@ body {
 .wiz-icon-btn-sm .wiz-icon-emoji { font-size: 42px; margin-bottom: 8px; }
 .wiz-icon-btn-sm .wiz-icon-label { font-size: 16px; }
 
+/* Barre dédiée au "Surprends-moi", centrée sous le titre/hint */
+.wiz-surprise-bar {
+  text-align: center;
+  margin: 4px 0 22px;
+}
+
 .wiz-mini-surprise {
-  background: #4A7C59;
+  background: #D9A05B;
   border: 0;
-  color: #F2E8D5;
+  color: #1C1815;
   font-family: Georgia, serif;
-  font-size: 16px;
-  padding: 10px 18px;
+  font-size: 17px;
+  padding: 11px 22px;
   border-radius: 999px;
   cursor: pointer;
+  letter-spacing: 0.02em;
 }
 
 .wiz-mini-surprise:active {
-  background: #3D6649;
+  background: #C68D48;
   -webkit-transform: scale(0.97);
   transform: scale(0.97);
 }

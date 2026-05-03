@@ -1,13 +1,16 @@
 /* tiles/livreRecettes.js — Livre de recettes du foyer.
-   Tuile compacte : icône livre + nombre de recettes.
+   Tuile compacte : icône livre SVG laiton + nombre de recettes.
    Expand : wizard 2 étapes (Repas → Envies + Résultats inline).
+   Logique contextuelle : petit-déj seul affiche Sucré/Salé + Type au lieu de
+   ingrédient/accompagnement/inspiration.
    ES5 vanilla, Firebase JS SDK v8 compat (iOS 9.3.6 OK).
-   Emojis : Unicode <= 8.0 uniquement (compatibles iOS 9.3.6, pas de tofu). */
+   Emojis : Unicode <= 8.0 uniquement. Tous les autres pictos sont en SVG inline. */
 (function (global) {
   'use strict';
 
   var cache = { recettes: null, fetchedAt: 0, promise: null };
   var STALE_MS = 60 * 60 * 1000;
+  var BRASS = '#D9A05B';
 
   function escapeHTML(s) {
     if (s == null) return '';
@@ -28,6 +31,74 @@
     return (+r.tempsPrepMinutes || 0) + (+r.tempsCuissonMinutes || 0);
   }
 
+  /* ---------- SVG icons (laiton, cohérent avec sablier timer) ---------- */
+
+  var BOOK_SVG_LARGE =
+    '<svg viewBox="0 0 100 80" width="120" height="96" aria-hidden="true">' +
+      /* Reliure */
+      '<path d="M48 14 L48 74 L52 74 L52 14 Z" fill="' + BRASS + '" opacity="0.9"/>' +
+      /* Page gauche bombée */
+      '<path d="M48 16 C36 12, 22 11, 10 14 L10 70 C22 67, 36 68, 48 72 Z" ' +
+        'fill="rgba(217,160,91,0.10)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
+      /* Page droite bombée */
+      '<path d="M52 16 C64 12, 78 11, 90 14 L90 70 C78 67, 64 68, 52 72 Z" ' +
+        'fill="rgba(217,160,91,0.10)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
+      /* Lignes de texte gauche */
+      '<line x1="18" y1="26" x2="44" y2="26" stroke="' + BRASS + '" stroke-width="1.2" opacity="0.65"/>' +
+      '<line x1="18" y1="34" x2="44" y2="34" stroke="' + BRASS + '" stroke-width="1.2" opacity="0.65"/>' +
+      '<line x1="18" y1="42" x2="40" y2="42" stroke="' + BRASS + '" stroke-width="1.2" opacity="0.65"/>' +
+      '<line x1="18" y1="50" x2="42" y2="50" stroke="' + BRASS + '" stroke-width="1.2" opacity="0.45"/>' +
+      /* Lignes de texte droite */
+      '<line x1="56" y1="26" x2="82" y2="26" stroke="' + BRASS + '" stroke-width="1.2" opacity="0.65"/>' +
+      '<line x1="56" y1="34" x2="82" y2="34" stroke="' + BRASS + '" stroke-width="1.2" opacity="0.65"/>' +
+      '<line x1="56" y1="42" x2="78" y2="42" stroke="' + BRASS + '" stroke-width="1.2" opacity="0.65"/>' +
+      '<line x1="56" y1="50" x2="80" y2="50" stroke="' + BRASS + '" stroke-width="1.2" opacity="0.45"/>' +
+    '</svg>';
+
+  /* SVG accompagnements — ~42px, style ligne laiton cohérent */
+  var ICON_VERT =
+    '<svg viewBox="0 0 50 50" width="42" height="42" aria-hidden="true">' +
+      '<path d="M25 6 C16 12, 12 22, 14 32 C20 28, 23 22, 25 14 Z" ' +
+        'fill="rgba(217,160,91,0.18)" stroke="' + BRASS + '" stroke-width="1.6" stroke-linejoin="round"/>' +
+      '<path d="M25 6 C34 12, 38 22, 36 32 C30 28, 27 22, 25 14 Z" ' +
+        'fill="rgba(217,160,91,0.10)" stroke="' + BRASS + '" stroke-width="1.6" stroke-linejoin="round"/>' +
+      '<line x1="25" y1="6" x2="25" y2="44" stroke="' + BRASS + '" stroke-width="1.6"/>' +
+    '</svg>';
+
+  var ICON_FRAIS =
+    '<svg viewBox="0 0 50 50" width="42" height="42" aria-hidden="true">' +
+      '<circle cx="25" cy="29" r="14" fill="rgba(217,160,91,0.10)" stroke="' + BRASS + '" stroke-width="1.8"/>' +
+      '<path d="M19 12 L25 16 L31 12 L29 19 L25 16 L21 19 Z" fill="' + BRASS + '" opacity="0.85"/>' +
+    '</svg>';
+
+  var ICON_RACINE =
+    '<svg viewBox="0 0 50 50" width="42" height="42" aria-hidden="true">' +
+      '<path d="M25 8 L17 16 L13 22 L25 44 L37 22 L33 16 Z" ' +
+        'fill="rgba(217,160,91,0.12)" stroke="' + BRASS + '" stroke-width="1.8" stroke-linejoin="round"/>' +
+      '<line x1="20" y1="20" x2="30" y2="20" stroke="' + BRASS + '" stroke-width="1.1" opacity="0.55"/>' +
+      '<line x1="18" y1="26" x2="32" y2="26" stroke="' + BRASS + '" stroke-width="1.1" opacity="0.55"/>' +
+      '<line x1="20" y1="32" x2="30" y2="32" stroke="' + BRASS + '" stroke-width="1.1" opacity="0.55"/>' +
+      /* Fanes */
+      '<path d="M22 8 Q24 4, 25 8 Q26 4, 28 8" fill="none" stroke="' + BRASS + '" stroke-width="1.4"/>' +
+    '</svg>';
+
+  var ICON_PATES =
+    '<svg viewBox="0 0 50 50" width="42" height="42" aria-hidden="true">' +
+      '<path d="M6 18 Q14 10, 22 18 T38 18 T46 18" fill="none" stroke="' + BRASS + '" stroke-width="2"/>' +
+      '<path d="M6 27 Q14 19, 22 27 T38 27 T46 27" fill="none" stroke="' + BRASS + '" stroke-width="2"/>' +
+      '<path d="M6 36 Q14 28, 22 36 T38 36 T46 36" fill="none" stroke="' + BRASS + '" stroke-width="2"/>' +
+    '</svg>';
+
+  var ICON_PATATE =
+    '<svg viewBox="0 0 50 50" width="42" height="42" aria-hidden="true">' +
+      '<ellipse cx="25" cy="26" rx="16" ry="13" ' +
+        'fill="rgba(217,160,91,0.14)" stroke="' + BRASS + '" stroke-width="1.8" transform="rotate(-12 25 26)"/>' +
+      '<circle cx="20" cy="22" r="1.2" fill="' + BRASS + '" opacity="0.7"/>' +
+      '<circle cx="30" cy="20" r="1" fill="' + BRASS + '" opacity="0.7"/>' +
+      '<circle cx="33" cy="29" r="1.4" fill="' + BRASS + '" opacity="0.7"/>' +
+      '<circle cx="22" cy="32" r="1" fill="' + BRASS + '" opacity="0.7"/>' +
+    '</svg>';
+
   /* ---------- Fetch & cache ---------- */
 
   function fetchRecettes() {
@@ -45,8 +116,6 @@
         snap.forEach(function (doc) {
           var d = doc.data() || {};
           var seedTags = d.seedTags || {};
-          /* Pré-calcul d'un blob de recherche déaccentué : nom + tags + ingrédients
-             pour permettre matching robuste même sans seedTags. */
           var ingNames = '';
           if (d.ingredients && d.ingredients.length) {
             for (var i = 0; i < d.ingredients.length; i++) {
@@ -112,7 +181,7 @@
     return out;
   }
 
-  /* ---------- Catalogues d'icônes (emojis iOS 9.3.6 safe) ---------- */
+  /* ---------- Catalogues ---------- */
 
   /* Repas — multi-select. Match seedTags.repas + fallback tags + keywords. */
   var REPAS = [
@@ -134,7 +203,7 @@
     {
       key: 'encas', emoji: '🍪', label: 'Goûter / Encas',
       keywords: ['gouter', 'encas', 'snack', 'collation'],
-      seedRepas: []  /* pas de slot officiel, on s'appuie sur tags+keywords */
+      seedRepas: []
     }
   ];
 
@@ -142,22 +211,19 @@
     var def = null;
     for (var i = 0; i < REPAS.length; i++) if (REPAS[i].key === key) { def = REPAS[i]; break; }
     if (!def) return false;
-    /* 1. seedTags.repas */
     if (r.repas) {
       for (var s = 0; s < def.seedRepas.length; s++) {
         if (r.repas === def.seedRepas[s]) return true;
       }
-      /* "tout" matche déjeuner et dîner par défaut */
       if (r.repas === 'tout' && (key === 'dejeuner' || key === 'diner')) return true;
     }
-    /* 2. fallback : tags + nom + description contiennent un keyword */
     for (var k = 0; k < def.keywords.length; k++) {
       if (r.blob.indexOf(def.keywords[k]) >= 0) return true;
     }
     return false;
   }
 
-  /* Ingrédients — multi-select. Match seedTags.proteinePrincipale + keywords ingredients. */
+  /* Ingrédients — multi-select. Match seedTags.proteinePrincipale + keywords. */
   var INGREDIENTS = [
     { key: 'poulet',  emoji: '🍗', label: 'Poulet',
       proteines: ['viande-blanche'],
@@ -173,7 +239,7 @@
       keywords: ['oeuf', 'omelette', 'frittata', 'quiche', 'flan'] },
     { key: 'vege',    emoji: '🌽', label: 'Végé',
       proteines: ['aucune', 'legumineuses', 'tofu'],
-      keywords: ['vege', 'vegetarien', 'lentille', 'pois chiche', 'haricot', 'tofu', 'tempeh', 'seitan', 'fève'] },
+      keywords: ['vege', 'vegetarien', 'lentille', 'pois chiche', 'haricot', 'tofu', 'tempeh', 'seitan', 'feve'] },
     { key: 'fromage', emoji: '🧀', label: 'Fromage',
       proteines: ['fromage'],
       keywords: ['fromage', 'mozzarella', 'feta', 'parmesan', 'comte', 'gruyere', 'chevre', 'roquefort', 'camembert', 'reblochon', 'ricotta', 'mascarpone', 'cheddar', 'pecorino', 'manchego'] }
@@ -183,20 +249,43 @@
     var def = null;
     for (var i = 0; i < INGREDIENTS.length; i++) if (INGREDIENTS[i].key === key) { def = INGREDIENTS[i]; break; }
     if (!def) return false;
-    /* 1. seedTags.proteinePrincipale */
     if (r.proteine) {
       for (var p = 0; p < def.proteines.length; p++) {
         if (r.proteine === def.proteines[p]) return true;
       }
     }
-    /* 2. fallback : keywords dans nom + ingrédients + description */
     for (var k = 0; k < def.keywords.length; k++) {
       if (r.blob.indexOf(def.keywords[k]) >= 0) return true;
     }
     return false;
   }
 
-  /* Inspirations — multi-select. Match déaccentué dans style + nom + description. */
+  /* Accompagnements — multi-select. Pas de seedTag dédié, on s'appuie sur
+     les libellés d'ingrédients (déjà inclus dans le blob déaccentué). */
+  var ACCOMPAGNEMENTS = [
+    { key: 'vert', svg: ICON_VERT, label: 'Vert',
+      keywords: ['epinard', 'brocoli', 'courgette', 'asperge', 'haricot vert', 'haricot plat', 'poireau', 'aubergine', 'chou ', 'chou-', 'choux', 'salade', 'roquette', 'pousse', 'mache', 'blette', 'edamame', 'bok choy', 'pak choi', 'champignon', 'petits pois', 'pois mange', 'feve fraiche'] },
+    { key: 'frais', svg: ICON_FRAIS, label: 'Frais',
+      keywords: ['tomate', 'concombre', 'poivron', 'avocat', 'radis', 'endive'] },
+    { key: 'racine', svg: ICON_RACINE, label: 'Racine',
+      keywords: ['carotte', 'fenouil', 'celeri', 'panais', 'navet', 'courge', 'butternut', 'potiron', 'betterave', 'rutabaga', 'topinambour'] },
+    { key: 'pates-riz', svg: ICON_PATES, label: 'Pâtes & Riz',
+      keywords: ['pates', 'riz ', 'riz,', 'riz.', 'quinoa', 'nouille', 'vermicelle', 'semoule', 'boulgour', 'polenta', 'lasagne', 'gnocchi', 'couscous', 'tagliatelle', 'penne', 'fusilli', 'spaghetti', 'orzo', 'risotto', 'pad thai', 'pho'] },
+    { key: 'patate', svg: ICON_PATATE, label: 'Patate',
+      keywords: ['pomme de terre', 'patate douce', 'patate'] }
+  ];
+
+  function matchAccompagnement(r, key) {
+    var def = null;
+    for (var i = 0; i < ACCOMPAGNEMENTS.length; i++) if (ACCOMPAGNEMENTS[i].key === key) { def = ACCOMPAGNEMENTS[i]; break; }
+    if (!def) return false;
+    for (var k = 0; k < def.keywords.length; k++) {
+      if (r.blob.indexOf(def.keywords[k]) >= 0) return true;
+    }
+    return false;
+  }
+
+  /* Inspirations — multi-select. */
   var INSPIRATIONS = [
     { key: 'francais',      emoji: '🍷', label: 'Français',
       keywords: ['francais', 'francaise', 'bistro', 'tradition', 'terroir', 'normand', 'breton', 'savoyard', 'lyonnais', 'provencal'] },
@@ -226,6 +315,65 @@
     return false;
   }
 
+  /* Petit-déj — sucré / salé */
+  var PETIT_DEJ_GOUT = [
+    { key: 'sucre', emoji: '🍪', label: 'Sucré',
+      seedRepas: ['petit-dej-sucre'],
+      keywords: ['sucre', 'miel', 'confiture', 'chocolat', 'banane', 'pomme', 'fraise', 'framboise', 'myrtille', 'granola', 'porridge', 'pancake', 'crepe sucre', 'gaufre', 'brioche', 'pain perdu', 'viennois', 'muesli', 'compote', 'sirop'] },
+    { key: 'sale', emoji: '🧀', label: 'Salé',
+      seedRepas: ['petit-dej-sale'],
+      keywords: ['oeuf', 'omelette', 'jambon', 'fromage', 'avocat', 'tartine', 'cheddar', 'bacon', 'saucisse', 'mozzarella', 'feta', 'comte', 'beurre sale'] }
+  ];
+
+  function matchPetitDejGout(r, key) {
+    var def = null;
+    for (var i = 0; i < PETIT_DEJ_GOUT.length; i++) if (PETIT_DEJ_GOUT[i].key === key) { def = PETIT_DEJ_GOUT[i]; break; }
+    if (!def) return false;
+    if (r.repas) {
+      for (var s = 0; s < def.seedRepas.length; s++) {
+        if (r.repas === def.seedRepas[s]) return true;
+      }
+    }
+    for (var k = 0; k < def.keywords.length; k++) {
+      if (r.blob.indexOf(def.keywords[k]) >= 0) return true;
+    }
+    return false;
+  }
+
+  /* Petit-déj — type */
+  var PETIT_DEJ_TYPE = [
+    { key: 'pain', emoji: '🍞', label: 'Pain & tartines',
+      keywords: ['pain', 'tartine', 'baguette', 'brioche', 'pita', 'foccacia', 'biscotte', 'pain perdu'] },
+    { key: 'oeufs', emoji: '🍳', label: 'Œufs',
+      keywords: ['oeuf', 'omelette', 'frittata', 'scramble', 'shakshuka'] },
+    { key: 'cereales', emoji: '🌾', label: 'Céréales',
+      keywords: ['muesli', 'granola', 'porridge', 'flocon', 'avoine', 'cereal', 'overnight oats', 'gruau'] },
+    { key: 'fruits', emoji: '🍎', label: 'Fruits & yaourt',
+      keywords: ['fruit', 'banane', 'pomme', 'fraise', 'framboise', 'poire', 'peche', 'mangue', 'ananas', 'kiwi', 'yaourt', 'smoothie', 'fromage blanc', 'compote', 'myrtille', 'mure'] }
+  ];
+
+  function matchPetitDejType(r, key) {
+    var def = null;
+    for (var i = 0; i < PETIT_DEJ_TYPE.length; i++) if (PETIT_DEJ_TYPE[i].key === key) { def = PETIT_DEJ_TYPE[i]; break; }
+    if (!def) return false;
+    for (var k = 0; k < def.keywords.length; k++) {
+      if (r.blob.indexOf(def.keywords[k]) >= 0) return true;
+    }
+    return false;
+  }
+
+  /* ---------- Helpers dict ---------- */
+
+  function dictHasAny(d) {
+    for (var k in d) if (d.hasOwnProperty(k)) return true;
+    return false;
+  }
+  function dictKeys(d) {
+    var out = [];
+    for (var k in d) if (d.hasOwnProperty(k)) out.push(k);
+    return out;
+  }
+
   /* ---------- Tuile compacte ---------- */
 
   function render(container, _data, config) {
@@ -233,7 +381,7 @@
     container.innerHTML =
       '<div class="tile-title">Livre de recettes</div>' +
       '<div class="tile-livre-body">' +
-        '<div class="tile-livre-icon">📖</div>' +
+        '<div class="tile-livre-icon">' + BOOK_SVG_LARGE + '</div>' +
         '<div class="tile-livre-count">…</div>' +
         '<div class="tile-livre-label">recettes</div>' +
       '</div>' +
@@ -259,15 +407,23 @@
     var wrap = container.querySelector('[data-role="wizard"]');
 
     /* État partagé du wizard */
-    var pickedRepas = {};   /* { 'petit-dej': true, ... } */
-    var pickedIng = {};     /* { 'poulet': true, ... } — multi-select */
-    var pickedInsp = {};    /* { 'italien': true, ... } — multi-select */
+    var pickedRepas = {};
+    var pickedIng   = {};   /* déjeuner/dîner — ingrédient (multi) */
+    var pickedAcc   = {};   /* déjeuner/dîner — accompagnement (multi) */
+    var pickedInsp  = {};   /* déjeuner/dîner — inspiration (multi) */
+    var pickedGout  = {};   /* petit-déj — sucré/salé */
+    var pickedType  = {};   /* petit-déj — type */
     var allRecettes = [];
 
     fetchRecettes().then(function (list) {
       allRecettes = applyConfigFilter(list, config);
       goStep1();
     });
+
+    function isPetitDejSeul() {
+      var keys = dictKeys(pickedRepas);
+      return keys.length === 1 && keys[0] === 'petit-dej';
+    }
 
     /* ===== Étape 1 — choisir le(s) repas ===== */
 
@@ -313,62 +469,61 @@
         if (global.FamilyHubOverlay && global.FamilyHubOverlay.close) global.FamilyHubOverlay.close();
       });
       wrap.querySelector('[data-act="all"]').addEventListener('click', function () {
-        pickedRepas = {}; pickedIng = {}; pickedInsp = {};
+        pickedRepas = {}; pickedIng = {}; pickedAcc = {}; pickedInsp = {};
+        pickedGout = {}; pickedType = {};
         goStep2();
       });
       wrap.querySelector('[data-act="next"]').addEventListener('click', goStep2);
     }
 
-    /* ===== Étape 2 — choisir les envies + résultats inline ===== */
+    /* ===== Étape 2 — envies + résultats inline =====
+       Structure variable selon le repas choisi. */
 
     function goStep2() {
+      var petitDej = isPetitDejSeul();
+      /* Quand on bascule de mode, on remet à zéro le mode opposé pour éviter
+         des filtres invisibles qui restreindraient les résultats. */
+      if (petitDej) {
+        pickedIng = {}; pickedAcc = {}; pickedInsp = {};
+      } else {
+        pickedGout = {}; pickedType = {};
+      }
+
       var html = '' +
         '<div class="wiz-bar">' +
           '<button type="button" class="wiz-back" data-act="back">← Modifier le repas</button>' +
-          '<button type="button" class="wiz-mini-surprise" data-act="surprise">🎲 Surprends-moi</button>' +
         '</div>' +
         '<h1 class="wiz-question">Quelle envie&nbsp;?</h1>' +
-        '<p class="wiz-hint">Combine ingrédient + inspiration, ou laisse vide pour voir toute la sélection</p>';
+        '<p class="wiz-hint">' +
+          (petitDej ? 'Choisis le profil de ton petit-déj, ou laisse vide pour tout voir'
+                    : 'Combine ingrédient, accompagnement et inspiration') +
+        '</p>' +
+        /* Barre dédiée au "Surprends-moi", centrée, couleur laiton */
+        '<div class="wiz-surprise-bar">' +
+          '<button type="button" class="wiz-mini-surprise" data-act="surprise">🎲 Surprends-moi</button>' +
+        '</div>';
 
-      /* Section ingrédients */
-      html += '<div class="wiz-section-title">Par ingrédient</div>' +
-        '<div class="wiz-icon-grid wiz-cols-3">';
-      for (var i = 0; i < INGREDIENTS.length; i++) {
-        var ing = INGREDIENTS[i];
-        var act = pickedIng[ing.key] ? ' is-active' : '';
-        html += '<button type="button" class="wiz-icon-btn wiz-icon-btn-sm' + act + '" data-kind="ing" data-key="' + ing.key + '">' +
-          '<span class="wiz-icon-emoji">' + ing.emoji + '</span>' +
-          '<span class="wiz-icon-label">' + escapeHTML(ing.label) + '</span>' +
-          '</button>';
+      if (petitDej) {
+        html += renderSection('gout',  'Sucré ou salé', PETIT_DEJ_GOUT, pickedGout, 'wiz-cols-2');
+        html += renderSection('type',  'Par type',      PETIT_DEJ_TYPE, pickedType, 'wiz-cols-4');
+      } else {
+        html += renderSection('ing',   'Par ingrédient',     INGREDIENTS,     pickedIng,  'wiz-cols-3');
+        html += renderSection('acc',   'Par accompagnement', ACCOMPAGNEMENTS, pickedAcc,  'wiz-cols-5');
+        html += renderSection('insp',  'Par inspiration',    INSPIRATIONS,    pickedInsp, 'wiz-cols-4');
       }
-      html += '</div>';
 
-      /* Section inspirations */
-      html += '<div class="wiz-section-title">Par inspiration</div>' +
-        '<div class="wiz-icon-grid wiz-cols-4">';
-      for (var k = 0; k < INSPIRATIONS.length; k++) {
-        var ins = INSPIRATIONS[k];
-        var act2 = pickedInsp[ins.key] ? ' is-active' : '';
-        html += '<button type="button" class="wiz-icon-btn wiz-icon-btn-sm' + act2 + '" data-kind="insp" data-key="' + ins.key + '">' +
-          '<span class="wiz-icon-emoji">' + ins.emoji + '</span>' +
-          '<span class="wiz-icon-label">' + escapeHTML(ins.label) + '</span>' +
-          '</button>';
-      }
-      html += '</div>';
-
-      /* Bouton effacer + summary */
       html += '<div class="wiz-actions wiz-actions-mid">' +
           '<button type="button" class="wiz-secondary wiz-btn-clear" data-act="clear">Effacer les envies</button>' +
         '</div>';
 
-      /* Bloc résultats */
       html += '<div class="wiz-results" data-role="results"></div>';
 
       wrap.innerHTML = html;
 
       wrap.querySelector('[data-act="back"]').addEventListener('click', goStep1);
       wrap.querySelector('[data-act="clear"]').addEventListener('click', function () {
-        pickedIng = {}; pickedInsp = {};
+        pickedIng = {}; pickedAcc = {}; pickedInsp = {};
+        pickedGout = {}; pickedType = {};
         goStep2();
       });
       wrap.querySelector('[data-act="surprise"]').addEventListener('click', function () {
@@ -377,13 +532,67 @@
         showDetail(list[Math.floor(Math.random() * list.length)]);
       });
 
-      var allBtns = wrap.querySelectorAll('.wiz-icon-btn');
-      for (var b = 0; b < allBtns.length; b++) {
-        allBtns[b].addEventListener('click', (function (btn) {
+      bindSectionHandlers();
+      renderResults();
+    }
+
+    /* renderSection — produit le HTML d'une section avec son bouton "tout cocher".
+       items: [{key, emoji?|svg?, label}], dict: pickedXxx */
+    function renderSection(name, title, items, dict, colsClass) {
+      var allOn = true;
+      for (var i = 0; i < items.length; i++) {
+        if (!dict[items[i].key]) { allOn = false; break; }
+      }
+      var toggleLabel = allOn ? 'Tout décocher' : 'Tout cocher';
+
+      var html = '<div class="wiz-section-row">' +
+        '<div class="wiz-section-title">' + escapeHTML(title) + '</div>' +
+        '<button type="button" class="wiz-toggle-all" data-section="' + name + '">' + toggleLabel + '</button>' +
+        '</div>';
+
+      html += '<div class="wiz-icon-grid ' + colsClass + '">';
+      for (var j = 0; j < items.length; j++) {
+        var it = items[j];
+        var act = dict[it.key] ? ' is-active' : '';
+        var pict = it.svg
+          ? '<span class="wiz-icon-svg">' + it.svg + '</span>'
+          : '<span class="wiz-icon-emoji">' + it.emoji + '</span>';
+        html += '<button type="button" class="wiz-icon-btn wiz-icon-btn-sm' + act + '"' +
+          ' data-section="' + name + '" data-key="' + it.key + '">' +
+          pict +
+          '<span class="wiz-icon-label">' + escapeHTML(it.label) + '</span>' +
+          '</button>';
+      }
+      html += '</div>';
+      return html;
+    }
+
+    function dictForSection(name) {
+      if (name === 'ing')  return pickedIng;
+      if (name === 'acc')  return pickedAcc;
+      if (name === 'insp') return pickedInsp;
+      if (name === 'gout') return pickedGout;
+      if (name === 'type') return pickedType;
+      return null;
+    }
+    function itemsForSection(name) {
+      if (name === 'ing')  return INGREDIENTS;
+      if (name === 'acc')  return ACCOMPAGNEMENTS;
+      if (name === 'insp') return INSPIRATIONS;
+      if (name === 'gout') return PETIT_DEJ_GOUT;
+      if (name === 'type') return PETIT_DEJ_TYPE;
+      return [];
+    }
+
+    function bindSectionHandlers() {
+      var btns = wrap.querySelectorAll('.wiz-icon-btn');
+      for (var b = 0; b < btns.length; b++) {
+        btns[b].addEventListener('click', (function (btn) {
           return function () {
-            var kind = btn.getAttribute('data-kind');
+            var sec = btn.getAttribute('data-section');
             var key = btn.getAttribute('data-key');
-            var dict = (kind === 'ing') ? pickedIng : pickedInsp;
+            var dict = dictForSection(sec);
+            if (!dict) return;
             if (dict[key]) {
               delete dict[key];
               btn.className = btn.className.replace(/\s*is-active\b/g, '');
@@ -391,46 +600,119 @@
               dict[key] = true;
               btn.className += ' is-active';
             }
+            refreshToggleLabel(sec);
             renderResults();
           };
-        })(allBtns[b]));
+        })(btns[b]));
       }
-
-      renderResults();
+      var togs = wrap.querySelectorAll('.wiz-toggle-all');
+      for (var t = 0; t < togs.length; t++) {
+        togs[t].addEventListener('click', (function (btn) {
+          return function () {
+            var sec = btn.getAttribute('data-section');
+            var dict = dictForSection(sec);
+            var items = itemsForSection(sec);
+            if (!dict) return;
+            var allOn = true;
+            for (var i = 0; i < items.length; i++) {
+              if (!dict[items[i].key]) { allOn = false; break; }
+            }
+            if (allOn) {
+              for (var j = 0; j < items.length; j++) delete dict[items[j].key];
+            } else {
+              for (var k = 0; k < items.length; k++) dict[items[k].key] = true;
+            }
+            /* Re-render visuel des boutons de la section + label */
+            refreshSectionVisuals(sec);
+            renderResults();
+          };
+        })(togs[t]));
+      }
     }
+
+    function refreshToggleLabel(name) {
+      var dict = dictForSection(name);
+      var items = itemsForSection(name);
+      if (!dict) return;
+      var allOn = true;
+      for (var i = 0; i < items.length; i++) {
+        if (!dict[items[i].key]) { allOn = false; break; }
+      }
+      var btn = wrap.querySelector('.wiz-toggle-all[data-section="' + name + '"]');
+      if (btn) btn.innerHTML = allOn ? 'Tout décocher' : 'Tout cocher';
+    }
+
+    function refreshSectionVisuals(name) {
+      var dict = dictForSection(name);
+      if (!dict) return;
+      var btns = wrap.querySelectorAll('.wiz-icon-btn[data-section="' + name + '"]');
+      for (var i = 0; i < btns.length; i++) {
+        var key = btns[i].getAttribute('data-key');
+        var has = !!dict[key];
+        var has2 = btns[i].className.indexOf('is-active') >= 0;
+        if (has && !has2) btns[i].className += ' is-active';
+        if (!has && has2) btns[i].className = btns[i].className.replace(/\s*is-active\b/g, '');
+      }
+      refreshToggleLabel(name);
+    }
+
+    /* ---------- Filtrage ---------- */
 
     function filteredRecettes() {
       var list = [];
-      var anyRepas = false; for (var k1 in pickedRepas) if (pickedRepas.hasOwnProperty(k1)) { anyRepas = true; break; }
-      var anyIng = false;   for (var k2 in pickedIng)   if (pickedIng.hasOwnProperty(k2))   { anyIng = true; break; }
-      var anyInsp = false;  for (var k3 in pickedInsp)  if (pickedInsp.hasOwnProperty(k3))  { anyInsp = true; break; }
+      var petitDej = isPetitDejSeul();
 
       for (var i = 0; i < allRecettes.length; i++) {
         var r = allRecettes[i];
-        /* Repas — au moins un match */
-        if (anyRepas) {
+
+        /* Filtre repas — au moins un match parmi les choisis */
+        if (dictHasAny(pickedRepas)) {
           var ok = false;
           for (var key in pickedRepas) {
             if (pickedRepas.hasOwnProperty(key) && matchRepas(r, key)) { ok = true; break; }
           }
           if (!ok) continue;
         }
-        /* Ingrédient — au moins un match */
-        if (anyIng) {
-          var okI = false;
-          for (var key2 in pickedIng) {
-            if (pickedIng.hasOwnProperty(key2) && matchIngredient(r, key2)) { okI = true; break; }
+
+        if (petitDej) {
+          if (dictHasAny(pickedGout)) {
+            var okG = false;
+            for (var kg in pickedGout) {
+              if (pickedGout.hasOwnProperty(kg) && matchPetitDejGout(r, kg)) { okG = true; break; }
+            }
+            if (!okG) continue;
           }
-          if (!okI) continue;
-        }
-        /* Inspiration — au moins un match */
-        if (anyInsp) {
-          var okN = false;
-          for (var key3 in pickedInsp) {
-            if (pickedInsp.hasOwnProperty(key3) && matchInspiration(r, key3)) { okN = true; break; }
+          if (dictHasAny(pickedType)) {
+            var okT = false;
+            for (var kt in pickedType) {
+              if (pickedType.hasOwnProperty(kt) && matchPetitDejType(r, kt)) { okT = true; break; }
+            }
+            if (!okT) continue;
           }
-          if (!okN) continue;
+        } else {
+          if (dictHasAny(pickedIng)) {
+            var okI = false;
+            for (var ki in pickedIng) {
+              if (pickedIng.hasOwnProperty(ki) && matchIngredient(r, ki)) { okI = true; break; }
+            }
+            if (!okI) continue;
+          }
+          if (dictHasAny(pickedAcc)) {
+            var okA = false;
+            for (var ka in pickedAcc) {
+              if (pickedAcc.hasOwnProperty(ka) && matchAccompagnement(r, ka)) { okA = true; break; }
+            }
+            if (!okA) continue;
+          }
+          if (dictHasAny(pickedInsp)) {
+            var okN = false;
+            for (var kn in pickedInsp) {
+              if (pickedInsp.hasOwnProperty(kn) && matchInspiration(r, kn)) { okN = true; break; }
+            }
+            if (!okN) continue;
+          }
         }
+
         list.push(r);
       }
       return list;
@@ -455,9 +737,7 @@
           '<p>Aucune recette ne correspond. Essaie de retirer un filtre.</p>' +
           '</div>';
       } else {
-        /* Tri : random shuffle léger pour varier l'affichage à chaque ouverture */
         var shuffled = list.slice();
-        /* Limiter à 60 cartes affichées max pour iPad mini perf */
         if (shuffled.length > 60) shuffled = shuffled.slice(0, 60);
 
         html += '<div class="livre-grid">';
