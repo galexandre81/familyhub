@@ -1,0 +1,51 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // setupShortIds : lookup table accédée uniquement via Admin SDK (Cloud Functions).
+    // Les clients web/display passent par les Functions (resolveSetupShortId) qui bypassent ces rules.
+    match /setupShortIds/{shortId} {
+      allow read, write: if false;
+    }
+
+    // Users : chacun lit/écrit son propre doc
+    match /users/{uid} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Helpers : un display authentifié via custom token a le claim isDisplay=true et son householdId.
+    function isMember(hid) {
+      return request.auth != null
+        && request.auth.uid in get(/databases/$(database)/documents/households/$(hid)).data.membres;
+    }
+    function isDisplayOfHousehold(hid) {
+      return request.auth != null
+        && request.auth.token.isDisplay == true
+        && request.auth.token.householdId == hid;
+    }
+
+    // Households : membres lisent/écrivent ; displays lisent uniquement leur foyer.
+    match /households/{hid} {
+      allow read: if request.auth != null
+                  && (request.auth.uid in resource.data.membres
+                      || isDisplayOfHousehold(hid));
+      allow update: if request.auth != null
+                    && request.auth.uid in resource.data.membres;
+      allow create: if request.auth != null
+                    && request.auth.uid == request.resource.data.ownerUid;
+      allow delete: if request.auth != null
+                    && request.auth.uid == resource.data.ownerUid;
+
+      // Timers : displays peuvent aussi écrire (création/pause/stop depuis l'iPad cuisine).
+      match /timers/{timerId} {
+        allow read, write: if isMember(hid) || isDisplayOfHousehold(hid);
+      }
+
+      // Sous-collections : membres = read/write, displays = read seul.
+      match /{collection}/{docId=**} {
+        allow read: if isMember(hid) || isDisplayOfHousehold(hid);
+        allow write: if isMember(hid);
+      }
+    }
+  }
+}

@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Family Hub">
+  <meta name="format-detection" content="telephone=no">
+  <title>Family Hub</title>
+  <link rel="stylesheet" href="css/styles.css">
+  <link rel="apple-touch-icon" href="icons/icon-180.png">
+</head>
+<body>
+  <div id="display-root">
+    <div id="boot-message" class="boot-message">
+      <div class="boot-title">Family Hub</div>
+      <div class="boot-status" id="boot-status">Initialisation…</div>
+    </div>
+    <div id="grid" class="grid" style="display:none"></div>
+    <div id="error-overlay" class="error-overlay" style="display:none">
+      <div class="error-title">Erreur</div>
+      <div class="error-text" id="error-text"></div>
+      <a class="error-link" href="setup.html">Reconfigurer ce display</a>
+    </div>
+  </div>
+
+  <!-- Polyfill fetch pour Safari 9 (iPad mini 1) — chargée AVANT Firebase. -->
+  <script src="lib/fetch.umd.js"></script>
+  <!-- Firebase JS SDK v8 (ES5, iOS 9.3.6 OK) -->
+  <script src="lib/firebase-app.js"></script>
+  <script src="lib/firebase-auth.js"></script>
+  <script src="lib/firebase-firestore.js"></script>
+  <script src="lib/firebase-functions.js"></script>
+
+  <!-- Config injectée au build (cf. core.js — pour l'instant valeurs en dur) -->
+  <script src="js/firebase-config.js"></script>
+
+  <!-- Audio player statique. preload=auto pour les flux live (iOS 9 suspend sinon) -->
+  <audio id="family-hub-audio-player" preload="auto"></audio>
+  <!-- Alarm audio statique : iOS 9 a besoin de l'élément dans le DOM dès le boot
+       pour que l'unlock par premier tap fonctionne. -->
+  <audio id="family-hub-timer-alarm" preload="auto" src="lib/beep.wav"></audio>
+
+  <!-- Singletons partagés (audio persistant + overlay plein écran + timers Firestore) -->
+  <script src="js/audio-singleton.js"></script>
+  <script src="js/timer-singleton.js"></script>
+  <script src="js/overlay.js"></script>
+
+  <!-- Tile modules (chacun pose son module sur window.Tiles[type]) -->
+  <script src="js/tiles/clock.js"></script>
+  <script src="js/tiles/weather.js"></script>
+  <script src="js/tiles/radio.js"></script>
+  <script src="js/tiles/timer.js"></script>
+  <script src="js/tiles/calendar.js"></script>
+
+  <!-- Core -->
+  <script src="js/render.js"></script>
+  <script src="js/core.js"></script>
+</body>
+</html>

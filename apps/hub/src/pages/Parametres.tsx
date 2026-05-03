@@ -1,0 +1,122 @@
+import { useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
+import { ChevronRight, Pencil, Salad, Users } from "lucide-react";
+import { useAuth } from "../lib/auth";
+import { useHouseholds } from "../lib/queries";
+import HouseholdForm from "../components/HouseholdForm";
+
+export default function Parametres() {
+  const { user } = useAuth();
+  const { data: households, isLoading } = useHouseholds(user?.uid);
+  const navigate = useNavigate();
+  const [editingId, setEditingId] = useState<string | null>(null);
+
+  if (!user) return null;
+
+  return (
+    <div className="space-y-6">
+      <h1 className="text-3xl">Paramètres</h1>
+
+      <section className="tile-card space-y-3">
+        <h2 className="text-xl">Mon compte</h2>
+        <div className="flex items-center gap-3">
+          {user.photoURL && <img src={user.photoURL} alt="" className="w-12 h-12 rounded-full" />}
+          <div>
+            <p>{user.displayName}</p>
+            <p className="text-text-secondaire text-sm">{user.email}</p>
+          </div>
+        </div>
+      </section>
+
+      <section className="space-y-3">
+        <h2 className="text-xl">Foyers</h2>
+
+        {isLoading && <p className="text-text-secondaire">Chargement…</p>}
+
+        {!isLoading && households && households.length > 0 && (
+          <ul className="space-y-3">
+            {households.map((h) =>
+              editingId === h.id ? (
+                <li key={h.id}>
+                  <HouseholdForm
+                    uid={user.uid}
+                    existing={{ id: h.id, nom: h.nom, parametres: h.parametres }}
+                    onSaved={() => setEditingId(null)}
+                    onCancel={() => setEditingId(null)}
+                  />
+                </li>
+              ) : (
+                <li key={h.id} className="tile-card flex items-start justify-between">
+                  <div>
+                    <p className="font-semibold text-lg">{h.nom}</p>
+                    <p className="text-text-secondaire text-sm mt-1">
+                      {h.parametres?.localisation?.ville},{" "}
+                      {h.parametres?.localisation?.pays}
+                    </p>
+                    <p className="text-text-secondaire text-xs mt-0.5">
+                      {h.parametres?.localisation?.lat.toFixed(4)},{" "}
+                      {h.parametres?.localisation?.lon.toFixed(4)} ·{" "}
+                      {h.parametres?.localisation?.timezone} ·{" "}
+                      {h.membres.length} membre{h.membres.length > 1 ? "s" : ""}
+                    </p>
+                  </div>
+                  <button
+                    onClick={() => setEditingId(h.id)}
+                    className="btn-secondary text-sm flex items-center gap-1"
+                  >
+                    <Pencil size={14} />
+                    Modifier
+                  </button>
+                </li>
+              ),
+            )}
+          </ul>
+        )}
+
+        {!isLoading && (!households || households.length === 0) && (
+          <HouseholdForm
+            uid={user.uid}
+            onSaved={() => navigate("/")}
+          />
+        )}
+      </section>
+
+      {households && households.length > 0 && (
+        <section className="space-y-3">
+          <h2 className="text-xl">Kitchen Buddy</h2>
+          <Link
+            to="/parametres/profils"
+            className="tile-card flex items-center justify-between hover:bg-bordure/40 transition"
+          >
+            <div className="flex items-center gap-3">
+              <Users size={20} className="text-text-secondaire" />
+              <div>
+                <p className="font-medium">Profils famille</p>
+                <p className="text-text-secondaire text-sm">
+                  Régimes, aversions individuelles, contraintes par personne.
+                </p>
+              </div>
+            </div>
+            <ChevronRight size={18} className="text-text-secondaire" />
+          </Link>
+          <Link
+            to="/parametres/regles-nutrition"
+            className="tile-card flex items-center justify-between hover:bg-bordure/40 transition"
+          >
+            <div className="flex items-center gap-3">
+              <Salad size={20} className="text-text-secondaire" />
+              <div>
+                <p className="font-medium">Règles nutrition</p>
+                <p className="text-text-secondaire text-sm">
+                  Ratios, féculents max, ingrédients privilégiés — règles structurelles famille
+                  utilisées par le seed et le meal planner.
+                </p>
+              </div>
+            </div>
+            <ChevronRight size={18} className="text-text-secondaire" />
+          </Link>
+        </section>
+      )}
+    </div>
+  );
+}
