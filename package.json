@@ -1,0 +1,26 @@
+{
+  "name": "family-hub",
+  "version": "0.1.0",
+  "private": true,
+  "description": "Family Hub — plateforme familiale modulaire à base de tuiles",
+  "workspaces": [
+    "apps/*",
+    "functions",
+    "packages/*"
+  ],
+  "scripts": {
+    "build:types": "npm run build --workspace=@family-hub/types",
+    "build:hub": "npm run build --workspace=hub",
+    "build:functions": "npm run build --workspace=functions",
+    "build": "npm run build:types && npm run build:functions && npm run build:hub",
+    "dev:hub": "npm run dev --workspace=hub",
+    "deploy": "npm run build && firebase deploy",
+    "deploy:hosting": "npm run build:hub && firebase deploy --only hosting",
+    "deploy:functions": "npm run build:functions && firebase deploy --only functions",
+    "deploy:rules": "firebase deploy --only firestore:rules",
+    "emulators": "firebase emulators:start"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
