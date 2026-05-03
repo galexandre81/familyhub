@@ -17,6 +17,7 @@ import type {
   GridConfig,
   HouseholdParametres,
   Profil,
+  ReglesNutrition,
   Resolution,
   TileType,
   Theme,
@@ -579,6 +580,34 @@ export function useDeleteProfil() {
     },
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["profils", vars.householdId] });
+    },
+  });
+}
+
+/* --- Règles nutrition (un seul doc id="active" par foyer) --- */
+
+export function useUpdateReglesNutrition() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      householdId,
+      regles,
+    }: {
+      householdId: string;
+      regles: ReglesNutrition;
+    }) => {
+      await setDoc(
+        doc(db, `households/${householdId}/reglesNutrition/active`),
+        {
+          ...regles,
+          updatedAt: serverTimestamp(),
+          createdAt: regles.createdAt ?? serverTimestamp(),
+        },
+        { merge: false },
+      );
+    },
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ["reglesNutrition", vars.householdId] });
     },
   });
 }

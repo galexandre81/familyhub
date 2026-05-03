@@ -74,6 +74,13 @@ export const recetteGenereeSchema = z.object({
     ])
     .optional(),
   tempsTotal: z.enum(["<15min", "15-30min", "30-60min", ">60min"]).optional(),
+  /**
+   * Type de repas. Renseigné par le seed à partir du batch (le LLM n'a pas
+   * besoin de le produire), mais on l'accepte aussi en entrée si présent.
+   */
+  repas: z
+    .enum(["petit-dej-sale", "petit-dej-sucre", "dejeuner", "diner", "tout"])
+    .optional(),
 });
 
 export type RecetteGeneree = z.infer<typeof recetteGenereeSchema>;

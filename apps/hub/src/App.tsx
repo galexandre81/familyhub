@@ -8,6 +8,7 @@ import Tiles from "./pages/Tiles";
 import TileEditor from "./pages/TileEditor";
 import Parametres from "./pages/Parametres";
 import Profils from "./pages/Profils";
+import ReglesNutrition from "./pages/ReglesNutrition";
 import KitchenBuddy from "./pages/KitchenBuddy";
 import KitchenBuddyWizard from "./pages/KitchenBuddyWizard";
 import LivreRecettes from "./pages/LivreRecettes";
@@ -46,6 +47,7 @@ export default function App() {
           <Route path="tiles/:tileId" element={<TileEditor />} />
           <Route path="parametres" element={<Parametres />} />
           <Route path="parametres/profils" element={<Profils />} />
+          <Route path="parametres/regles-nutrition" element={<ReglesNutrition />} />
           <Route path="kitchen-buddy" element={<KitchenBuddy />} />
           <Route path="kitchen-buddy/nouveau-plan" element={<KitchenBuddyWizard />} />
           <Route path="kitchen-buddy/livre" element={<LivreRecettes />} />
