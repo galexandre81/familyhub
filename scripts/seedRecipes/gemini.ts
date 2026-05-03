@@ -40,19 +40,34 @@ export class GeminiSeedClient {
     maxTokens?: number;
   }): Promise<{ data: T; rawText: string; usage: { prompt: number; completion: number } }> {
     const start = Date.now();
+    // Gemini 2.5 Flash a un mode "thinking" qui consomme silencieusement des
+    // tokens dans le budget output. On le désactive (thinkingBudget=0) pour
+    // que tout le budget aille dans la vraie réponse JSON.
     const response = await this.client.models.generateContent({
       model: this.model,
       contents: opts.userPrompt,
       config: {
         systemInstruction: opts.systemPrompt,
         responseMimeType: "application/json",
-        maxOutputTokens: opts.maxTokens ?? 8000,
+        maxOutputTokens: opts.maxTokens ?? 16000,
         temperature: this.temperature,
+        thinkingConfig: { thinkingBudget: 0 },
       },
     });
 
     const content = response.text;
-    if (!content) throw new Error("Gemini a retourné une réponse vide");
+    const finishReason = response.candidates?.[0]?.finishReason;
+    if (!content) {
+      throw new Error(
+        `Gemini a retourné une réponse vide (finishReason=${finishReason ?? "?"})`,
+      );
+    }
+    if (finishReason === "MAX_TOKENS") {
+      throw new Error(
+        `Gemini a tronqué la réponse (MAX_TOKENS atteint à ${response.usageMetadata?.candidatesTokenCount ?? "?"} tokens). ` +
+          "Augmente maxTokens dans seed.ts (Math.max budget × count) ou réduis count par batch.",
+      );
+    }
 
     const extracted = extractJson(content);
     let data: T;
@@ -60,7 +75,7 @@ export class GeminiSeedClient {
       data = JSON.parse(extracted) as T;
     } catch (err) {
       throw new Error(
-        `JSON invalide retourné par Gemini : ${err instanceof Error ? err.message : "?"}\n` +
+        `JSON invalide retourné par Gemini (finishReason=${finishReason ?? "?"}) : ${err instanceof Error ? err.message : "?"}\n` +
           `Premiers 300 chars : ${extracted.slice(0, 300)}`,
       );
     }

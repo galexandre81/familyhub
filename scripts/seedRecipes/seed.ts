@@ -201,7 +201,9 @@ async function runBatch(
     const result = await llm.generateJson<unknown>({
       systemPrompt: SEED_SYSTEM_PROMPT,
       userPrompt,
-      maxTokens: Math.max(4000, req.count * 350),
+      // Une recette détaillée (ingrédients + étapes + tags) ≈ 1500-2500 tokens.
+      // On budgète 2500/recette + 2000 de marge pour la structure JSON enveloppe.
+      maxTokens: Math.max(8000, req.count * 2500 + 2000),
     });
     raw = result.data;
     stats.totalTokensInput += result.usage.prompt;
