@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import type {
   CalendarConfig,
   ClockConfig,
+  LivreRecettesConfig,
   RadioConfig,
   RadioStation,
   TileType,
@@ -13,6 +14,7 @@ import type {
 import {
   defaultCalendarConfig,
   defaultClockConfig,
+  defaultLivreRecettesConfig,
   defaultRadioStations,
   defaultTimerPresets,
 } from "@family-hub/types";
@@ -28,7 +30,14 @@ interface TileFormProps {
   onCancel?: () => void;
 }
 
-const SUPPORTED_TYPES: TileType[] = ["clock", "weather", "calendar", "radio", "timer"];
+const SUPPORTED_TYPES: TileType[] = [
+  "clock",
+  "weather",
+  "calendar",
+  "radio",
+  "timer",
+  "livre-recettes",
+];
 
 const TYPE_LABELS: Partial<Record<TileType, string>> = {
   clock: "Horloge",
@@ -36,6 +45,7 @@ const TYPE_LABELS: Partial<Record<TileType, string>> = {
   calendar: "Calendrier",
   radio: "Radio",
   timer: "Minuteur",
+  "livre-recettes": "Livre de recettes",
 };
 
 const DEFAULT_REFRESH: Partial<Record<TileType, number>> = {
@@ -44,6 +54,7 @@ const DEFAULT_REFRESH: Partial<Record<TileType, number>> = {
   calendar: 900,
   radio: 0,
   timer: 0,
+  "livre-recettes": 0,
 };
 
 export default function TileForm({
@@ -80,6 +91,7 @@ export default function TileForm({
     presets: defaultTimerPresets,
   });
   const [calendarCfg, setCalendarCfg] = useState<CalendarConfig>(defaultCalendarConfig);
+  const [livreCfg, setLivreCfg] = useState<LivreRecettesConfig>(defaultLivreRecettesConfig);
 
   const syncCalendar = useSyncCalendarTile();
 
@@ -100,6 +112,8 @@ export default function TileForm({
         return timerCfg as unknown as Record<string, unknown>;
       case "calendar":
         return calendarCfg as unknown as Record<string, unknown>;
+      case "livre-recettes":
+        return livreCfg as unknown as Record<string, unknown>;
       default:
         return {};
     }
@@ -182,6 +196,9 @@ export default function TileForm({
       {type === "calendar" && (
         <CalendarFields config={calendarCfg} onChange={setCalendarCfg} />
       )}
+      {type === "livre-recettes" && (
+        <LivreRecettesFields config={livreCfg} onChange={setLivreCfg} />
+      )}
 
       {error && <p className="text-accent-chaud text-sm">{error}</p>}
 
@@ -205,7 +222,97 @@ function defaultNomFor(type: TileType, ville?: string): string {
   if (type === "radio") return "Radio";
   if (type === "timer") return "Minuteur";
   if (type === "calendar") return "Calendrier famille";
+  if (type === "livre-recettes") return "Livre de recettes";
   return "Tuile";
+}
+
+function LivreRecettesFields({
+  config,
+  onChange,
+}: {
+  config: LivreRecettesConfig;
+  onChange: (c: LivreRecettesConfig) => void;
+}) {
+  const [tagInput, setTagInput] = useState("");
+
+  function addTag() {
+    const v = tagInput.trim();
+    if (!v) return;
+    if (config.filtreTags.includes(v)) {
+      setTagInput("");
+      return;
+    }
+    onChange({ ...config, filtreTags: [...config.filtreTags, v] });
+    setTagInput("");
+  }
+
+  function removeTag(t: string) {
+    onChange({ ...config, filtreTags: config.filtreTags.filter((x) => x !== t) });
+  }
+
+  return (
+    <div className="space-y-3">
+      <p className="text-sm text-text-secondaire">
+        La tuile affiche le compteur de recettes du foyer et les 3 dernières. Le tap ouvre la
+        recherche plein écran avec filtres par tag.
+      </p>
+
+      <Field label="Filtre par tags (vide = toutes les recettes)">
+        <div className="flex gap-2">
+          <input
+            type="text"
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addTag();
+              }
+            }}
+            className="input flex-1"
+            placeholder="ex: végétarien, rapide…"
+          />
+          <button
+            type="button"
+            onClick={addTag}
+            className="btn-secondary text-sm flex items-center gap-1"
+          >
+            <Plus size={14} />
+            Ajouter
+          </button>
+        </div>
+        {config.filtreTags.length > 0 && (
+          <div className="flex flex-wrap gap-1 mt-2">
+            {config.filtreTags.map((t) => (
+              <button
+                key={t}
+                type="button"
+                onClick={() => removeTag(t)}
+                className="text-xs px-2 py-1 rounded-full border border-bordure hover:border-accent-chaud flex items-center gap-1"
+              >
+                {t}
+                <Trash2 size={12} />
+              </button>
+            ))}
+          </div>
+        )}
+      </Field>
+
+      <Field label="Tri">
+        <select
+          value={config.tri}
+          onChange={(e) =>
+            onChange({ ...config, tri: e.target.value as LivreRecettesConfig["tri"] })
+          }
+          className="input"
+        >
+          <option value="recente">Plus récentes d'abord</option>
+          <option value="alpha">Alphabétique</option>
+          <option value="notation">Notation décroissante</option>
+        </select>
+      </Field>
+    </div>
+  );
 }
 
 function CalendarFields({
