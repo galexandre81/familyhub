@@ -3,12 +3,13 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Script de seed du livre de recettes via LLM local (LM Studio + Qwen)",
+  "description": "Script de seed du livre de recettes via LLM (Gemini Flash ou LM Studio local)",
   "scripts": {
     "seed": "tsx seed.ts",
     "seed:dry": "tsx seed.ts --dry-run"
   },
   "dependencies": {
+    "@google/genai": "^1.0.0",
     "firebase-admin": "^12.7.0",
     "openai": "^4.77.0",
     "zod": "^3.23.8",
