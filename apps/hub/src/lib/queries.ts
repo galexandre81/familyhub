@@ -262,6 +262,26 @@ export function useRecettes(householdId: string | undefined) {
 }
 
 /**
+ * Récupère une recette unique par son ID. Pour la page détail.
+ */
+export function useRecette(
+  householdId: string | undefined,
+  recetteId: string | undefined,
+) {
+  return useQuery({
+    enabled: !!householdId && !!recetteId,
+    queryKey: ["recette", householdId, recetteId],
+    queryFn: async (): Promise<RecetteWithId | null> => {
+      if (!householdId || !recetteId) return null;
+      const snap = await getDoc(
+        doc(db, `households/${householdId}/recettes/${recetteId}`),
+      );
+      return snap.exists() ? { id: snap.id, ...(snap.data() as Recette) } : null;
+    },
+  });
+}
+
+/**
  * Recettes référencées par le plan (jointure côté client : on lit les IDs
  * référencés par les slots, puis on charge les docs correspondants).
  */
