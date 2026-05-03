@@ -31,6 +31,7 @@ import {
 } from "firebase-admin/firestore";
 import { LMStudioClient } from "./lmstudio.ts";
 import { GeminiSeedClient } from "./gemini.ts";
+import { ClaudeSeedClient } from "./claude.ts";
 import {
   buildBannedTerms,
   checkRecetteConstraints,
@@ -53,7 +54,7 @@ import {
 } from "./reglesNutrition.ts";
 import { normalizeNom, parseSeedOutput, type RecetteGeneree } from "./validation.ts";
 
-type Provider = "gemini" | "lmstudio";
+type Provider = "gemini" | "lmstudio" | "claude";
 
 interface CliOptions {
   household: string;
@@ -78,6 +79,28 @@ const GEMINI_PRICING_USD: Record<string, { input: number; output: number }> = {
   "gemini-2.5-flash":       { input: 0.30, output: 2.50 },
   "gemini-2.5-flash-lite":  { input: 0.10, output: 0.40 },
 };
+
+/**
+ * Tarif Anthropic Claude (USD/1M tokens) — purely indicatif.
+ * - cacheWrite : tarif d'écriture en cache (5 min TTL par défaut), input × 1.25
+ * - cacheRead  : tarif de lecture du cache, input × 0.10
+ *
+ * Pour 500 recettes (~585K tokens output, ~10K tokens input/cache) :
+ *   - Haiku 4.5    ≈ $3.0   (le plus économique)
+ *   - Sonnet 4.5/6 ≈ $8.8
+ *   - Opus 4.7     ≈ $14.7
+ */
+const CLAUDE_PRICING_USD: Record<
+  string,
+  { input: number; output: number; cacheWrite: number; cacheRead: number }
+> = {
+  "claude-opus-4-7":   { input: 5,  output: 25, cacheWrite: 6.25,  cacheRead: 0.5 },
+  "claude-opus-4-6":   { input: 5,  output: 25, cacheWrite: 6.25,  cacheRead: 0.5 },
+  "claude-sonnet-4-6": { input: 3,  output: 15, cacheWrite: 3.75,  cacheRead: 0.3 },
+  "claude-sonnet-4-5": { input: 3,  output: 15, cacheWrite: 3.75,  cacheRead: 0.3 },
+  "claude-haiku-4-5":  { input: 1,  output: 5,  cacheWrite: 1.25,  cacheRead: 0.1 },
+};
+
 const USD_TO_EUR = 0.92; // approx, juste pour donner un ordre de grandeur
 
 function parseCli(): CliOptions {
@@ -86,8 +109,8 @@ function parseCli(): CliOptions {
     .option("--count <n>", "Nombre cible de recettes (sinon total des thèmes ≈ 500)", (v) => parseInt(v, 10))
     .option("--theme <slug>", "Thème unique (sinon rotation entre tous les thèmes)")
     .option("--dry-run", "N'écrit pas dans Firestore, juste affiche", false)
-    .option("--provider <p>", "Fournisseur LLM : gemini | lmstudio", (process.env.LLM_PROVIDER as Provider) ?? "gemini")
-    .option("--model <name>", "Override du modèle (défaut : gemini-2.5-flash ou qwen/qwen3.5-9b)")
+    .option("--provider <p>", "Fournisseur LLM : gemini | claude | lmstudio", (process.env.LLM_PROVIDER as Provider) ?? "gemini")
+    .option("--model <name>", "Override du modèle (défaut : gemini-2.5-flash | claude-sonnet-4-5 | qwen/qwen3.5-9b)")
     .option("--base-url <url>", "Base URL LM Studio", "http://localhost:1234/v1")
     .option("--saison <s>", "Saisons à cibler (printemps-ete | hiver | toutes)", "printemps-ete")
     .option("--no-strict-constraints", "Ne rejette PAS les recettes qui violent une contrainte (juste warn)")
@@ -97,20 +120,29 @@ function parseCli(): CliOptions {
     console.error("❌ --household est requis (ex: --household abc123)");
     process.exit(1);
   }
-  if (opts.provider !== "gemini" && opts.provider !== "lmstudio") {
-    console.error(`❌ --provider invalide : "${opts.provider}" (attendu : gemini | lmstudio)`);
+  if (opts.provider !== "gemini" && opts.provider !== "lmstudio" && opts.provider !== "claude") {
+    console.error(`❌ --provider invalide : "${opts.provider}" (attendu : gemini | claude | lmstudio)`);
     process.exit(1);
   }
   return opts;
 }
 
-/** Interface commune pour basculer entre LM Studio et Gemini. */
+/** Interface commune pour basculer entre les providers LLM. */
+interface LLMUsage {
+  prompt: number;
+  completion: number;
+  /** Tokens écrits en cache (Anthropic uniquement). */
+  cacheCreation?: number;
+  /** Tokens lus du cache (Anthropic uniquement). */
+  cacheRead?: number;
+}
+
 interface LLMClient {
   generateJson<T = unknown>(opts: {
     systemPrompt: string;
     userPrompt: string;
     maxTokens?: number;
-  }): Promise<{ data: T; rawText: string; usage: { prompt: number; completion: number } }>;
+  }): Promise<{ data: T; rawText: string; usage: LLMUsage }>;
   ping(): Promise<string[]>;
 }
 
@@ -119,6 +151,13 @@ function buildLLMClient(opts: CliOptions): { client: LLMClient; model: string } 
     const model = opts.model ?? "gemini-2.5-flash";
     return {
       client: new GeminiSeedClient({ model, temperature: 0.85 }),
+      model,
+    };
+  }
+  if (opts.provider === "claude") {
+    const model = opts.model ?? "claude-sonnet-4-5";
+    return {
+      client: new ClaudeSeedClient({ model }),
       model,
     };
   }
@@ -176,6 +215,8 @@ interface BatchStats {
   errors: number;
   totalTokensInput: number;
   totalTokensOutput: number;
+  totalCacheCreation: number;
+  totalCacheRead: number;
 }
 
 async function runBatch(
@@ -208,6 +249,8 @@ async function runBatch(
     raw = result.data;
     stats.totalTokensInput += result.usage.prompt;
     stats.totalTokensOutput += result.usage.completion;
+    stats.totalCacheCreation += result.usage.cacheCreation ?? 0;
+    stats.totalCacheRead += result.usage.cacheRead ?? 0;
   } catch (err) {
     console.error(`   ❌ LLM error : ${err instanceof Error ? err.message : err}`);
     stats.errors += 1;
@@ -401,11 +444,14 @@ async function main() {
       console.log(`✅ ${opts.provider} joignable, modèle "${model}".\n`);
     }
   } catch (err) {
+    const hint =
+      opts.provider === "lmstudio"
+        ? "\n   Démarre le serveur dans LM Studio (Local Server → Start Server)."
+        : opts.provider === "claude"
+          ? "\n   Vérifie ANTHROPIC_API_KEY dans scripts/seedRecipes/.env."
+          : "\n   Vérifie GEMINI_API_KEY dans scripts/seedRecipes/.env.";
     console.error(
-      `❌ ${opts.provider} injoignable : ${err instanceof Error ? err.message : err}` +
-        (opts.provider === "lmstudio"
-          ? "\n   Démarre le serveur dans LM Studio (Local Server → Start Server)."
-          : "\n   Vérifie GEMINI_API_KEY dans scripts/seedRecipes/.env."),
+      `❌ ${opts.provider} injoignable : ${err instanceof Error ? err.message : err}${hint}`,
     );
     process.exit(1);
   }
@@ -429,6 +475,8 @@ async function main() {
     errors: 0,
     totalTokensInput: 0,
     totalTokensOutput: 0,
+    totalCacheCreation: 0,
+    totalCacheRead: 0,
   };
   const recentNoms: string[] = [];
   const reglesBlock = formatReglesBlockForPrompt(regles);
@@ -460,7 +508,7 @@ async function main() {
   const elapsedMin = ((Date.now() - startTime) / 60000).toFixed(1);
 
   // 9. Résumé + coût
-  const cost = computeCost(opts.provider, model, stats.totalTokensInput, stats.totalTokensOutput);
+  const cost = computeCost(opts.provider, model, stats);
   console.log("\n──────────── Résumé ────────────");
   console.log(`Recettes générées par le LLM    : ${stats.generated}`);
   console.log(`Recettes écrites dans Firestore : ${stats.written}`);
@@ -468,11 +516,21 @@ async function main() {
   console.log(`Contraintes profils rejetées    : ${stats.skippedConstraints}`);
   console.log(`Règles famille rejetées         : ${stats.skippedRegles}`);
   console.log(`Erreurs                         : ${stats.errors}`);
-  console.log(`Tokens                          : ${stats.totalTokensInput.toLocaleString("fr-FR")} in + ${stats.totalTokensOutput.toLocaleString("fr-FR")} out`);
+  if (stats.totalCacheCreation || stats.totalCacheRead) {
+    const totalIn = stats.totalTokensInput + stats.totalCacheCreation + stats.totalCacheRead;
+    console.log(
+      `Tokens                          : ${totalIn.toLocaleString("fr-FR")} in (${stats.totalTokensInput.toLocaleString("fr-FR")} uncached + ${stats.totalCacheCreation.toLocaleString("fr-FR")} cache write + ${stats.totalCacheRead.toLocaleString("fr-FR")} cache read) + ${stats.totalTokensOutput.toLocaleString("fr-FR")} out`,
+    );
+    if (stats.totalCacheRead > 0) {
+      const cacheHitRate = (stats.totalCacheRead / (stats.totalTokensInput + stats.totalCacheCreation + stats.totalCacheRead)) * 100;
+      console.log(`Cache hit rate                  : ${cacheHitRate.toFixed(1)}% (économie d'environ ~${(stats.totalCacheRead * 0.9 / 1000).toFixed(1)}K tokens "vrai prix")`);
+    }
+  } else {
+    console.log(`Tokens                          : ${stats.totalTokensInput.toLocaleString("fr-FR")} in + ${stats.totalTokensOutput.toLocaleString("fr-FR")} out`);
+  }
   if (cost) {
     console.log(`Coût estimé (${opts.provider}/${model}) : $${cost.usd.toFixed(4)} ≈ €${cost.eur.toFixed(4)}`);
-    console.log(`  → input  : $${cost.inputUsd.toFixed(4)} (${(stats.totalTokensInput / 1_000_000).toFixed(3)}M × $${cost.pricing.input}/M)`);
-    console.log(`  → output : $${cost.outputUsd.toFixed(4)} (${(stats.totalTokensOutput / 1_000_000).toFixed(3)}M × $${cost.pricing.output}/M)`);
+    cost.breakdown.forEach((line) => console.log(`  → ${line}`));
   } else {
     console.log(`Coût                            : 0€ (provider local)`);
   }
@@ -483,29 +541,58 @@ async function main() {
 }
 
 interface CostBreakdown {
-  inputUsd: number;
-  outputUsd: number;
   usd: number;
   eur: number;
-  pricing: { input: number; output: number };
+  /** Lignes de détail à afficher (input / cache write / cache read / output). */
+  breakdown: string[];
 }
 
 function computeCost(
   provider: Provider,
   model: string,
-  inputTokens: number,
-  outputTokens: number,
+  stats: BatchStats,
 ): CostBreakdown | null {
-  if (provider !== "gemini") return null;
-  const pricing = GEMINI_PRICING_USD[model];
-  if (!pricing) {
-    console.warn(`⚠️  Tarif inconnu pour ${model}, coût non calculé. Mets à jour GEMINI_PRICING_USD.`);
-    return null;
+  if (provider === "gemini") {
+    const pricing = GEMINI_PRICING_USD[model];
+    if (!pricing) {
+      console.warn(`⚠️  Tarif Gemini inconnu pour ${model}, coût non calculé. Mets à jour GEMINI_PRICING_USD.`);
+      return null;
+    }
+    const inputUsd = (stats.totalTokensInput / 1_000_000) * pricing.input;
+    const outputUsd = (stats.totalTokensOutput / 1_000_000) * pricing.output;
+    const usd = inputUsd + outputUsd;
+    return {
+      usd,
+      eur: usd * USD_TO_EUR,
+      breakdown: [
+        `input  : $${inputUsd.toFixed(4)} (${(stats.totalTokensInput / 1_000_000).toFixed(3)}M × $${pricing.input}/M)`,
+        `output : $${outputUsd.toFixed(4)} (${(stats.totalTokensOutput / 1_000_000).toFixed(3)}M × $${pricing.output}/M)`,
+      ],
+    };
   }
-  const inputUsd = (inputTokens / 1_000_000) * pricing.input;
-  const outputUsd = (outputTokens / 1_000_000) * pricing.output;
-  const usd = inputUsd + outputUsd;
-  return { inputUsd, outputUsd, usd, eur: usd * USD_TO_EUR, pricing };
+  if (provider === "claude") {
+    const pricing = CLAUDE_PRICING_USD[model];
+    if (!pricing) {
+      console.warn(`⚠️  Tarif Claude inconnu pour ${model}, coût non calculé. Mets à jour CLAUDE_PRICING_USD.`);
+      return null;
+    }
+    const inputUsd = (stats.totalTokensInput / 1_000_000) * pricing.input;
+    const cacheWriteUsd = (stats.totalCacheCreation / 1_000_000) * pricing.cacheWrite;
+    const cacheReadUsd = (stats.totalCacheRead / 1_000_000) * pricing.cacheRead;
+    const outputUsd = (stats.totalTokensOutput / 1_000_000) * pricing.output;
+    const usd = inputUsd + cacheWriteUsd + cacheReadUsd + outputUsd;
+    return {
+      usd,
+      eur: usd * USD_TO_EUR,
+      breakdown: [
+        `input uncached : $${inputUsd.toFixed(4)} (${(stats.totalTokensInput / 1_000_000).toFixed(3)}M × $${pricing.input}/M)`,
+        `cache write    : $${cacheWriteUsd.toFixed(4)} (${(stats.totalCacheCreation / 1_000_000).toFixed(3)}M × $${pricing.cacheWrite}/M)`,
+        `cache read     : $${cacheReadUsd.toFixed(4)} (${(stats.totalCacheRead / 1_000_000).toFixed(3)}M × $${pricing.cacheRead}/M)`,
+        `output         : $${outputUsd.toFixed(4)} (${(stats.totalTokensOutput / 1_000_000).toFixed(3)}M × $${pricing.output}/M)`,
+      ],
+    };
+  }
+  return null;
 }
 
 function buildFirestoreRecette(

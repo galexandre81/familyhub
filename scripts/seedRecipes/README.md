@@ -2,14 +2,17 @@
 
 Script Node.js qui génère **~500 recettes** dans la collection `households/{hid}/recettes` via un LLM, avec **validation post-génération des contraintes des profils familiaux**.
 
-Deux providers supportés :
+Trois providers supportés :
 
-| Provider | Coût | Vitesse | Setup |
+| Provider | Coût (estimation 500 recettes) | Vitesse | Setup |
 |---|---|---|---|
-| **`gemini`** (défaut) | ~$0.50 pour 500 recettes avec `gemini-2.5-flash` | ~10-15 min | Clé API gratuite à créer sur Google AI Studio |
+| **`gemini`** (défaut) | ~$3 avec `gemini-2.5-flash` | ~15-20 min | Clé API + billing GCP activé (free tier limité à 20 req/jour) |
+| **`claude`** | ~$3 avec `claude-haiku-4-5`, ~$8 avec Sonnet 4.5 | ~10-15 min | Clé API Anthropic + crédit (peut être offert via Pro/Max) |
 | **`lmstudio`** | 0€ | ~30-60 min selon GPU | Lourd : LM Studio + modèle Qwen 9B chargé localement |
 
-Mode `gemini` recommandé : le coût est négligeable et la qualité du JSON / suivi des contraintes nettement supérieurs à un Qwen 9B local.
+**Mode `claude` recommandé si tu as déjà des crédits Anthropic** (notamment via abonnement Pro/Max qui inclut $5-25/mois de crédits API). Le prompt caching automatique sur le system prompt réduit le coût input de ~90% à partir du 2e batch. Qualité du JSON et suivi des contraintes excellents.
+
+**Mode `gemini` recommandé sinon** : moins cher en absolu si billing GCP activé. Sans billing, plafond de 20 requêtes/jour sur Gemini 2.5 Flash bloque le seed à mi-chemin.
 
 ## Répartition des 500 recettes
 
@@ -47,9 +50,22 @@ Le seed :
 ### Provider Gemini (défaut)
 
 1. Crée une clé API sur https://aistudio.google.com/apikey
-2. **Credentials Firebase Admin** (un des deux) :
+2. **Active le billing GCP** sur https://console.cloud.google.com/billing pour passer en payant (sinon 20 requêtes/jour max)
+3. **Credentials Firebase Admin** (un des deux) :
    - Service-account JSON dans `scripts/seedRecipes/service-account.json`
    - ou `gcloud auth application-default login`
+
+### Provider Claude (Anthropic)
+
+1. Crée une clé API sur https://console.anthropic.com/settings/keys
+2. Vérifie ton crédit sur https://console.anthropic.com/settings/billing
+3. **Credentials Firebase Admin** : idem ci-dessus
+
+Modèles dispo (par défaut `claude-sonnet-4-5`) :
+- `claude-haiku-4-5` — le moins cher (~$3 pour 500 recettes), qualité OK
+- `claude-sonnet-4-5` — défaut, équilibré (~$8.5)
+- `claude-sonnet-4-6` — successeur de 4.5, même prix, légèrement meilleur
+- `claude-opus-4-7` — le plus capable (~$15)
 
 ### Provider LM Studio (alternative locale)
 
@@ -68,8 +84,9 @@ cp .env.example .env
 # édite .env :
 #   - FIREBASE_PROJECT_ID
 #   - GOOGLE_APPLICATION_CREDENTIALS (ou ADC)
-#   - LLM_PROVIDER=gemini (ou lmstudio)
-#   - GEMINI_API_KEY=AIza...
+#   - LLM_PROVIDER=gemini | claude | lmstudio
+#   - GEMINI_API_KEY=AIza...        (si gemini)
+#   - ANTHROPIC_API_KEY=sk-ant-...  (si claude)
 ```
 
 ## Utilisation
