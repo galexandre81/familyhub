@@ -16,9 +16,11 @@ import type {
   MealPlanSlot,
   Profil,
   Recette,
+  ReglesNutrition,
   Tile,
   User,
 } from "@family-hub/types";
+import { DEFAULT_REGLES_NUTRITION } from "@family-hub/types";
 
 export function useUserDoc(uid: string | undefined) {
   return useQuery({
@@ -100,6 +102,26 @@ export function useTile(householdId: string | undefined, tileId: string | undefi
 export function useActiveHouseholdId(uid: string | undefined): string | undefined {
   const { data } = useHouseholds(uid);
   return data?.[0]?.id;
+}
+
+/**
+ * Règles nutrition du foyer (un seul doc actif id="active").
+ * Fallback sur le preset "equilibre" par défaut si aucun doc n'existe.
+ */
+export function useReglesNutrition(householdId: string | undefined) {
+  return useQuery({
+    enabled: !!householdId,
+    queryKey: ["reglesNutrition", householdId],
+    queryFn: async (): Promise<ReglesNutrition> => {
+      if (!householdId) return DEFAULT_REGLES_NUTRITION;
+      const snap = await getDoc(
+        doc(db, `households/${householdId}/reglesNutrition/active`),
+      );
+      return snap.exists()
+        ? (snap.data() as ReglesNutrition)
+        : DEFAULT_REGLES_NUTRITION;
+    },
+  });
 }
 
 export function useProfils(householdId: string | undefined) {

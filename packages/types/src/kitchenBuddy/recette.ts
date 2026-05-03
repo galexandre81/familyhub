@@ -81,6 +81,20 @@ export interface Recette {
      * (petit-déj vs déj vs dîner). Une recette peut convenir partout = "tout".
      */
     repas?: "petit-dej-sale" | "petit-dej-sucre" | "dejeuner" | "diner" | "tout";
+    /**
+     * Liste des presets de règles nutrition pour lesquels cette recette est
+     * adaptée (renseigné par le seed selon le preset actif au moment de la
+     * génération + analyse heuristique). Sert à filtrer côté planner si le
+     * foyer change de preset.
+     */
+    convientAuxPresets?: Array<
+      | "equilibre"
+      | "perte-poids"
+      | "proteine"
+      | "mediterraneen"
+      | "vegetarien-equilibre"
+      | "sans-sel-strict"
+    >;
   };
   /** Notation post-repas (1-5 étoiles). */
   notation?: 1 | 2 | 3 | 4 | 5;

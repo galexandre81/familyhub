@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ChevronRight, Pencil, Users } from "lucide-react";
+import { ChevronRight, Pencil, Salad, Users } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useHouseholds } from "../lib/queries";
 import HouseholdForm from "../components/HouseholdForm";
@@ -93,7 +93,23 @@ export default function Parametres() {
               <div>
                 <p className="font-medium">Profils famille</p>
                 <p className="text-text-secondaire text-sm">
-                  Régimes, aversions, objectifs nutrition utilisés pour les plans de repas.
+                  Régimes, aversions individuelles, contraintes par personne.
+                </p>
+              </div>
+            </div>
+            <ChevronRight size={18} className="text-text-secondaire" />
+          </Link>
+          <Link
+            to="/parametres/regles-nutrition"
+            className="tile-card flex items-center justify-between hover:bg-bordure/40 transition"
+          >
+            <div className="flex items-center gap-3">
+              <Salad size={20} className="text-text-secondaire" />
+              <div>
+                <p className="font-medium">Règles nutrition</p>
+                <p className="text-text-secondaire text-sm">
+                  Ratios, féculents max, ingrédients privilégiés — règles structurelles famille
+                  utilisées par le seed et le meal planner.
                 </p>
               </div>
             </div>

@@ -30,6 +30,18 @@ C'est l'intérêt central de l'outil : les **régimes** (`végétarien`, `sans p
 
 Pour passer en mode warning au lieu de rejet : `--no-strict-constraints`.
 
+## Règles nutrition famille (preset)
+
+Le foyer choisit un preset structurel via le hub (`/parametres/regles-nutrition`) — par défaut **« Équilibre Guillaume »** (60% légumes / 22% protéines / 18% féculents, max 1 féculent par repas, légumes peu caloriques privilégiés, carottes/betteraves limitées).
+
+Presets disponibles : `equilibre`, `perte-poids`, `proteine`, `mediterraneen`, `vegetarien-equilibre`, `sans-sel-strict`, ou `custom` (le foyer réécrit chaque champ).
+
+Le seed :
+1. **Charge** le preset actif depuis `households/{hid}/reglesNutrition/active` (ou utilise le défaut si aucun doc).
+2. **Injecte un bloc « ⚖️ STRUCTURE DU REPAS — RÈGLES FAMILLE »** en haut du user prompt, avec les ratios et la règle « max N féculents par repas ».
+3. **Valide après génération** que chaque déjeuner / dîner respecte la règle (compte les groupes de féculents distincts, vérifie la présence de légumes et de protéine si obligatoire). Les petits-déjeuners sont exemptés.
+4. **Tague chaque recette** avec `seedTags.convientAuxPresets: [presetId]` pour que le meal planner puisse filtrer si tu changes de preset par la suite.
+
 ## Prérequis
 
 ### Provider Gemini (défaut)
