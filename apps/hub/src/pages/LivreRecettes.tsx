@@ -187,14 +187,16 @@ function RecetteCard({
 
   return (
     <div className={`tile-card !p-4 flex flex-col gap-2 ${isExcluded ? "opacity-50" : ""}`}>
-      <div className="flex items-start justify-between gap-2">
-        <h3 className="font-serif text-lg leading-tight flex-1">{recette.nom}</h3>
-        {isFav && <Heart size={14} className="text-brass shrink-0 mt-1" fill="currentColor" />}
-      </div>
+      <Link to={`/kitchen-buddy/livre/${recette.id}`} className="space-y-2 hover:opacity-90 transition">
+        <div className="flex items-start justify-between gap-2">
+          <h3 className="font-serif text-lg leading-tight flex-1">{recette.nom}</h3>
+          {isFav && <Heart size={14} className="text-brass shrink-0 mt-1" fill="currentColor" />}
+        </div>
 
-      {recette.description && (
-        <p className="text-cream-mute text-xs leading-snug line-clamp-3">{recette.description}</p>
-      )}
+        {recette.description && (
+          <p className="text-cream-mute text-xs leading-snug line-clamp-3">{recette.description}</p>
+        )}
+      </Link>
 
       <div className="flex flex-wrap gap-1 mt-1">
         {recette.tags.slice(0, 4).map((t) => (

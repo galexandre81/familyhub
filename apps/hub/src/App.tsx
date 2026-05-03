@@ -12,6 +12,8 @@ import ReglesNutrition from "./pages/ReglesNutrition";
 import KitchenBuddy from "./pages/KitchenBuddy";
 import KitchenBuddyWizard from "./pages/KitchenBuddyWizard";
 import LivreRecettes from "./pages/LivreRecettes";
+import RecetteDetail from "./pages/RecetteDetail";
+import RecetteCuisine from "./pages/RecetteCuisine";
 import Layout from "./components/Layout";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
@@ -51,6 +53,8 @@ export default function App() {
           <Route path="kitchen-buddy" element={<KitchenBuddy />} />
           <Route path="kitchen-buddy/nouveau-plan" element={<KitchenBuddyWizard />} />
           <Route path="kitchen-buddy/livre" element={<LivreRecettes />} />
+          <Route path="kitchen-buddy/livre/:recetteId" element={<RecetteDetail />} />
+          <Route path="kitchen-buddy/livre/:recetteId/cuisine" element={<RecetteCuisine />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
