@@ -1,25 +1,35 @@
 /**
- * Script de seed du livre de recettes via LLM local (LM Studio + Qwen 9B).
+ * Script de seed du livre de recettes via LLM (Gemini Flash par défaut, ou
+ * LM Studio local pour zéro coût).
  *
  * Usage :
- *   npm run seed -- --household HID [--count N] [--dry-run] [--theme THEME]
+ *   npm run seed -- --household HID [--provider gemini|lmstudio] [--count N]
+ *                   [--dry-run] [--theme THEME] [--saison ...] [--model NAME]
  *
- * Défaut : génère ~290 recettes (12 batches × ~25 recettes) couvrant un large
- * spectre printemps-été, avec dédoublonnage par similitude de nom.
+ * Défaut : ~500 recettes (24 batches couvrant petit-déj salé majoritaire,
+ * déjeuner light, dîner familial / ethnique varié) pour le printemps-été,
+ * avec dédoublonnage par similitude de nom et VALIDATION POST-GÉNÉRATION
+ * des contraintes des profils familiaux (aversions + régimes mappés).
  *
  * Authentification Firestore :
  * - Soit via GOOGLE_APPLICATION_CREDENTIALS=path/to/service-account.json
  * - Soit via Application Default Credentials (gcloud auth application-default login)
  *
  * Prérequis :
- * 1. LM Studio démarré, modèle Qwen chargé, serveur sur :1234
- * 2. .env créé avec GOOGLE_APPLICATION_CREDENTIALS et FIREBASE_PROJECT_ID
+ * - Provider gemini : GEMINI_API_KEY dans .env
+ * - Provider lmstudio : serveur LM Studio démarré sur :1234, modèle Qwen chargé
  */
 
 import "dotenv/config";
 import { Command } from "commander";
 import * as admin from "firebase-admin";
 import { LMStudioClient } from "./lmstudio.ts";
+import { GeminiSeedClient } from "./gemini.ts";
+import {
+  buildBannedTerms,
+  checkRecetteConstraints,
+  formatBannedBlockForPrompt,
+} from "./constraints.ts";
 import {
   buildSeedUserPrompt,
   SEED_SYSTEM_PROMPT,
@@ -30,32 +40,80 @@ import {
 } from "./prompts.ts";
 import { normalizeNom, parseSeedOutput, type RecetteGeneree } from "./validation.ts";
 
+type Provider = "gemini" | "lmstudio";
+
 interface CliOptions {
   household: string;
   count?: number;
   theme?: string;
   dryRun: boolean;
-  model: string;
+  provider: Provider;
+  model?: string;
   baseUrl: string;
   saison: string;
+  strictConstraints: boolean;
 }
+
+/**
+ * Tarif Gemini (USD/1M tokens) — à ajuster si Google met à jour les prix.
+ * Sources Google AI Studio (avril 2025) — purely indicatif.
+ */
+const GEMINI_PRICING_USD: Record<string, { input: number; output: number }> = {
+  "gemini-2.0-flash":       { input: 0.10, output: 0.40 },
+  "gemini-2.0-flash-001":   { input: 0.10, output: 0.40 },
+  "gemini-2.0-flash-lite":  { input: 0.075, output: 0.30 },
+  "gemini-2.5-flash":       { input: 0.30, output: 2.50 },
+  "gemini-2.5-flash-lite":  { input: 0.10, output: 0.40 },
+};
+const USD_TO_EUR = 0.92; // approx, juste pour donner un ordre de grandeur
 
 function parseCli(): CliOptions {
   const program = new Command()
     .option("--household <hid>", "ID du foyer Firestore (households/{hid})")
-    .option("--count <n>", "Nombre cible de recettes (sinon total des thèmes)", (v) => parseInt(v, 10))
+    .option("--count <n>", "Nombre cible de recettes (sinon total des thèmes ≈ 500)", (v) => parseInt(v, 10))
     .option("--theme <slug>", "Thème unique (sinon rotation entre tous les thèmes)")
     .option("--dry-run", "N'écrit pas dans Firestore, juste affiche", false)
-    .option("--model <name>", "ID du modèle LM Studio", "qwen/qwen3.5-9b")
+    .option("--provider <p>", "Fournisseur LLM : gemini | lmstudio", (process.env.LLM_PROVIDER as Provider) ?? "gemini")
+    .option("--model <name>", "Override du modèle (défaut : gemini-2.5-flash ou qwen/qwen3.5-9b)")
     .option("--base-url <url>", "Base URL LM Studio", "http://localhost:1234/v1")
     .option("--saison <s>", "Saisons à cibler (printemps-ete | hiver | toutes)", "printemps-ete")
+    .option("--no-strict-constraints", "Ne rejette PAS les recettes qui violent une contrainte (juste warn)")
     .parse(process.argv);
   const opts = program.opts<CliOptions>();
   if (!opts.household) {
     console.error("❌ --household est requis (ex: --household abc123)");
     process.exit(1);
   }
+  if (opts.provider !== "gemini" && opts.provider !== "lmstudio") {
+    console.error(`❌ --provider invalide : "${opts.provider}" (attendu : gemini | lmstudio)`);
+    process.exit(1);
+  }
   return opts;
+}
+
+/** Interface commune pour basculer entre LM Studio et Gemini. */
+interface LLMClient {
+  generateJson<T = unknown>(opts: {
+    systemPrompt: string;
+    userPrompt: string;
+    maxTokens?: number;
+  }): Promise<{ data: T; rawText: string; usage: { prompt: number; completion: number } }>;
+  ping(): Promise<string[]>;
+}
+
+function buildLLMClient(opts: CliOptions): { client: LLMClient; model: string } {
+  if (opts.provider === "gemini") {
+    const model = opts.model ?? "gemini-2.5-flash";
+    return {
+      client: new GeminiSeedClient({ model, temperature: 0.85 }),
+      model,
+    };
+  }
+  const model = opts.model ?? "qwen/qwen3.5-9b";
+  return {
+    client: new LMStudioClient({ baseURL: opts.baseUrl, model, temperature: 0.85 }),
+    model,
+  };
 }
 
 async function loadProfils(
@@ -100,18 +158,21 @@ interface BatchStats {
   generated: number;
   written: number;
   skippedDuplicates: number;
+  skippedConstraints: number;
   errors: number;
   totalTokensInput: number;
   totalTokensOutput: number;
 }
 
 async function runBatch(
-  llm: LMStudioClient,
+  llm: LLMClient,
   ctx: SeedContext,
   req: SeedBatchRequest,
+  bannedTerms: Set<string>,
+  strict: boolean,
   existingNames: Set<string>,
   recentNomsAEviter: string[],
-  writer: ((r: RecetteGeneree) => Promise<void>) | null,
+  writer: ((r: RecetteGeneree, repas: SeedBatchRequest["repas"]) => Promise<void>) | null,
   stats: BatchStats,
 ): Promise<RecetteGeneree[]> {
   console.log(`\n▶ Batch : ${req.theme} (${req.count} recettes demandées)`);
@@ -155,11 +216,27 @@ async function runBatch(
       console.log(`   ⏭️  doublon : "${r.nom}"`);
       continue;
     }
+
+    // Validation des contraintes profils (aversions + régimes mappés).
+    const check = checkRecetteConstraints(r, bannedTerms);
+    if (!check.ok) {
+      const detail = check.violations
+        .map((v) => `"${v.term}" dans "${v.ingredient}"`)
+        .join(", ");
+      if (strict) {
+        stats.skippedConstraints += 1;
+        console.log(`   🚫 contrainte violée → "${r.nom}" rejetée (${detail})`);
+        continue;
+      } else {
+        console.warn(`   ⚠️  contrainte violée → "${r.nom}" écrite quand même (${detail})`);
+      }
+    }
+
     existingNames.add(norm);
     accepted.push(r);
     if (writer) {
       try {
-        await writer(r);
+        await writer(r, req.repas);
         stats.written += 1;
       } catch (err) {
         console.error(`   ❌ Firestore write : ${err instanceof Error ? err.message : err}`);
@@ -167,7 +244,7 @@ async function runBatch(
       }
     }
     console.log(
-      `   ✓ "${r.nom}" — ${r.tempsPrepMinutes + r.tempsCuissonMinutes}min, ${r.estBatch ? "BATCH " : ""}${r.styleCulinaire ?? "?"} / ${r.proteinePrincipale ?? "?"}`,
+      `   ✓ "${r.nom}" — ${r.tempsPrepMinutes + r.tempsCuissonMinutes}min, ${r.estBatch ? "BATCH " : ""}${r.styleCulinaire ?? "?"} / ${r.proteinePrincipale ?? "?"} [${req.repas}]`,
     );
   }
   return accepted;
@@ -177,9 +254,10 @@ async function main() {
   const opts = parseCli();
 
   console.log("🍳 Family Hub — Seed du livre de recettes");
-  console.log(`   Foyer  : ${opts.household}`);
-  console.log(`   Modèle : ${opts.model} @ ${opts.baseUrl}`);
-  console.log(`   Mode   : ${opts.dryRun ? "DRY-RUN (pas d'écriture Firestore)" : "ÉCRITURE Firestore"}`);
+  console.log(`   Foyer    : ${opts.household}`);
+  console.log(`   Provider : ${opts.provider}`);
+  console.log(`   Mode     : ${opts.dryRun ? "DRY-RUN (pas d'écriture Firestore)" : "ÉCRITURE Firestore"}`);
+  console.log(`   Strict   : ${opts.strictConstraints ? "OUI (recettes hors contraintes rejetées)" : "non (warning seulement)"}`);
 
   // 1. Init Firebase Admin
   if (!opts.dryRun) {
@@ -225,7 +303,22 @@ async function main() {
     console.log(`   Recettes déjà en base : ${existingNames.size}`);
   }
 
-  // 3. Déduit saisons
+  // 3. Construit la liste agrégée d'ingrédients interdits + bloc prompt
+  const bannedResult = buildBannedTerms(profils);
+  const bannedBlock = formatBannedBlockForPrompt(bannedResult);
+  if (bannedResult.banned.size === 0) {
+    console.log("   ℹ️  Aucune contrainte alimentaire détectée (aversions + régimes vides).");
+  } else {
+    console.log(`   🛡️  ${bannedResult.banned.size} termes interdits agrégés depuis ${bannedResult.sources.length} contrainte(s) profil.`);
+    if (bannedResult.banned.size <= 20) {
+      console.log(`       → ${Array.from(bannedResult.banned).sort().join(", ")}`);
+    } else {
+      const preview = Array.from(bannedResult.banned).sort().slice(0, 20);
+      console.log(`       → ${preview.join(", ")}, … (+${bannedResult.banned.size - 20} autres)`);
+    }
+  }
+
+  // 4. Déduit saisons
   const saisons = (opts.saison === "printemps-ete"
     ? ["printemps", "ete"]
     : opts.saison === "hiver"
@@ -234,7 +327,7 @@ async function main() {
     "hiver" | "printemps" | "ete" | "automne"
   >;
 
-  // 4. Sélectionne les batches
+  // 5. Sélectionne les batches
   let batches: SeedBatchRequest[];
   if (opts.theme) {
     batches = [
@@ -242,13 +335,14 @@ async function main() {
         count: opts.count ?? 25,
         theme: opts.theme,
         repasType: "déjeuner et dîner",
+        repas: "tout",
         includeBatch: true,
       },
     ];
   } else {
     batches = SEED_THEMES_PRINTEMPS_ETE;
     if (opts.count) {
-      // Réduit proportionnellement pour atteindre le count cible
+      // Réduit/augmente proportionnellement pour atteindre le count cible
       const total = batches.reduce((s, b) => s + b.count, 0);
       const ratio = opts.count / total;
       batches = batches.map((b) => ({ ...b, count: Math.max(5, Math.round(b.count * ratio)) }));
@@ -257,50 +351,50 @@ async function main() {
   const totalDemande = batches.reduce((s, b) => s + b.count, 0);
   console.log(`   ${batches.length} batches → ${totalDemande} recettes ciblées\n`);
 
-  // 5. Init LM Studio
-  const llm = new LMStudioClient({
-    baseURL: opts.baseUrl,
-    model: opts.model,
-    temperature: 0.85,
-  });
+  // 6. Init LLM client
+  const { client: llm, model } = buildLLMClient(opts);
+  console.log(`   Modèle   : ${model}`);
 
   try {
     const models = await llm.ping();
-    if (!models.includes(opts.model)) {
+    if (opts.provider === "lmstudio" && !models.includes(model)) {
       console.warn(
-        `⚠️  Modèle "${opts.model}" pas listé par LM Studio. Disponibles : ${models.join(", ")}`,
+        `⚠️  Modèle "${model}" pas listé par LM Studio. Disponibles : ${models.join(", ")}`,
       );
     } else {
-      console.log(`✅ LM Studio joignable, modèle "${opts.model}" chargé.\n`);
+      console.log(`✅ ${opts.provider} joignable, modèle "${model}".\n`);
     }
   } catch (err) {
     console.error(
-      `❌ LM Studio injoignable sur ${opts.baseUrl} : ${err instanceof Error ? err.message : err}\n` +
-        "   Démarre le serveur dans LM Studio (Local Server → Start Server).",
+      `❌ ${opts.provider} injoignable : ${err instanceof Error ? err.message : err}` +
+        (opts.provider === "lmstudio"
+          ? "\n   Démarre le serveur dans LM Studio (Local Server → Start Server)."
+          : "\n   Vérifie GEMINI_API_KEY dans scripts/seedRecipes/.env."),
     );
     process.exit(1);
   }
 
-  // 6. Writer Firestore
-  const writer: ((r: RecetteGeneree) => Promise<void>) | null = opts.dryRun
+  // 7. Writer Firestore
+  const writer: ((r: RecetteGeneree, repas: SeedBatchRequest["repas"]) => Promise<void>) | null = opts.dryRun
     ? null
-    : async (r) => {
+    : async (r, repas) => {
         await db
           .collection(`households/${opts.household}/recettes`)
-          .add(buildFirestoreRecette(r, opts.model, saisons));
+          .add(buildFirestoreRecette(r, model, saisons, repas));
       };
 
-  // 7. Loop batches
+  // 8. Loop batches
   const stats: BatchStats = {
     generated: 0,
     written: 0,
     skippedDuplicates: 0,
+    skippedConstraints: 0,
     errors: 0,
     totalTokensInput: 0,
     totalTokensOutput: 0,
   };
   const recentNoms: string[] = [];
-  const ctxBase: SeedContext = { profils, saisons, noms_a_eviter: [] };
+  const ctxBase: SeedContext = { profils, saisons, noms_a_eviter: [], bannedBlock };
 
   const startTime = Date.now();
   for (let i = 0; i < batches.length; i++) {
@@ -308,6 +402,8 @@ async function main() {
       llm,
       ctxBase,
       batches[i],
+      bannedResult.banned,
+      opts.strictConstraints,
       existingNames,
       recentNoms,
       writer,
@@ -318,24 +414,59 @@ async function main() {
 
   const elapsedMin = ((Date.now() - startTime) / 60000).toFixed(1);
 
-  // 8. Résumé
+  // 9. Résumé + coût
+  const cost = computeCost(opts.provider, model, stats.totalTokensInput, stats.totalTokensOutput);
   console.log("\n──────────── Résumé ────────────");
-  console.log(`Recettes générées par le LLM : ${stats.generated}`);
+  console.log(`Recettes générées par le LLM   : ${stats.generated}`);
   console.log(`Recettes écrites dans Firestore : ${stats.written}`);
-  console.log(`Doublons écartés : ${stats.skippedDuplicates}`);
-  console.log(`Erreurs : ${stats.errors}`);
-  console.log(`Tokens : ${stats.totalTokensInput} in + ${stats.totalTokensOutput} out`);
-  console.log(`Temps total : ${elapsedMin} min`);
-  console.log(`Coût LM Studio (local) : 0€`);
+  console.log(`Doublons écartés                : ${stats.skippedDuplicates}`);
+  console.log(`Contraintes violées rejetées    : ${stats.skippedConstraints}`);
+  console.log(`Erreurs                         : ${stats.errors}`);
+  console.log(`Tokens                          : ${stats.totalTokensInput.toLocaleString("fr-FR")} in + ${stats.totalTokensOutput.toLocaleString("fr-FR")} out`);
+  if (cost) {
+    console.log(`Coût estimé (${opts.provider}/${model}) : $${cost.usd.toFixed(4)} ≈ €${cost.eur.toFixed(4)}`);
+    console.log(`  → input  : $${cost.inputUsd.toFixed(4)} (${(stats.totalTokensInput / 1_000_000).toFixed(3)}M × $${cost.pricing.input}/M)`);
+    console.log(`  → output : $${cost.outputUsd.toFixed(4)} (${(stats.totalTokensOutput / 1_000_000).toFixed(3)}M × $${cost.pricing.output}/M)`);
+  } else {
+    console.log(`Coût                            : 0€ (provider local)`);
+  }
+  console.log(`Temps total                     : ${elapsedMin} min`);
   console.log("─────────────────────────────────");
 
   process.exit(0);
+}
+
+interface CostBreakdown {
+  inputUsd: number;
+  outputUsd: number;
+  usd: number;
+  eur: number;
+  pricing: { input: number; output: number };
+}
+
+function computeCost(
+  provider: Provider,
+  model: string,
+  inputTokens: number,
+  outputTokens: number,
+): CostBreakdown | null {
+  if (provider !== "gemini") return null;
+  const pricing = GEMINI_PRICING_USD[model];
+  if (!pricing) {
+    console.warn(`⚠️  Tarif inconnu pour ${model}, coût non calculé. Mets à jour GEMINI_PRICING_USD.`);
+    return null;
+  }
+  const inputUsd = (inputTokens / 1_000_000) * pricing.input;
+  const outputUsd = (outputTokens / 1_000_000) * pricing.output;
+  const usd = inputUsd + outputUsd;
+  return { inputUsd, outputUsd, usd, eur: usd * USD_TO_EUR, pricing };
 }
 
 function buildFirestoreRecette(
   r: RecetteGeneree,
   llmModel: string,
   saisonsContexte: Array<"hiver" | "printemps" | "ete" | "automne">,
+  repas: SeedBatchRequest["repas"],
 ): admin.firestore.DocumentData {
   const FieldValue = admin.firestore.FieldValue;
   return {
@@ -357,6 +488,7 @@ function buildFirestoreRecette(
       proteinePrincipale: r.proteinePrincipale,
       modeCuissonPrincipal: r.modeCuissonPrincipal,
       tempsTotal: r.tempsTotal,
+      repas,
     },
     origine: {
       genereePar: "seed",
