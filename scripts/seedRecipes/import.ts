@@ -183,8 +183,11 @@ async function main() {
     process.exit(1);
   }
   if (parsed.errors.length) {
+    const preview = parsed.errors.slice(0, 5).join("\n      • ");
+    const more =
+      parsed.errors.length > 5 ? `\n      … (+${parsed.errors.length - 5} autres)` : "";
     console.warn(
-      `⚠️  ${parsed.errors.length} recette(s) écartée(s) au parsing : ${parsed.errors.join(" ; ")}`,
+      `⚠️  ${parsed.errors.length} recette(s) écartée(s) au parsing :\n      • ${preview}${more}`,
     );
   }
   console.log(`✅ ${parsed.data.recettes.length} recettes parsées depuis le fichier.`);
