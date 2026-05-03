@@ -1418,3 +1418,307 @@ body {
   text-align: center;
   margin-top: 80px;
 }
+
+/* =========================================================
+   Livre de recettes — tuile compacte + expand plein écran
+   ========================================================= */
+
+.tile-livre {
+  -webkit-justify-content: flex-start;
+  justify-content: flex-start;
+}
+
+.tile-livre-body {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+}
+
+.tile-livre-count {
+  font-family: Georgia, serif;
+  font-size: 36px;
+  color: #F2E8D5;
+  line-height: 1.1;
+  margin-bottom: 10px;
+}
+
+.tile-livre-recent {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+}
+
+.tile-livre-recent li {
+  font-family: Georgia, serif;
+  font-size: 16px;
+  color: #C49B6B;
+  font-style: italic;
+  padding: 3px 0;
+  border-top: 1px solid rgba(217, 160, 91, 0.12);
+}
+
+.tile-livre-recent li:first-child { border-top: 0; }
+
+.tile-livre-cta {
+  font-size: 12px;
+  color: #9C8A6E;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  margin-top: 10px;
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+}
+
+/* ----- Expand plein écran ----- */
+
+.tile-livre-expand {
+  padding: 24px 32px 32px;
+}
+
+.livre-search-row {
+  margin-bottom: 16px;
+}
+
+.livre-search-input {
+  width: 100%;
+  font-family: Georgia, serif;
+  font-size: 22px;
+  color: #F2E8D5;
+  background: #1C1815;
+  border: 1px solid #3A2E22;
+  border-radius: 4px;
+  padding: 14px 18px;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.livre-search-input::-webkit-search-decoration,
+.livre-search-input::-webkit-search-cancel-button { -webkit-appearance: none; }
+
+.livre-search-input::-webkit-input-placeholder { color: #6B5A47; font-style: italic; }
+
+.livre-tag-row {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  margin: 0 -4px 14px;
+}
+
+.livre-tag-btn {
+  background: transparent;
+  border: 1px solid #3A2E22;
+  color: #C49B6B;
+  font-family: Georgia, serif;
+  font-size: 16px;
+  padding: 8px 14px;
+  margin: 4px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.livre-tag-btn.is-active {
+  background: #D9A05B;
+  border-color: #D9A05B;
+  color: #1C1815;
+}
+
+.livre-tag-count {
+  font-size: 12px;
+  opacity: 0.7;
+  margin-left: 4px;
+}
+
+.livre-status {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 14px;
+  color: #9C8A6E;
+  text-transform: uppercase;
+  letter-spacing: 0.18em;
+  margin: 4px 0 14px;
+}
+
+.livre-grid {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  margin: 0 -8px;
+  -webkit-align-content: flex-start;
+  align-content: flex-start;
+}
+
+.livre-card {
+  -webkit-flex: 1 1 calc(33.333% - 16px);
+  flex: 1 1 calc(33.333% - 16px);
+  min-width: 220px;
+  margin: 8px;
+  background: #1C1815;
+  border: 1px solid #3A2E22;
+  border-radius: 4px;
+  padding: 16px 18px 14px;
+  text-align: left;
+  cursor: pointer;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  color: #F2E8D5;
+}
+
+.livre-card:active {
+  background: #2A2218;
+  border-color: #D9A05B;
+}
+
+.livre-card-name {
+  font-family: Georgia, serif;
+  font-size: 22px;
+  color: #F2E8D5;
+  line-height: 1.2;
+  margin-bottom: 8px;
+}
+
+.livre-card-meta {
+  font-size: 14px;
+  color: #C49B6B;
+  font-style: italic;
+}
+
+.livre-card-stars {
+  color: #D9A05B;
+  margin-left: 4px;
+  letter-spacing: 1px;
+}
+
+.livre-card-tags {
+  margin-top: 10px;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+}
+
+.livre-tag {
+  font-size: 11px;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+  color: #9C8A6E;
+  background: rgba(217, 160, 91, 0.06);
+  border: 1px solid rgba(217, 160, 91, 0.18);
+  padding: 3px 8px;
+  border-radius: 999px;
+  margin: 3px 5px 0 0;
+}
+
+/* ----- Detail (vue plein écran d'1 recette dans l'overlay) ----- */
+
+.livre-back-btn {
+  background: transparent;
+  border: 0;
+  color: #D9A05B;
+  font-family: Georgia, serif;
+  font-size: 18px;
+  padding: 6px 0;
+  margin-bottom: 12px;
+  cursor: pointer;
+}
+
+.livre-detail-name {
+  font-family: Georgia, serif;
+  font-size: 44px;
+  color: #F2E8D5;
+  margin: 0 0 10px;
+  font-weight: 400;
+}
+
+.livre-detail-meta {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 18px;
+  color: #C49B6B;
+  margin-bottom: 18px;
+}
+
+.livre-detail-desc {
+  font-size: 18px;
+  color: #C49B6B;
+  font-style: italic;
+  margin: 0 0 24px;
+  max-width: 800px;
+}
+
+.livre-detail-h3 {
+  font-family: Georgia, serif;
+  font-size: 14px;
+  color: #D9A05B;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  margin: 24px 0 12px;
+  font-weight: 400;
+}
+
+.livre-detail-ing {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+}
+
+.livre-detail-ing li {
+  -webkit-flex: 0 0 50%;
+  flex: 0 0 50%;
+  font-size: 18px;
+  color: #F2E8D5;
+  padding: 6px 16px 6px 18px;
+  position: relative;
+}
+
+.livre-detail-ing li:before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 14px;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: #D9A05B;
+}
+
+.livre-detail-ing strong {
+  color: #D9A05B;
+  font-weight: 400;
+  margin-right: 4px;
+}
+
+.livre-detail-steps {
+  margin: 0;
+  padding-left: 28px;
+  color: #F2E8D5;
+}
+
+.livre-detail-steps li {
+  font-size: 20px;
+  line-height: 1.5;
+  padding: 8px 0;
+  border-top: 1px solid rgba(217, 160, 91, 0.12);
+}
+
+.livre-detail-steps li:first-child { border-top: 0; }
+
+.livre-step-time {
+  color: #C49B6B;
+  font-style: italic;
+  font-size: 16px;
+  margin-left: 6px;
+}

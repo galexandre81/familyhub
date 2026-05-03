@@ -162,6 +162,11 @@
     });
   }
 
+  /* Permet aux modules de tuiles qui n'utilisent pas le snapshot de lire
+     directement Firestore. Renvoie null tant que l'auth n'est pas faite. */
+  window.FamilyHubGetDb = function () { return state.db; };
+  window.FamilyHubGetHouseholdId = function () { return state.householdId; };
+
   /* Permet à render.js de récupérer la dernière data d'un tile pour l'expand. */
   window.FamilyHubGetTileSnapshot = function (tileId) {
     var entry = state.lastSnapshotTiles && state.lastSnapshotTiles[tileId];
