@@ -38,6 +38,13 @@ import {
   type SeedBatchRequest,
   type SeedContext,
 } from "./prompts.ts";
+import {
+  checkReglesNutrition,
+  formatReglesBlockForPrompt,
+  loadReglesNutrition,
+  DEFAULT_REGLES_NUTRITION,
+  type ReglesNutrition,
+} from "./reglesNutrition.ts";
 import { normalizeNom, parseSeedOutput, type RecetteGeneree } from "./validation.ts";
 
 type Provider = "gemini" | "lmstudio";
@@ -159,6 +166,7 @@ interface BatchStats {
   written: number;
   skippedDuplicates: number;
   skippedConstraints: number;
+  skippedRegles: number;
   errors: number;
   totalTokensInput: number;
   totalTokensOutput: number;
@@ -169,6 +177,7 @@ async function runBatch(
   ctx: SeedContext,
   req: SeedBatchRequest,
   bannedTerms: Set<string>,
+  regles: ReglesNutrition,
   strict: boolean,
   existingNames: Set<string>,
   recentNomsAEviter: string[],
@@ -232,6 +241,19 @@ async function runBatch(
       }
     }
 
+    // Validation des règles nutrition famille (ratios, max féculents).
+    const reglesCheck = checkReglesNutrition(r, regles, req.repas);
+    if (!reglesCheck.ok) {
+      const detail = reglesCheck.violations.join(" ; ");
+      if (strict) {
+        stats.skippedRegles += 1;
+        console.log(`   ⚖️  règles famille violées → "${r.nom}" rejetée (${detail})`);
+        continue;
+      } else {
+        console.warn(`   ⚠️  règles famille violées → "${r.nom}" écrite quand même (${detail})`);
+      }
+    }
+
     existingNames.add(norm);
     accepted.push(r);
     if (writer) {
@@ -281,9 +303,10 @@ async function main() {
     ? (null as unknown as admin.firestore.Firestore)
     : admin.firestore();
 
-  // 2. Charge profils + recettes existantes (pour dédup)
+  // 2. Charge profils + recettes existantes (pour dédup) + règles nutrition
   let profils: ProfilForSeed[];
   let existingNames: Set<string>;
+  let regles: ReglesNutrition;
   if (opts.dryRun) {
     console.log("   ⚠️  DRY-RUN : profils et recettes existantes non chargées (utilise des stubs).");
     profils = [
@@ -291,17 +314,22 @@ async function main() {
         nom: "Famille (stub)",
         regimes: [],
         aversions: [],
-        objectifsNutrition: ["50% légumes, 35% protéines, 15% féculents"],
+        objectifsNutrition: [],
         prefsCuisson: [],
       },
     ];
     existingNames = new Set();
+    regles = DEFAULT_REGLES_NUTRITION;
   } else {
     profils = await loadProfils(db, opts.household);
     existingNames = await loadExistingRecetteNames(db, opts.household);
+    regles = await loadReglesNutrition(db, opts.household);
     console.log(`   Profils chargés : ${profils.map((p) => p.nom).join(", ")}`);
     console.log(`   Recettes déjà en base : ${existingNames.size}`);
   }
+  console.log(
+    `   ⚖️  Règles nutrition : ${regles.nomAffiche} (preset=${regles.presetId}) → ${regles.ratios.legumes}/${regles.ratios.proteines}/${regles.ratios.feculents}, max ${regles.maxFeculentsParRepas} féculent(s)/repas`,
+  );
 
   // 3. Construit la liste agrégée d'ingrédients interdits + bloc prompt
   const bannedResult = buildBannedTerms(profils);
@@ -380,7 +408,7 @@ async function main() {
     : async (r, repas) => {
         await db
           .collection(`households/${opts.household}/recettes`)
-          .add(buildFirestoreRecette(r, model, saisons, repas));
+          .add(buildFirestoreRecette(r, model, saisons, repas, regles));
       };
 
   // 8. Loop batches
@@ -389,12 +417,20 @@ async function main() {
     written: 0,
     skippedDuplicates: 0,
     skippedConstraints: 0,
+    skippedRegles: 0,
     errors: 0,
     totalTokensInput: 0,
     totalTokensOutput: 0,
   };
   const recentNoms: string[] = [];
-  const ctxBase: SeedContext = { profils, saisons, noms_a_eviter: [], bannedBlock };
+  const reglesBlock = formatReglesBlockForPrompt(regles);
+  const ctxBase: SeedContext = {
+    profils,
+    saisons,
+    noms_a_eviter: [],
+    bannedBlock,
+    reglesBlock,
+  };
 
   const startTime = Date.now();
   for (let i = 0; i < batches.length; i++) {
@@ -403,6 +439,7 @@ async function main() {
       ctxBase,
       batches[i],
       bannedResult.banned,
+      regles,
       opts.strictConstraints,
       existingNames,
       recentNoms,
@@ -417,10 +454,11 @@ async function main() {
   // 9. Résumé + coût
   const cost = computeCost(opts.provider, model, stats.totalTokensInput, stats.totalTokensOutput);
   console.log("\n──────────── Résumé ────────────");
-  console.log(`Recettes générées par le LLM   : ${stats.generated}`);
+  console.log(`Recettes générées par le LLM    : ${stats.generated}`);
   console.log(`Recettes écrites dans Firestore : ${stats.written}`);
   console.log(`Doublons écartés                : ${stats.skippedDuplicates}`);
-  console.log(`Contraintes violées rejetées    : ${stats.skippedConstraints}`);
+  console.log(`Contraintes profils rejetées    : ${stats.skippedConstraints}`);
+  console.log(`Règles famille rejetées         : ${stats.skippedRegles}`);
   console.log(`Erreurs                         : ${stats.errors}`);
   console.log(`Tokens                          : ${stats.totalTokensInput.toLocaleString("fr-FR")} in + ${stats.totalTokensOutput.toLocaleString("fr-FR")} out`);
   if (cost) {
@@ -467,8 +505,13 @@ function buildFirestoreRecette(
   llmModel: string,
   saisonsContexte: Array<"hiver" | "printemps" | "ete" | "automne">,
   repas: SeedBatchRequest["repas"],
+  regles: ReglesNutrition,
 ): admin.firestore.DocumentData {
   const FieldValue = admin.firestore.FieldValue;
+  // On tague la recette comme convenant au preset actif au moment du seed.
+  // Si le preset est "custom", on n'ajoute pas de tag preset (rien de comparable).
+  const convientAuxPresets =
+    regles.presetId !== "custom" ? [regles.presetId] : undefined;
   return {
     nom: r.nom,
     description: r.description || undefined,
@@ -489,6 +532,7 @@ function buildFirestoreRecette(
       modeCuissonPrincipal: r.modeCuissonPrincipal,
       tempsTotal: r.tempsTotal,
       repas,
+      ...(convientAuxPresets ? { convientAuxPresets } : {}),
     },
     origine: {
       genereePar: "seed",
