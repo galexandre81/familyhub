@@ -1,0 +1,78 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="Cuisine">
+  <meta name="format-detection" content="telephone=no">
+  <link rel="apple-touch-icon" sizes="180x180" href="/icons/icon-180.png">
+  <link rel="manifest" href="/manifest.json">
+  <link rel="stylesheet" href="/css/styles.css">
+  <title>Livre de recettes</title>
+</head>
+<body class="page-livre">
+
+  <header class="recipe-header">
+    <a class="recipe-back" href="/index.html" aria-label="Retour">
+      <span class="recipe-back-arrow">&#8592;</span>
+      <span class="recipe-back-label">Retour</span>
+    </a>
+    <div class="recipe-title-block">
+      <h1 class="recipe-title">Livre de recettes</h1>
+      <div class="recipe-meta" id="livre-count">&nbsp;</div>
+    </div>
+    <button type="button" class="livre-random" id="livre-random">
+      <span class="livre-random-icon">&#127922;</span>
+      <span class="livre-random-label">Surprends-moi</span>
+    </button>
+  </header>
+
+  <section class="livre-search">
+    <span class="livre-search-icon">&#128269;</span>
+    <input type="search" id="livre-search-input" class="livre-search-input"
+           placeholder="Cherche une recette, un ingr&eacute;dient&hellip;"
+           autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+    <button type="button" id="livre-search-clear" class="livre-search-clear" hidden aria-label="Effacer">&times;</button>
+  </section>
+
+  <section class="livre-filters">
+    <div class="livre-filter-group">
+      <div class="livre-filter-title">Repas</div>
+      <div class="livre-chips" id="chips-repas">
+        <button type="button" class="livre-chip" data-value="petit-dejeuner"><span class="livre-chip-emoji">&#129360;</span>Petit-d&eacute;j</button>
+        <button type="button" class="livre-chip" data-value="dejeuner"><span class="livre-chip-emoji">&#9728;</span>D&eacute;jeuner</button>
+        <button type="button" class="livre-chip" data-value="diner"><span class="livre-chip-emoji">&#127765;</span>D&icirc;ner</button>
+        <button type="button" class="livre-chip" data-value="gouter"><span class="livre-chip-emoji">&#127850;</span>Go&ucirc;ter</button>
+        <button type="button" class="livre-chip" data-value="apero"><span class="livre-chip-emoji">&#129346;</span>Ap&eacute;ro</button>
+        <button type="button" class="livre-chip" data-value="dessert"><span class="livre-chip-emoji">&#127856;</span>Dessert</button>
+      </div>
+    </div>
+
+    <div class="livre-filter-group">
+      <div class="livre-filter-title">Ingr&eacute;dient principal</div>
+      <div class="livre-tiles" id="tiles-ingredient">
+        <button type="button" class="livre-tile-btn" data-value="poulet"><span class="livre-tile-emoji">&#127831;</span><span class="livre-tile-name">Poulet</span></button>
+        <button type="button" class="livre-tile-btn" data-value="boeuf"><span class="livre-tile-emoji">&#129385;</span><span class="livre-tile-name">B&oelig;uf</span></button>
+        <button type="button" class="livre-tile-btn" data-value="porc"><span class="livre-tile-emoji">&#128055;</span><span class="livre-tile-name">Porc</span></button>
+        <button type="button" class="livre-tile-btn" data-value="poisson"><span class="livre-tile-emoji">&#128031;</span><span class="livre-tile-name">Poisson</span></button>
+        <button type="button" class="livre-tile-btn" data-value="oeufs"><span class="livre-tile-emoji">&#129370;</span><span class="livre-tile-name">&OElig;ufs</span></button>
+        <button type="button" class="livre-tile-btn" data-value="pates"><span class="livre-tile-emoji">&#127837;</span><span class="livre-tile-name">P&acirc;tes</span></button>
+        <button type="button" class="livre-tile-btn" data-value="riz"><span class="livre-tile-emoji">&#127753;</span><span class="livre-tile-name">Riz</span></button>
+        <button type="button" class="livre-tile-btn" data-value="pommes-de-terre"><span class="livre-tile-emoji">&#129364;</span><span class="livre-tile-name">P. de terre</span></button>
+        <button type="button" class="livre-tile-btn" data-value="legumes"><span class="livre-tile-emoji">&#129383;</span><span class="livre-tile-name">L&eacute;gumes</span></button>
+        <button type="button" class="livre-tile-btn" data-value="champignons"><span class="livre-tile-emoji">&#127812;</span><span class="livre-tile-name">Champi.</span></button>
+        <button type="button" class="livre-tile-btn" data-value="fromage"><span class="livre-tile-emoji">&#129472;</span><span class="livre-tile-name">Fromage</span></button>
+        <button type="button" class="livre-tile-btn" data-value="fruits"><span class="livre-tile-emoji">&#127815;</span><span class="livre-tile-name">Fruits</span></button>
+      </div>
+    </div>
+
+    <button type="button" id="livre-reset" class="livre-reset" hidden>Effacer les filtres</button>
+  </section>
+
+  <main class="livre-results" id="livre-results"></main>
+
+  <script src="/js/livre.js"></script>
+</body>
+</html>
