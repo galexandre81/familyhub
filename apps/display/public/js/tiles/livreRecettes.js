@@ -1,16 +1,18 @@
 /* tiles/livreRecettes.js — Livre de recettes du foyer.
    Tuile compacte : icône livre SVG laiton + nombre de recettes.
    Expand : wizard 2 étapes (Repas → Envies + Résultats inline).
-   Logique contextuelle : petit-déj seul affiche Sucré/Salé + Type au lieu de
-   ingrédient/accompagnement/inspiration.
+   Logique contextuelle : petit-déj seul affiche Sucré/Salé + Type au lieu
+   de ingrédient/accompagnement/inspiration.
    ES5 vanilla, Firebase JS SDK v8 compat (iOS 9.3.6 OK).
-   Emojis : Unicode <= 8.0 uniquement. Tous les autres pictos sont en SVG inline. */
+   Toutes les icônes sont en SVG inline laiton (#D9A05B) pour éviter les
+   tofus d'emojis Unicode > 8.0 sur Safari 9. */
 (function (global) {
   'use strict';
 
   var cache = { recettes: null, fetchedAt: 0, promise: null };
   var STALE_MS = 60 * 60 * 1000;
   var BRASS = '#D9A05B';
+  var DARK = '#1C1815';
 
   function escapeHTML(s) {
     if (s == null) return '';
@@ -31,72 +33,309 @@
     return (+r.tempsPrepMinutes || 0) + (+r.tempsCuissonMinutes || 0);
   }
 
-  /* ---------- SVG icons (laiton, cohérent avec sablier timer) ---------- */
+  /* ---------- SVG icons (laiton, viewBox 50x50, taille via CSS) ----------
+     Le wrapper svg() retourne un <svg> sans width/height inline ; les tailles
+     sont contrôlées par .wiz-icon-svg svg / .wiz-icon-btn-sm .wiz-icon-svg svg
+     dans le CSS, ce qui permet d'ajuster selon la grille (étape 1 vs étape 2). */
 
+  function svg(inner) {
+    return '<svg viewBox="0 0 50 50" aria-hidden="true">' + inner + '</svg>';
+  }
+
+  /* === Tuile compacte : livre ouvert (plus large, avec dimensions inline) === */
   var BOOK_SVG_LARGE =
-    '<svg viewBox="0 0 100 80" width="120" height="96" aria-hidden="true">' +
-      /* Reliure */
+    '<svg viewBox="0 0 100 80" width="96" height="76" aria-hidden="true">' +
       '<path d="M48 14 L48 74 L52 74 L52 14 Z" fill="' + BRASS + '" opacity="0.9"/>' +
-      /* Page gauche bombée */
       '<path d="M48 16 C36 12, 22 11, 10 14 L10 70 C22 67, 36 68, 48 72 Z" ' +
         'fill="rgba(217,160,91,0.10)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
-      /* Page droite bombée */
       '<path d="M52 16 C64 12, 78 11, 90 14 L90 70 C78 67, 64 68, 52 72 Z" ' +
         'fill="rgba(217,160,91,0.10)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
-      /* Lignes de texte gauche */
       '<line x1="18" y1="26" x2="44" y2="26" stroke="' + BRASS + '" stroke-width="1.2" opacity="0.65"/>' +
       '<line x1="18" y1="34" x2="44" y2="34" stroke="' + BRASS + '" stroke-width="1.2" opacity="0.65"/>' +
       '<line x1="18" y1="42" x2="40" y2="42" stroke="' + BRASS + '" stroke-width="1.2" opacity="0.65"/>' +
       '<line x1="18" y1="50" x2="42" y2="50" stroke="' + BRASS + '" stroke-width="1.2" opacity="0.45"/>' +
-      /* Lignes de texte droite */
       '<line x1="56" y1="26" x2="82" y2="26" stroke="' + BRASS + '" stroke-width="1.2" opacity="0.65"/>' +
       '<line x1="56" y1="34" x2="82" y2="34" stroke="' + BRASS + '" stroke-width="1.2" opacity="0.65"/>' +
       '<line x1="56" y1="42" x2="78" y2="42" stroke="' + BRASS + '" stroke-width="1.2" opacity="0.65"/>' +
       '<line x1="56" y1="50" x2="80" y2="50" stroke="' + BRASS + '" stroke-width="1.2" opacity="0.45"/>' +
     '</svg>';
 
-  /* SVG accompagnements — ~42px, style ligne laiton cohérent */
-  var ICON_VERT =
-    '<svg viewBox="0 0 50 50" width="42" height="42" aria-hidden="true">' +
-      '<path d="M25 6 C16 12, 12 22, 14 32 C20 28, 23 22, 25 14 Z" ' +
-        'fill="rgba(217,160,91,0.18)" stroke="' + BRASS + '" stroke-width="1.6" stroke-linejoin="round"/>' +
-      '<path d="M25 6 C34 12, 38 22, 36 32 C30 28, 27 22, 25 14 Z" ' +
-        'fill="rgba(217,160,91,0.10)" stroke="' + BRASS + '" stroke-width="1.6" stroke-linejoin="round"/>' +
-      '<line x1="25" y1="6" x2="25" y2="44" stroke="' + BRASS + '" stroke-width="1.6"/>' +
+  /* === Repas (étape 1) === */
+  var ICON_PETIT_DEJ = svg(
+    /* Tasse fumante */
+    '<path d="M14 18 L14 36 Q14 40, 18 40 L30 40 Q34 40, 34 36 L34 18 Z" ' +
+      'fill="rgba(217,160,91,0.14)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
+    '<path d="M34 22 Q40 22, 40 28 Q40 34, 34 34" fill="none" stroke="' + BRASS + '" stroke-width="2"/>' +
+    '<line x1="10" y1="42" x2="38" y2="42" stroke="' + BRASS + '" stroke-width="1.6" stroke-linecap="round"/>' +
+    /* Vapeur */
+    '<path d="M19 14 Q21 10, 19 6" fill="none" stroke="' + BRASS + '" stroke-width="1.4" stroke-linecap="round"/>' +
+    '<path d="M24 14 Q26 10, 24 6" fill="none" stroke="' + BRASS + '" stroke-width="1.4" stroke-linecap="round"/>' +
+    '<path d="M29 14 Q31 10, 29 6" fill="none" stroke="' + BRASS + '" stroke-width="1.4" stroke-linecap="round"/>'
+  );
+
+  var ICON_DEJEUNER = svg(
+    /* Soleil */
+    '<circle cx="25" cy="25" r="9" fill="rgba(217,160,91,0.20)" stroke="' + BRASS + '" stroke-width="2"/>' +
+    '<line x1="25" y1="5" x2="25" y2="11" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>' +
+    '<line x1="25" y1="39" x2="25" y2="45" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>' +
+    '<line x1="5" y1="25" x2="11" y2="25" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>' +
+    '<line x1="39" y1="25" x2="45" y2="25" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>' +
+    '<line x1="11" y1="11" x2="15" y2="15" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>' +
+    '<line x1="35" y1="35" x2="39" y2="39" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>' +
+    '<line x1="11" y1="39" x2="15" y2="35" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>' +
+    '<line x1="35" y1="15" x2="39" y2="11" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>'
+  );
+
+  var ICON_DINER = svg(
+    /* Lune croissant */
+    '<path d="M32 8 A18 18 0 1 0 32 42 A14 14 0 1 1 32 8 Z" ' +
+      'fill="rgba(217,160,91,0.18)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>'
+  );
+
+  var ICON_ENCAS = svg(
+    /* Cookie aux pépites */
+    '<circle cx="25" cy="25" r="16" fill="rgba(217,160,91,0.14)" stroke="' + BRASS + '" stroke-width="2"/>' +
+    '<circle cx="20" cy="20" r="2" fill="' + BRASS + '" opacity="0.85"/>' +
+    '<circle cx="30" cy="22" r="1.8" fill="' + BRASS + '" opacity="0.85"/>' +
+    '<circle cx="33" cy="30" r="2" fill="' + BRASS + '" opacity="0.85"/>' +
+    '<circle cx="22" cy="32" r="1.8" fill="' + BRASS + '" opacity="0.85"/>' +
+    '<circle cx="26" cy="26" r="1.5" fill="' + BRASS + '" opacity="0.65"/>'
+  );
+
+  /* === Ingrédients === */
+  var ICON_POULET = svg(
+    /* Cuisse de poulet (drumstick) */
+    '<ellipse cx="20" cy="22" rx="12" ry="9" fill="rgba(217,160,91,0.18)" stroke="' + BRASS + '" stroke-width="2" transform="rotate(-32 20 22)"/>' +
+    '<path d="M28 30 L42 42" stroke="' + BRASS + '" stroke-width="2.6" stroke-linecap="round"/>' +
+    '<circle cx="42" cy="42" r="2" fill="rgba(217,160,91,0.18)" stroke="' + BRASS + '" stroke-width="1.6"/>' +
+    '<circle cx="38" cy="38" r="1.6" fill="rgba(217,160,91,0.18)" stroke="' + BRASS + '" stroke-width="1.6"/>'
+  );
+
+  var ICON_BOEUF = svg(
+    /* Pièce de viande / steak */
+    '<path d="M12 20 Q12 12, 20 12 L34 12 Q42 12, 42 20 L42 32 Q42 38, 36 38 L18 38 Q12 38, 12 32 Z" ' +
+      'fill="rgba(217,160,91,0.18)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
+    '<path d="M18 22 Q22 19, 28 22 Q34 25, 38 22" fill="none" stroke="' + BRASS + '" stroke-width="1.2" opacity="0.6"/>' +
+    '<path d="M16 28 Q22 25, 28 28 Q34 31, 40 28" fill="none" stroke="' + BRASS + '" stroke-width="1.2" opacity="0.6"/>'
+  );
+
+  var ICON_POISSON = svg(
+    /* Poisson de profil */
+    '<path d="M9 25 Q18 14, 30 18 Q40 22, 42 25 Q40 28, 30 32 Q18 36, 9 25 Z" ' +
+      'fill="rgba(217,160,91,0.16)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
+    /* Queue */
+    '<path d="M9 25 L3 19 L3 31 Z" fill="rgba(217,160,91,0.12)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
+    /* Œil */
+    '<circle cx="34" cy="23" r="1.5" fill="' + BRASS + '"/>' +
+    /* Branchie */
+    '<path d="M28 19 Q26 25, 28 31" fill="none" stroke="' + BRASS + '" stroke-width="1.2" opacity="0.6"/>'
+  );
+
+  var ICON_OEUFS = svg(
+    /* Œuf au plat */
+    '<path d="M11 28 C8 22, 14 17, 18 19 C20 13, 26 13, 28 19 C32 15, 38 21, 36 28 C40 32, 36 38, 30 36 C28 42, 22 42, 20 36 C14 38, 8 33, 11 28 Z" ' +
+      'fill="rgba(217,160,91,0.10)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
+    '<circle cx="24" cy="27" r="6" fill="' + BRASS + '" opacity="0.85"/>'
+  );
+
+  var ICON_VEGE = svg(
+    /* Pousse à 2 feuilles */
+    '<line x1="25" y1="42" x2="25" y2="14" stroke="' + BRASS + '" stroke-width="2"/>' +
+    '<path d="M25 22 C18 22, 13 16, 13 10 C20 10, 25 14, 25 22 Z" fill="rgba(217,160,91,0.20)" stroke="' + BRASS + '" stroke-width="1.6" stroke-linejoin="round"/>' +
+    '<path d="M25 30 C32 30, 37 24, 37 18 C30 18, 25 22, 25 30 Z" fill="rgba(217,160,91,0.10)" stroke="' + BRASS + '" stroke-width="1.6" stroke-linejoin="round"/>'
+  );
+
+  var ICON_FROMAGE = svg(
+    /* Triangle de fromage */
+    '<path d="M8 38 L42 38 L42 20 Z" fill="rgba(217,160,91,0.20)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
+    '<circle cx="22" cy="34" r="2" fill="none" stroke="' + BRASS + '" stroke-width="1.5"/>' +
+    '<circle cx="32" cy="30" r="1.6" fill="none" stroke="' + BRASS + '" stroke-width="1.5"/>' +
+    '<circle cx="36" cy="34" r="1.3" fill="none" stroke="' + BRASS + '" stroke-width="1.5"/>'
+  );
+
+  /* === Inspirations === */
+  var ICON_FRANCAIS = svg(
+    /* Verre de vin */
+    '<path d="M16 8 L34 8 L34 14 Q34 24, 25 28 Q16 24, 16 14 Z" fill="rgba(217,160,91,0.20)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
+    '<line x1="25" y1="28" x2="25" y2="40" stroke="' + BRASS + '" stroke-width="2"/>' +
+    '<line x1="16" y1="42" x2="34" y2="42" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>'
+  );
+
+  var ICON_ITALIEN = svg(
+    /* Pizza coupée */
+    '<circle cx="25" cy="25" r="16" fill="rgba(217,160,91,0.14)" stroke="' + BRASS + '" stroke-width="2"/>' +
+    '<line x1="25" y1="9" x2="25" y2="41" stroke="' + BRASS + '" stroke-width="1.4" opacity="0.7"/>' +
+    '<line x1="9" y1="25" x2="41" y2="25" stroke="' + BRASS + '" stroke-width="1.4" opacity="0.7"/>' +
+    '<circle cx="20" cy="20" r="1.6" fill="' + BRASS + '" opacity="0.75"/>' +
+    '<circle cx="30" cy="20" r="1.6" fill="' + BRASS + '" opacity="0.75"/>' +
+    '<circle cx="20" cy="30" r="1.6" fill="' + BRASS + '" opacity="0.75"/>' +
+    '<circle cx="30" cy="30" r="1.6" fill="' + BRASS + '" opacity="0.75"/>'
+  );
+
+  var ICON_MEDITERRANEEN = svg(
+    /* Branche d'olivier (3 olives + tige diagonale) */
+    '<line x1="8" y1="42" x2="42" y2="8" stroke="' + BRASS + '" stroke-width="1.6"/>' +
+    '<ellipse cx="20" cy="22" rx="3" ry="5" fill="rgba(217,160,91,0.22)" stroke="' + BRASS + '" stroke-width="1.5" transform="rotate(45 20 22)"/>' +
+    '<ellipse cx="32" cy="22" rx="3" ry="5" fill="rgba(217,160,91,0.22)" stroke="' + BRASS + '" stroke-width="1.5" transform="rotate(-45 32 22)"/>' +
+    '<ellipse cx="26" cy="34" rx="3" ry="5" fill="rgba(217,160,91,0.22)" stroke="' + BRASS + '" stroke-width="1.5"/>'
+  );
+
+  var ICON_ASIATIQUE = svg(
+    /* Bol fumant */
+    '<path d="M8 24 Q8 36, 25 38 Q42 36, 42 24 Z" fill="rgba(217,160,91,0.18)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
+    '<line x1="6" y1="24" x2="44" y2="24" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>' +
+    '<path d="M16 18 Q18 14, 16 10" fill="none" stroke="' + BRASS + '" stroke-width="1.4" stroke-linecap="round"/>' +
+    '<path d="M25 16 Q27 12, 25 8" fill="none" stroke="' + BRASS + '" stroke-width="1.4" stroke-linecap="round"/>' +
+    '<path d="M34 18 Q36 14, 34 10" fill="none" stroke="' + BRASS + '" stroke-width="1.4" stroke-linecap="round"/>'
+  );
+
+  var ICON_INDIEN = svg(
+    /* Anis étoilé / étoile à 5 branches */
+    '<path d="M25 8 L29 19 L41 19 L31 26 L34 38 L25 31 L16 38 L19 26 L9 19 L21 19 Z" ' +
+      'fill="rgba(217,160,91,0.18)" stroke="' + BRASS + '" stroke-width="1.8" stroke-linejoin="round"/>' +
+    '<circle cx="25" cy="25" r="2" fill="' + BRASS + '" opacity="0.85"/>'
+  );
+
+  var ICON_MEXICAIN = svg(
+    /* Piment + tige */
+    '<path d="M14 14 Q18 12, 22 16" stroke="' + BRASS + '" stroke-width="2" fill="none" stroke-linecap="round"/>' +
+    '<path d="M22 16 Q26 20, 30 24 Q36 30, 36 38 Q34 42, 28 42 Q20 40, 16 32 Q12 22, 22 16 Z" ' +
+      'fill="rgba(217,160,91,0.24)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>'
+  );
+
+  var ICON_ESPAGNOL = svg(
+    /* Paella : poêle + poignée */
+    '<circle cx="22" cy="28" r="14" fill="rgba(217,160,91,0.14)" stroke="' + BRASS + '" stroke-width="2"/>' +
+    '<line x1="36" y1="28" x2="46" y2="28" stroke="' + BRASS + '" stroke-width="2.4" stroke-linecap="round"/>' +
+    '<circle cx="18" cy="26" r="1.5" fill="' + BRASS + '" opacity="0.75"/>' +
+    '<circle cx="26" cy="28" r="1.5" fill="' + BRASS + '" opacity="0.75"/>' +
+    '<circle cx="22" cy="33" r="1.5" fill="' + BRASS + '" opacity="0.75"/>' +
+    '<circle cx="28" cy="32" r="1.2" fill="' + BRASS + '" opacity="0.6"/>'
+  );
+
+  var ICON_ORIENTAL = svg(
+    /* Théière */
+    '<ellipse cx="25" cy="30" rx="13" ry="9" fill="rgba(217,160,91,0.18)" stroke="' + BRASS + '" stroke-width="2"/>' +
+    '<ellipse cx="25" cy="21" rx="6" ry="2" fill="rgba(217,160,91,0.22)" stroke="' + BRASS + '" stroke-width="1.6"/>' +
+    '<line x1="25" y1="16" x2="25" y2="19" stroke="' + BRASS + '" stroke-width="1.6"/>' +
+    '<circle cx="25" cy="14" r="1.5" fill="' + BRASS + '"/>' +
+    '<path d="M38 28 L44 24 L44 28 Z" fill="rgba(217,160,91,0.22)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
+    '<path d="M12 28 Q6 30, 12 35" fill="none" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>'
+  );
+
+  /* === Accompagnements === */
+  var ICON_VERT = svg(
+    '<path d="M25 6 C16 12, 12 22, 14 32 C20 28, 23 22, 25 14 Z" ' +
+      'fill="rgba(217,160,91,0.18)" stroke="' + BRASS + '" stroke-width="1.6" stroke-linejoin="round"/>' +
+    '<path d="M25 6 C34 12, 38 22, 36 32 C30 28, 27 22, 25 14 Z" ' +
+      'fill="rgba(217,160,91,0.10)" stroke="' + BRASS + '" stroke-width="1.6" stroke-linejoin="round"/>' +
+    '<line x1="25" y1="6" x2="25" y2="44" stroke="' + BRASS + '" stroke-width="1.6"/>'
+  );
+
+  var ICON_FRAIS = svg(
+    /* Tomate */
+    '<circle cx="25" cy="29" r="14" fill="rgba(217,160,91,0.10)" stroke="' + BRASS + '" stroke-width="1.8"/>' +
+    '<path d="M19 12 L25 16 L31 12 L29 19 L25 16 L21 19 Z" fill="' + BRASS + '" opacity="0.85"/>'
+  );
+
+  var ICON_RACINE = svg(
+    /* Carotte */
+    '<path d="M25 8 L17 16 L13 22 L25 44 L37 22 L33 16 Z" ' +
+      'fill="rgba(217,160,91,0.14)" stroke="' + BRASS + '" stroke-width="1.8" stroke-linejoin="round"/>' +
+    '<line x1="20" y1="20" x2="30" y2="20" stroke="' + BRASS + '" stroke-width="1.1" opacity="0.55"/>' +
+    '<line x1="18" y1="26" x2="32" y2="26" stroke="' + BRASS + '" stroke-width="1.1" opacity="0.55"/>' +
+    '<line x1="20" y1="32" x2="30" y2="32" stroke="' + BRASS + '" stroke-width="1.1" opacity="0.55"/>' +
+    '<path d="M22 8 Q24 4, 25 8 Q26 4, 28 8" fill="none" stroke="' + BRASS + '" stroke-width="1.4"/>'
+  );
+
+  var ICON_PATES = svg(
+    /* 3 vagues parallèles */
+    '<path d="M6 18 Q14 10, 22 18 T38 18 T46 18" fill="none" stroke="' + BRASS + '" stroke-width="2"/>' +
+    '<path d="M6 27 Q14 19, 22 27 T38 27 T46 27" fill="none" stroke="' + BRASS + '" stroke-width="2"/>' +
+    '<path d="M6 36 Q14 28, 22 36 T38 36 T46 36" fill="none" stroke="' + BRASS + '" stroke-width="2"/>'
+  );
+
+  var ICON_PATATE = svg(
+    '<ellipse cx="25" cy="26" rx="16" ry="13" ' +
+      'fill="rgba(217,160,91,0.16)" stroke="' + BRASS + '" stroke-width="1.8" transform="rotate(-12 25 26)"/>' +
+    '<circle cx="20" cy="22" r="1.2" fill="' + BRASS + '" opacity="0.75"/>' +
+    '<circle cx="30" cy="20" r="1" fill="' + BRASS + '" opacity="0.75"/>' +
+    '<circle cx="33" cy="29" r="1.4" fill="' + BRASS + '" opacity="0.75"/>' +
+    '<circle cx="22" cy="32" r="1" fill="' + BRASS + '" opacity="0.75"/>'
+  );
+
+  /* === Petit-déj GOUT === */
+  var ICON_SUCRE = svg(
+    /* Cupcake */
+    '<path d="M14 26 L36 26 L34 42 L16 42 Z" fill="rgba(217,160,91,0.18)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
+    '<line x1="20" y1="26" x2="20" y2="42" stroke="' + BRASS + '" stroke-width="1" opacity="0.55"/>' +
+    '<line x1="25" y1="26" x2="25" y2="42" stroke="' + BRASS + '" stroke-width="1" opacity="0.55"/>' +
+    '<line x1="30" y1="26" x2="30" y2="42" stroke="' + BRASS + '" stroke-width="1" opacity="0.55"/>' +
+    '<path d="M12 26 Q14 16, 25 14 Q36 16, 38 26 Z" fill="rgba(217,160,91,0.26)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
+    '<circle cx="25" cy="11" r="2" fill="' + BRASS + '"/>'
+  );
+
+  var ICON_SALE = svg(
+    /* Tartine garnie : pain + topping ovale */
+    '<rect x="8" y="24" width="34" height="14" rx="2" fill="rgba(217,160,91,0.16)" stroke="' + BRASS + '" stroke-width="2"/>' +
+    '<ellipse cx="25" cy="22" rx="13" ry="3.5" fill="rgba(217,160,91,0.30)" stroke="' + BRASS + '" stroke-width="1.6"/>' +
+    '<line x1="14" y1="30" x2="36" y2="30" stroke="' + BRASS + '" stroke-width="1" opacity="0.5"/>'
+  );
+
+  /* === Petit-déj TYPE === */
+  var ICON_PAIN = svg(
+    /* Tranche de pain de mie */
+    '<path d="M10 22 Q10 14, 18 12 Q25 9, 32 12 Q40 14, 40 22 L40 38 L10 38 Z" ' +
+      'fill="rgba(217,160,91,0.16)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
+    '<line x1="14" y1="22" x2="36" y2="22" stroke="' + BRASS + '" stroke-width="1" opacity="0.55"/>'
+  );
+
+  var ICON_OEUFS_RONDS = svg(
+    /* Œuf au plat rond — distinct de ICON_OEUFS (irrégulier) */
+    '<ellipse cx="25" cy="25" rx="17" ry="13" fill="rgba(217,160,91,0.10)" stroke="' + BRASS + '" stroke-width="2"/>' +
+    '<circle cx="25" cy="25" r="6" fill="' + BRASS + '" opacity="0.85"/>'
+  );
+
+  var ICON_CEREALES = svg(
+    /* Épi de blé */
+    '<line x1="25" y1="44" x2="25" y2="14" stroke="' + BRASS + '" stroke-width="1.8"/>' +
+    '<ellipse cx="25" cy="12" rx="2.5" ry="4" fill="rgba(217,160,91,0.24)" stroke="' + BRASS + '" stroke-width="1.4"/>' +
+    '<ellipse cx="20" cy="20" rx="2.4" ry="3.4" fill="rgba(217,160,91,0.20)" stroke="' + BRASS + '" stroke-width="1.4" transform="rotate(-30 20 20)"/>' +
+    '<ellipse cx="30" cy="20" rx="2.4" ry="3.4" fill="rgba(217,160,91,0.20)" stroke="' + BRASS + '" stroke-width="1.4" transform="rotate(30 30 20)"/>' +
+    '<ellipse cx="20" cy="26" rx="2.4" ry="3.4" fill="rgba(217,160,91,0.20)" stroke="' + BRASS + '" stroke-width="1.4" transform="rotate(-30 20 26)"/>' +
+    '<ellipse cx="30" cy="26" rx="2.4" ry="3.4" fill="rgba(217,160,91,0.20)" stroke="' + BRASS + '" stroke-width="1.4" transform="rotate(30 30 26)"/>' +
+    '<ellipse cx="20" cy="32" rx="2.4" ry="3.4" fill="rgba(217,160,91,0.20)" stroke="' + BRASS + '" stroke-width="1.4" transform="rotate(-30 20 32)"/>' +
+    '<ellipse cx="30" cy="32" rx="2.4" ry="3.4" fill="rgba(217,160,91,0.20)" stroke="' + BRASS + '" stroke-width="1.4" transform="rotate(30 30 32)"/>'
+  );
+
+  var ICON_FRUITS = svg(
+    /* Pomme */
+    '<line x1="25" y1="14" x2="25" y2="10" stroke="' + BRASS + '" stroke-width="1.8" stroke-linecap="round"/>' +
+    '<path d="M25 10 Q31 7, 33 12 Q28 13, 25 12 Z" fill="rgba(217,160,91,0.30)" stroke="' + BRASS + '" stroke-width="1.4" stroke-linejoin="round"/>' +
+    '<path d="M25 14 C18 14, 12 18, 12 28 C12 38, 18 42, 22 42 C24 41, 26 41, 28 42 C32 42, 38 38, 38 28 C38 18, 32 14, 25 14 Z" ' +
+      'fill="rgba(217,160,91,0.20)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>'
+  );
+
+  /* === Dé pour "Surprends-moi" — couleur sombre car fond bouton laiton === */
+  var ICON_DICE =
+    '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" ' +
+      'style="vertical-align:-4px;margin-right:7px">' +
+      '<rect x="3.5" y="3.5" width="17" height="17" rx="3" ' +
+        'fill="rgba(28,24,21,0.10)" stroke="' + DARK + '" stroke-width="2"/>' +
+      '<circle cx="8" cy="8" r="1.6" fill="' + DARK + '"/>' +
+      '<circle cx="16" cy="16" r="1.6" fill="' + DARK + '"/>' +
+      '<circle cx="16" cy="8" r="1.6" fill="' + DARK + '"/>' +
+      '<circle cx="8" cy="16" r="1.6" fill="' + DARK + '"/>' +
+      '<circle cx="12" cy="12" r="1.6" fill="' + DARK + '"/>' +
     '</svg>';
 
-  var ICON_FRAIS =
-    '<svg viewBox="0 0 50 50" width="42" height="42" aria-hidden="true">' +
-      '<circle cx="25" cy="29" r="14" fill="rgba(217,160,91,0.10)" stroke="' + BRASS + '" stroke-width="1.8"/>' +
-      '<path d="M19 12 L25 16 L31 12 L29 19 L25 16 L21 19 Z" fill="' + BRASS + '" opacity="0.85"/>' +
-    '</svg>';
-
-  var ICON_RACINE =
-    '<svg viewBox="0 0 50 50" width="42" height="42" aria-hidden="true">' +
-      '<path d="M25 8 L17 16 L13 22 L25 44 L37 22 L33 16 Z" ' +
-        'fill="rgba(217,160,91,0.12)" stroke="' + BRASS + '" stroke-width="1.8" stroke-linejoin="round"/>' +
-      '<line x1="20" y1="20" x2="30" y2="20" stroke="' + BRASS + '" stroke-width="1.1" opacity="0.55"/>' +
-      '<line x1="18" y1="26" x2="32" y2="26" stroke="' + BRASS + '" stroke-width="1.1" opacity="0.55"/>' +
-      '<line x1="20" y1="32" x2="30" y2="32" stroke="' + BRASS + '" stroke-width="1.1" opacity="0.55"/>' +
-      /* Fanes */
-      '<path d="M22 8 Q24 4, 25 8 Q26 4, 28 8" fill="none" stroke="' + BRASS + '" stroke-width="1.4"/>' +
-    '</svg>';
-
-  var ICON_PATES =
-    '<svg viewBox="0 0 50 50" width="42" height="42" aria-hidden="true">' +
-      '<path d="M6 18 Q14 10, 22 18 T38 18 T46 18" fill="none" stroke="' + BRASS + '" stroke-width="2"/>' +
-      '<path d="M6 27 Q14 19, 22 27 T38 27 T46 27" fill="none" stroke="' + BRASS + '" stroke-width="2"/>' +
-      '<path d="M6 36 Q14 28, 22 36 T38 36 T46 36" fill="none" stroke="' + BRASS + '" stroke-width="2"/>' +
-    '</svg>';
-
-  var ICON_PATATE =
-    '<svg viewBox="0 0 50 50" width="42" height="42" aria-hidden="true">' +
-      '<ellipse cx="25" cy="26" rx="16" ry="13" ' +
-        'fill="rgba(217,160,91,0.14)" stroke="' + BRASS + '" stroke-width="1.8" transform="rotate(-12 25 26)"/>' +
-      '<circle cx="20" cy="22" r="1.2" fill="' + BRASS + '" opacity="0.7"/>' +
-      '<circle cx="30" cy="20" r="1" fill="' + BRASS + '" opacity="0.7"/>' +
-      '<circle cx="33" cy="29" r="1.4" fill="' + BRASS + '" opacity="0.7"/>' +
-      '<circle cx="22" cy="32" r="1" fill="' + BRASS + '" opacity="0.7"/>' +
+  /* === Empty state (au lieu de 🤔) === */
+  var ICON_EMPTY =
+    '<svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">' +
+      '<circle cx="32" cy="32" r="26" fill="rgba(217,160,91,0.10)" stroke="' + BRASS + '" stroke-width="2.5"/>' +
+      '<path d="M22 24 Q22 16, 32 16 Q42 16, 42 24 Q42 30, 32 32 L32 38" ' +
+        'fill="none" stroke="' + BRASS + '" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>' +
+      '<circle cx="32" cy="46" r="2.5" fill="' + BRASS + '"/>' +
     '</svg>';
 
   /* ---------- Fetch & cache ---------- */
@@ -183,28 +422,19 @@
 
   /* ---------- Catalogues ---------- */
 
-  /* Repas — multi-select. Match seedTags.repas + fallback tags + keywords. */
   var REPAS = [
-    {
-      key: 'petit-dej', emoji: '🍞', label: 'Petit-déj',
+    { key: 'petit-dej', svg: ICON_PETIT_DEJ, label: 'Petit-déj',
       keywords: ['petit-dej', 'petit dej', 'petit-dejeuner', 'petit dejeuner', 'breakfast', 'tartine', 'porridge', 'granola', 'pancake', 'crepe sucre'],
-      seedRepas: ['petit-dej-sale', 'petit-dej-sucre']
-    },
-    {
-      key: 'dejeuner', emoji: '☀️', label: 'Déjeuner',
+      seedRepas: ['petit-dej-sale', 'petit-dej-sucre'] },
+    { key: 'dejeuner',  svg: ICON_DEJEUNER,  label: 'Déjeuner',
       keywords: ['dejeuner', 'lunch', 'midi'],
-      seedRepas: ['dejeuner']
-    },
-    {
-      key: 'diner', emoji: '🌙', label: 'Dîner',
+      seedRepas: ['dejeuner'] },
+    { key: 'diner',     svg: ICON_DINER,     label: 'Dîner',
       keywords: ['diner', 'dinner', 'soir'],
-      seedRepas: ['diner']
-    },
-    {
-      key: 'encas', emoji: '🍪', label: 'Goûter / Encas',
+      seedRepas: ['diner'] },
+    { key: 'encas',     svg: ICON_ENCAS,     label: 'Goûter / Encas',
       keywords: ['gouter', 'encas', 'snack', 'collation'],
-      seedRepas: []
-    }
+      seedRepas: [] }
   ];
 
   function matchRepas(r, key) {
@@ -223,24 +453,23 @@
     return false;
   }
 
-  /* Ingrédients — multi-select. Match seedTags.proteinePrincipale + keywords. */
   var INGREDIENTS = [
-    { key: 'poulet',  emoji: '🍗', label: 'Poulet',
+    { key: 'poulet',  svg: ICON_POULET,  label: 'Poulet',
       proteines: ['viande-blanche'],
       keywords: ['poulet', 'volaille', 'dinde', 'pintade', 'canard', 'chapon'] },
-    { key: 'boeuf',   emoji: '🍖', label: 'Bœuf / Porc',
+    { key: 'boeuf',   svg: ICON_BOEUF,   label: 'Bœuf / Porc',
       proteines: ['viande-rouge'],
       keywords: ['boeuf', 'beef', 'porc', 'jambon', 'lard', 'agneau', 'veau', 'mouton', 'lapin'] },
-    { key: 'poisson', emoji: '🐟', label: 'Poisson',
+    { key: 'poisson', svg: ICON_POISSON, label: 'Poisson',
       proteines: ['poisson'],
       keywords: ['poisson', 'saumon', 'thon', 'cabillaud', 'morue', 'truite', 'bar', 'dorade', 'maquereau', 'sardine', 'anchois', 'merlu', 'colin', 'crevette', 'crustace', 'moule', 'huitre', 'st-jacques', 'calamar', 'poulpe'] },
-    { key: 'oeufs',   emoji: '🍳', label: 'Œufs',
+    { key: 'oeufs',   svg: ICON_OEUFS,   label: 'Œufs',
       proteines: ['oeufs'],
       keywords: ['oeuf', 'omelette', 'frittata', 'quiche', 'flan'] },
-    { key: 'vege',    emoji: '🌽', label: 'Végé',
+    { key: 'vege',    svg: ICON_VEGE,    label: 'Végé',
       proteines: ['aucune', 'legumineuses', 'tofu'],
       keywords: ['vege', 'vegetarien', 'lentille', 'pois chiche', 'haricot', 'tofu', 'tempeh', 'seitan', 'feve'] },
-    { key: 'fromage', emoji: '🧀', label: 'Fromage',
+    { key: 'fromage', svg: ICON_FROMAGE, label: 'Fromage',
       proteines: ['fromage'],
       keywords: ['fromage', 'mozzarella', 'feta', 'parmesan', 'comte', 'gruyere', 'chevre', 'roquefort', 'camembert', 'reblochon', 'ricotta', 'mascarpone', 'cheddar', 'pecorino', 'manchego'] }
   ];
@@ -260,18 +489,16 @@
     return false;
   }
 
-  /* Accompagnements — multi-select. Pas de seedTag dédié, on s'appuie sur
-     les libellés d'ingrédients (déjà inclus dans le blob déaccentué). */
   var ACCOMPAGNEMENTS = [
-    { key: 'vert', svg: ICON_VERT, label: 'Vert',
+    { key: 'vert',      svg: ICON_VERT,    label: 'Vert',
       keywords: ['epinard', 'brocoli', 'courgette', 'asperge', 'haricot vert', 'haricot plat', 'poireau', 'aubergine', 'chou ', 'chou-', 'choux', 'salade', 'roquette', 'pousse', 'mache', 'blette', 'edamame', 'bok choy', 'pak choi', 'champignon', 'petits pois', 'pois mange', 'feve fraiche'] },
-    { key: 'frais', svg: ICON_FRAIS, label: 'Frais',
+    { key: 'frais',     svg: ICON_FRAIS,   label: 'Frais',
       keywords: ['tomate', 'concombre', 'poivron', 'avocat', 'radis', 'endive'] },
-    { key: 'racine', svg: ICON_RACINE, label: 'Racine',
+    { key: 'racine',    svg: ICON_RACINE,  label: 'Racine',
       keywords: ['carotte', 'fenouil', 'celeri', 'panais', 'navet', 'courge', 'butternut', 'potiron', 'betterave', 'rutabaga', 'topinambour'] },
-    { key: 'pates-riz', svg: ICON_PATES, label: 'Pâtes & Riz',
+    { key: 'pates-riz', svg: ICON_PATES,   label: 'Pâtes & Riz',
       keywords: ['pates', 'riz ', 'riz,', 'riz.', 'quinoa', 'nouille', 'vermicelle', 'semoule', 'boulgour', 'polenta', 'lasagne', 'gnocchi', 'couscous', 'tagliatelle', 'penne', 'fusilli', 'spaghetti', 'orzo', 'risotto', 'pad thai', 'pho'] },
-    { key: 'patate', svg: ICON_PATATE, label: 'Patate',
+    { key: 'patate',    svg: ICON_PATATE,  label: 'Patate',
       keywords: ['pomme de terre', 'patate douce', 'patate'] }
   ];
 
@@ -285,23 +512,22 @@
     return false;
   }
 
-  /* Inspirations — multi-select. */
   var INSPIRATIONS = [
-    { key: 'francais',      emoji: '🍷', label: 'Français',
+    { key: 'francais',      svg: ICON_FRANCAIS,      label: 'Français',
       keywords: ['francais', 'francaise', 'bistro', 'tradition', 'terroir', 'normand', 'breton', 'savoyard', 'lyonnais', 'provencal'] },
-    { key: 'italien',       emoji: '🍕', label: 'Italien',
+    { key: 'italien',       svg: ICON_ITALIEN,       label: 'Italien',
       keywords: ['italien', 'italie', 'risotto', 'pasta', 'lasagne', 'tiramisu', 'pizza', 'bolognaise', 'carbonara', 'pesto', 'parmigiana'] },
-    { key: 'mediterraneen', emoji: '🍅', label: 'Méditerranéen',
+    { key: 'mediterraneen', svg: ICON_MEDITERRANEEN, label: 'Méditerranéen',
       keywords: ['mediterraneen', 'mediterranee', 'grec', 'libanais', 'taboule', 'houmous', 'feta', 'olive', 'caponata'] },
-    { key: 'asiatique',     emoji: '🍜', label: 'Asiatique',
+    { key: 'asiatique',     svg: ICON_ASIATIQUE,     label: 'Asiatique',
       keywords: ['asiatique', 'thai', 'thailand', 'vietnamien', 'vietnam', 'japonais', 'japon', 'sushi', 'ramen', 'wok', 'chinois', 'coreen', 'bibimbap', 'pad thai', 'pho', 'curry vert', 'curry rouge'] },
-    { key: 'indien',        emoji: '🍛', label: 'Indien',
+    { key: 'indien',        svg: ICON_INDIEN,        label: 'Indien',
       keywords: ['indien', 'inde', 'curry', 'tikka', 'tandoori', 'masala', 'biryani', 'naan', 'dahl', 'samosa'] },
-    { key: 'mexicain',      emoji: '🌶', label: 'Mexicain',
+    { key: 'mexicain',      svg: ICON_MEXICAIN,      label: 'Mexicain',
       keywords: ['mexicain', 'mexique', 'tacos', 'burrito', 'enchilada', 'quesadilla', 'guacamole', 'salsa', 'fajitas'] },
-    { key: 'espagnol',      emoji: '🍤', label: 'Espagnol',
+    { key: 'espagnol',      svg: ICON_ESPAGNOL,      label: 'Espagnol',
       keywords: ['espagnol', 'espagne', 'paella', 'tapas', 'tortilla', 'gazpacho', 'chorizo', 'iberique'] },
-    { key: 'oriental',      emoji: '🍵', label: 'Oriental',
+    { key: 'oriental',      svg: ICON_ORIENTAL,      label: 'Oriental',
       keywords: ['marocain', 'maroc', 'tunisien', 'algerien', 'tagine', 'tajine', 'couscous', 'oriental', 'turc', 'kebab', 'pastilla', 'harira'] }
   ];
 
@@ -315,12 +541,11 @@
     return false;
   }
 
-  /* Petit-déj — sucré / salé */
   var PETIT_DEJ_GOUT = [
-    { key: 'sucre', emoji: '🍪', label: 'Sucré',
+    { key: 'sucre', svg: ICON_SUCRE, label: 'Sucré',
       seedRepas: ['petit-dej-sucre'],
       keywords: ['sucre', 'miel', 'confiture', 'chocolat', 'banane', 'pomme', 'fraise', 'framboise', 'myrtille', 'granola', 'porridge', 'pancake', 'crepe sucre', 'gaufre', 'brioche', 'pain perdu', 'viennois', 'muesli', 'compote', 'sirop'] },
-    { key: 'sale', emoji: '🧀', label: 'Salé',
+    { key: 'sale',  svg: ICON_SALE,  label: 'Salé',
       seedRepas: ['petit-dej-sale'],
       keywords: ['oeuf', 'omelette', 'jambon', 'fromage', 'avocat', 'tartine', 'cheddar', 'bacon', 'saucisse', 'mozzarella', 'feta', 'comte', 'beurre sale'] }
   ];
@@ -340,15 +565,14 @@
     return false;
   }
 
-  /* Petit-déj — type */
   var PETIT_DEJ_TYPE = [
-    { key: 'pain', emoji: '🍞', label: 'Pain & tartines',
+    { key: 'pain',     svg: ICON_PAIN,        label: 'Pain & tartines',
       keywords: ['pain', 'tartine', 'baguette', 'brioche', 'pita', 'foccacia', 'biscotte', 'pain perdu'] },
-    { key: 'oeufs', emoji: '🍳', label: 'Œufs',
+    { key: 'oeufs',    svg: ICON_OEUFS_RONDS, label: 'Œufs',
       keywords: ['oeuf', 'omelette', 'frittata', 'scramble', 'shakshuka'] },
-    { key: 'cereales', emoji: '🌾', label: 'Céréales',
+    { key: 'cereales', svg: ICON_CEREALES,    label: 'Céréales',
       keywords: ['muesli', 'granola', 'porridge', 'flocon', 'avoine', 'cereal', 'overnight oats', 'gruau'] },
-    { key: 'fruits', emoji: '🍎', label: 'Fruits & yaourt',
+    { key: 'fruits',   svg: ICON_FRUITS,      label: 'Fruits & yaourt',
       keywords: ['fruit', 'banane', 'pomme', 'fraise', 'framboise', 'poire', 'peche', 'mangue', 'ananas', 'kiwi', 'yaourt', 'smoothie', 'fromage blanc', 'compote', 'myrtille', 'mure'] }
   ];
 
@@ -406,13 +630,12 @@
     container.innerHTML = '<div class="livre-wizard" data-role="wizard">Chargement…</div>';
     var wrap = container.querySelector('[data-role="wizard"]');
 
-    /* État partagé du wizard */
     var pickedRepas = {};
-    var pickedIng   = {};   /* déjeuner/dîner — ingrédient (multi) */
-    var pickedAcc   = {};   /* déjeuner/dîner — accompagnement (multi) */
-    var pickedInsp  = {};   /* déjeuner/dîner — inspiration (multi) */
-    var pickedGout  = {};   /* petit-déj — sucré/salé */
-    var pickedType  = {};   /* petit-déj — type */
+    var pickedIng   = {};
+    var pickedAcc   = {};
+    var pickedInsp  = {};
+    var pickedGout  = {};
+    var pickedType  = {};
     var allRecettes = [];
 
     fetchRecettes().then(function (list) {
@@ -440,7 +663,7 @@
         var r = REPAS[i];
         var active = pickedRepas[r.key] ? ' is-active' : '';
         html += '<button type="button" class="wiz-icon-btn' + active + '" data-key="' + r.key + '">' +
-          '<span class="wiz-icon-emoji">' + r.emoji + '</span>' +
+          '<span class="wiz-icon-svg">' + r.svg + '</span>' +
           '<span class="wiz-icon-label">' + escapeHTML(r.label) + '</span>' +
           '</button>';
       }
@@ -476,13 +699,10 @@
       wrap.querySelector('[data-act="next"]').addEventListener('click', goStep2);
     }
 
-    /* ===== Étape 2 — envies + résultats inline =====
-       Structure variable selon le repas choisi. */
+    /* ===== Étape 2 — envies + résultats inline ===== */
 
     function goStep2() {
       var petitDej = isPetitDejSeul();
-      /* Quand on bascule de mode, on remet à zéro le mode opposé pour éviter
-         des filtres invisibles qui restreindraient les résultats. */
       if (petitDej) {
         pickedIng = {}; pickedAcc = {}; pickedInsp = {};
       } else {
@@ -498,9 +718,9 @@
           (petitDej ? 'Choisis le profil de ton petit-déj, ou laisse vide pour tout voir'
                     : 'Combine ingrédient, accompagnement et inspiration') +
         '</p>' +
-        /* Barre dédiée au "Surprends-moi", centrée, couleur laiton */
         '<div class="wiz-surprise-bar">' +
-          '<button type="button" class="wiz-mini-surprise" data-act="surprise">🎲 Surprends-moi</button>' +
+          '<button type="button" class="wiz-mini-surprise" data-act="surprise">' +
+          ICON_DICE + 'Surprends-moi</button>' +
         '</div>';
 
       if (petitDej) {
@@ -536,8 +756,6 @@
       renderResults();
     }
 
-    /* renderSection — produit le HTML d'une section avec son bouton "tout cocher".
-       items: [{key, emoji?|svg?, label}], dict: pickedXxx */
     function renderSection(name, title, items, dict, colsClass) {
       var allOn = true;
       for (var i = 0; i < items.length; i++) {
@@ -554,12 +772,9 @@
       for (var j = 0; j < items.length; j++) {
         var it = items[j];
         var act = dict[it.key] ? ' is-active' : '';
-        var pict = it.svg
-          ? '<span class="wiz-icon-svg">' + it.svg + '</span>'
-          : '<span class="wiz-icon-emoji">' + it.emoji + '</span>';
         html += '<button type="button" class="wiz-icon-btn wiz-icon-btn-sm' + act + '"' +
           ' data-section="' + name + '" data-key="' + it.key + '">' +
-          pict +
+          '<span class="wiz-icon-svg">' + it.svg + '</span>' +
           '<span class="wiz-icon-label">' + escapeHTML(it.label) + '</span>' +
           '</button>';
       }
@@ -622,7 +837,6 @@
             } else {
               for (var k = 0; k < items.length; k++) dict[items[k].key] = true;
             }
-            /* Re-render visuel des boutons de la section + label */
             refreshSectionVisuals(sec);
             renderResults();
           };
@@ -665,7 +879,6 @@
       for (var i = 0; i < allRecettes.length; i++) {
         var r = allRecettes[i];
 
-        /* Filtre repas — au moins un match parmi les choisis */
         if (dictHasAny(pickedRepas)) {
           var ok = false;
           for (var key in pickedRepas) {
@@ -733,7 +946,7 @@
 
       if (list.length === 0) {
         html += '<div class="wiz-empty">' +
-          '<div class="wiz-empty-icon">🤔</div>' +
+          '<div class="wiz-empty-icon">' + ICON_EMPTY + '</div>' +
           '<p>Aucune recette ne correspond. Essaie de retirer un filtre.</p>' +
           '</div>';
       } else {

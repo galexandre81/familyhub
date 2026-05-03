@@ -1452,11 +1452,11 @@ body {
 
 .tile-livre-count {
   font-family: Georgia, serif;
-  font-size: 84px;
+  font-size: 52px;
   font-weight: 400;
   color: #F2E8D5;
   line-height: 1;
-  letter-spacing: -0.03em;
+  letter-spacing: -0.02em;
   font-feature-settings: "tnum";
   -webkit-font-feature-settings: "tnum";
 }
@@ -1464,9 +1464,9 @@ body {
 .tile-livre-label {
   font-family: Georgia, serif;
   font-style: italic;
-  font-size: 20px;
+  font-size: 16px;
   color: #C49B6B;
-  margin-top: 6px;
+  margin-top: 4px;
 }
 
 .tile-livre-cta {
@@ -1805,13 +1805,21 @@ body {
 .wiz-cols-4 .wiz-icon-btn { -webkit-flex: 1 1 calc(25% - 16px); flex: 1 1 calc(25% - 16px); min-width: 140px; }
 .wiz-cols-5 .wiz-icon-btn { -webkit-flex: 1 1 calc(20% - 16px); flex: 1 1 calc(20% - 16px); min-width: 130px; }
 
-/* Picto SVG (accompagnements) — équivalent visuel d'un emoji 42px */
+/* Picto SVG — toutes les icônes du wizard sont en SVG inline laiton.
+   Les SVG n'ont pas de width/height inline ; on les dimensionne ici selon
+   le contexte (étape 1 = bouton normal, étape 2 = btn-sm plus compact). */
 .wiz-icon-svg {
   display: block;
   line-height: 0;
-  margin-bottom: 8px;
+  margin-bottom: 12px;
+}
+.wiz-icon-svg svg {
+  display: block;
+  width: 56px;
+  height: 56px;
 }
 .wiz-icon-btn-sm .wiz-icon-svg { margin-bottom: 8px; }
+.wiz-icon-btn-sm .wiz-icon-svg svg { width: 42px; height: 42px; }
 
 .wiz-icon-btn {
   margin: 8px;
