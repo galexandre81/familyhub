@@ -9,7 +9,7 @@
  * évolue, mettre à jour les deux fichiers.
  */
 
-import * as admin from "firebase-admin";
+import type { Firestore } from "firebase-admin/firestore";
 import { normalizeTerm } from "./constraints.ts";
 import type { RecetteGeneree } from "./validation.ts";
 
@@ -59,7 +59,7 @@ export const DEFAULT_REGLES_NUTRITION: ReglesNutrition = {
 };
 
 export async function loadReglesNutrition(
-  db: admin.firestore.Firestore,
+  db: Firestore,
   householdId: string,
 ): Promise<ReglesNutrition> {
   const snap = await db
