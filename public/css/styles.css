@@ -787,7 +787,391 @@ a.meal-name:active { color: #C8553D; }
 .step-nav-btn[disabled] .step-nav-arrow { color: #D5D4CD; }
 
 /* =========================================================
+   HOME — Livre de recettes tile
+   ========================================================= */
+
+.main-header-right {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+}
+
+.livre-tile {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  background: #C8553D;
+  color: #FFFFFF;
+  padding: 10px 18px;
+  border-radius: 999px;
+  margin-left: 16px;
+  font-size: 16px;
+  font-weight: 600;
+  letter-spacing: 0.2px;
+  -webkit-box-shadow: 0 4px 12px rgba(200, 85, 61, 0.25);
+  box-shadow: 0 4px 12px rgba(200, 85, 61, 0.25);
+  -webkit-transition: background 0.15s ease, -webkit-transform 0.1s ease;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.livre-tile:active {
+  background: #A84431;
+  -webkit-transform: scale(0.97);
+  transform: scale(0.97);
+}
+
+.livre-tile-icon {
+  font-size: 20px;
+  margin-right: 8px;
+}
+
+/* =========================================================
+   PAGE LIVRE
+   ========================================================= */
+
+.page-livre {
+  height: 100vh;
+  background: #FAFAF7;
+}
+
+/* Surprise-me button in header */
+.livre-random {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  background: #4A7C59;
+  color: #FFFFFF;
+  border: 0;
+  padding: 12px 22px;
+  border-radius: 999px;
+  font-size: 17px;
+  font-weight: 600;
+  cursor: pointer;
+  margin-left: 14px;
+  -webkit-box-shadow: 0 4px 12px rgba(74, 124, 89, 0.25);
+  box-shadow: 0 4px 12px rgba(74, 124, 89, 0.25);
+  -webkit-transition: background 0.15s ease, -webkit-transform 0.1s ease;
+  transition: background 0.15s ease, transform 0.1s ease;
+}
+
+.livre-random:active {
+  background: #3D6649;
+  -webkit-transform: scale(0.97);
+  transform: scale(0.97);
+}
+
+.livre-random-icon {
+  font-size: 20px;
+  margin-right: 8px;
+}
+
+/* Search bar */
+.livre-search {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  background: #FFFFFF;
+  border-bottom: 1px solid #E5E5E0;
+  padding: 14px 22px;
+}
+
+.livre-search-icon {
+  font-size: 22px;
+  margin-right: 12px;
+  color: #6B7280;
+}
+
+.livre-search-input {
+  -webkit-box-flex: 1;
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  border: 0;
+  outline: 0;
+  background: transparent;
+  font-family: inherit;
+  font-size: 22px;
+  color: #1F2933;
+  padding: 6px 0;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+.livre-search-input::-webkit-search-decoration,
+.livre-search-input::-webkit-search-cancel-button { -webkit-appearance: none; }
+
+.livre-search-clear {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  background: #EFEEE8;
+  border: 0;
+  width: 32px;
+  height: 32px;
+  border-radius: 50%;
+  font-size: 20px;
+  color: #6B7280;
+  cursor: pointer;
+  line-height: 1;
+}
+
+.livre-search-clear[hidden] { display: none; }
+.livre-search-clear:active { background: #E0DFD8; }
+
+/* Filters */
+.livre-filters {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  background: #FFFFFF;
+  border-bottom: 1px solid #E5E5E0;
+  padding: 14px 22px 18px 22px;
+}
+
+.livre-filter-group + .livre-filter-group { margin-top: 12px; }
+
+.livre-filter-title {
+  font-family: Georgia, "Times New Roman", serif;
+  font-style: italic;
+  font-size: 16px;
+  color: #6B7280;
+  margin-bottom: 8px;
+  letter-spacing: 0.3px;
+}
+
+.livre-chips {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+}
+
+.livre-chip {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  background: #FFFFFF;
+  border: 2px solid #E5E5E0;
+  color: #1F2933;
+  font-size: 17px;
+  font-weight: 600;
+  padding: 10px 18px;
+  margin: 4px 8px 4px 0;
+  border-radius: 999px;
+  cursor: pointer;
+  -webkit-transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+  transition: background 0.12s ease, border-color 0.12s ease, color 0.12s ease;
+}
+
+.livre-chip:active { background: #EFEEE8; }
+
+.livre-chip.is-active {
+  background: #C8553D;
+  border-color: #C8553D;
+  color: #FFFFFF;
+}
+
+.livre-chip-emoji {
+  font-size: 20px;
+  margin-right: 8px;
+}
+
+/* Ingredient tiles */
+.livre-tiles {
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  margin: 0 -4px;
+}
+
+.livre-tile-btn {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-box-pack: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+  background: #FFFFFF;
+  border: 2px solid #E5E5E0;
+  border-radius: 12px;
+  padding: 10px 6px 8px 6px;
+  margin: 4px;
+  width: 92px;
+  cursor: pointer;
+  -webkit-transition: background 0.12s ease, border-color 0.12s ease, -webkit-transform 0.1s ease;
+  transition: background 0.12s ease, border-color 0.12s ease, transform 0.1s ease;
+}
+
+.livre-tile-btn:active {
+  background: #EFEEE8;
+  -webkit-transform: scale(0.97);
+  transform: scale(0.97);
+}
+
+.livre-tile-btn.is-active {
+  background: #FCEEEA;
+  border-color: #C8553D;
+}
+
+.livre-tile-emoji {
+  font-size: 30px;
+  line-height: 1;
+  margin-bottom: 4px;
+}
+
+.livre-tile-name {
+  font-size: 13px;
+  font-weight: 600;
+  color: #1F2933;
+  letter-spacing: 0.2px;
+}
+
+.livre-tile-btn.is-active .livre-tile-name {
+  color: #C8553D;
+}
+
+/* Reset button */
+.livre-reset {
+  display: inline-block;
+  margin-top: 12px;
+  background: transparent;
+  border: 0;
+  color: #C8553D;
+  font-size: 15px;
+  font-weight: 600;
+  cursor: pointer;
+  padding: 6px 0;
+  text-decoration: underline;
+}
+
+.livre-reset[hidden] { display: none; }
+.livre-reset:active { color: #A84431; }
+
+/* Results grid */
+.livre-results {
+  -webkit-box-flex: 1;
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 18px 24px 18px;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  -webkit-align-content: flex-start;
+  align-content: flex-start;
+  margin: 0 -6px;
+}
+
+.livre-card {
+  -webkit-flex: 1 1 calc(33.333% - 12px);
+  flex: 1 1 calc(33.333% - 12px);
+  min-width: 220px;
+  margin: 6px;
+  background: #FFFFFF;
+  border: 1px solid #E5E5E0;
+  border-radius: 8px;
+  padding: 16px 16px 14px 16px;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  color: #1F2933;
+  -webkit-transition: -webkit-transform 0.1s ease, border-color 0.15s ease, -webkit-box-shadow 0.15s ease;
+  transition: transform 0.1s ease, border-color 0.15s ease, box-shadow 0.15s ease;
+}
+
+.livre-card:active {
+  -webkit-transform: scale(0.985);
+  transform: scale(0.985);
+  border-color: #C8553D;
+  -webkit-box-shadow: 0 4px 14px rgba(200, 85, 61, 0.18);
+  box-shadow: 0 4px 14px rgba(200, 85, 61, 0.18);
+}
+
+.livre-card-name {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 22px;
+  line-height: 1.2;
+  color: #1F2933;
+  margin-bottom: 8px;
+}
+
+.livre-card-meta {
+  font-size: 14px;
+  color: #6B7280;
+  letter-spacing: 0.3px;
+}
+
+.livre-card-meta .dot { margin: 0 6px; color: #C8553D; }
+
+.livre-card-tags {
+  margin-top: 10px;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+}
+
+.livre-card-tag {
+  display: inline-block;
+  background: #F1EFE8;
+  color: #4A7C59;
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 0.3px;
+  padding: 3px 9px;
+  border-radius: 999px;
+  margin: 3px 5px 0 0;
+}
+
+.livre-empty {
+  -webkit-flex: 1 1 100%;
+  flex: 1 1 100%;
+  text-align: center;
+  padding: 40px 20px;
+  color: #6B7280;
+  font-size: 18px;
+  font-style: italic;
+}
+
+/* =========================================================
    Tap target friendliness
    ========================================================= */
 button, a { -webkit-touch-callout: none; -webkit-user-select: none; user-select: none; }
 .meal-name { -webkit-user-select: none; user-select: none; }
+.livre-search-input { -webkit-user-select: text; user-select: text; }
