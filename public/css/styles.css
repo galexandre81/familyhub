@@ -797,9 +797,14 @@ a.meal-name:active { color: #C8553D; }
   -webkit-box-align: center;
   -webkit-align-items: center;
   align-items: center;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  -webkit-justify-content: flex-end;
+  justify-content: flex-end;
 }
 
-.livre-tile {
+/* Home tiles — pill-shaped entry points to feature pages */
+.home-tile {
   display: -webkit-box;
   display: -webkit-flex;
   display: flex;
@@ -810,26 +815,41 @@ a.meal-name:active { color: #C8553D; }
   color: #FFFFFF;
   padding: 10px 18px;
   border-radius: 999px;
-  margin-left: 16px;
+  margin-left: 12px;
   font-size: 16px;
   font-weight: 600;
   letter-spacing: 0.2px;
+  white-space: nowrap;
   -webkit-box-shadow: 0 4px 12px rgba(200, 85, 61, 0.25);
   box-shadow: 0 4px 12px rgba(200, 85, 61, 0.25);
   -webkit-transition: background 0.15s ease, -webkit-transform 0.1s ease;
   transition: background 0.15s ease, transform 0.1s ease;
 }
 
-.livre-tile:active {
+.home-tile:active {
   background: #A84431;
   -webkit-transform: scale(0.97);
   transform: scale(0.97);
 }
 
-.livre-tile-icon {
+.home-tile-icon {
   font-size: 20px;
   margin-right: 8px;
 }
+
+.home-tile-green {
+  background: #4A7C59;
+  -webkit-box-shadow: 0 4px 12px rgba(74, 124, 89, 0.25);
+  box-shadow: 0 4px 12px rgba(74, 124, 89, 0.25);
+}
+.home-tile-green:active { background: #3D6649; }
+
+.home-tile-blue {
+  background: #3B6E8F;
+  -webkit-box-shadow: 0 4px 12px rgba(59, 110, 143, 0.25);
+  box-shadow: 0 4px 12px rgba(59, 110, 143, 0.25);
+}
+.home-tile-blue:active { background: #305A75; }
 
 /* =========================================================
    PAGE LIVRE
@@ -1167,6 +1187,53 @@ a.meal-name:active { color: #C8553D; }
   color: #6B7280;
   font-size: 18px;
   font-style: italic;
+}
+
+/* =========================================================
+   Page placeholder (À venir) — semaine.html, mange-quoi.html
+   ========================================================= */
+
+.page-placeholder {
+  -webkit-box-flex: 1;
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  display: -webkit-box;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-box-orient: vertical;
+  -webkit-box-direction: normal;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  -webkit-box-pack: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+  -webkit-box-align: center;
+  -webkit-align-items: center;
+  align-items: center;
+  text-align: center;
+  padding: 40px 32px;
+}
+
+.placeholder-icon {
+  font-size: 96px;
+  line-height: 1;
+  margin-bottom: 18px;
+}
+
+.placeholder-title {
+  font-family: Georgia, "Times New Roman", serif;
+  font-size: 36px;
+  font-weight: 400;
+  color: #C8553D;
+  margin: 0 0 16px 0;
+}
+
+.placeholder-text {
+  font-size: 20px;
+  line-height: 1.5;
+  color: #6B7280;
+  max-width: 560px;
+  margin: 0;
 }
 
 /* =========================================================
