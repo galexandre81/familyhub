@@ -1435,34 +1435,39 @@ body {
   display: flex;
   -webkit-flex-direction: column;
   flex-direction: column;
+  -webkit-justify-content: center;
+  justify-content: center;
+  -webkit-align-items: center;
+  align-items: center;
+  text-align: center;
+}
+
+.tile-livre-icon {
+  font-size: 56px;
+  line-height: 1;
+  margin-bottom: 14px;
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
 }
 
 .tile-livre-count {
   font-family: Georgia, serif;
-  font-size: 36px;
+  font-size: 84px;
+  font-weight: 400;
   color: #F2E8D5;
-  line-height: 1.1;
-  margin-bottom: 10px;
+  line-height: 1;
+  letter-spacing: -0.03em;
+  font-feature-settings: "tnum";
+  -webkit-font-feature-settings: "tnum";
 }
 
-.tile-livre-recent {
-  list-style: none;
-  margin: 0;
-  padding: 0;
-  -webkit-flex: 1 1 auto;
-  flex: 1 1 auto;
-}
-
-.tile-livre-recent li {
+.tile-livre-label {
   font-family: Georgia, serif;
-  font-size: 16px;
-  color: #C49B6B;
   font-style: italic;
-  padding: 3px 0;
-  border-top: 1px solid rgba(217, 160, 91, 0.12);
+  font-size: 20px;
+  color: #C49B6B;
+  margin-top: 6px;
 }
-
-.tile-livre-recent li:first-child { border-top: 0; }
 
 .tile-livre-cta {
   font-size: 12px;
@@ -1721,4 +1726,292 @@ body {
   font-style: italic;
   font-size: 16px;
   margin-left: 6px;
+}
+
+/* =========================================================
+   Livre de recettes — Wizard 3 étapes (expand)
+   ========================================================= */
+
+.tile-livre-expand {
+  padding: 0;
+}
+
+.livre-wizard {
+  padding: 8px 32px 40px;
+  max-width: 1100px;
+  margin: 0 auto;
+}
+
+.wiz-bar {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  margin-bottom: 18px;
+  padding-top: 4px;
+}
+
+.wiz-back {
+  background: transparent;
+  border: 0;
+  color: #D9A05B;
+  font-family: Georgia, serif;
+  font-size: 19px;
+  cursor: pointer;
+  padding: 8px 4px;
+}
+
+.wiz-back:active { color: #F2E8D5; }
+
+.wiz-step {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 14px;
+  color: #9C8A6E;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+}
+
+.wiz-question {
+  font-family: Georgia, serif;
+  font-size: 48px;
+  font-weight: 400;
+  color: #F2E8D5;
+  margin: 8px 0 6px;
+  line-height: 1.1;
+}
+
+.wiz-hint {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 18px;
+  color: #9C8A6E;
+  margin: 0 0 28px;
+}
+
+/* Grilles d'icônes — 2 / 3 / 4 colonnes */
+.wiz-icon-grid {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  margin: 0 -8px 18px;
+}
+
+.wiz-cols-2 .wiz-icon-btn { -webkit-flex: 1 1 calc(50% - 16px); flex: 1 1 calc(50% - 16px); min-width: 200px; }
+.wiz-cols-3 .wiz-icon-btn { -webkit-flex: 1 1 calc(33.333% - 16px); flex: 1 1 calc(33.333% - 16px); min-width: 160px; }
+.wiz-cols-4 .wiz-icon-btn { -webkit-flex: 1 1 calc(25% - 16px); flex: 1 1 calc(25% - 16px); min-width: 140px; }
+
+.wiz-icon-btn {
+  margin: 8px;
+  padding: 26px 16px 22px;
+  background: #1C1815;
+  border: 2px solid #3A2E22;
+  border-radius: 12px;
+  cursor: pointer;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  -webkit-align-items: center;
+  align-items: center;
+  text-align: center;
+  -webkit-transition: background 0.15s ease, border-color 0.15s ease, -webkit-transform 0.1s ease;
+  transition: background 0.15s ease, border-color 0.15s ease, transform 0.1s ease;
+}
+
+.wiz-icon-btn:active {
+  background: #2A2218;
+  -webkit-transform: scale(0.97);
+  transform: scale(0.97);
+}
+
+.wiz-icon-btn.is-active {
+  background: rgba(217, 160, 91, 0.14);
+  border-color: #D9A05B;
+}
+
+.wiz-icon-emoji {
+  font-size: 56px;
+  line-height: 1;
+  margin-bottom: 12px;
+}
+
+.wiz-icon-label {
+  font-family: Georgia, serif;
+  font-size: 19px;
+  color: #F2E8D5;
+}
+
+.wiz-icon-btn.is-active .wiz-icon-label { color: #D9A05B; }
+
+.wiz-section-title {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 16px;
+  color: #D9A05B;
+  text-transform: uppercase;
+  letter-spacing: 0.2em;
+  margin: 26px 0 8px;
+  padding-bottom: 6px;
+  border-bottom: 1px solid rgba(217, 160, 91, 0.18);
+}
+
+.wiz-actions {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  -webkit-align-items: center;
+  align-items: center;
+  margin-top: 24px;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+}
+
+.wiz-primary {
+  background: #D9A05B;
+  border: 0;
+  color: #1C1815;
+  font-family: Georgia, serif;
+  font-size: 22px;
+  font-weight: 400;
+  padding: 14px 32px;
+  border-radius: 999px;
+  cursor: pointer;
+  margin: 6px 0;
+}
+
+.wiz-primary:active {
+  background: #C68D48;
+  -webkit-transform: scale(0.98);
+  transform: scale(0.98);
+}
+
+.wiz-secondary {
+  background: transparent;
+  border: 1px solid #3A2E22;
+  color: #C49B6B;
+  font-family: Georgia, serif;
+  font-size: 18px;
+  padding: 12px 22px;
+  border-radius: 999px;
+  cursor: pointer;
+  margin: 6px 0;
+}
+
+.wiz-secondary:active {
+  background: #2A2218;
+  border-color: #D9A05B;
+}
+
+.wiz-surprise {
+  background: #4A7C59;
+  color: #F2E8D5;
+}
+.wiz-surprise:active { background: #3D6649; }
+
+.wiz-summary {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 18px;
+  color: #C49B6B;
+  margin: 0 0 18px;
+  padding: 10px 16px;
+  background: rgba(217, 160, 91, 0.06);
+  border-left: 3px solid #D9A05B;
+  border-radius: 4px;
+}
+
+.wiz-empty {
+  text-align: center;
+  padding: 60px 20px;
+  color: #9C8A6E;
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 22px;
+}
+
+.wiz-empty-icon {
+  font-size: 72px;
+  margin-bottom: 16px;
+}
+
+.wiz-empty .wiz-primary {
+  display: inline-block;
+  margin-top: 18px;
+  font-style: normal;
+}
+
+/* ----- Wizard step 2 specifics : boutons moyens, surprise mini, results inline ----- */
+
+.wiz-icon-btn-sm {
+  padding: 18px 12px 14px;
+}
+
+.wiz-icon-btn-sm .wiz-icon-emoji { font-size: 42px; margin-bottom: 8px; }
+.wiz-icon-btn-sm .wiz-icon-label { font-size: 16px; }
+
+.wiz-mini-surprise {
+  background: #4A7C59;
+  border: 0;
+  color: #F2E8D5;
+  font-family: Georgia, serif;
+  font-size: 16px;
+  padding: 10px 18px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+
+.wiz-mini-surprise:active {
+  background: #3D6649;
+  -webkit-transform: scale(0.97);
+  transform: scale(0.97);
+}
+
+.wiz-actions-mid {
+  margin: 12px 0 8px;
+  -webkit-justify-content: flex-end;
+  justify-content: flex-end;
+}
+
+.wiz-btn-clear {
+  font-size: 14px;
+  padding: 8px 16px;
+}
+
+.wiz-results {
+  margin-top: 18px;
+  border-top: 1px solid rgba(217, 160, 91, 0.18);
+  padding-top: 18px;
+}
+
+.wiz-results-bar {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  margin-bottom: 14px;
+}
+
+.wiz-results-count {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 18px;
+  color: #D9A05B;
+  text-transform: uppercase;
+  letter-spacing: 0.16em;
+}
+
+.wiz-results-more {
+  font-family: Georgia, serif;
+  font-style: italic;
+  font-size: 14px;
+  color: #9C8A6E;
+  text-align: center;
+  margin: 16px 0 0;
 }
