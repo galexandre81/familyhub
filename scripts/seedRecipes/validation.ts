@@ -30,8 +30,18 @@ export const recetteGenereeSchema = z.object({
     .array(
       z.object({
         libelle: z.string().min(1),
-        quantite: z.string().min(1),
-        unite: z.string().default(""),
+        // Quantité tolérante : "" ou null acceptés et normalisés en "qsp"
+        // (quantité suffisante pour) — convention culinaire pour sel,
+        // poivre, herbes "à goûter".
+        quantite: z
+          .union([z.string(), z.null(), z.undefined()])
+          .transform((v) => {
+            const s = (v ?? "").toString().trim();
+            return s.length === 0 ? "qsp" : s;
+          }),
+        unite: z
+          .union([z.string(), z.null(), z.undefined()])
+          .transform((v) => (v ?? "").toString()),
         rayon: z.enum(RAYONS).catch("autre"),
       }),
     )
@@ -99,41 +109,62 @@ export function parseSeedOutput(raw: unknown): {
 } {
   // Le modèle peut retourner un tableau direct au lieu de {recettes: [...]}.
   // On normalise.
-  let normalized = raw;
+  let recettesArray: unknown[] | null = null;
   if (Array.isArray(raw)) {
-    normalized = { recettes: raw };
-  } else if (raw && typeof raw === "object" && !("recettes" in raw)) {
-    // Cherche une clé qui est un array
+    recettesArray = raw;
+  } else if (raw && typeof raw === "object") {
     const obj = raw as Record<string, unknown>;
-    for (const key of Object.keys(obj)) {
-      if (Array.isArray(obj[key])) {
-        normalized = { recettes: obj[key] };
-        break;
+    if (Array.isArray(obj.recettes)) {
+      recettesArray = obj.recettes;
+    } else {
+      // Cherche la 1ère clé qui est un array
+      for (const key of Object.keys(obj)) {
+        if (Array.isArray(obj[key])) {
+          recettesArray = obj[key] as unknown[];
+          break;
+        }
       }
     }
   }
 
-  const result = seedBatchOutputSchema.safeParse(normalized);
-  if (!result.success) {
-    const errors = result.error.issues
-      .slice(0, 5)
-      .map((i) => `${i.path.join(".")}: ${i.message}`);
-    return { ok: false, data: null, errors };
+  if (!recettesArray) {
+    return {
+      ok: false,
+      data: null,
+      errors: ["JSON ne contient pas d'array de recettes (ni à la racine ni sous une clé)"],
+    };
   }
 
-  // Filtre les recettes individuelles invalides plutôt que tout rejeter
+  // Validation recette par recette : une recette cassée n'invalide pas tout
+  // le batch, on l'écarte juste avec son erreur dans le rapport.
   const validRecettes: RecetteGeneree[] = [];
   const errors: string[] = [];
-  for (let i = 0; i < result.data.recettes.length; i++) {
-    const r = result.data.recettes[i];
-    if (!r.nom.trim()) {
+  for (let i = 0; i < recettesArray.length; i++) {
+    const result = recetteGenereeSchema.safeParse(recettesArray[i]);
+    if (!result.success) {
+      const issues = result.error.issues
+        .slice(0, 3)
+        .map((iss) => `${iss.path.join(".")}: ${iss.message}`)
+        .join(" ; ");
+      const nom =
+        recettesArray[i] && typeof recettesArray[i] === "object"
+          ? String((recettesArray[i] as Record<string, unknown>).nom ?? `index ${i}`)
+          : `index ${i}`;
+      errors.push(`"${nom}" : ${issues}`);
+      continue;
+    }
+    if (!result.data.nom.trim()) {
       errors.push(`recette ${i} : nom vide, écartée`);
       continue;
     }
-    validRecettes.push(r);
+    validRecettes.push(result.data);
   }
 
-  return { ok: validRecettes.length > 0, data: { recettes: validRecettes }, errors };
+  return {
+    ok: validRecettes.length > 0,
+    data: { recettes: validRecettes },
+    errors,
+  };
 }
 
 /**
