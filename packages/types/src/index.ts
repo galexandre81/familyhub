@@ -16,7 +16,5 @@ export * from "./tiles/livreRecettes";
 export * from "./tiles/cuisineQuoi";
 export * from "./kitchenBuddy/profil";
 export * from "./kitchenBuddy/recette";
-export * from "./kitchenBuddy/reglesNutrition";
 export * from "./kitchenBuddy/mealPlan";
 export * from "./kitchenBuddy/courseItem";
-export * from "./kitchenBuddy/chatMessage";

@@ -18,12 +18,10 @@ export {
   validateMealPlan,
   deleteMealPlan,
 } from "./tiles/kitchenBuddy/plans";
-export { generateMealPlan } from "./tiles/kitchenBuddy/generation";
 export {
   acceptSlot,
   refuseSlot,
   updateSlotPresence,
-  regenerateSlot,
 } from "./tiles/kitchenBuddy/slots";
 
 // Auth display

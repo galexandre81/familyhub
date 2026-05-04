@@ -13,7 +13,6 @@ import {
 } from "../lib/queries";
 import { useDeleteMealPlan } from "../lib/mutations";
 import MealPlanGrid from "../components/kitchenBuddy/MealPlanGrid";
-import PlanStatusBar from "../components/kitchenBuddy/PlanStatusBar";
 
 export default function KitchenBuddy() {
   const { user } = useAuth();
@@ -104,8 +103,6 @@ export default function KitchenBuddy() {
               Supprimer
             </button>
           </div>
-
-          <PlanStatusBar tokensUsed={activePlan.tokensUsed} llmModel={activePlan.llmModel} />
 
           <MealPlanGrid
             slots={slots}

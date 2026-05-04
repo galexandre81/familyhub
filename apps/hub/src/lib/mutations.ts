@@ -17,7 +17,6 @@ import type {
   GridConfig,
   HouseholdParametres,
   Profil,
-  ReglesNutrition,
   Resolution,
   TileType,
   Theme,
@@ -328,31 +327,6 @@ interface PlanRefInput {
   planId: string;
 }
 
-export function useGenerateMealPlan() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: PlanRefInput) => {
-      const fn = httpsCallable<
-        PlanRefInput,
-        {
-          success: true;
-          slotsGenerated: number;
-          recettesCreees: number;
-          coursesCreees: number;
-          tokensUsedTotal: number;
-        }
-      >(functions, "generateMealPlan");
-      const res = await fn(input);
-      return res.data;
-    },
-    onSuccess: (_data, vars) => {
-      void qc.invalidateQueries({ queryKey: ["plan", vars.householdId, vars.planId] });
-      void qc.invalidateQueries({ queryKey: ["planSlots", vars.householdId, vars.planId] });
-      void qc.invalidateQueries({ queryKey: ["planCourses", vars.householdId, vars.planId] });
-    },
-  });
-}
-
 export function useValidateMealPlan() {
   const qc = useQueryClient();
   return useMutation({
@@ -407,24 +381,6 @@ function makeSlotMutation(name: "acceptSlot" | "refuseSlot") {
 
 export const useAcceptSlot = makeSlotMutation("acceptSlot");
 export const useRefuseSlot = makeSlotMutation("refuseSlot");
-
-/** Régénère un slot, optionnellement avec un feedback utilisateur ("trop redondant", "ajoute un féculent"…). */
-export function useRegenerateSlot() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async (input: SlotActionInput & { userFeedback?: string }) => {
-      const fn = httpsCallable<typeof input, { success: true; recetteIds: string[]; tokensUsedTotal: number }>(
-        functions,
-        "regenerateSlot",
-      );
-      await fn(input);
-    },
-    onSuccess: (_data, vars) => {
-      void qc.invalidateQueries({ queryKey: ["planSlots", vars.householdId, vars.planId] });
-      void qc.invalidateQueries({ queryKey: ["plan", vars.householdId, vars.planId] });
-    },
-  });
-}
 
 export function useUpdateSlotPresence() {
   const qc = useQueryClient();
@@ -580,34 +536,6 @@ export function useDeleteProfil() {
     },
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["profils", vars.householdId] });
-    },
-  });
-}
-
-/* --- Règles nutrition (un seul doc id="active" par foyer) --- */
-
-export function useUpdateReglesNutrition() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({
-      householdId,
-      regles,
-    }: {
-      householdId: string;
-      regles: ReglesNutrition;
-    }) => {
-      await setDoc(
-        doc(db, `households/${householdId}/reglesNutrition/active`),
-        {
-          ...regles,
-          updatedAt: serverTimestamp(),
-          createdAt: regles.createdAt ?? serverTimestamp(),
-        },
-        { merge: false },
-      );
-    },
-    onSuccess: (_data, vars) => {
-      void qc.invalidateQueries({ queryKey: ["reglesNutrition", vars.householdId] });
     },
   });
 }

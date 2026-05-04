@@ -29,19 +29,6 @@ export interface MealPlan {
     /** Texte libre, ex: "reste de poulet, 3 courgettes". Cap 2000 chars (validé côté CF). */
     frigoTexte: string;
   };
-  /** Modèle LLM utilisé pour la génération initiale, ex: "gemini-2.0-flash". */
-  llmModel?: string;
-  generatedAt?: Timestamp;
-  /**
-   * Verrou logique anti double-génération (cf. spec §12.2).
-   * Si défini et < 60s, la génération suivante doit être refusée.
-   */
-  generatingAt?: Timestamp;
-  /**
-   * Compteur cumulé de tokens consommés par ce plan (génération + chat).
-   * Cap dur côté CF : 500_000 → refuse les nouveaux appels chat (cf. décision Phase 3.0).
-   */
-  tokensUsed?: number;
   createdAt: Timestamp;
   updatedAt: Timestamp;
   createdBy: string;

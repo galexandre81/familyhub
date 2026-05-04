@@ -1,31 +1,21 @@
 import { useMemo, useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, ChefHat, Loader2, Sparkles } from "lucide-react";
+import { ArrowLeft, ArrowRight, ChefHat, Loader2 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import {
   useActiveHouseholdId,
   useDraftPlan,
-  usePlan,
-  usePlanRecettes,
-  usePlanSlots,
   useProfils,
 } from "../lib/queries";
 import {
-  useAcceptSlot,
   useCreateMealPlan,
   useDeleteMealPlan,
-  useGenerateMealPlan,
-  useRegenerateSlot,
-  useRefuseSlot,
-  useValidateMealPlan,
 } from "../lib/mutations";
 import PresenceGrid, {
   buildDefaultPresence,
   presenceToApi,
   type PresenceState,
 } from "../components/kitchenBuddy/PresenceGrid";
-import MealPlanGrid from "../components/kitchenBuddy/MealPlanGrid";
-import PlanStatusBar from "../components/kitchenBuddy/PlanStatusBar";
 
 type WizardStep = "date" | "presence" | "contexte" | "review";
 
@@ -150,11 +140,8 @@ export default function KitchenBuddyWizard() {
 
       {step === "review" && draftPlan && (
         <StepReview
-          householdId={householdId}
-          planId={draftPlan.id}
-          profils={profils}
           onAbandon={handleAbandonDraft}
-          onValidated={() => navigate("/kitchen-buddy")}
+          onClose={() => navigate("/kitchen-buddy")}
         />
       )}
     </div>
@@ -368,142 +355,33 @@ function StepContexte({
 }
 
 function StepReview({
-  householdId,
-  planId,
-  profils,
   onAbandon,
-  onValidated,
+  onClose,
 }: {
-  householdId: string;
-  planId: string;
-  profils: Array<{ id: string; nom: string; initiale: string; couleur: string; emoji?: string }>;
   onAbandon: () => void;
-  onValidated: () => void;
+  onClose: () => void;
 }) {
-  const { data: plan } = usePlan(householdId, planId);
-  const { data: slots } = usePlanSlots(householdId, planId);
-  const { data: recettesById } = usePlanRecettes(householdId, slots);
-  const generate = useGenerateMealPlan();
-  const validate = useValidateMealPlan();
-  const accept = useAcceptSlot();
-  const refuse = useRefuseSlot();
-  const regen = useRegenerateSlot();
-
-  const [busySlotId, setBusySlotId] = useState<string | null>(null);
-  const [genError, setGenError] = useState<string | null>(null);
-
-  const profilsById: Record<string, never> = useMemo(
-    () => Object.fromEntries(profils.map((p) => [p.id, p])) as never,
-    [profils],
-  );
-
-  const hasGeneration = (slots ?? []).some((s) => s.recetteIds.length > 0);
-
-  async function handleGenerate() {
-    setGenError(null);
-    try {
-      await generate.mutateAsync({ householdId, planId });
-    } catch (e) {
-      setGenError(e instanceof Error ? e.message : "Erreur");
-    }
-  }
-
-  async function withBusy(slotId: string, action: () => Promise<unknown>) {
-    setBusySlotId(slotId);
-    try {
-      await action();
-    } finally {
-      setBusySlotId(null);
-    }
-  }
-
   return (
     <div className="space-y-4">
-      <div className="tile-card flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h2 className="text-xl mb-1">Brouillon de plan</h2>
-          <p className="text-cream-mute text-sm">
-            {hasGeneration
-              ? "Revoir les propositions, accepter ou régénérer slot par slot."
-              : "Lance la génération pour obtenir des propositions."}
-          </p>
-        </div>
-        <div className="flex items-center gap-2">
-          <button
-            onClick={onAbandon}
-            className="btn-secondary text-sm"
-          >
-            Abandonner
+      <div className="tile-card space-y-3">
+        <h2 className="text-xl">Brouillon créé</h2>
+        <p className="text-cream-mute text-sm">
+          Le plan est en brouillon avec présence et contexte enregistrés. La génération
+          des recettes via Claude.ai (export <code className="text-xs px-1 bg-ebony-ridge rounded">.md</code>{" "}
+          → coller dans Claude.ai → réimporter le JSON) sera disponible en Phase 3.2.
+        </p>
+        <p className="text-cream-mute text-sm">
+          En attendant, tu peux abandonner ce brouillon ou le laisser tel quel et y revenir plus tard.
+        </p>
+        <div className="flex items-center gap-2 pt-2">
+          <button onClick={onAbandon} className="btn-secondary text-sm">
+            Abandonner le brouillon
           </button>
-          {!hasGeneration && (
-            <button
-              onClick={handleGenerate}
-              disabled={generate.isPending}
-              className="btn-primary flex items-center gap-2"
-            >
-              {generate.isPending ? (
-                <>
-                  <Loader2 size={14} className="animate-spin" /> Génération en cours…
-                </>
-              ) : (
-                <>
-                  <Sparkles size={14} /> Générer le plan
-                </>
-              )}
-            </button>
-          )}
-          {hasGeneration && (
-            <>
-              <button
-                onClick={handleGenerate}
-                disabled={generate.isPending}
-                className="btn-secondary text-sm flex items-center gap-2"
-              >
-                {generate.isPending ? <Loader2 size={14} className="animate-spin" /> : <Sparkles size={14} />}
-                Re-générer tout
-              </button>
-              <button
-                onClick={async () => {
-                  await validate.mutateAsync({ householdId, planId });
-                  onValidated();
-                }}
-                disabled={validate.isPending}
-                className="btn-primary text-sm"
-              >
-                {validate.isPending ? "Validation…" : "Valider le plan"}
-              </button>
-            </>
-          )}
+          <button onClick={onClose} className="btn-primary text-sm">
+            Retour à Kitchen Buddy
+          </button>
         </div>
       </div>
-
-      <PlanStatusBar tokensUsed={plan?.tokensUsed} llmModel={plan?.llmModel} />
-
-      {genError && (
-        <div className="tile-card border-copper">
-          <p className="text-copper text-sm">{genError}</p>
-        </div>
-      )}
-
-      {slots && slots.length > 0 && (
-        <MealPlanGrid
-          slots={slots}
-          recettesById={recettesById ?? {}}
-          profilsById={profilsById}
-          busySlotId={busySlotId}
-          onAccept={(slotId) =>
-            withBusy(slotId, () => accept.mutateAsync({ householdId, planId, slotId }))
-          }
-          onRefuse={(slotId) =>
-            withBusy(slotId, () => refuse.mutateAsync({ householdId, planId, slotId }))
-          }
-          onRegenerate={(slotId, userFeedback) =>
-            withBusy(slotId, () =>
-              regen.mutateAsync({ householdId, planId, slotId, userFeedback }),
-            )
-          }
-        />
-      )}
     </div>
   );
 }
