@@ -8,7 +8,11 @@ import {
   useDisplay,
   useTiles,
 } from "../lib/queries";
-import { useRefreshWeatherTile, useUpdateDisplayLayout } from "../lib/mutations";
+import {
+  useRefreshRecipeTodayTile,
+  useRefreshWeatherTile,
+  useUpdateDisplayLayout,
+} from "../lib/mutations";
 import SetupTokenModal from "../components/SetupTokenModal";
 
 export default function DisplayEditor() {
@@ -19,6 +23,7 @@ export default function DisplayEditor() {
   const { data: tiles } = useTiles(householdId);
   const updateLayout = useUpdateDisplayLayout();
   const refreshWeather = useRefreshWeatherTile();
+  const refreshRecipeToday = useRefreshRecipeTodayTile();
 
   const [layout, setLayout] = useState<DisplayLayoutEntry[]>([]);
   const [setupOpen, setSetupOpen] = useState(false);
@@ -75,6 +80,11 @@ export default function DisplayEditor() {
       .filter((t): t is NonNullable<typeof t> =>
         !!t && t.type === "weather" && !previousIds.has(t.id),
       );
+    const newRecipeTodayTiles = layout
+      .map((e) => tilesById.get(e.tileId))
+      .filter((t): t is NonNullable<typeof t> =>
+        !!t && t.type === "recipe-today" && !previousIds.has(t.id),
+      );
 
     await updateLayout.mutateAsync({
       householdId: householdId!,
@@ -82,15 +92,38 @@ export default function DisplayEditor() {
       layout,
     });
 
+    const refreshTasks: Array<Promise<unknown>> = [];
+    const statusParts: string[] = [];
+
     if (newWeatherTiles.length > 0) {
-      setRefreshStatus("Pré-chargement météo…");
-      await Promise.allSettled(
-        newWeatherTiles.map((t) =>
+      statusParts.push(
+        `${newWeatherTiles.length} météo`,
+      );
+      newWeatherTiles.forEach((t) =>
+        refreshTasks.push(
           refreshWeather.mutateAsync({ householdId: householdId!, tileId: t.id }),
         ),
       );
+    }
+    if (newRecipeTodayTiles.length > 0) {
+      statusParts.push(
+        `${newRecipeTodayTiles.length} recette du jour`,
+      );
+      newRecipeTodayTiles.forEach((t) =>
+        refreshTasks.push(
+          refreshRecipeToday.mutateAsync({
+            householdId: householdId!,
+            tileId: t.id,
+          }),
+        ),
+      );
+    }
+
+    if (refreshTasks.length > 0) {
+      setRefreshStatus("Pré-chargement (" + statusParts.join(" + ") + ")…");
+      await Promise.allSettled(refreshTasks);
       setRefreshStatus(
-        `${newWeatherTiles.length} nouvelle${newWeatherTiles.length > 1 ? "s" : ""} tuile${newWeatherTiles.length > 1 ? "s" : ""} météo pré-chargée${newWeatherTiles.length > 1 ? "s" : ""}.`,
+        statusParts.join(" + ") + " pré-chargée(s).",
       );
       setTimeout(() => setRefreshStatus(null), 4000);
     }

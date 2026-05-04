@@ -12,6 +12,109 @@
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
   }
 
+  /* ---------- SVG icons (laiton, viewBox 50x50) ----------
+     Cohérent avec apps/display/public/js/tiles/livreRecettes.js — pas
+     d'emoji susceptible d'être en tofu sur iOS 9.3.6 / Safari 9. */
+
+  var BRASS = '#D9A05B';
+
+  function svgWrap(inner, size) {
+    var dim = size || 24;
+    return '<svg viewBox="0 0 50 50" width="' + dim + '" height="' + dim + '" ' +
+      'aria-hidden="true" style="vertical-align:middle">' + inner + '</svg>';
+  }
+
+  /* Tasse fumante (petit-déj) */
+  function svgPetitDej(size) {
+    return svgWrap(
+      '<path d="M14 18 L14 36 Q14 40, 18 40 L30 40 Q34 40, 34 36 L34 18 Z" ' +
+        'fill="rgba(217,160,91,0.14)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
+      '<path d="M34 22 Q40 22, 40 28 Q40 34, 34 34" fill="none" stroke="' + BRASS + '" stroke-width="2"/>' +
+      '<line x1="10" y1="42" x2="38" y2="42" stroke="' + BRASS + '" stroke-width="1.6" stroke-linecap="round"/>' +
+      '<path d="M19 14 Q21 10, 19 6" fill="none" stroke="' + BRASS + '" stroke-width="1.4" stroke-linecap="round"/>' +
+      '<path d="M24 14 Q26 10, 24 6" fill="none" stroke="' + BRASS + '" stroke-width="1.4" stroke-linecap="round"/>' +
+      '<path d="M29 14 Q31 10, 29 6" fill="none" stroke="' + BRASS + '" stroke-width="1.4" stroke-linecap="round"/>',
+      size,
+    );
+  }
+
+  /* Soleil (déjeuner) */
+  function svgDej(size) {
+    return svgWrap(
+      '<circle cx="25" cy="25" r="9" fill="rgba(217,160,91,0.20)" stroke="' + BRASS + '" stroke-width="2"/>' +
+      '<line x1="25" y1="5" x2="25" y2="11" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>' +
+      '<line x1="25" y1="39" x2="25" y2="45" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>' +
+      '<line x1="5" y1="25" x2="11" y2="25" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>' +
+      '<line x1="39" y1="25" x2="45" y2="25" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>' +
+      '<line x1="11" y1="11" x2="15" y2="15" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>' +
+      '<line x1="35" y1="35" x2="39" y2="39" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>' +
+      '<line x1="11" y1="39" x2="15" y2="35" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>' +
+      '<line x1="35" y1="15" x2="39" y2="11" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>',
+      size,
+    );
+  }
+
+  /* Lune croissant (dîner) */
+  function svgDiner(size) {
+    return svgWrap(
+      '<path d="M32 8 A18 18 0 1 0 32 42 A14 14 0 1 1 32 8 Z" ' +
+        'fill="rgba(217,160,91,0.18)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>',
+      size,
+    );
+  }
+
+  /* Couvert (fallback / "À cuisiner") */
+  function svgCutlery(size) {
+    return svgWrap(
+      /* Fourchette */
+      '<line x1="16" y1="6" x2="16" y2="22" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>' +
+      '<line x1="11" y1="6" x2="11" y2="14" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>' +
+      '<line x1="21" y1="6" x2="21" y2="14" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>' +
+      '<line x1="16" y1="22" x2="16" y2="44" stroke="' + BRASS + '" stroke-width="2.4" stroke-linecap="round"/>' +
+      /* Couteau */
+      '<path d="M34 6 Q39 8, 39 22 L34 22 Z" fill="rgba(217,160,91,0.18)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
+      '<line x1="34" y1="22" x2="34" y2="44" stroke="' + BRASS + '" stroke-width="2.4" stroke-linecap="round"/>',
+      size,
+    );
+  }
+
+  /* Sablier (timer) */
+  function svgHourglass(size) {
+    return svgWrap(
+      '<path d="M14 6 L36 6 L36 12 L25 24 L36 36 L36 44 L14 44 L14 36 L25 24 L14 12 Z" ' +
+        'fill="rgba(217,160,91,0.18)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
+      '<line x1="14" y1="6" x2="36" y2="6" stroke="' + BRASS + '" stroke-width="2.6" stroke-linecap="round"/>' +
+      '<line x1="14" y1="44" x2="36" y2="44" stroke="' + BRASS + '" stroke-width="2.6" stroke-linecap="round"/>',
+      size,
+    );
+  }
+
+  /* Check (timer lancé) */
+  function svgCheck(size) {
+    return svgWrap(
+      '<path d="M10 26 L22 36 L40 14" fill="none" stroke="' + BRASS + '" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>',
+      size,
+    );
+  }
+
+  /* Plat couvert (état vide compact) */
+  function svgEmpty(size) {
+    return svgWrap(
+      '<ellipse cx="25" cy="34" rx="18" ry="3.2" fill="' + BRASS + '" opacity="0.12"/>' +
+      '<path d="M7 30 L43 30 Q43 18, 25 18 Q7 18, 7 30 Z" ' +
+        'fill="rgba(217,160,91,0.10)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
+      '<circle cx="25" cy="14" r="2.2" fill="' + BRASS + '"/>',
+      size,
+    );
+  }
+
+  function repasSvg(repas, size) {
+    if (repas === 'petitDej') return svgPetitDej(size);
+    if (repas === 'dej') return svgDej(size);
+    if (repas === 'diner') return svgDiner(size);
+    return svgCutlery(size);
+  }
+
   /* ---------- helpers ---------- */
 
   function parseQuantity(q) {
@@ -55,13 +158,6 @@
     return formatScaled(n * ratio);
   }
 
-  function repasIcon(repas) {
-    if (repas === 'petitDej') return '☕';
-    if (repas === 'dej') return '☀';
-    if (repas === 'diner') return '🌙';
-    return '🍽';
-  }
-
   function difficulteLabel(d) {
     if (d <= 1) return 'Facile';
     if (d === 2) return 'Moyen';
@@ -88,22 +184,23 @@
     if (d.repasActif === 'aucun' || !d.recettes || d.recettes.length === 0) {
       body.innerHTML =
         '<div style="text-align:center; padding:14px 8px; opacity:0.7">' +
-          '<div style="font-size:32px; margin-bottom:6px">📋</div>' +
+          '<div style="margin-bottom:8px">' + svgEmpty(56) + '</div>' +
           '<div style="font-size:13px">Pas de plan actif<br>ou pas de recette<br>pour le moment</div>' +
         '</div>';
       return;
     }
 
-    /* Eyebrow : "Ce midi" / "Demain matin" + icône */
+    /* Eyebrow : "Ce midi" / "Demain matin" + icône SVG laiton */
     var eyebrow = document.createElement('div');
     eyebrow.style.cssText =
       'font-size:10px; letter-spacing:0.18em; text-transform:uppercase; ' +
-      'opacity:0.7; margin-bottom:6px;';
+      'opacity:0.85; margin-bottom:6px; display:-webkit-flex; display:flex; ' +
+      '-webkit-align-items:center; align-items:center; gap:6px;';
     eyebrow.innerHTML =
-      '<span style="margin-right:6px; font-size:14px">' + repasIcon(d.repasActif) + '</span>' +
-      escapeHtml(d.repasLabel || '') +
+      repasSvg(d.repasActif, 18) +
+      '<span>' + escapeHtml(d.repasLabel || '') + '</span>' +
       (d.isFallbackToNext
-        ? ' <span style="opacity:0.6;font-style:italic">(prochain)</span>'
+        ? ' <span style="opacity:0.6;font-style:italic;text-transform:none;letter-spacing:0">(prochain)</span>'
         : '') +
       (d.source === 'batch'
         ? ' <span style="font-size:9px; padding:1px 5px; background:rgba(217,160,91,0.15); border-radius:3px; margin-left:4px">BATCH</span>'
@@ -217,8 +314,11 @@
     /* Eyebrow repas */
     if (d.repasLabel) {
       var eyebrow = document.createElement('div');
-      eyebrow.style.cssText = 'font-size:11px; letter-spacing:0.2em; text-transform:uppercase; opacity:0.7; margin-bottom:4px;';
-      eyebrow.innerHTML = repasIcon(d.repasActif) + ' ' + escapeHtml(d.repasLabel);
+      eyebrow.style.cssText =
+        'font-size:11px; letter-spacing:0.2em; text-transform:uppercase; opacity:0.85; ' +
+        'margin-bottom:4px; display:-webkit-flex; display:flex; ' +
+        '-webkit-align-items:center; align-items:center; gap:8px;';
+      eyebrow.innerHTML = repasSvg(d.repasActif, 22) + '<span>' + escapeHtml(d.repasLabel) + '</span>';
       titleBlock.appendChild(eyebrow);
     }
 
@@ -391,8 +491,10 @@
             '<button type="button" class="rt-timer-btn" data-step-idx="' + s + '" ' +
               'data-duration="' + e.dureeMinutes + '" data-recette-nom="' + escapeHtml(r.nom || '') + '" ' +
               'style="margin-top:8px; padding:8px 14px; background:#D9A05B; color:#1F1A14; ' +
-              'border:none; border-radius:4px; font-size:13px; font-weight:600;">' +
-              '⏱ Timer ' + e.dureeMinutes + ' min' +
+              'border:none; border-radius:4px; font-size:13px; font-weight:600; ' +
+              'display:-webkit-inline-flex; display:inline-flex; -webkit-align-items:center; align-items:center; gap:6px;">' +
+              svgHourglass(16).replace('#D9A05B', '#1F1A14') +
+              '<span>Timer ' + e.dureeMinutes + ' min</span>' +
             '</button>';
         }
         html += '<li style="display:-webkit-flex; display:flex; gap:12px; padding:14px 0; border-bottom:1px solid rgba(217,160,91,0.08);">' +
@@ -419,9 +521,9 @@
           if (global.FamilyHubTimers && typeof global.FamilyHubTimers.startTimer === 'function') {
             var label = nom + ' — étape ' + stepIdx;
             global.FamilyHubTimers.startTimer(label, dur * 60);
-            btn.innerHTML = '✓ Timer lancé';
+            btn.innerHTML = svgCheck(16).replace(BRASS, '#fff') + '<span style="margin-left:6px">Timer lancé</span>';
             btn.disabled = true;
-            btn.style.opacity = '0.5';
+            btn.style.opacity = '0.7';
             btn.style.background = '#7D9F76';
             btn.style.color = '#fff';
           }
