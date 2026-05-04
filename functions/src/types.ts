@@ -150,20 +150,3 @@ export interface RecetteEtape {
   description: string;
   dureeMinutes?: number;
 }
-
-export type ChatRole = "user" | "assistant" | "system";
-export type ToolCallResult = "applied" | "rejected" | "error";
-export type ChatToolName =
-  | "updateSlot"
-  | "swapSlots"
-  | "updatePresence"
-  | "replaceRecette"
-  | "updateCourses"
-  | "respondToUser";
-
-export interface ChatToolCall {
-  name: ChatToolName;
-  args: Record<string, unknown>;
-  result?: ToolCallResult;
-  resultDetail?: string;
-}

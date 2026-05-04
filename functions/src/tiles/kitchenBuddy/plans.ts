@@ -115,7 +115,6 @@ export const createMealPlan = onCall<CreateMealPlanInput, Promise<CreateMealPlan
         style: String(contexte.style ?? ""),
         frigoTexte: String(contexte.frigoTexte ?? ""),
       },
-      tokensUsed: 0,
       createdAt: FieldValue.serverTimestamp(),
       updatedAt: FieldValue.serverTimestamp(),
       createdBy: uid,
@@ -224,7 +223,7 @@ export const deleteMealPlan = onCall<DeleteMealPlanInput, Promise<{ success: tru
     if (!planSnap.exists) return { success: true };
 
     // Suppression récursive des sous-collections
-    for (const sub of ["slots", "courses", "chatMessages"]) {
+    for (const sub of ["slots", "courses"]) {
       const subSnap = await planRef.collection(sub).get();
       const batch = db.batch();
       for (const doc of subSnap.docs) batch.delete(doc.ref);
