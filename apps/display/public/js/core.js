@@ -117,11 +117,55 @@
       state.tilesById = byId;
       renderInitialGrid();
       attachSnapshotListener(displayRef);
+      attachDisplayConfigListener(displayRef);
       /* Démarre le singleton timers une fois auth + db prêts */
       if (window.FamilyHubTimers) {
         window.FamilyHubTimers.init(state.db, hid);
       }
     });
+  }
+
+  /**
+   * Watch le doc display pour détecter les changements de layout.
+   * Si le layout change (ajout/retrait/déplacement de tuile), on force
+   * un location.reload() pour re-fetcher index.html (au cas où il
+   * référence de nouveaux modules JS de tuiles). Sans ça, l'iPad reste
+   * coincé avec les anciens script tags et affiche "Type inconnu" sur
+   * les nouvelles tuiles.
+   */
+  function attachDisplayConfigListener(displayRef) {
+    if (state.displayConfigUnsub) { state.displayConfigUnsub(); }
+    /* Skip le 1er appel (data déjà chargée par loadDisplayAndTiles). */
+    var firstCallback = true;
+    state.displayConfigUnsub = displayRef.onSnapshot(function (snap) {
+      if (firstCallback) { firstCallback = false; return; }
+      if (!snap.exists) return;
+      var newCfg = snap.data() || {};
+      var oldLayoutKey = layoutKey(state.displayConfig && state.displayConfig.layout);
+      var newLayoutKey = layoutKey(newCfg.layout);
+      if (oldLayoutKey !== newLayoutKey) {
+        if (window.console && window.console.log) {
+          window.console.log('[display] layout changed, reloading…');
+        }
+        /* Cache buster sur le reload pour forcer iOS 9 à re-fetch index.html */
+        var url = window.location.pathname + '?reload=' + Date.now();
+        window.location.replace(url);
+      }
+    }, function (err) {
+      if (window.console && window.console.error) window.console.error('display listener', err);
+    });
+  }
+
+  function layoutKey(layout) {
+    if (!layout || !layout.length) return '[]';
+    var parts = [];
+    for (var i = 0; i < layout.length; i++) {
+      var e = layout[i] || {};
+      var p = e.position || {};
+      parts.push(e.tileId + ':' + p.col + ',' + p.row + ',' + p.w + ',' + p.h);
+    }
+    parts.sort();
+    return parts.join('|');
   }
 
   function renderInitialGrid() {

@@ -75,7 +75,30 @@
   function renderTile(type, cell, data, config) {
     var module = global.Tiles[type];
     if (!module || typeof module.render !== 'function') {
-      cell.innerHTML = '<div class="tile-title">Type inconnu : ' + type + '</div>';
+      /* Cas typique : nouveau type de tuile ajouté côté serveur, mais l'iPad
+         a chargé un index.html caché qui ne référence pas le module JS de
+         ce type. Solution : bouton de rechargement avec cache buster. */
+      cell.innerHTML =
+        '<div style="padding:14px; text-align:center;">' +
+          '<div class="tile-title" style="margin-bottom:8px">Type inconnu : ' + type + '</div>' +
+          '<div style="font-size:11px; opacity:0.7; margin-bottom:10px">' +
+            'Le module pour cette tuile n\'est pas chargé.' +
+          '</div>' +
+          '<button type="button" class="tile-reload-btn" ' +
+            'style="padding:6px 14px; background:#D9A05B; color:#1F1A14; ' +
+            'border:none; border-radius:4px; font-size:12px; font-weight:600;">' +
+            'Recharger' +
+          '</button>' +
+        '</div>';
+      var btn = cell.querySelector('.tile-reload-btn');
+      if (btn) {
+        btn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          /* Bust cache via query string sur l'URL courante */
+          var url = window.location.pathname + '?reload=' + Date.now();
+          window.location.replace(url);
+        });
+      }
       return;
     }
     try {

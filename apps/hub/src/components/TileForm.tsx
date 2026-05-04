@@ -23,6 +23,7 @@ import {
 import {
   useCreateTile,
   useRefreshRecipeTodayTile,
+  useRefreshWeeklyMenuTile,
   useSyncCalendarTile,
 } from "../lib/mutations";
 import { searchCity, formatCityLabel, type GeocodingResult } from "../lib/geocoding";
@@ -44,6 +45,7 @@ const SUPPORTED_TYPES: TileType[] = [
   "timer",
   "livre-recettes",
   "recipe-today",
+  "weekly-menu",
 ];
 
 const TYPE_LABELS: Partial<Record<TileType, string>> = {
@@ -54,6 +56,7 @@ const TYPE_LABELS: Partial<Record<TileType, string>> = {
   timer: "Minuteur",
   "livre-recettes": "Livre de recettes",
   "recipe-today": "Recette du jour",
+  "weekly-menu": "Menu de la semaine",
 };
 
 const DEFAULT_REFRESH: Partial<Record<TileType, number>> = {
@@ -64,6 +67,7 @@ const DEFAULT_REFRESH: Partial<Record<TileType, number>> = {
   timer: 0,
   "livre-recettes": 0,
   "recipe-today": 1800,
+  "weekly-menu": 3600,
 };
 
 export default function TileForm({
@@ -106,6 +110,7 @@ export default function TileForm({
 
   const syncCalendar = useSyncCalendarTile();
   const refreshRecipeToday = useRefreshRecipeTodayTile();
+  const refreshWeeklyMenu = useRefreshWeeklyMenuTile();
 
   function handleTypeChange(t: TileType) {
     setType(t);
@@ -163,6 +168,13 @@ export default function TileForm({
           await refreshRecipeToday.mutateAsync({ householdId, tileId: id });
         } catch (err) {
           console.warn("Refresh initial recipe-today échoué", err);
+        }
+      }
+      if (type === "weekly-menu") {
+        try {
+          await refreshWeeklyMenu.mutateAsync({ householdId, tileId: id });
+        } catch (err) {
+          console.warn("Refresh initial weekly-menu échoué", err);
         }
       }
       onCreated?.(id);
@@ -246,6 +258,7 @@ function defaultNomFor(type: TileType, ville?: string): string {
   if (type === "calendar") return "Calendrier famille";
   if (type === "livre-recettes") return "Livre de recettes";
   if (type === "recipe-today") return "Recette du jour";
+  if (type === "weekly-menu") return "Menu de la semaine";
   return "Tuile";
 }
 
