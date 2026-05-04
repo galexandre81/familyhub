@@ -42,13 +42,6 @@ service cloud.firestore {
       }
 
       // Sous-collections : membres = read/write, displays = read seul.
-      //
-      // Phase 3 (Kitchen Buddy) : profils, mealPlans, mealPlans/{id}/slots,
-      // batchSessions, recettes, shoppingLists, coursesItems — toutes
-      // couvertes par cette règle générique (foyer-scope, membre seul écrit).
-      // L'enforcement de `coursesItems.checked` (pose de checkedAt/checkedBy)
-      // est porté côté client : l'array `items` étant à l'intérieur du doc
-      // `shoppingLists`, Firestore Rules ne peut pas valider par élément.
       match /{collection}/{docId=**} {
         allow read: if isMember(hid) || isDisplayOfHousehold(hid);
         allow write: if isMember(hid);
