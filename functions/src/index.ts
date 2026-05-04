@@ -15,6 +15,10 @@ export {
   refreshRecipeTodayTile,
   scheduledRecipeTodayRefresh,
 } from "./tiles/recipeToday";
+export {
+  refreshWeeklyMenuTile,
+  scheduledWeeklyMenuRefresh,
+} from "./tiles/weeklyMenu";
 
 // Meal planner (Phase 3)
 export {

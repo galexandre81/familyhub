@@ -11,6 +11,7 @@ import {
 import {
   useRefreshRecipeTodayTile,
   useRefreshWeatherTile,
+  useRefreshWeeklyMenuTile,
   useUpdateDisplayLayout,
 } from "../lib/mutations";
 import SetupTokenModal from "../components/SetupTokenModal";
@@ -24,6 +25,7 @@ export default function DisplayEditor() {
   const updateLayout = useUpdateDisplayLayout();
   const refreshWeather = useRefreshWeatherTile();
   const refreshRecipeToday = useRefreshRecipeTodayTile();
+  const refreshWeeklyMenu = useRefreshWeeklyMenuTile();
 
   const [layout, setLayout] = useState<DisplayLayoutEntry[]>([]);
   const [setupOpen, setSetupOpen] = useState(false);
@@ -85,6 +87,11 @@ export default function DisplayEditor() {
       .filter((t): t is NonNullable<typeof t> =>
         !!t && t.type === "recipe-today" && !previousIds.has(t.id),
       );
+    const newWeeklyMenuTiles = layout
+      .map((e) => tilesById.get(e.tileId))
+      .filter((t): t is NonNullable<typeof t> =>
+        !!t && t.type === "weekly-menu" && !previousIds.has(t.id),
+      );
 
     await updateLayout.mutateAsync({
       householdId: householdId!,
@@ -112,6 +119,19 @@ export default function DisplayEditor() {
       newRecipeTodayTiles.forEach((t) =>
         refreshTasks.push(
           refreshRecipeToday.mutateAsync({
+            householdId: householdId!,
+            tileId: t.id,
+          }),
+        ),
+      );
+    }
+    if (newWeeklyMenuTiles.length > 0) {
+      statusParts.push(
+        `${newWeeklyMenuTiles.length} menu de la semaine`,
+      );
+      newWeeklyMenuTiles.forEach((t) =>
+        refreshTasks.push(
+          refreshWeeklyMenu.mutateAsync({
             householdId: householdId!,
             tileId: t.id,
           }),

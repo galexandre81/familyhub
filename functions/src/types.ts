@@ -204,3 +204,26 @@ export interface RecipeTodayData {
   notes?: string;
   generatedAtISO: string;
 }
+
+/* --- weekly-menu snapshot data --- */
+
+export interface WeeklyMenuSlotSnapshot {
+  jour: number; // 0=lundi, 6=dimanche
+  repas: Repas;
+  date: string; // ISO YYYY-MM-DD
+  recetteNoms: string[];
+  profilsCount: number;
+  invitesCount: number;
+  isBatchConsumer: boolean;
+  isToday: boolean;
+  isPast: boolean;
+}
+
+export interface WeeklyMenuData {
+  hasActivePlan: boolean;
+  planId?: string;
+  dateDebutISO?: string;
+  dateFinISO?: string;
+  semaine: WeeklyMenuSlotSnapshot[];
+  generatedAtISO: string;
+}
