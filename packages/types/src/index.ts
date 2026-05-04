@@ -18,3 +18,4 @@ export * from "./profil";
 export * from "./recette";
 export * from "./mealPlan";
 export * from "./courseItem";
+export * from "./shoppingList";

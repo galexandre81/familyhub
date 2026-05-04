@@ -28,7 +28,12 @@ export interface RecetteEtape {
 export type RecetteDifficulte = 1 | 2 | 3;
 export type RecetteSaison = "hiver" | "printemps" | "ete" | "automne" | "toutes";
 export type RecetteStatut = "draft" | "accepted" | "favorite";
-export type RecetteOrigine = "llm" | "manuelle" | "import" | "seed";
+export type RecetteOrigine =
+  | "llm"
+  | "manuelle"
+  | "import"
+  | "seed"
+  | "claude-import";
 
 export interface Recette {
   nom: string;
@@ -108,6 +113,20 @@ export interface Recette {
     /** Modèle LLM si genereePar === "llm" ou "seed", ex: "gemini-2.0-flash". */
     llmModel?: string;
   };
+  /**
+   * Hash de dédup utilisé à l'import depuis Claude.ai :
+   * `hash(titre.toLowerCase().trim() + ingredients(non optionnels).map(nom).sort().join('|'))`
+   * Permet de réutiliser une recette existante au lieu de créer un doublon.
+   */
+  hashDedupe?: string;
+  /** Compteur cumulé : nombre de slots où la recette a été servie. */
+  usedCount?: number;
+  /**
+   * `noteFrigo` flags par ingrédient (issus du frigo, pas de courses).
+   * Stocké en parallèle de `ingredients` pour ne pas casser les types
+   * existants ; index aligné avec `ingredients[]`.
+   */
+  ingredientsFromFrigo?: boolean[];
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
