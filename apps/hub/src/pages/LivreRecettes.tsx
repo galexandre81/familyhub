@@ -1,7 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
-  ArrowLeft,
   BookOpen,
   Filter,
   Heart,
@@ -77,9 +76,6 @@ export default function LivreRecettes() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Link to="/kitchen-buddy" className="text-cream-mute hover:text-cream">
-          <ArrowLeft size={20} />
-        </Link>
         <h1 className="text-3xl flex items-center gap-3">
           <BookOpen size={26} className="text-brass" />
           Livre de recettes
@@ -187,7 +183,7 @@ function RecetteCard({
 
   return (
     <div className={`tile-card !p-4 flex flex-col gap-2 ${isExcluded ? "opacity-50" : ""}`}>
-      <Link to={`/kitchen-buddy/livre/${recette.id}`} className="space-y-2 hover:opacity-90 transition">
+      <Link to={`/livre-recettes/${recette.id}`} className="space-y-2 hover:opacity-90 transition">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-serif text-lg leading-tight flex-1">{recette.nom}</h3>
           {isFav && <Heart size={14} className="text-brass shrink-0 mt-1" fill="currentColor" />}

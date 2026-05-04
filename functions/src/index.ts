@@ -12,17 +12,17 @@ setGlobalOptions({ region: "europe-west1", maxInstances: 10 });
 export { refreshWeatherTile, scheduledWeatherRefresh } from "./tiles/weather";
 export { syncCalendarTile, scheduledCalendarRefresh } from "./tiles/calendar";
 
-// Kitchen Buddy (Phase 3)
+// Meal planner (Phase 3)
 export {
   createMealPlan,
   validateMealPlan,
   deleteMealPlan,
-} from "./tiles/kitchenBuddy/plans";
+} from "./mealPlan/plans";
 export {
   acceptSlot,
   refuseSlot,
   updateSlotPresence,
-} from "./tiles/kitchenBuddy/slots";
+} from "./mealPlan/slots";
 
 // Auth display
 export {

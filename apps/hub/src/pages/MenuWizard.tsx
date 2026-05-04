@@ -15,11 +15,11 @@ import PresenceGrid, {
   buildDefaultPresence,
   presenceToApi,
   type PresenceState,
-} from "../components/kitchenBuddy/PresenceGrid";
+} from "../components/menu/PresenceGrid";
 
 type WizardStep = "date" | "presence" | "contexte" | "review";
 
-export default function KitchenBuddyWizard() {
+export default function MenuWizard() {
   const { user } = useAuth();
   const householdId = useActiveHouseholdId(user?.uid);
   const { data: profils } = useProfils(householdId);
@@ -94,7 +94,7 @@ export default function KitchenBuddyWizard() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Link to="/kitchen-buddy" className="text-cream-mute hover:text-cream">
+        <Link to="/menu" className="text-cream-mute hover:text-cream">
           <ArrowLeft size={20} />
         </Link>
         <h1 className="text-3xl flex items-center gap-3">
@@ -141,7 +141,7 @@ export default function KitchenBuddyWizard() {
       {step === "review" && draftPlan && (
         <StepReview
           onAbandon={handleAbandonDraft}
-          onClose={() => navigate("/kitchen-buddy")}
+          onClose={() => navigate("/menu")}
         />
       )}
     </div>

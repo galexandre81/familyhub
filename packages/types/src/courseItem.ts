@@ -1,4 +1,4 @@
-import type { Timestamp } from "../common";
+import type { Timestamp } from "./common";
 import type { RayonCourses } from "./recette";
 
 /**

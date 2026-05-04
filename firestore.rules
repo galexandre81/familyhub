@@ -42,6 +42,14 @@ service cloud.firestore {
       }
 
       // Sous-collections : membres = read/write, displays = read seul.
+      //
+      // Phase 3 (meal planner / recettes / liste de courses) :
+      // profils, mealPlans, mealPlans/{id}/slots, recettes,
+      // shoppingLists, coursesItems — toutes couvertes par cette règle
+      // générique foyer-scope. L'enforcement de checkedAt/checkedBy au
+      // cochage d'un item de courses est porté côté client (l'array
+      // `items` est dans le doc parent, non validable par élément côté
+      // rules).
       match /{collection}/{docId=**} {
         allow read: if isMember(hid) || isDisplayOfHousehold(hid);
         allow write: if isMember(hid);

@@ -53,7 +53,7 @@ export default function RecetteCuisine() {
     return (
       <FullscreenWrapper>
         <p className="text-2xl">Recette introuvable.</p>
-        <Link to="/kitchen-buddy/livre" className="btn-primary mt-4">
+        <Link to="/livre-recettes" className="btn-primary mt-4">
           Retour au livre
         </Link>
       </FullscreenWrapper>
@@ -77,7 +77,7 @@ export default function RecetteCuisine() {
           <h1 className="text-2xl md:text-3xl font-serif">{recette.nom}</h1>
         </div>
         <Link
-          to={`/kitchen-buddy/livre/${recette.id}`}
+          to={`/livre-recettes/${recette.id}`}
           className="p-3 rounded-full hover:bg-bordure transition"
           aria-label="Quitter le mode cuisine"
         >
@@ -145,7 +145,7 @@ export default function RecetteCuisine() {
         </button>
         {isLast ? (
           <Link
-            to={`/kitchen-buddy/livre/${recette.id}`}
+            to={`/livre-recettes/${recette.id}`}
             className="btn-primary flex items-center gap-2 px-8 py-3"
           >
             Terminer

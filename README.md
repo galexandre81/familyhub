@@ -65,10 +65,27 @@ URLs prod :
 
 ## Phases
 
-- **Phase 1** (en cours) — fondation monorepo + tuiles `clock`, `weather`, `radio`. iPad mural en cuisine.
-- **Phase 2** — drag&drop layout, mode édition tactile, tuiles `calendar`, `timer`.
-- **Phase 3** — Kitchen Buddy (recettes IA, meal planner, shopping list).
+- **Phase 1** — fondation monorepo + tuiles `clock`, `weather`, `radio`. iPad mural en cuisine. ✅
+- **Phase 2** — drag&drop layout, mode édition tactile, tuiles `calendar`, `timer`. ✅
+- **Phase 3** (en cours) — meal planner hebdomadaire, batch cooking, livre de recettes, liste de courses mobile.
 - **Phase 4** — extensions famille (photos, todo, anniversaires…).
+
+### Phase 3 — meal planner / recettes / liste de courses
+
+Architecture **human-in-the-loop avec Claude.ai** (cf. `kitchen-buddy-phase3-brief.md`). Pas de Cloud Function LLM ni de provider API : le hub génère un `.md` structuré avec contexte foyer + frigo + historique, l'utilisateur le colle dans Claude.ai (abonnement Pro) avec un prompt template, récupère un JSON validé, le colle dans `/menu/import` qui écrit le plan dans Firestore.
+
+**Workflow dimanche soir** : ~10 min de bout en bout, ensuite plus aucune décision jusqu'au dimanche suivant.
+
+Trois features sous le chapeau Phase 3 — pas de "Kitchen Buddy" comme couche d'abstraction supplémentaire :
+- **Menu** (`/menu`) — wizard de création + grille hebdomadaire + édition slot par slot
+- **Recettes** (`/livre-recettes`) — livre des favoris notés 4-5 ⭐, recherche, filtres
+- **Courses** (mobile) — liste agrégée + Web Share API → Google Keep
+
+Tuiles introduites : `weekly-menu`, `recipe-today`, `recipe-mode`, `batch-mode`, `shopping-list`, `livre-recettes`, `profils`.
+
+Sous-phases d'implémentation : 3.0 types & schéma → 3.1 profils → 3.2 wizard + export `.md` → 3.3 import JSON → 3.4 shopping list mobile → 3.5 recipe today/mode → 3.6 batch mode → 3.7 livre + notation → 3.8 édition manuelle. Validation utilisateur entre chaque sous-phase.
+
+**Hors scope Phase 3** : Cloud Function `generateMealPlan`, chat conversationnel, PWA installable, fusion d'étapes batch, inventaire frigo persistant, OCR recettes externes.
 
 ## Ajouter une nouvelle tuile
 

@@ -1,21 +1,20 @@
 /**
- * Cloud Functions de gestion des plans de repas (Kitchen Buddy Phase 3.3).
+ * Cloud Functions de gestion des plans de repas (Phase 3).
  *
  * - createMealPlan : initialise un plan en draft + tous les slots (vides)
  * - validateMealPlan : passe draft → active, archive le précédent
- * - archiveMealPlan : passe active → archived (déclenché par validate ou manuel)
- * - deleteMealPlan : supprime un plan + sous-collections (slots, courses, chatMessages)
+ * - deleteMealPlan : supprime un plan + sous-collections (slots, courses)
  *
  * Convention d'IDs slots : `{jour}-{repas}` ex "0-dej". Permet l'accès direct
- * sans query (cf. spec §4.3).
+ * sans query.
  */
 
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { logger } from "firebase-functions";
 import { FieldValue } from "firebase-admin/firestore";
-import { db } from "../../lib/admin";
-import { assertHouseholdMember } from "../../lib/household";
-import type { Repas, ProfilSnapshot, SlotStatut } from "../../types";
+import { db } from "../lib/admin";
+import { assertHouseholdMember } from "../lib/household";
+import type { Repas, ProfilSnapshot, SlotStatut } from "../types";
 
 const REPAS_LIST: Repas[] = ["petitDej", "dej", "diner"];
 
