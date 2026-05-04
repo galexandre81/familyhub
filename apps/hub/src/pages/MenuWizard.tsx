@@ -537,18 +537,33 @@ function StepReview({
         </details>
       </div>
 
-      {/* Étape 3 — Claude.ai génère */}
+      {/* Étape 3 — itérer avec Claude */}
       <div className="tile-card">
         <div className="flex items-start gap-3">
           <span className="w-7 h-7 rounded-full bg-brass text-ebony flex items-center justify-center text-sm font-semibold shrink-0">
             3
           </span>
-          <div className="flex-1">
-            <h3 className="font-semibold mb-1">Récupérer le JSON de Claude.ai</h3>
+          <div className="flex-1 space-y-2">
+            <h3 className="font-semibold">Itérer le menu avec Claude</h3>
             <p className="text-cream-mute text-sm">
-              Claude renvoie un JSON brut commençant par{" "}
-              <code className="text-xs px-1 bg-ebony-ridge rounded">{`{`}</code>.
-              Copie-le entièrement (sélectionner tout le bloc).
+              Claude répond d'abord avec une <strong>proposition de menu en
+              markdown</strong> (pas encore de JSON) et te demande si tu veux
+              modifier quelque chose.
+            </p>
+            <p className="text-cream-mute text-sm">
+              Tu peux lui demander des ajustements en langage naturel :
+            </p>
+            <ul className="text-xs text-cream-mute pl-4 space-y-0.5 italic">
+              <li>« Remplace le mardi soir par autre chose »</li>
+              <li>« Moins de viande sur la semaine »</li>
+              <li>« Ajoute un dessert pour samedi »</li>
+              <li>« Mets le poulet rôti avant jeudi (date limite frigo) »</li>
+            </ul>
+            <p className="text-cream-mute text-sm">
+              Quand le menu te plaît, écris simplement <strong>« OK génère le
+              JSON »</strong>. Claude renvoie alors le JSON dans un Artifact
+              (téléchargeable en 1 clic) ou un bloc de code (bouton{" "}
+              <em>Copy</em> en haut à droite).
             </p>
           </div>
         </div>
@@ -563,8 +578,8 @@ function StepReview({
           <div className="flex-1">
             <h3 className="font-semibold mb-1">Importer le JSON ici</h3>
             <p className="text-cream-mute text-sm mb-3">
-              Tu peux laisser cette page ouverte pendant que tu utilises
-              Claude.ai. Quand tu as le JSON, clique sur le bouton ci-dessous.
+              Une fois le JSON copié (ou téléchargé puis ouvert), clique sur le
+              bouton ci-dessous et colle-le dans la page d'import.
             </p>
             <Link
               to={`/menu/import?planId=${planId}`}

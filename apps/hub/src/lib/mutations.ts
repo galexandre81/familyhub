@@ -18,6 +18,7 @@ import type {
   HouseholdParametres,
   Profil,
   Resolution,
+  ShoppingListItem,
   TileType,
   Theme,
 } from "@family-hub/types";
@@ -563,6 +564,94 @@ export function useCreateTimer() {
         updatedAt: serverTimestamp(),
       });
       return ref.id;
+    },
+  });
+}
+
+/* --- Liste de courses (Phase 3.4 — UI minimale, full mobile en 3.4 dédiée) --- */
+
+/**
+ * Toggle l'état coché d'un item de la liste de courses.
+ * Stratégie : on relit le doc en client, on remplace l'item dans
+ * l'array, on écrit l'array entier. Acceptable pour un foyer (1-2
+ * utilisateurs concurrents max).
+ */
+export function useToggleShoppingItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      householdId,
+      listId,
+      itemId,
+      items,
+      uid,
+    }: {
+      householdId: string;
+      listId: string;
+      planId: string;
+      itemId: string;
+      items: ShoppingListItem[];
+      uid: string;
+    }) => {
+      const newItems = items.map((it) =>
+        it.id === itemId
+          ? {
+              ...it,
+              checked: !it.checked,
+              ...(it.checked
+                ? {}
+                : { checkedAt: new Date(), checkedBy: uid }),
+            }
+          : it,
+      );
+      await updateDoc(
+        doc(db, `households/${householdId}/shoppingLists/${listId}`),
+        {
+          items: newItems,
+          updatedAt: serverTimestamp(),
+        },
+      );
+    },
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({
+        queryKey: ["planShoppingList", vars.householdId, vars.planId],
+      });
+    },
+  });
+}
+
+/**
+ * Toggle "session de batch terminée".
+ */
+export function useToggleBatchSessionDone() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      householdId,
+      planId,
+      sessionId,
+      currentDone,
+    }: {
+      householdId: string;
+      planId: string;
+      sessionId: string;
+      currentDone: boolean;
+    }) => {
+      await updateDoc(
+        doc(
+          db,
+          `households/${householdId}/mealPlans/${planId}/batchSessions/${sessionId}`,
+        ),
+        {
+          done: !currentDone,
+          ...(currentDone ? {} : { doneAt: serverTimestamp() }),
+        },
+      );
+    },
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({
+        queryKey: ["planBatchSessions", vars.householdId, vars.planId],
+      });
     },
   });
 }

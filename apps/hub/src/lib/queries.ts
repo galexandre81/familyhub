@@ -9,6 +9,7 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 import type {
+  BatchSession,
   CourseItem,
   Display,
   Household,
@@ -16,6 +17,7 @@ import type {
   MealPlanSlot,
   Profil,
   Recette,
+  ShoppingList,
   Tile,
   User,
 } from "@family-hub/types";
@@ -206,6 +208,56 @@ export function usePlanCourses(householdId: string | undefined, planId: string |
         collection(db, `households/${householdId}/mealPlans/${planId}/courses`),
       );
       return snap.docs.map((d) => ({ id: d.id, ...(d.data() as CourseItem) }));
+    },
+  });
+}
+
+export type BatchSessionWithId = BatchSession & { id: string };
+export type ShoppingListWithId = ShoppingList & { id: string };
+
+/**
+ * Sessions de batch cooking d'un plan (Phase 3).
+ * Stockées en sous-collection `mealPlans/{planId}/batchSessions/`.
+ */
+export function usePlanBatchSessions(
+  householdId: string | undefined,
+  planId: string | undefined,
+) {
+  return useQuery({
+    enabled: !!householdId && !!planId,
+    queryKey: ["planBatchSessions", householdId, planId],
+    queryFn: async (): Promise<BatchSessionWithId[]> => {
+      if (!householdId || !planId) return [];
+      const snap = await getDocs(
+        collection(db, `households/${householdId}/mealPlans/${planId}/batchSessions`),
+      );
+      return snap.docs
+        .map((d) => ({ id: d.id, ...(d.data() as BatchSession) }))
+        .sort((a, b) => a.date.localeCompare(b.date));
+    },
+  });
+}
+
+/**
+ * Liste de courses associée à un plan (1-1 sur planId). Renvoie null si
+ * aucune liste pour ce plan.
+ */
+export function usePlanShoppingList(
+  householdId: string | undefined,
+  planId: string | undefined,
+) {
+  return useQuery({
+    enabled: !!householdId && !!planId,
+    queryKey: ["planShoppingList", householdId, planId],
+    queryFn: async (): Promise<ShoppingListWithId | null> => {
+      if (!householdId || !planId) return null;
+      const q = query(
+        collection(db, `households/${householdId}/shoppingLists`),
+        where("planId", "==", planId),
+      );
+      const snap = await getDocs(q);
+      if (snap.empty) return null;
+      return { id: snap.docs[0].id, ...(snap.docs[0].data() as ShoppingList) };
     },
   });
 }
