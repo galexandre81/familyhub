@@ -176,6 +176,25 @@ export function useRefreshWeatherTile() {
   });
 }
 
+export function useRefreshRecipeTodayTile() {
+  return useMutation({
+    mutationFn: async ({
+      householdId,
+      tileId,
+    }: {
+      householdId: string;
+      tileId: string;
+    }): Promise<{ success: true }> => {
+      const fn = httpsCallable<
+        { householdId: string; tileId: string },
+        { success: true }
+      >(functions, "refreshRecipeTodayTile");
+      const res = await fn({ householdId, tileId });
+      return res.data;
+    },
+  });
+}
+
 interface SyncCalendarTileResponse {
   success: boolean;
   eventsCount: number;
