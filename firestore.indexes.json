@@ -41,20 +41,6 @@
       ]
     },
     {
-      "collectionGroup": "slots",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "date", "order": "ASCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "coursesItems",
-      "queryScope": "COLLECTION_GROUP",
-      "fields": [
-        { "fieldPath": "rayon", "order": "ASCENDING" }
-      ]
-    },
-    {
       "collectionGroup": "courses",
       "queryScope": "COLLECTION",
       "fields": [
