@@ -1,10 +1,21 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate } from "react-router-dom";
-import { ArrowLeft, ArrowRight, ChefHat, Loader2 } from "lucide-react";
+import { Link } from "react-router-dom";
+import {
+  ArrowLeft,
+  ArrowRight,
+  ChefHat,
+  Check,
+  Copy,
+  Download,
+  Loader2,
+  Upload,
+} from "lucide-react";
 import { useAuth } from "../lib/auth";
 import {
   useActiveHouseholdId,
   useDraftPlan,
+  useHouseholds,
+  usePlanSlots,
   useProfils,
 } from "../lib/queries";
 import {
@@ -16,6 +27,8 @@ import PresenceGrid, {
   presenceToApi,
   type PresenceState,
 } from "../components/menu/PresenceGrid";
+import { buildPlanMd, PLAN_PROMPT_TEMPLATE, type PresenceMap } from "../lib/planMd";
+import type { Profil } from "@family-hub/types";
 
 type WizardStep = "date" | "presence" | "contexte" | "review";
 
@@ -24,7 +37,6 @@ export default function MenuWizard() {
   const householdId = useActiveHouseholdId(user?.uid);
   const { data: profils } = useProfils(householdId);
   const { data: draftPlan } = useDraftPlan(householdId);
-  const navigate = useNavigate();
 
   // Si un draft existe déjà, on saute directement au review
   const initialStep: WizardStep = draftPlan ? "review" : "date";
@@ -140,8 +152,10 @@ export default function MenuWizard() {
 
       {step === "review" && draftPlan && (
         <StepReview
+          householdId={householdId}
+          planId={draftPlan.id}
+          profils={profils}
           onAbandon={handleAbandonDraft}
-          onClose={() => navigate("/menu")}
         />
       )}
     </div>
@@ -355,32 +369,218 @@ function StepContexte({
 }
 
 function StepReview({
+  householdId,
+  planId,
+  profils,
   onAbandon,
-  onClose,
 }: {
+  householdId: string;
+  planId: string;
+  profils: Array<Profil & { id: string }>;
   onAbandon: () => void;
-  onClose: () => void;
 }) {
+  const { user } = useAuth();
+  const { data: households } = useHouseholds(user?.uid);
+  const household = households?.find((h) => h.id === householdId);
+  const { data: slots } = usePlanSlots(householdId, planId);
+  const { data: draftPlan } = useDraftPlan(householdId);
+
+  const [copiedPrompt, setCopiedPrompt] = useState(false);
+  const [downloadedMd, setDownloadedMd] = useState(false);
+
+  const presence: PresenceMap = useMemo(() => {
+    const out: PresenceMap = {};
+    if (slots) {
+      for (const s of slots) {
+        out[`${s.jour}-${s.repas}`] = s.profilsPresents ?? [];
+      }
+    }
+    return out;
+  }, [slots]);
+
+  const dateDebutISO = useMemo(() => {
+    if (!draftPlan?.dateDebut) return new Date().toISOString().slice(0, 10);
+    const ts = draftPlan.dateDebut as unknown;
+    if (ts instanceof Date) return ts.toISOString().slice(0, 10);
+    if (typeof ts === "object" && ts && "seconds" in ts) {
+      return new Date((ts as { seconds: number }).seconds * 1000).toISOString().slice(0, 10);
+    }
+    if (typeof ts === "string") return ts.slice(0, 10);
+    return new Date().toISOString().slice(0, 10);
+  }, [draftPlan]);
+
+  const md = useMemo(() => {
+    if (!draftPlan || !slots || !household) return "";
+    return buildPlanMd({
+      householdNom: household.nom,
+      dateDebutISO,
+      profils,
+      presence,
+      contexte: draftPlan.contexte,
+      historiqueRecettes: [], // TODO 3.2+ : query recettes used in last 3 plans
+    });
+  }, [draftPlan, slots, household, dateDebutISO, profils, presence]);
+
+  async function handleCopyPrompt() {
+    try {
+      await navigator.clipboard.writeText(PLAN_PROMPT_TEMPLATE);
+      setCopiedPrompt(true);
+      setTimeout(() => setCopiedPrompt(false), 2500);
+    } catch {
+      alert(
+        "Impossible de copier automatiquement. Sélectionne le texte ci-dessous et fais Ctrl+C.",
+      );
+    }
+  }
+
+  function handleDownloadMd() {
+    if (!md) return;
+    const blob = new Blob([md], { type: "text/markdown;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement("a");
+    a.href = url;
+    a.download = `plan-${dateDebutISO}.md`;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+    setDownloadedMd(true);
+    setTimeout(() => setDownloadedMd(false), 2500);
+  }
+
+  if (!slots || !household) {
+    return (
+      <div className="tile-card">
+        <p className="text-cream-mute">Chargement du brouillon…</p>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-4">
+      <div className="tile-card space-y-2">
+        <h2 className="text-xl">Brouillon prêt à exporter</h2>
+        <p className="text-cream-mute text-sm">
+          Le plan est en brouillon avec présence et contexte enregistrés.
+          Suis les 4 étapes ci-dessous pour générer le menu via Claude.ai puis
+          le réimporter.
+        </p>
+      </div>
+
+      {/* Étape 1 — copier le prompt */}
       <div className="tile-card space-y-3">
-        <h2 className="text-xl">Brouillon créé</h2>
-        <p className="text-cream-mute text-sm">
-          Le plan est en brouillon avec présence et contexte enregistrés. La génération
-          des recettes via Claude.ai (export <code className="text-xs px-1 bg-ebony-ridge rounded">.md</code>{" "}
-          → coller dans Claude.ai → réimporter le JSON) sera disponible en Phase 3.2.
-        </p>
-        <p className="text-cream-mute text-sm">
-          En attendant, tu peux abandonner ce brouillon ou le laisser tel quel et y revenir plus tard.
-        </p>
-        <div className="flex items-center gap-2 pt-2">
-          <button onClick={onAbandon} className="btn-secondary text-sm">
-            Abandonner le brouillon
-          </button>
-          <button onClick={onClose} className="btn-primary text-sm">
-            Retour à Kitchen Buddy
-          </button>
+        <div className="flex items-start gap-3">
+          <span className="w-7 h-7 rounded-full bg-brass text-ebony flex items-center justify-center text-sm font-semibold shrink-0">
+            1
+          </span>
+          <div className="flex-1">
+            <h3 className="font-semibold mb-1">Copier le prompt pour Claude.ai</h3>
+            <p className="text-cream-mute text-sm">
+              Ouvre une nouvelle conversation Claude.ai (Pro ou web), colle ce
+              prompt en premier message.
+            </p>
+          </div>
         </div>
+        <button
+          onClick={handleCopyPrompt}
+          className="btn-secondary text-sm flex items-center gap-2"
+        >
+          {copiedPrompt ? (
+            <>
+              <Check size={14} className="text-sage" /> Copié
+            </>
+          ) : (
+            <>
+              <Copy size={14} /> Copier le prompt
+            </>
+          )}
+        </button>
+      </div>
+
+      {/* Étape 2 — télécharger le .md */}
+      <div className="tile-card space-y-3">
+        <div className="flex items-start gap-3">
+          <span className="w-7 h-7 rounded-full bg-brass text-ebony flex items-center justify-center text-sm font-semibold shrink-0">
+            2
+          </span>
+          <div className="flex-1">
+            <h3 className="font-semibold mb-1">Télécharger le contexte du plan</h3>
+            <p className="text-cream-mute text-sm">
+              Ouvre le <code className="text-xs px-1 bg-ebony-ridge rounded">.md</code>{" "}
+              dans un éditeur, copie tout le contenu, colle-le dans Claude.ai{" "}
+              <em>après</em> le prompt (dans le même message ou en deuxième).
+            </p>
+          </div>
+        </div>
+        <button
+          onClick={handleDownloadMd}
+          disabled={!md}
+          className="btn-secondary text-sm flex items-center gap-2 disabled:opacity-40"
+        >
+          {downloadedMd ? (
+            <>
+              <Check size={14} className="text-sage" /> Téléchargé
+            </>
+          ) : (
+            <>
+              <Download size={14} /> Télécharger plan-{dateDebutISO}.md
+            </>
+          )}
+        </button>
+        <details className="text-xs text-cream-mute">
+          <summary className="cursor-pointer hover:text-cream">
+            Aperçu du contenu du .md
+          </summary>
+          <pre className="mt-2 p-3 bg-ebony-ridge rounded overflow-x-auto text-[10px] leading-relaxed whitespace-pre-wrap">
+            {md.length > 4000 ? md.slice(0, 4000) + "\n\n…(tronqué)" : md}
+          </pre>
+        </details>
+      </div>
+
+      {/* Étape 3 — Claude.ai génère */}
+      <div className="tile-card">
+        <div className="flex items-start gap-3">
+          <span className="w-7 h-7 rounded-full bg-brass text-ebony flex items-center justify-center text-sm font-semibold shrink-0">
+            3
+          </span>
+          <div className="flex-1">
+            <h3 className="font-semibold mb-1">Récupérer le JSON de Claude.ai</h3>
+            <p className="text-cream-mute text-sm">
+              Claude renvoie un JSON brut commençant par{" "}
+              <code className="text-xs px-1 bg-ebony-ridge rounded">{`{`}</code>.
+              Copie-le entièrement (sélectionner tout le bloc).
+            </p>
+          </div>
+        </div>
+      </div>
+
+      {/* Étape 4 — importer */}
+      <div className="tile-card">
+        <div className="flex items-start gap-3">
+          <span className="w-7 h-7 rounded-full bg-brass text-ebony flex items-center justify-center text-sm font-semibold shrink-0">
+            4
+          </span>
+          <div className="flex-1">
+            <h3 className="font-semibold mb-1">Importer le JSON ici</h3>
+            <p className="text-cream-mute text-sm mb-3">
+              Tu peux laisser cette page ouverte pendant que tu utilises
+              Claude.ai. Quand tu as le JSON, clique sur le bouton ci-dessous.
+            </p>
+            <Link
+              to={`/menu/import?planId=${planId}`}
+              className="btn-primary text-sm flex items-center gap-2 w-fit"
+            >
+              <Upload size={14} /> J'ai le JSON, importer le plan →
+            </Link>
+          </div>
+        </div>
+      </div>
+
+      {/* Footer : abandonner */}
+      <div className="flex items-center justify-end pt-2">
+        <button onClick={onAbandon} className="text-cream-mute hover:text-copper text-xs">
+          Abandonner ce brouillon
+        </button>
       </div>
     </div>
   );

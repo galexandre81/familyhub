@@ -10,6 +10,7 @@ import Parametres from "./pages/Parametres";
 import Profils from "./pages/Profils";
 import Menu from "./pages/Menu";
 import MenuWizard from "./pages/MenuWizard";
+import MenuImport from "./pages/MenuImport";
 import LivreRecettes from "./pages/LivreRecettes";
 import RecetteDetail from "./pages/RecetteDetail";
 import RecetteCuisine from "./pages/RecetteCuisine";
@@ -50,6 +51,7 @@ export default function App() {
           <Route path="parametres/profils" element={<Profils />} />
           <Route path="menu" element={<Menu />} />
           <Route path="menu/nouveau" element={<MenuWizard />} />
+          <Route path="menu/import" element={<MenuImport />} />
           <Route path="livre-recettes" element={<LivreRecettes />} />
           <Route path="livre-recettes/:recetteId" element={<RecetteDetail />} />
           <Route path="livre-recettes/:recetteId/cuisine" element={<RecetteCuisine />} />
