@@ -5,6 +5,7 @@ import type {
   LivreRecettesConfig,
   RadioConfig,
   RadioStation,
+  RecipeTodayConfig,
   TileType,
   TimerConfig,
   TimerPreset,
@@ -16,9 +17,14 @@ import {
   defaultClockConfig,
   defaultLivreRecettesConfig,
   defaultRadioStations,
+  defaultRecipeTodayConfig,
   defaultTimerPresets,
 } from "@family-hub/types";
-import { useCreateTile, useSyncCalendarTile } from "../lib/mutations";
+import {
+  useCreateTile,
+  useRefreshRecipeTodayTile,
+  useSyncCalendarTile,
+} from "../lib/mutations";
 import { searchCity, formatCityLabel, type GeocodingResult } from "../lib/geocoding";
 import { Trash2, Plus, Search, Star } from "lucide-react";
 
@@ -37,6 +43,7 @@ const SUPPORTED_TYPES: TileType[] = [
   "radio",
   "timer",
   "livre-recettes",
+  "recipe-today",
 ];
 
 const TYPE_LABELS: Partial<Record<TileType, string>> = {
@@ -46,6 +53,7 @@ const TYPE_LABELS: Partial<Record<TileType, string>> = {
   radio: "Radio",
   timer: "Minuteur",
   "livre-recettes": "Livre de recettes",
+  "recipe-today": "Recette du jour",
 };
 
 const DEFAULT_REFRESH: Partial<Record<TileType, number>> = {
@@ -55,6 +63,7 @@ const DEFAULT_REFRESH: Partial<Record<TileType, number>> = {
   radio: 0,
   timer: 0,
   "livre-recettes": 0,
+  "recipe-today": 1800,
 };
 
 export default function TileForm({
@@ -92,8 +101,11 @@ export default function TileForm({
   });
   const [calendarCfg, setCalendarCfg] = useState<CalendarConfig>(defaultCalendarConfig);
   const [livreCfg, setLivreCfg] = useState<LivreRecettesConfig>(defaultLivreRecettesConfig);
+  // Pas d'UI fields exposés pour recipe-today : on prend les défauts.
+  const recipeTodayCfg: RecipeTodayConfig = defaultRecipeTodayConfig;
 
   const syncCalendar = useSyncCalendarTile();
+  const refreshRecipeToday = useRefreshRecipeTodayTile();
 
   function handleTypeChange(t: TileType) {
     setType(t);
@@ -114,6 +126,8 @@ export default function TileForm({
         return calendarCfg as unknown as Record<string, unknown>;
       case "livre-recettes":
         return livreCfg as unknown as Record<string, unknown>;
+      case "recipe-today":
+        return recipeTodayCfg as unknown as Record<string, unknown>;
       default:
         return {};
     }
@@ -141,6 +155,14 @@ export default function TileForm({
         } catch (err) {
           // Non bloquant : la tuile est créée, le scheduler la couvrira au pire dans 15 min.
           console.warn("Sync initiale calendrier échouée", err);
+        }
+      }
+      // Refresh initial recipe-today — sinon le 1er affichage attend 30 min.
+      if (type === "recipe-today") {
+        try {
+          await refreshRecipeToday.mutateAsync({ householdId, tileId: id });
+        } catch (err) {
+          console.warn("Refresh initial recipe-today échoué", err);
         }
       }
       onCreated?.(id);
@@ -223,6 +245,7 @@ function defaultNomFor(type: TileType, ville?: string): string {
   if (type === "timer") return "Minuteur";
   if (type === "calendar") return "Calendrier famille";
   if (type === "livre-recettes") return "Livre de recettes";
+  if (type === "recipe-today") return "Recette du jour";
   return "Tuile";
 }
 
