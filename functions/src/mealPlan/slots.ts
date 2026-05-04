@@ -1,5 +1,5 @@
 /**
- * Cloud Functions sur les slots individuels (Kitchen Buddy Phase 3.3).
+ * Cloud Functions sur les slots individuels (Phase 3).
  *
  * - acceptSlot : statut "propose" → "accepte"
  * - refuseSlot : statut → "vide" + retire les recettes
@@ -12,9 +12,9 @@
 
 import { onCall, HttpsError } from "firebase-functions/v2/https";
 import { FieldValue } from "firebase-admin/firestore";
-import { db } from "../../lib/admin";
-import { assertHouseholdMember } from "../../lib/household";
-import type { SlotStatut } from "../../types";
+import { db } from "../lib/admin";
+import { assertHouseholdMember } from "../lib/household";
+import type { SlotStatut } from "../types";
 
 interface SlotActionInput {
   householdId: string;

@@ -1,4 +1,4 @@
-import type { Repas } from "../kitchenBuddy/mealPlan";
+import type { Repas } from "../mealPlan";
 
 export interface RecipeTodayConfig {
   showAccompagnements: boolean;

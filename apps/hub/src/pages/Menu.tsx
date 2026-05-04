@@ -1,6 +1,6 @@
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { BookOpen, ChefHat, FileEdit, Plus, Trash2 } from "lucide-react";
+import { ChefHat, FileEdit, Plus, Trash2 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import {
   useActiveHouseholdId,
@@ -12,9 +12,9 @@ import {
   useProfils,
 } from "../lib/queries";
 import { useDeleteMealPlan } from "../lib/mutations";
-import MealPlanGrid from "../components/kitchenBuddy/MealPlanGrid";
+import MealPlanGrid from "../components/menu/MealPlanGrid";
 
-export default function KitchenBuddy() {
+export default function Menu() {
   const { user } = useAuth();
   const householdId = useActiveHouseholdId(user?.uid);
   const { data: profils } = useProfils(householdId);
@@ -37,21 +37,17 @@ export default function KitchenBuddy() {
       <div className="flex items-center justify-between">
         <h1 className="text-3xl flex items-center gap-3">
           <ChefHat size={26} className="text-brass" />
-          Kitchen Buddy
+          Menu de la semaine
         </h1>
         <div className="flex items-center gap-2">
-          <Link to="/kitchen-buddy/livre" className="btn-secondary text-sm flex items-center gap-2">
-            <BookOpen size={14} />
-            Livre de recettes
-          </Link>
           {draftPlan && (
-            <Link to="/kitchen-buddy/nouveau-plan" className="btn-secondary text-sm flex items-center gap-2">
+            <Link to="/menu/nouveau" className="btn-secondary text-sm flex items-center gap-2">
               <FileEdit size={14} />
               Reprendre le brouillon
             </Link>
           )}
           {!draftPlan && (
-            <Link to="/kitchen-buddy/nouveau-plan" className="btn-primary text-sm flex items-center gap-2">
+            <Link to="/menu/nouveau" className="btn-primary text-sm flex items-center gap-2">
               <Plus size={14} />
               Nouveau plan
             </Link>
@@ -68,7 +64,7 @@ export default function KitchenBuddy() {
             Lance un nouveau plan pour la semaine pour générer des recettes adaptées à la
             famille et la liste de courses associée.
           </p>
-          <Link to="/kitchen-buddy/nouveau-plan" className="btn-primary inline-flex items-center gap-2">
+          <Link to="/menu/nouveau" className="btn-primary inline-flex items-center gap-2">
             <Plus size={14} />
             Nouveau plan
           </Link>

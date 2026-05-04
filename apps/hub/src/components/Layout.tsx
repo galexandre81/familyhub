@@ -1,11 +1,12 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
-import { ChefHat, Home, MonitorSmartphone, LayoutGrid, Settings, LogOut } from "lucide-react";
+import { BookOpen, ChefHat, Home, MonitorSmartphone, LayoutGrid, Settings, LogOut } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import clsx from "clsx";
 
 const navItems = [
   { to: "/", icon: Home, label: "Accueil", end: true },
-  { to: "/kitchen-buddy", icon: ChefHat, label: "Cuisine" },
+  { to: "/menu", icon: ChefHat, label: "Menu" },
+  { to: "/livre-recettes", icon: BookOpen, label: "Recettes" },
   { to: "/displays", icon: MonitorSmartphone, label: "Écrans" },
   { to: "/tiles", icon: LayoutGrid, label: "Tuiles" },
   { to: "/parametres", icon: Settings, label: "Paramètres" },

@@ -15,8 +15,11 @@ export type TileType =
   | "recipe-mode"
   | "shopping-list"
   | "meal-planner-week"
+  | "weekly-menu"
+  | "batch-mode"
   | "livre-recettes"
-  | "cuisine-quoi";
+  | "cuisine-quoi"
+  | "profils";
 
 export type DisplayDeviceType = "ipad-mini-1" | "modern-tablet" | "desktop" | "mobile";
 

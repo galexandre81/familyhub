@@ -1,4 +1,4 @@
-import type { Timestamp } from "../common";
+import type { Timestamp } from "./common";
 import type { ProfilSnapshot } from "./profil";
 
 export type MealPlanStatut = "draft" | "active" | "archived";

@@ -8,8 +8,8 @@ import Tiles from "./pages/Tiles";
 import TileEditor from "./pages/TileEditor";
 import Parametres from "./pages/Parametres";
 import Profils from "./pages/Profils";
-import KitchenBuddy from "./pages/KitchenBuddy";
-import KitchenBuddyWizard from "./pages/KitchenBuddyWizard";
+import Menu from "./pages/Menu";
+import MenuWizard from "./pages/MenuWizard";
 import LivreRecettes from "./pages/LivreRecettes";
 import RecetteDetail from "./pages/RecetteDetail";
 import RecetteCuisine from "./pages/RecetteCuisine";
@@ -48,14 +48,31 @@ export default function App() {
           <Route path="tiles/:tileId" element={<TileEditor />} />
           <Route path="parametres" element={<Parametres />} />
           <Route path="parametres/profils" element={<Profils />} />
-          <Route path="kitchen-buddy" element={<KitchenBuddy />} />
-          <Route path="kitchen-buddy/nouveau-plan" element={<KitchenBuddyWizard />} />
-          <Route path="kitchen-buddy/livre" element={<LivreRecettes />} />
-          <Route path="kitchen-buddy/livre/:recetteId" element={<RecetteDetail />} />
-          <Route path="kitchen-buddy/livre/:recetteId/cuisine" element={<RecetteCuisine />} />
+          <Route path="menu" element={<Menu />} />
+          <Route path="menu/nouveau" element={<MenuWizard />} />
+          <Route path="livre-recettes" element={<LivreRecettes />} />
+          <Route path="livre-recettes/:recetteId" element={<RecetteDetail />} />
+          <Route path="livre-recettes/:recetteId/cuisine" element={<RecetteCuisine />} />
+          {/* Anciennes routes /kitchen-buddy/* — redirections rétro-compat. */}
+          <Route path="kitchen-buddy" element={<Navigate to="/menu" replace />} />
+          <Route path="kitchen-buddy/nouveau-plan" element={<Navigate to="/menu/nouveau" replace />} />
+          <Route path="kitchen-buddy/livre" element={<Navigate to="/livre-recettes" replace />} />
+          <Route path="kitchen-buddy/livre/:recetteId" element={<NavigateLivre />} />
+          <Route path="kitchen-buddy/livre/:recetteId/cuisine" element={<NavigateLivreCuisine />} />
         </Route>
         <Route path="*" element={<Navigate to="/" replace />} />
       </Routes>
     </AuthProvider>
   );
+}
+
+function NavigateLivre() {
+  const params = new URLSearchParams(window.location.search);
+  const id = window.location.pathname.split("/")[3];
+  return <Navigate to={`/livre-recettes/${id}${params.toString() ? "?" + params : ""}`} replace />;
+}
+
+function NavigateLivreCuisine() {
+  const id = window.location.pathname.split("/")[3];
+  return <Navigate to={`/livre-recettes/${id}/cuisine`} replace />;
 }

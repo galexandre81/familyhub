@@ -79,7 +79,7 @@ export default function RecetteDetail() {
     return (
       <div className="space-y-3">
         <p className="text-text-secondaire">Recette introuvable.</p>
-        <Link to="/kitchen-buddy/livre" className="btn-secondary">
+        <Link to="/livre-recettes" className="btn-secondary">
           Retour au livre
         </Link>
       </div>
@@ -93,7 +93,7 @@ export default function RecetteDetail() {
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-3">
-        <Link to="/kitchen-buddy/livre" className="text-text-secondaire hover:text-text-principal">
+        <Link to="/livre-recettes" className="text-text-secondaire hover:text-text-principal">
           <ArrowLeft size={20} />
         </Link>
         <div className="flex-1">
@@ -175,7 +175,7 @@ export default function RecetteDetail() {
             onClick={async () => {
               if (!confirm(`Supprimer définitivement "${recette.nom}" ?`)) return;
               await del.mutateAsync({ householdId, recetteId: recette.id });
-              navigate("/kitchen-buddy/livre");
+              navigate("/livre-recettes");
             }}
             className="p-2 text-text-secondaire hover:text-accent-chaud transition"
             title="Supprimer définitivement"
@@ -183,7 +183,7 @@ export default function RecetteDetail() {
             <Trash2 size={16} />
           </button>
           <Link
-            to={`/kitchen-buddy/livre/${recette.id}/cuisine?portions=${targetPortions}`}
+            to={`/livre-recettes/${recette.id}/cuisine?portions=${targetPortions}`}
             className="btn-primary flex items-center gap-2 ml-2"
           >
             <ChefHat size={16} />

@@ -23,9 +23,12 @@ const TYPE_LABEL: Record<TileType, string> = {
   "recipe-today": "Recette du jour",
   "recipe-mode": "Mode cuisine",
   "shopping-list": "Liste de courses",
-  "meal-planner-week": "Menu de la semaine",
+  "meal-planner-week": "Menu de la semaine (legacy)",
+  "weekly-menu": "Menu de la semaine",
+  "batch-mode": "Batch cooking",
   "livre-recettes": "Livre de recettes",
   "cuisine-quoi": "Cuisine quoi ?",
+  profils: "Profils",
 };
 
 export default function Tiles() {
