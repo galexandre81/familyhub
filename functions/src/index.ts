@@ -11,6 +11,10 @@ setGlobalOptions({ region: "europe-west1", maxInstances: 10 });
 // Tuiles
 export { refreshWeatherTile, scheduledWeatherRefresh } from "./tiles/weather";
 export { syncCalendarTile, scheduledCalendarRefresh } from "./tiles/calendar";
+export {
+  refreshRecipeTodayTile,
+  scheduledRecipeTodayRefresh,
+} from "./tiles/recipeToday";
 
 // Meal planner (Phase 3)
 export {
