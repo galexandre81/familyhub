@@ -153,3 +153,54 @@ export interface RecetteEtape {
   description: string;
   dureeMinutes?: number;
 }
+
+/* --- recipe-today snapshot data --- */
+
+export interface RecipeTodayConfig {
+  showAccompagnements: boolean;
+  detectionRepas: "auto" | "manual";
+}
+
+export interface RecipeTodayRecette {
+  recetteId: string;
+  nom: string;
+  description?: string;
+  portions: number;
+  tempsPrepMinutes: number;
+  tempsCuissonMinutes: number;
+  tempsTotalMinutes: number;
+  difficulte: number;
+  ingredients: Array<{
+    libelle: string;
+    quantite: string;
+    unite: string;
+    rayon?: string;
+    noteFrigo?: boolean;
+  }>;
+  etapes: Array<{
+    ordre: number;
+    description: string;
+    dureeMinutes?: number;
+  }>;
+  tags: string[];
+}
+
+export interface RecipeTodayData {
+  repasActif: Repas | "aucun";
+  repasLabel?: string;
+  date?: string;
+  slotId?: string;
+  isFallbackToNext?: boolean;
+  recettes: RecipeTodayRecette[];
+  profilsPresents: Array<{
+    id: string;
+    nom: string;
+    initiale: string;
+    couleur: string;
+    emoji?: string;
+  }>;
+  invitesNoms?: string[];
+  source?: "fresh" | "batch";
+  notes?: string;
+  generatedAtISO: string;
+}
