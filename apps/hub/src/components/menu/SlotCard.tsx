@@ -22,7 +22,7 @@ interface SlotCardProps {
    * Si défini : tap sur le titre d'une recette ouvre un modal in-place
    * au lieu de naviguer vers /livre-recettes/:id.
    */
-  onOpenRecette?: (recetteId: string, portions: number) => void;
+  onOpenRecette?: (recetteId: string, portions: number, slotId?: string) => void;
 }
 
 export default function SlotCard({
@@ -102,7 +102,7 @@ export default function SlotCard({
               {onOpenRecette ? (
                 <button
                   type="button"
-                  onClick={() => onOpenRecette(r.id, targetPortions)}
+                  onClick={() => onOpenRecette(r.id, targetPortions, slot.id)}
                   className="flex-1 text-left hover:text-brass transition"
                   title="Voir la recette détaillée"
                 >

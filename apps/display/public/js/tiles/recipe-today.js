@@ -519,6 +519,9 @@
       }
       html += '</ol>';
 
+      /* Panneau notation post-repas (Phase 3.7) */
+      html += renderNotationPanel(r.recetteId);
+
       document.getElementById('rt-body').innerHTML = html;
 
       /* Wire timer buttons */
@@ -540,6 +543,115 @@
           }
         });
       }
+
+      /* Wire notation stars */
+      wireNotationPanel(container, r.recetteId);
+    }
+  }
+
+  /**
+   * HTML du panneau "Comment c'était ?" — 5 étoiles cliquables.
+   * Au tap, on update la recette : notation + statut=favorite si >= 4.
+   * On ne touche PAS le slot (pas de planId dans le snapshot V1) ;
+   * la note remonte donc sur la recette uniquement, ce qui est suffisant
+   * pour peupler le livre des favoris.
+   */
+  function renderNotationPanel(recetteId) {
+    if (!recetteId) return '';
+    return '' +
+      '<div style="margin-top:32px; padding-top:20px; border-top:1px solid rgba(217,160,91,0.20);" data-role="notation">' +
+        '<div style="font-size:11px; letter-spacing:0.18em; text-transform:uppercase; opacity:0.75; margin-bottom:10px">' +
+          'Comment c\'était ?' +
+        '</div>' +
+        '<div style="display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; gap:8px;" data-role="stars">' +
+          starBtn(1) + starBtn(2) + starBtn(3) + starBtn(4) + starBtn(5) +
+          '<span data-role="notation-msg" style="margin-left:14px; font-size:13px; opacity:0.85"></span>' +
+        '</div>' +
+        '<div style="margin-top:8px; font-size:11px; opacity:0.55">' +
+          'Note ≥ 4 → la recette passe automatiquement dans les favoris.' +
+        '</div>' +
+      '</div>';
+  }
+
+  function starBtn(n) {
+    return '<button type="button" class="rt-star" data-rating="' + n + '" ' +
+      'style="background:transparent; border:none; padding:6px; cursor:pointer; color:#D9A05B;" ' +
+      'aria-label="Note ' + n + '">' +
+      '<svg viewBox="0 0 50 50" width="32" height="32" aria-hidden="true">' +
+        '<path d="M25 4 L31 18 L46 20 L35 31 L38 46 L25 38 L12 46 L15 31 L4 20 L19 18 Z" ' +
+          'fill="none" stroke="#D9A05B" stroke-width="2.4" stroke-linejoin="round" data-role="star-shape"/>' +
+      '</svg>' +
+    '</button>';
+  }
+
+  function wireNotationPanel(container, recetteId) {
+    if (!recetteId) return;
+    var stars = container.querySelectorAll('.rt-star');
+    var msg = container.querySelector('[data-role="notation-msg"]');
+    if (!stars || stars.length === 0) return;
+
+    function paintStars(upTo) {
+      for (var s = 0; s < stars.length; s++) {
+        var n = s + 1;
+        var path = stars[s].querySelector('[data-role="star-shape"]');
+        if (!path) continue;
+        if (n <= upTo) {
+          path.setAttribute('fill', BRASS);
+        } else {
+          path.setAttribute('fill', 'none');
+        }
+      }
+    }
+
+    function setMsg(text, color) {
+      if (msg) {
+        msg.style.color = color || '#FAFAF7';
+        msg.innerHTML = text;
+      }
+    }
+
+    function saveRating(rating) {
+      var db = global.FamilyHubGetDb && global.FamilyHubGetDb();
+      var hid = global.FamilyHubGetHouseholdId && global.FamilyHubGetHouseholdId();
+      if (!db || !hid) {
+        setMsg('Erreur : DB indisponible', '#C8553D');
+        return;
+      }
+      var FieldValue = global.firebase && global.firebase.firestore && global.firebase.firestore.FieldValue;
+      var serverTs = FieldValue ? FieldValue.serverTimestamp() : new Date();
+      var updates = {
+        notation: rating,
+        updatedAt: serverTs
+      };
+      if (rating >= 4) {
+        updates.statut = 'favorite';
+        updates.excluded = false;
+      }
+      paintStars(rating);
+      setMsg('Enregistrement…', '#D9A05B');
+      db.collection('households').doc(hid)
+        .collection('recettes').doc(recetteId)
+        .update(updates)
+        .then(function () {
+          if (rating >= 4) {
+            setMsg('Enregistré · ajouté aux favoris', '#7D9F76');
+          } else {
+            setMsg('Enregistré', '#7D9F76');
+          }
+        })
+        .catch(function (err) {
+          if (window.console && window.console.error) console.error('[notation]', err);
+          setMsg('Erreur : ' + (err && err.message ? err.message : 'inconnu'), '#C8553D');
+          paintStars(0);
+        });
+    }
+
+    for (var i = 0; i < stars.length; i++) {
+      (function (btn, rating) {
+        btn.addEventListener('click', function () { saveRating(rating); });
+        btn.addEventListener('mouseenter', function () { paintStars(rating); });
+        btn.addEventListener('mouseleave', function () { paintStars(0); });
+      })(stars[i], parseInt(stars[i].getAttribute('data-rating'), 10));
     }
   }
 

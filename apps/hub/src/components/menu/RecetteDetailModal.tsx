@@ -1,7 +1,20 @@
 import { useEffect, useState } from "react";
 import { Link } from "react-router-dom";
-import { ChefHat, Clock, Flame, Minus, Plus, X } from "lucide-react";
+import {
+  Check,
+  ChefHat,
+  Clock,
+  Flame,
+  Heart,
+  Loader2,
+  Minus,
+  Plus,
+  Star,
+  X,
+} from "lucide-react";
+import { useAuth } from "../../lib/auth";
 import { useRecette } from "../../lib/queries";
+import { useRateRecette } from "../../lib/mutations";
 
 const RAYON_LABELS: Record<string, string> = {
   "frais-fruits-legumes": "Fruits & légumes",
@@ -26,13 +39,19 @@ export default function RecetteDetailModal({
   householdId,
   recetteId,
   initialPortions,
+  planId,
+  slotId,
   onClose,
 }: {
   householdId: string;
   recetteId: string;
   initialPortions: number;
+  /** Si défini : note la recette ET le slot. Sinon, juste la recette. */
+  planId?: string;
+  slotId?: string;
   onClose: () => void;
 }) {
+  const { user } = useAuth();
   const { data: recette, isLoading } = useRecette(householdId, recetteId);
   const [portions, setPortions] = useState<number>(initialPortions);
 
@@ -210,11 +229,133 @@ export default function RecetteDetailModal({
                     ))}
                 </ol>
               </section>
+
+              <NotationPanel
+                householdId={householdId}
+                recetteId={recette.id}
+                planId={planId}
+                slotId={slotId}
+                currentNote={recette.notation ?? null}
+                isFavorite={recette.statut === "favorite"}
+                ratedBy={user?.uid}
+              />
             </div>
           </>
         )}
       </div>
     </div>
+  );
+}
+
+/**
+ * Panneau "Comment c'était ?" — 5 étoiles + commentaire optionnel.
+ * Note ≥ 4 → la recette passe automatiquement en favorite.
+ */
+function NotationPanel({
+  householdId,
+  recetteId,
+  planId,
+  slotId,
+  currentNote,
+  isFavorite,
+  ratedBy,
+}: {
+  householdId: string;
+  recetteId: string;
+  planId?: string;
+  slotId?: string;
+  currentNote: number | null;
+  isFavorite: boolean;
+  ratedBy?: string;
+}) {
+  const rate = useRateRecette();
+  const [hover, setHover] = useState<number | null>(null);
+  const [picked, setPicked] = useState<number | null>(null);
+  const [comment, setComment] = useState("");
+  const [saved, setSaved] = useState(false);
+
+  function submit(rating: 1 | 2 | 3 | 4 | 5) {
+    setPicked(rating);
+    rate.mutate(
+      {
+        householdId,
+        recetteId,
+        rating,
+        planId,
+        slotId,
+        ratedBy,
+        comment: comment.trim() || undefined,
+      },
+      {
+        onSuccess: () => {
+          setSaved(true);
+          setTimeout(() => setSaved(false), 4000);
+        },
+      },
+    );
+  }
+
+  const display = hover ?? picked ?? currentNote ?? 0;
+
+  return (
+    <section className="mt-2 pt-5 border-t border-wood-dark">
+      <h3 className="eyebrow mb-2 flex items-center gap-2">
+        <Star size={12} className="text-brass" />
+        Comment c'était ?
+        {isFavorite && (
+          <span className="ml-1 text-brass flex items-center gap-1 normal-case tracking-normal text-[10px]">
+            <Heart size={10} fill="currentColor" /> dans tes favoris
+          </span>
+        )}
+      </h3>
+      <div className="flex items-center gap-1 mb-3">
+        {[1, 2, 3, 4, 5].map((n) => (
+          <button
+            key={n}
+            type="button"
+            onMouseEnter={() => setHover(n)}
+            onMouseLeave={() => setHover(null)}
+            onClick={() => submit(n as 1 | 2 | 3 | 4 | 5)}
+            disabled={rate.isPending}
+            className="p-1 -m-1 disabled:opacity-50"
+            aria-label={`Note ${n} étoile${n > 1 ? "s" : ""}`}
+          >
+            <Star
+              size={28}
+              className={
+                n <= display
+                  ? "text-brass fill-brass"
+                  : "text-cream-mute hover:text-brass transition"
+              }
+            />
+          </button>
+        ))}
+        {rate.isPending && (
+          <Loader2 size={14} className="animate-spin text-cream-mute ml-2" />
+        )}
+        {saved && (
+          <span className="ml-3 text-sage text-xs flex items-center gap-1">
+            <Check size={12} />
+            {(picked ?? 0) >= 4
+              ? "Enregistré · ajouté aux favoris ❤"
+              : "Enregistré"}
+          </span>
+        )}
+      </div>
+      <textarea
+        value={comment}
+        onChange={(e) => setComment(e.target.value)}
+        placeholder="Commentaire optionnel (ex: trop salé, à refaire, super pour les enfants…)"
+        rows={2}
+        maxLength={500}
+        className="input !py-2 text-sm"
+      />
+      <p className="text-[10px] text-cream-mute mt-1">
+        {planId && slotId
+          ? "Tap sur une étoile pour enregistrer. Note ≥ 4 → la recette est ajoutée à tes favoris."
+          : "Note libre (sans contexte de slot)."}
+      </p>
+    </section>
   );
 }
 

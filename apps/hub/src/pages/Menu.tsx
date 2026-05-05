@@ -56,7 +56,11 @@ export default function Menu() {
   const deletePlan = useDeleteMealPlan();
 
   /** Modal in-place pour voir la recette sans naviguer hors de /menu. */
-  const [openRecette, setOpenRecette] = useState<{ id: string; portions: number } | null>(null);
+  const [openRecette, setOpenRecette] = useState<{
+    id: string;
+    portions: number;
+    slotId?: string;
+  } | null>(null);
 
   const profilsById = useMemo(
     () => Object.fromEntries((profils ?? []).map((p) => [p.id, p])),
@@ -146,7 +150,9 @@ export default function Menu() {
             recettesById={recettesById ?? {}}
             profilsById={profilsById as never}
             dateDebut={getDateFromTimestamp(activePlan.dateDebut)}
-            onOpenRecette={(id, portions) => setOpenRecette({ id, portions })}
+            onOpenRecette={(id, portions, slotId) =>
+              setOpenRecette({ id, portions, slotId })
+            }
           />
 
           {batchSessions && batchSessions.length > 0 && (
@@ -175,6 +181,8 @@ export default function Menu() {
           householdId={householdId}
           recetteId={openRecette.id}
           initialPortions={openRecette.portions}
+          planId={activePlan?.id}
+          slotId={openRecette.slotId}
           onClose={() => setOpenRecette(null)}
         />
       )}

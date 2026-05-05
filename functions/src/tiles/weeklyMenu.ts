@@ -217,7 +217,7 @@ export const refreshWeeklyMenuTile = onCall<RefreshInput, Promise<{ success: tru
 
 export const scheduledWeeklyMenuRefresh = onSchedule(
   {
-    schedule: "every 60 minutes",
+    schedule: "every 15 minutes",
     region: "europe-west1",
     timeZone: "Europe/Paris",
   },
