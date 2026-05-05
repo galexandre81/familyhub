@@ -28,12 +28,11 @@
     for (var i = 0; i < layout.length; i++) {
       var entry = layout[i];
       var tile = tilesById[entry.tileId];
-      if (!tile) continue;
 
       var cell = document.createElement('div');
       cell.className = 'grid-cell';
       cell.setAttribute('data-tile-id', entry.tileId);
-      cell.setAttribute('data-tile-type', tile.type);
+      cell.setAttribute('data-tile-type', tile ? tile.type : 'missing');
 
       var pos = entry.position || { col: 0, row: 0, w: 1, h: 1 };
       cell.style.position = 'absolute';
@@ -41,6 +40,36 @@
       cell.style.top    = (pos.row / rows * 100) + '%';
       cell.style.width  = (pos.w   / cols * 100) + '%';
       cell.style.height = (pos.h   / rows * 100) + '%';
+
+      if (!tile) {
+        /* La tuile est référencée par le layout mais absente de tilesById :
+           soit elle vient d'être créée et l'iPad n'a pas encore re-fetché
+           la collection tiles, soit elle a été supprimée. On affiche une
+           cellule visible avec bouton "Recharger" pour forcer un re-fetch. */
+        cell.innerHTML =
+          '<div style="padding:14px; text-align:center;">' +
+            '<div class="tile-title" style="margin-bottom:8px">Tuile manquante</div>' +
+            '<div style="font-size:10px; opacity:0.6; margin-bottom:8px; word-break:break-all;">' +
+              entry.tileId +
+            '</div>' +
+            '<button type="button" class="tile-reload-btn" ' +
+              'style="padding:6px 14px; background:#D9A05B; color:#1F1A14; ' +
+              'border:none; border-radius:4px; font-size:12px; font-weight:600;">' +
+              'Recharger' +
+            '</button>' +
+          '</div>';
+        var rb = cell.querySelector('.tile-reload-btn');
+        if (rb) {
+          rb.addEventListener('click', function (ev) {
+            ev.stopPropagation();
+            var url = window.location.pathname + '?reload=' + Date.now();
+            window.location.replace(url);
+          });
+        }
+        container.appendChild(cell);
+        cellsByTileId[entry.tileId] = cell;
+        continue;
+      }
 
       /* Tap handler — si la tuile a une vue plein écran, l'ouvrir au tap.
          La config est lue dynamiquement depuis state pour refléter les MAJ

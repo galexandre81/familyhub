@@ -34,7 +34,7 @@
       '<path d="M19 14 Q21 10, 19 6" fill="none" stroke="' + BRASS + '" stroke-width="1.4" stroke-linecap="round"/>' +
       '<path d="M24 14 Q26 10, 24 6" fill="none" stroke="' + BRASS + '" stroke-width="1.4" stroke-linecap="round"/>' +
       '<path d="M29 14 Q31 10, 29 6" fill="none" stroke="' + BRASS + '" stroke-width="1.4" stroke-linecap="round"/>',
-      size,
+      size
     );
   }
 
@@ -50,7 +50,7 @@
       '<line x1="35" y1="35" x2="39" y2="39" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>' +
       '<line x1="11" y1="39" x2="15" y2="35" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>' +
       '<line x1="35" y1="15" x2="39" y2="11" stroke="' + BRASS + '" stroke-width="2" stroke-linecap="round"/>',
-      size,
+      size
     );
   }
 
@@ -59,7 +59,7 @@
     return svgWrap(
       '<path d="M32 8 A18 18 0 1 0 32 42 A14 14 0 1 1 32 8 Z" ' +
         'fill="rgba(217,160,91,0.18)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>',
-      size,
+      size
     );
   }
 
@@ -74,7 +74,7 @@
       /* Couteau */
       '<path d="M34 6 Q39 8, 39 22 L34 22 Z" fill="rgba(217,160,91,0.18)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
       '<line x1="34" y1="22" x2="34" y2="44" stroke="' + BRASS + '" stroke-width="2.4" stroke-linecap="round"/>',
-      size,
+      size
     );
   }
 
@@ -85,7 +85,7 @@
         'fill="rgba(217,160,91,0.18)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
       '<line x1="14" y1="6" x2="36" y2="6" stroke="' + BRASS + '" stroke-width="2.6" stroke-linecap="round"/>' +
       '<line x1="14" y1="44" x2="36" y2="44" stroke="' + BRASS + '" stroke-width="2.6" stroke-linecap="round"/>',
-      size,
+      size
     );
   }
 
@@ -93,7 +93,7 @@
   function svgCheck(size) {
     return svgWrap(
       '<path d="M10 26 L22 36 L40 14" fill="none" stroke="' + BRASS + '" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>',
-      size,
+      size
     );
   }
 
@@ -104,7 +104,7 @@
       '<path d="M7 30 L43 30 Q43 18, 25 18 Q7 18, 7 30 Z" ' +
         'fill="rgba(217,160,91,0.10)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
       '<circle cx="25" cy="14" r="2.2" fill="' + BRASS + '"/>',
-      size,
+      size
     );
   }
 
