@@ -97,6 +97,30 @@
     );
   }
 
+  /* Pouce vers le haut (favori) */
+  function svgThumbUp(size) {
+    return svgWrap(
+      '<path d="M16 22 L16 42 L10 42 L10 22 Z" ' +
+        'fill="rgba(217,160,91,0.10)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
+      '<path d="M16 22 L22 8 Q24 5, 27 6 Q30 8, 28 14 L26 18 L40 18 Q44 18, 44 22 Q44 25, 42 26 ' +
+        'Q44 28, 43 31 Q44 33, 42 35 Q43 38, 40 39 Q39 42, 35 42 L20 42 L16 42 Z" ' +
+        'fill="rgba(217,160,91,0.18)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>',
+      size
+    );
+  }
+
+  /* Pouce vers le bas (exclure) */
+  function svgThumbDown(size) {
+    return svgWrap(
+      '<path d="M16 28 L16 8 L10 8 L10 28 Z" ' +
+        'fill="rgba(217,160,91,0.10)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
+      '<path d="M16 28 L22 42 Q24 45, 27 44 Q30 42, 28 36 L26 32 L40 32 Q44 32, 44 28 Q44 25, 42 24 ' +
+        'Q44 22, 43 19 Q44 17, 42 15 Q43 12, 40 11 Q39 8, 35 8 L20 8 L16 8 Z" ' +
+        'fill="rgba(217,160,91,0.18)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>',
+      size
+    );
+  }
+
   /* Plat couvert (état vide compact) */
   function svgEmpty(size) {
     return svgWrap(
@@ -341,7 +365,14 @@
     metaEl.id = 'rt-meta';
     titleBlock.appendChild(metaEl);
 
-    /* Pastilles profils sur la droite */
+    /* Boutons vote (favori / exclu) en haut, à droite des profils */
+    var voteBlock = document.createElement('div');
+    voteBlock.style.cssText =
+      'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; gap:8px;';
+    voteBlock.setAttribute('data-role', 'vote-block');
+    headerTop.appendChild(voteBlock);
+
+    /* Pastilles profils */
     if (d.profilsPresents && d.profilsPresents.length > 0) {
       var profilsBlock = document.createElement('div');
       profilsBlock.style.cssText = 'display:-webkit-flex; display:flex; gap:6px; -webkit-flex-wrap:wrap; flex-wrap:wrap;';
@@ -519,10 +550,10 @@
       }
       html += '</ol>';
 
-      /* Panneau notation post-repas (Phase 3.7) */
-      html += renderNotationPanel(r.recetteId);
-
       document.getElementById('rt-body').innerHTML = html;
+
+      /* Boutons vote (favori / exclu) en haut — peuple le voteBlock du header */
+      renderVoteButtons(container, r.recetteId);
 
       /* Wire timer buttons */
       var timerBtns = container.querySelectorAll('.rt-timer-btn');
@@ -544,115 +575,85 @@
         });
       }
 
-      /* Wire notation stars */
-      wireNotationPanel(container, r.recetteId);
     }
   }
 
   /**
-   * HTML du panneau "Comment c'était ?" — 5 étoiles cliquables.
-   * Au tap, on update la recette : notation + statut=favorite si >= 4.
-   * On ne touche PAS le slot (pas de planId dans le snapshot V1) ;
-   * la note remonte donc sur la recette uniquement, ce qui est suffisant
-   * pour peupler le livre des favoris.
+   * Peuple le voteBlock du header avec 2 boutons (pouce bas / pouce haut).
+   * Au clic : update la recette en Firestore (favori OU exclu).
+   * On n'a pas l'état initial dans le snapshot, donc les boutons partent
+   * neutres ; après clic ils restent visuellement actifs.
    */
-  function renderNotationPanel(recetteId) {
-    if (!recetteId) return '';
-    return '' +
-      '<div style="margin-top:32px; padding-top:20px; border-top:1px solid rgba(217,160,91,0.20);" data-role="notation">' +
-        '<div style="font-size:11px; letter-spacing:0.18em; text-transform:uppercase; opacity:0.75; margin-bottom:10px">' +
-          'Comment c\'était ?' +
-        '</div>' +
-        '<div style="display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; gap:8px;" data-role="stars">' +
-          starBtn(1) + starBtn(2) + starBtn(3) + starBtn(4) + starBtn(5) +
-          '<span data-role="notation-msg" style="margin-left:14px; font-size:13px; opacity:0.85"></span>' +
-        '</div>' +
-        '<div style="margin-top:8px; font-size:11px; opacity:0.55">' +
-          'Note ≥ 4 → la recette passe automatiquement dans les favoris.' +
-        '</div>' +
-      '</div>';
+  function renderVoteButtons(container, recetteId) {
+    var voteEl = container.querySelector('[data-role="vote-block"]');
+    if (!voteEl) return;
+    if (!recetteId) {
+      voteEl.innerHTML = '';
+      return;
+    }
+    voteEl.innerHTML =
+      '<button type="button" data-action="down" ' +
+        'style="background:transparent; border:1px solid rgba(217,160,91,0.40); ' +
+        'border-radius:6px; padding:6px 10px; cursor:pointer; color:#D9A05B; ' +
+        'display:-webkit-inline-flex; display:inline-flex; -webkit-align-items:center; align-items:center;" ' +
+        'aria-label="Exclure cette recette" title="Exclure (ne plus piocher cette recette)">' +
+        svgThumbDown(24) +
+      '</button>' +
+      '<button type="button" data-action="up" ' +
+        'style="background:transparent; border:1px solid rgba(217,160,91,0.40); ' +
+        'border-radius:6px; padding:6px 10px; cursor:pointer; color:#D9A05B; ' +
+        'display:-webkit-inline-flex; display:inline-flex; -webkit-align-items:center; align-items:center;" ' +
+        'aria-label="Marquer comme favori" title="Marquer comme favori">' +
+        svgThumbUp(24) +
+      '</button>';
+    voteEl.querySelector('[data-action="up"]').addEventListener('click', function () {
+      voteRecette(recetteId, 'up', voteEl);
+    });
+    voteEl.querySelector('[data-action="down"]').addEventListener('click', function () {
+      voteRecette(recetteId, 'down', voteEl);
+    });
   }
 
-  function starBtn(n) {
-    return '<button type="button" class="rt-star" data-rating="' + n + '" ' +
-      'style="background:transparent; border:none; padding:6px; cursor:pointer; color:#D9A05B;" ' +
-      'aria-label="Note ' + n + '">' +
-      '<svg viewBox="0 0 50 50" width="32" height="32" aria-hidden="true">' +
-        '<path d="M25 4 L31 18 L46 20 L35 31 L38 46 L25 38 L12 46 L15 31 L4 20 L19 18 Z" ' +
-          'fill="none" stroke="#D9A05B" stroke-width="2.4" stroke-linejoin="round" data-role="star-shape"/>' +
-      '</svg>' +
-    '</button>';
-  }
+  function voteRecette(recetteId, action, voteEl) {
+    var db = global.FamilyHubGetDb && global.FamilyHubGetDb();
+    var hid = global.FamilyHubGetHouseholdId && global.FamilyHubGetHouseholdId();
+    if (!db || !hid) return;
+    var FieldValue = global.firebase && global.firebase.firestore && global.firebase.firestore.FieldValue;
+    var serverTs = FieldValue ? FieldValue.serverTimestamp() : new Date();
+    var updates = action === 'up'
+      ? { statut: 'favorite', excluded: false, updatedAt: serverTs }
+      : { statut: 'accepted', excluded: true, updatedAt: serverTs };
 
-  function wireNotationPanel(container, recetteId) {
-    if (!recetteId) return;
-    var stars = container.querySelectorAll('.rt-star');
-    var msg = container.querySelector('[data-role="notation-msg"]');
-    if (!stars || stars.length === 0) return;
-
-    function paintStars(upTo) {
-      for (var s = 0; s < stars.length; s++) {
-        var n = s + 1;
-        var path = stars[s].querySelector('[data-role="star-shape"]');
-        if (!path) continue;
-        if (n <= upTo) {
-          path.setAttribute('fill', BRASS);
-        } else {
-          path.setAttribute('fill', 'none');
-        }
-      }
+    var upBtn = voteEl.querySelector('[data-action="up"]');
+    var downBtn = voteEl.querySelector('[data-action="down"]');
+    /* Optimistic UI feedback */
+    if (action === 'up') {
+      upBtn.style.background = 'rgba(217,160,91,0.20)';
+      upBtn.style.borderColor = BRASS;
+      downBtn.style.background = 'transparent';
+      downBtn.style.borderColor = 'rgba(217,160,91,0.40)';
+      downBtn.style.color = BRASS;
+    } else {
+      downBtn.style.background = 'rgba(200,85,61,0.20)';
+      downBtn.style.borderColor = '#C8553D';
+      downBtn.style.color = '#C8553D';
+      upBtn.style.background = 'transparent';
+      upBtn.style.borderColor = 'rgba(217,160,91,0.40)';
+      upBtn.style.color = BRASS;
     }
 
-    function setMsg(text, color) {
-      if (msg) {
-        msg.style.color = color || '#FAFAF7';
-        msg.innerHTML = text;
-      }
-    }
-
-    function saveRating(rating) {
-      var db = global.FamilyHubGetDb && global.FamilyHubGetDb();
-      var hid = global.FamilyHubGetHouseholdId && global.FamilyHubGetHouseholdId();
-      if (!db || !hid) {
-        setMsg('Erreur : DB indisponible', '#C8553D');
-        return;
-      }
-      var FieldValue = global.firebase && global.firebase.firestore && global.firebase.firestore.FieldValue;
-      var serverTs = FieldValue ? FieldValue.serverTimestamp() : new Date();
-      var updates = {
-        notation: rating,
-        updatedAt: serverTs
-      };
-      if (rating >= 4) {
-        updates.statut = 'favorite';
-        updates.excluded = false;
-      }
-      paintStars(rating);
-      setMsg('Enregistrement…', '#D9A05B');
-      db.collection('households').doc(hid)
-        .collection('recettes').doc(recetteId)
-        .update(updates)
-        .then(function () {
-          if (rating >= 4) {
-            setMsg('Enregistré · ajouté aux favoris', '#7D9F76');
-          } else {
-            setMsg('Enregistré', '#7D9F76');
-          }
-        })
-        .catch(function (err) {
-          if (window.console && window.console.error) console.error('[notation]', err);
-          setMsg('Erreur : ' + (err && err.message ? err.message : 'inconnu'), '#C8553D');
-          paintStars(0);
-        });
-    }
-
-    for (var i = 0; i < stars.length; i++) {
-      (function (btn, rating) {
-        btn.addEventListener('click', function () { saveRating(rating); });
-        btn.addEventListener('mouseenter', function () { paintStars(rating); });
-        btn.addEventListener('mouseleave', function () { paintStars(0); });
-      })(stars[i], parseInt(stars[i].getAttribute('data-rating'), 10));
-    }
+    db.collection('households').doc(hid).collection('recettes').doc(recetteId)
+      .update(updates)
+      .catch(function (err) {
+        if (window.console && window.console.error) console.error('[vote]', err);
+        /* Rollback visuel sur erreur */
+        upBtn.style.background = 'transparent';
+        upBtn.style.borderColor = 'rgba(217,160,91,0.40)';
+        upBtn.style.color = BRASS;
+        downBtn.style.background = 'transparent';
+        downBtn.style.borderColor = 'rgba(217,160,91,0.40)';
+        downBtn.style.color = BRASS;
+      });
   }
 
   function collapse(_container) {
