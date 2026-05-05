@@ -46,6 +46,7 @@ const SUPPORTED_TYPES: TileType[] = [
   "livre-recettes",
   "recipe-today",
   "weekly-menu",
+  "shopping-list",
 ];
 
 const TYPE_LABELS: Partial<Record<TileType, string>> = {
@@ -57,6 +58,7 @@ const TYPE_LABELS: Partial<Record<TileType, string>> = {
   "livre-recettes": "Livre de recettes",
   "recipe-today": "Recette du jour",
   "weekly-menu": "Menu de la semaine",
+  "shopping-list": "Liste de courses",
 };
 
 const DEFAULT_REFRESH: Partial<Record<TileType, number>> = {
@@ -68,6 +70,7 @@ const DEFAULT_REFRESH: Partial<Record<TileType, number>> = {
   "livre-recettes": 0,
   "recipe-today": 1800,
   "weekly-menu": 3600,
+  "shopping-list": 0,
 };
 
 export default function TileForm({
@@ -259,6 +262,7 @@ function defaultNomFor(type: TileType, ville?: string): string {
   if (type === "livre-recettes") return "Livre de recettes";
   if (type === "recipe-today") return "Recette du jour";
   if (type === "weekly-menu") return "Menu de la semaine";
+  if (type === "shopping-list") return "Liste de courses";
   return "Tuile";
 }
 
