@@ -21,6 +21,11 @@ interface MealPlanGridProps {
   onRefuse?: (slotId: string) => void;
   /** Régen avec feedback utilisateur optionnel (ex: "trop redondant"). */
   onRegenerate?: (slotId: string, feedback?: string) => void;
+  /**
+   * Si défini : tap sur le titre d'une recette ouvre un modal in-place
+   * au lieu de naviguer vers /livre-recettes/:id.
+   */
+  onOpenRecette?: (recetteId: string, portions: number) => void;
 }
 
 export default function MealPlanGrid({
@@ -32,6 +37,7 @@ export default function MealPlanGrid({
   onAccept,
   onRefuse,
   onRegenerate,
+  onOpenRecette,
 }: MealPlanGridProps) {
   const slotByCoord = new Map(slots.map((s) => [`${s.jour}-${s.repas}`, s]));
 
@@ -61,6 +67,7 @@ export default function MealPlanGrid({
             onAccept={onAccept}
             onRefuse={onRefuse}
             onRegenerate={onRegenerate}
+            onOpenRecette={onOpenRecette}
           />
         ))}
       </div>
@@ -77,6 +84,7 @@ function RowFragment({
   onAccept,
   onRefuse,
   onRegenerate,
+  onOpenRecette,
 }: {
   repas: "petitDej" | "dej" | "diner";
   slotByCoord: Map<string, MealPlanSlotWithId>;
@@ -86,6 +94,7 @@ function RowFragment({
   onAccept?: (slotId: string) => void;
   onRefuse?: (slotId: string) => void;
   onRegenerate?: (slotId: string, feedback?: string) => void;
+  onOpenRecette?: (recetteId: string, portions: number) => void;
 }) {
   return (
     <>
@@ -112,6 +121,7 @@ function RowFragment({
             onAccept={onAccept ? () => onAccept(slotId) : undefined}
             onRefuse={onRefuse ? () => onRefuse(slotId) : undefined}
             onRegenerate={onRegenerate ? (fb) => onRegenerate(slotId, fb) : undefined}
+            onOpenRecette={onOpenRecette}
           />
         );
       })}

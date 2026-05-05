@@ -41,6 +41,7 @@ import {
   useToggleShoppingItem,
 } from "../lib/mutations";
 import MealPlanGrid from "../components/menu/MealPlanGrid";
+import RecetteDetailModal from "../components/menu/RecetteDetailModal";
 
 export default function Menu() {
   const { user } = useAuth();
@@ -53,6 +54,9 @@ export default function Menu() {
   const { data: batchSessions } = usePlanBatchSessions(householdId, activePlan?.id);
   const { data: shoppingList } = usePlanShoppingList(householdId, activePlan?.id);
   const deletePlan = useDeleteMealPlan();
+
+  /** Modal in-place pour voir la recette sans naviguer hors de /menu. */
+  const [openRecette, setOpenRecette] = useState<{ id: string; portions: number } | null>(null);
 
   const profilsById = useMemo(
     () => Object.fromEntries((profils ?? []).map((p) => [p.id, p])),
@@ -142,6 +146,7 @@ export default function Menu() {
             recettesById={recettesById ?? {}}
             profilsById={profilsById as never}
             dateDebut={getDateFromTimestamp(activePlan.dateDebut)}
+            onOpenRecette={(id, portions) => setOpenRecette({ id, portions })}
           />
 
           {batchSessions && batchSessions.length > 0 && (
@@ -150,6 +155,7 @@ export default function Menu() {
               planId={activePlan.id}
               sessions={batchSessions}
               recettesById={recettesById ?? {}}
+              onOpenRecette={(id, portions) => setOpenRecette({ id, portions })}
             />
           )}
 
@@ -162,6 +168,15 @@ export default function Menu() {
             />
           )}
         </>
+      )}
+
+      {openRecette && householdId && (
+        <RecetteDetailModal
+          householdId={householdId}
+          recetteId={openRecette.id}
+          initialPortions={openRecette.portions}
+          onClose={() => setOpenRecette(null)}
+        />
       )}
     </div>
   );
@@ -184,11 +199,13 @@ function BatchSessionsSection({
   planId,
   sessions,
   recettesById,
+  onOpenRecette,
 }: {
   householdId: string;
   planId: string;
   sessions: BatchSessionWithId[];
   recettesById: Record<string, RecetteWithId>;
+  onOpenRecette?: (recetteId: string, portions: number) => void;
 }) {
   const toggleDone = useToggleBatchSessionDone();
 
@@ -240,12 +257,22 @@ function BatchSessionsSection({
                   {recettes.map((r) => (
                     <li key={r.id} className="flex items-center gap-2">
                       <span className="text-brass">·</span>
-                      <Link
-                        to={`/livre-recettes/${r.id}`}
-                        className="hover:text-brass transition"
-                      >
-                        {r.nom}
-                      </Link>
+                      {onOpenRecette ? (
+                        <button
+                          type="button"
+                          onClick={() => onOpenRecette(r.id, r.portions)}
+                          className="hover:text-brass transition text-left"
+                        >
+                          {r.nom}
+                        </button>
+                      ) : (
+                        <Link
+                          to={`/livre-recettes/${r.id}`}
+                          className="hover:text-brass transition"
+                        >
+                          {r.nom}
+                        </Link>
+                      )}
                     </li>
                   ))}
                 </ul>

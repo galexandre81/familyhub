@@ -240,7 +240,115 @@
         'display:-webkit-flex; display:flex; ' +
         '-webkit-flex-direction:column; flex-direction:column; ' +
         'height:100%; width:100%; overflow:hidden;';
-      buildGridUI(container, d, function (slot) { showRecetteForSlot(slot); });
+      buildGridUI(container, d, function (slot) { showRecetteForSlot(slot); }, function () { showBatchView(); });
+    }
+
+    function showBatchView() {
+      var sessions = (d.batchSessions || []);
+      if (sessions.length === 0) {
+        container.innerHTML =
+          '<div style="padding:60px; text-align:center; opacity:0.7">' +
+            '<div style="font-size:18px; margin-bottom:14px">Aucune session de batch cooking cette semaine.</div>' +
+            '<button type="button" data-act="back" style="padding:10px 20px; background:#D9A05B; color:#1F1A14; border:none; border-radius:4px; font-weight:600;">← Retour à la semaine</button>' +
+          '</div>';
+        var bb0 = container.querySelector('[data-act="back"]');
+        if (bb0) bb0.addEventListener('click', renderGrid);
+        return;
+      }
+
+      container.innerHTML = '';
+      container.style.cssText =
+        'display:-webkit-flex; display:flex; ' +
+        '-webkit-flex-direction:column; flex-direction:column; ' +
+        'height:100%; width:100%; overflow:hidden;';
+
+      /* Bandeau retour */
+      var backBar = document.createElement('div');
+      backBar.style.cssText =
+        'padding:8px 20px; background:rgba(217,160,91,0.10); ' +
+        'border-bottom:1px solid rgba(217,160,91,0.25); ' +
+        '-webkit-flex-shrink:0; flex-shrink:0;';
+      backBar.innerHTML =
+        '<button type="button" style="background:transparent; color:#D9A05B; ' +
+        'border:none; font-size:14px; padding:4px 0; font-weight:600;">' +
+        '← Retour à la semaine</button>';
+      backBar.querySelector('button').addEventListener('click', renderGrid);
+      container.appendChild(backBar);
+
+      /* Header batch */
+      var bHeader = document.createElement('div');
+      bHeader.style.cssText =
+        'padding:16px 20px; border-bottom:1px solid rgba(217,160,91,0.15); ' +
+        '-webkit-flex-shrink:0; flex-shrink:0;';
+      bHeader.innerHTML =
+        '<div style="font-size:11px; letter-spacing:0.2em; text-transform:uppercase; opacity:0.7">Batch cooking de la semaine</div>' +
+        '<div style="font-family:Georgia,serif; font-size:24px; margin-top:2px">' +
+        sessions.length + ' session' + (sessions.length > 1 ? 's' : '') + ' à préparer</div>';
+      container.appendChild(bHeader);
+
+      /* Body : liste des sessions, chaque session liste ses recettes (cliquables) */
+      var body = document.createElement('div');
+      body.style.cssText =
+        'padding:20px; overflow-y:auto; -webkit-overflow-scrolling:touch; ' +
+        '-webkit-flex:1 1 auto; flex:1 1 auto; min-height:0;';
+      container.appendChild(body);
+
+      for (var s = 0; s < sessions.length; s++) {
+        (function (session) {
+          var dateLabel = session.date
+            ? new Date(session.date + 'T12:00:00Z').toLocaleDateString('fr-FR', {
+                weekday: 'long', day: 'numeric', month: 'long'
+              })
+            : '';
+          var card = document.createElement('div');
+          card.style.cssText =
+            'background:rgba(217,160,91,0.05); border:1px solid rgba(217,160,91,0.20); ' +
+            'border-radius:6px; padding:16px; margin-bottom:14px;' +
+            (session.done ? 'opacity:0.55;' : '');
+          var html =
+            '<div style="display:-webkit-flex; display:flex; -webkit-justify-content:space-between; justify-content:space-between; -webkit-align-items:flex-start; align-items:flex-start; gap:12px; -webkit-flex-wrap:wrap; flex-wrap:wrap; margin-bottom:10px">' +
+              '<div>' +
+                '<div style="font-family:Georgia,serif; font-size:18px; line-height:1.2">' +
+                  escapeHtml(dateLabel) + (session.done ? ' <span style="font-size:11px; color:#7D9F76; font-family:inherit; font-weight:600; letter-spacing:0.05em">· TERMINÉ</span>' : '') +
+                '</div>' +
+                '<div style="font-size:12px; opacity:0.7; margin-top:2px">' +
+                  '⏱ ' + session.dureeEstimeeMinutes + ' min · ' +
+                  session.recetteIds.length + ' recette' + (session.recetteIds.length > 1 ? 's' : '') +
+                '</div>' +
+              '</div>' +
+            '</div>';
+          if (session.notes) {
+            html +=
+              '<div style="background:rgba(217,160,91,0.08); border-left:3px solid #D9A05B; ' +
+              'padding:8px 12px; font-style:italic; font-size:13px; margin-bottom:12px;">' +
+              '« ' + escapeHtml(session.notes) + ' »</div>';
+          }
+          html += '<div style="font-size:11px; letter-spacing:0.15em; text-transform:uppercase; opacity:0.6; margin-bottom:6px">Recettes à préparer</div>';
+          html += '<div data-role="recettes" style="display:-webkit-flex; display:flex; -webkit-flex-direction:column; flex-direction:column; gap:6px"></div>';
+          card.innerHTML = html;
+          var recettesWrap = card.querySelector('[data-role="recettes"]');
+          for (var ri = 0; ri < session.recetteIds.length; ri++) {
+            (function (rid, nom) {
+              var btn = document.createElement('button');
+              btn.type = 'button';
+              btn.style.cssText =
+                'text-align:left; padding:10px 14px; background:transparent; ' +
+                'border:1px solid rgba(217,160,91,0.25); border-radius:4px; ' +
+                'color:#FAFAF7; font-size:14px; cursor:pointer;';
+              btn.innerHTML = '<span style="color:#D9A05B; margin-right:8px">▸</span>' + escapeHtml(nom || rid);
+              btn.addEventListener('click', function () {
+                showRecetteForSlot({
+                  recetteIds: [rid],
+                  repas: 'dej', /* fallback : on n'a pas de repas pour un batch */
+                  date: session.date
+                });
+              });
+              recettesWrap.appendChild(btn);
+            })(session.recetteIds[ri], session.recetteNoms[ri]);
+          }
+          body.appendChild(card);
+        })(sessions[s]);
+      }
     }
 
     function showRecetteForSlot(slot) {
@@ -326,10 +434,12 @@
    * Construit la grille semaine dans `container`. Le `onCellTap(slot)` est
    * appelé au tap d'une cellule contenant des recettes.
    */
-  function buildGridUI(container, d, onCellTap) {
+  function buildGridUI(container, d, onCellTap, onBatchTap) {
     /* Header */
     var header = document.createElement('div');
-    header.style.cssText = 'padding:16px 20px; border-bottom:1px solid rgba(217,160,91,0.15);';
+    header.style.cssText =
+      'padding:16px 20px; border-bottom:1px solid rgba(217,160,91,0.15); ' +
+      '-webkit-flex-shrink:0; flex-shrink:0;';
     var dateRange = '';
     if (d.dateDebutISO) {
       var debut = new Date(d.dateDebutISO + 'T12:00:00Z');
@@ -339,9 +449,45 @@
         ' au ' +
         fin.getDate() + ' ' + ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'][fin.getMonth()];
     }
+    var batchSessions = d.batchSessions || [];
+    var batchCount = batchSessions.length;
+    var batchTotalMin = 0;
+    for (var bi = 0; bi < batchSessions.length; bi++) {
+      batchTotalMin += +batchSessions[bi].dureeEstimeeMinutes || 0;
+    }
+    var batchBtnHtml = '';
+    if (batchCount > 0 && typeof onBatchTap === 'function') {
+      batchBtnHtml =
+        '<button type="button" data-act="batch" ' +
+          'style="margin-top:10px; padding:10px 14px; background:rgba(217,160,91,0.12); ' +
+          'border:1px solid rgba(217,160,91,0.40); color:#D9A05B; border-radius:4px; ' +
+          'font-size:13px; font-weight:600; cursor:pointer; ' +
+          'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; gap:8px">' +
+          /* SVG mini chef hat / casserole */
+          '<svg viewBox="0 0 50 50" width="18" height="18" aria-hidden="true">' +
+            '<path d="M10 22 L40 22 L38 38 Q38 42, 34 42 L16 42 Q12 42, 12 38 Z" ' +
+              'fill="rgba(217,160,91,0.18)" stroke="#D9A05B" stroke-width="2" stroke-linejoin="round"/>' +
+            '<path d="M14 22 Q14 12, 25 12 Q36 12, 36 22" fill="none" stroke="#D9A05B" stroke-width="2"/>' +
+            '<line x1="6" y1="42" x2="44" y2="42" stroke="#D9A05B" stroke-width="2" stroke-linecap="round"/>' +
+          '</svg>' +
+          '<span>Batch cooking de la semaine · ' + batchCount + ' session' + (batchCount > 1 ? 's' : '') +
+          ' · ' + batchTotalMin + ' min</span>' +
+          '<span style="margin-left:auto; opacity:0.7">→</span>' +
+        '</button>';
+    }
     header.innerHTML =
       '<div style="font-size:11px; letter-spacing:0.2em; text-transform:uppercase; opacity:0.7">Menu de la semaine</div>' +
-      '<div style="font-family:Georgia,serif; font-size:24px; margin-top:2px">' + escapeHtml(dateRange) + '</div>';
+      '<div style="font-family:Georgia,serif; font-size:24px; margin-top:2px">' + escapeHtml(dateRange) + '</div>' +
+      batchBtnHtml;
+    if (batchBtnHtml) {
+      var batchBtn = header.querySelector('[data-act="batch"]');
+      if (batchBtn) {
+        batchBtn.addEventListener('click', function (ev) {
+          ev.stopPropagation();
+          onBatchTap();
+        });
+      }
+    }
     container.appendChild(header);
 
     /* Grid 8 cols (1 label repas + 7 jours), 4 rows (1 header + 3 repas) */
@@ -349,7 +495,9 @@
     var todayIdx = todayJourIndex(d.semaine);
 
     var gridWrap = document.createElement('div');
-    gridWrap.style.cssText = 'padding:16px 20px; overflow:auto; -webkit-overflow-scrolling:touch;';
+    gridWrap.style.cssText =
+      'padding:16px 20px; overflow:auto; -webkit-overflow-scrolling:touch; ' +
+      '-webkit-flex:1 1 auto; flex:1 1 auto; min-height:0;';
     container.appendChild(gridWrap);
 
     var table = document.createElement('table');
