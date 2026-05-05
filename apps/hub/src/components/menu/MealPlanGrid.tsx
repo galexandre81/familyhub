@@ -25,7 +25,7 @@ interface MealPlanGridProps {
    * Si défini : tap sur le titre d'une recette ouvre un modal in-place
    * au lieu de naviguer vers /livre-recettes/:id.
    */
-  onOpenRecette?: (recetteId: string, portions: number) => void;
+  onOpenRecette?: (recetteId: string, portions: number, slotId?: string) => void;
 }
 
 export default function MealPlanGrid({
@@ -94,7 +94,7 @@ function RowFragment({
   onAccept?: (slotId: string) => void;
   onRefuse?: (slotId: string) => void;
   onRegenerate?: (slotId: string, feedback?: string) => void;
-  onOpenRecette?: (recetteId: string, portions: number) => void;
+  onOpenRecette?: (recetteId: string, portions: number, slotId?: string) => void;
 }) {
   return (
     <>

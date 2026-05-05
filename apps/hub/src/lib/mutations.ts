@@ -776,6 +776,87 @@ export function useToggleShoppingItem() {
   });
 }
 
+/* --- Notation post-repas (Phase 3.7) --- */
+
+/**
+ * Note un repas : enregistre la note sur le slot ET sur la recette.
+ * Si rating >= 4, marque la recette comme `favorite` automatiquement
+ * (cf. brief §9.1) — elle apparaîtra alors dans le livre des favoris.
+ *
+ * Stratégie : write batch atomique sur 2 docs (slot + recette).
+ * Si pas de planId/slotId, on note quand même la recette seule (cas
+ * « j'ai cuisiné cette recette ailleurs », hors plan).
+ */
+export function useRateRecette() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      householdId,
+      recetteId,
+      rating,
+      planId,
+      slotId,
+      ratedBy,
+      comment,
+    }: {
+      householdId: string;
+      recetteId: string;
+      rating: 1 | 2 | 3 | 4 | 5;
+      planId?: string;
+      slotId?: string;
+      ratedBy?: string;
+      comment?: string;
+    }) => {
+      const recetteRef = doc(db, `households/${householdId}/recettes/${recetteId}`);
+      const recetteUpdates: Record<string, unknown> = {
+        notation: rating,
+        updatedAt: serverTimestamp(),
+      };
+      if (rating >= 4) {
+        recetteUpdates.statut = "favorite";
+        // Si la recette était excluded, on la réintroduit côté livre
+        recetteUpdates.excluded = false;
+      }
+      if (comment && comment.trim()) {
+        recetteUpdates.notesUtilisateur = comment.trim();
+      }
+
+      if (planId && slotId) {
+        const slotRef = doc(
+          db,
+          `households/${householdId}/mealPlans/${planId}/slots/${slotId}`,
+        );
+        const slotUpdates: Record<string, unknown> = {
+          rating,
+          ratedAt: serverTimestamp(),
+        };
+        if (ratedBy) slotUpdates.ratedBy = ratedBy;
+        // 2 writes en parallèle (Promise.all). Pas un transaction Firestore mais
+        // les 2 docs sont indépendants côté business logic.
+        await Promise.all([
+          updateDoc(slotRef, slotUpdates),
+          updateDoc(recetteRef, recetteUpdates),
+        ]);
+      } else {
+        await updateDoc(recetteRef, recetteUpdates);
+      }
+    },
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({
+        queryKey: ["recette", vars.householdId, vars.recetteId],
+      });
+      void qc.invalidateQueries({
+        queryKey: ["recettes", vars.householdId],
+      });
+      if (vars.planId) {
+        void qc.invalidateQueries({
+          queryKey: ["planSlots", vars.householdId, vars.planId],
+        });
+      }
+    },
+  });
+}
+
 /**
  * Toggle "session de batch terminée".
  */
