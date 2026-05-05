@@ -23,8 +23,10 @@ import {
   useDeleteMealPlan,
 } from "../lib/mutations";
 import PresenceGrid, {
+  buildDefaultExpress,
   buildDefaultPresence,
   presenceToApi,
+  type ExpressState,
   type PresenceState,
 } from "../components/menu/PresenceGrid";
 import { buildPlanMd, PLAN_PROMPT_TEMPLATE, type PresenceMap } from "../lib/planMd";
@@ -45,9 +47,13 @@ export default function MenuWizard() {
 
   const [dateDebut, setDateDebut] = useState<string>(nextMondayISO());
   const [presence, setPresence] = useState<PresenceState>({});
+  const [express, setExpress] = useState<ExpressState>(buildDefaultExpress());
   const [batchOk, setBatchOk] = useState(false);
   const [style, setStyle] = useState("");
   const [frigo, setFrigo] = useState("");
+  /** Jour de la semaine où on fait les courses (0=lundi…6=dimanche).
+   *  Empêche Claude de placer le batch cooking ce jour-là. -1 = pas défini. */
+  const [jourCoursesIdx, setJourCoursesIdx] = useState<number>(-1);
 
   const profilIds = useMemo(() => (profils ?? []).map((p) => p.id), [profils]);
 
@@ -130,6 +136,8 @@ export default function MenuWizard() {
           profils={profils}
           presence={presence}
           setPresence={setPresence}
+          express={express}
+          setExpress={setExpress}
           onPrev={() => setStep("date")}
           onNext={() => setStep("contexte")}
         />
@@ -143,6 +151,8 @@ export default function MenuWizard() {
           setStyle={setStyle}
           frigo={frigo}
           setFrigo={setFrigo}
+          jourCoursesIdx={jourCoursesIdx}
+          setJourCoursesIdx={setJourCoursesIdx}
           error={error}
           onPrev={() => setStep("presence")}
           onNext={handleStartReview}
@@ -155,6 +165,8 @@ export default function MenuWizard() {
           householdId={householdId}
           planId={draftPlan.id}
           profils={profils}
+          express={express}
+          jourCoursesIdx={jourCoursesIdx}
           onAbandon={handleAbandonDraft}
         />
       )}
@@ -239,12 +251,16 @@ function StepPresence({
   profils,
   presence,
   setPresence,
+  express,
+  setExpress,
   onPrev,
   onNext,
 }: {
   profils: Array<{ id: string; nom: string; initiale: string; couleur: string; emoji?: string }>;
   presence: PresenceState;
   setPresence: (p: PresenceState) => void;
+  express: ExpressState;
+  setExpress: (e: ExpressState) => void;
   onPrev: () => void;
   onNext: () => void;
 }) {
@@ -254,13 +270,18 @@ function StepPresence({
         <h2 className="text-xl mb-1">Qui mange à quels repas ?</h2>
         <p className="text-cream-mute text-sm">
           Par défaut tout le monde est présent à tous les repas. Décoche les exceptions
-          (école, dîner chez des amis, déjeuner au bureau…).
+          (école, dîner chez des amis, déjeuner au bureau…). Le toggle{" "}
+          <span className="text-brass">⚡ express</span> force Claude à
+          choisir une recette ≤ 15 min pour ce slot — utile les jours pressés.
+          Tous les petits-déjs sont en express par défaut.
         </p>
       </div>
       <PresenceGrid
         profils={profils as never}
         presence={presence}
         onChange={setPresence}
+        express={express}
+        onChangeExpress={setExpress}
       />
       <div className="flex justify-between">
         <button onClick={onPrev} className="btn-secondary flex items-center gap-2">
@@ -281,6 +302,8 @@ function StepContexte({
   setStyle,
   frigo,
   setFrigo,
+  jourCoursesIdx,
+  setJourCoursesIdx,
   error,
   onPrev,
   onNext,
@@ -292,11 +315,14 @@ function StepContexte({
   setStyle: (v: string) => void;
   frigo: string;
   setFrigo: (v: string) => void;
+  jourCoursesIdx: number;
+  setJourCoursesIdx: (i: number) => void;
   error: string | null;
   onPrev: () => void;
   onNext: () => void;
   loading: boolean;
 }) {
+  const JOURS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
   return (
     <div className="tile-card space-y-5">
       <div>
@@ -317,6 +343,29 @@ function StepContexte({
           Batch cooking OK le dimanche (préparer en avance pour la semaine)
         </span>
       </label>
+
+      <div>
+        <label className="block text-sm text-cream-mute mb-1">
+          Jour des courses (optionnel)
+        </label>
+        <select
+          value={jourCoursesIdx}
+          onChange={(e) => setJourCoursesIdx(parseInt(e.target.value, 10))}
+          className="input"
+        >
+          <option value={-1}>— Pas défini</option>
+          {JOURS.map((j, i) => (
+            <option key={i} value={i}>
+              {j}
+            </option>
+          ))}
+        </select>
+        <p className="text-xs text-cream-mute mt-1">
+          Si défini : Claude évite de placer la session de batch cooking ce
+          jour-là (faire les courses + cuisiner en batch sur la même journée
+          c'est trop).
+        </p>
+      </div>
 
       <div>
         <label className="block text-sm text-cream-mute mb-1">Style ou envie</label>
@@ -372,11 +421,15 @@ function StepReview({
   householdId,
   planId,
   profils,
+  express,
+  jourCoursesIdx,
   onAbandon,
 }: {
   householdId: string;
   planId: string;
   profils: Array<Profil & { id: string }>;
+  express: ExpressState;
+  jourCoursesIdx: number;
   onAbandon: () => void;
 }) {
   const { user } = useAuth();
@@ -418,8 +471,10 @@ function StepReview({
       presence,
       contexte: draftPlan.contexte,
       historiqueRecettes: [], // TODO 3.2+ : query recettes used in last 3 plans
+      express,
+      jourCoursesIdx,
     });
-  }, [draftPlan, slots, household, dateDebutISO, profils, presence]);
+  }, [draftPlan, slots, household, dateDebutISO, profils, presence, express, jourCoursesIdx]);
 
   async function handleCopyPrompt() {
     try {
