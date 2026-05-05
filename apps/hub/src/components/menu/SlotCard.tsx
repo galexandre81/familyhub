@@ -18,6 +18,11 @@ interface SlotCardProps {
   busy?: boolean;
   /** Affiche une barre de statut compact (utile pour vue lecture seule). */
   compact?: boolean;
+  /**
+   * Si défini : tap sur le titre d'une recette ouvre un modal in-place
+   * au lieu de naviguer vers /livre-recettes/:id.
+   */
+  onOpenRecette?: (recetteId: string, portions: number) => void;
 }
 
 export default function SlotCard({
@@ -29,6 +34,7 @@ export default function SlotCard({
   onRegenerate,
   busy,
   compact,
+  onOpenRecette,
 }: SlotCardProps) {
   const isEmpty = slot.profilsPresents.length === 0;
   const recettes = slot.recetteIds.map((id) => recettesById[id]).filter(Boolean);
@@ -79,23 +85,38 @@ export default function SlotCard({
           </p>
         )}
         {recettes.map((r) => {
-          // Pré-remplit les portions selon le nombre de mangeurs prévus pour ce slot
           const targetPortions = Math.max(slot.profilsPresents.length || r.portions, 1);
+          const titleEl = (
+            <>
+              {r.nom}
+              {!compact && (
+                <span className="text-cream-mute text-xs">
+                  {" "}
+                  · {r.tempsPrepMinutes + r.tempsCuissonMinutes} min
+                </span>
+              )}
+            </>
+          );
           return (
             <div key={r.id} className="leading-snug flex items-start justify-between gap-2 group">
-              <Link
-                to={`/livre-recettes/${r.id}?portions=${targetPortions}`}
-                className="flex-1 hover:text-brass transition"
-                title="Voir la recette détaillée"
-              >
-                {r.nom}
-                {!compact && (
-                  <span className="text-cream-mute text-xs">
-                    {" "}
-                    · {r.tempsPrepMinutes + r.tempsCuissonMinutes} min
-                  </span>
-                )}
-              </Link>
+              {onOpenRecette ? (
+                <button
+                  type="button"
+                  onClick={() => onOpenRecette(r.id, targetPortions)}
+                  className="flex-1 text-left hover:text-brass transition"
+                  title="Voir la recette détaillée"
+                >
+                  {titleEl}
+                </button>
+              ) : (
+                <Link
+                  to={`/livre-recettes/${r.id}?portions=${targetPortions}`}
+                  className="flex-1 hover:text-brass transition"
+                  title="Voir la recette détaillée"
+                >
+                  {titleEl}
+                </Link>
+              )}
               <Link
                 to={`/livre-recettes/${r.id}/cuisine?portions=${targetPortions}`}
                 className="text-cream-mute hover:text-brass transition shrink-0"

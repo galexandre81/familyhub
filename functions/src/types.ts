@@ -221,11 +221,22 @@ export interface WeeklyMenuSlotSnapshot {
   isPast: boolean;
 }
 
+export interface WeeklyMenuBatchSnapshot {
+  id: string;
+  date: string; // ISO YYYY-MM-DD
+  dureeEstimeeMinutes: number;
+  recetteIds: string[];
+  recetteNoms: string[];
+  notes?: string;
+  done: boolean;
+}
+
 export interface WeeklyMenuData {
   hasActivePlan: boolean;
   planId?: string;
   dateDebutISO?: string;
   dateFinISO?: string;
   semaine: WeeklyMenuSlotSnapshot[];
+  batchSessions: WeeklyMenuBatchSnapshot[];
   generatedAtISO: string;
 }

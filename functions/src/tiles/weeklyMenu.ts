@@ -12,7 +12,12 @@ import { logger } from "firebase-functions";
 import { db } from "../lib/admin";
 import { assertHouseholdMember } from "../lib/household";
 import { rebuildSnapshotForTile } from "../snapshot/builder";
-import type { Repas, WeeklyMenuData, WeeklyMenuSlotSnapshot } from "../types";
+import type {
+  Repas,
+  WeeklyMenuBatchSnapshot,
+  WeeklyMenuData,
+  WeeklyMenuSlotSnapshot,
+} from "../types";
 
 const REPAS_ORDER: Repas[] = ["petitDej", "dej", "diner"];
 
@@ -60,6 +65,7 @@ async function buildWeeklyMenuData(householdId: string): Promise<WeeklyMenuData>
     return {
       hasActivePlan: false,
       semaine: [],
+      batchSessions: [],
       generatedAtISO,
     };
   }
@@ -70,13 +76,18 @@ async function buildWeeklyMenuData(householdId: string): Promise<WeeklyMenuData>
   const dateDebutISO = dateISOFromTimestamp(plan.dateDebut) ?? todayISO;
   const dateFinISO = dateISOFromTimestamp(plan.dateFin) ?? addDaysISO(dateDebutISO, 6);
 
-  const slotsSnap = await db
-    .collection(`households/${householdId}/mealPlans/${planId}/slots`)
-    .get();
+  const [slotsSnap, batchesSnap] = await Promise.all([
+    db.collection(`households/${householdId}/mealPlans/${planId}/slots`).get(),
+    db.collection(`households/${householdId}/mealPlans/${planId}/batchSessions`).get(),
+  ]);
 
   // Collect all recetteIds we need to resolve to names
   const recetteIds = new Set<string>();
   slotsSnap.docs.forEach((d) => {
+    const ids = (d.data().recetteIds as string[]) || [];
+    ids.forEach((rid) => recetteIds.add(rid));
+  });
+  batchesSnap.docs.forEach((d) => {
     const ids = (d.data().recetteIds as string[]) || [];
     ids.forEach((rid) => recetteIds.add(rid));
   });
@@ -133,12 +144,32 @@ async function buildWeeklyMenuData(householdId: string): Promise<WeeklyMenuData>
     }
   }
 
+  // Batch sessions
+  const batchSessions: WeeklyMenuBatchSnapshot[] = [];
+  for (const d of batchesSnap.docs) {
+    const data = d.data() as Record<string, unknown>;
+    const ids = (data.recetteIds as string[]) || [];
+    const noms = ids.map((rid) => nomById.get(rid)).filter((n): n is string => !!n);
+    batchSessions.push({
+      id: d.id,
+      date: typeof data.date === "string" ? data.date : "",
+      dureeEstimeeMinutes: Number(data.dureeEstimeeMinutes) || 0,
+      recetteIds: ids,
+      recetteNoms: noms,
+      ...(data.notes ? { notes: String(data.notes) } : {}),
+      done: !!data.done,
+    });
+  }
+  // Tri chronologique
+  batchSessions.sort((a, b) => a.date.localeCompare(b.date));
+
   return {
     hasActivePlan: true,
     planId,
     dateDebutISO,
     dateFinISO,
     semaine,
+    batchSessions,
     generatedAtISO,
   };
 }
