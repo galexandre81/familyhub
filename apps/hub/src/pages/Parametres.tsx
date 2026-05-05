@@ -4,6 +4,8 @@ import { ChevronRight, Pencil, Users } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useHouseholds } from "../lib/queries";
 import HouseholdForm from "../components/HouseholdForm";
+import ThemeSelector from "../components/ThemeSelector";
+import { DEFAULT_THEME_ID } from "../lib/themes";
 
 export default function Parametres() {
   const { user } = useAuth();
@@ -80,6 +82,15 @@ export default function Parametres() {
           />
         )}
       </section>
+
+      {households && households.length > 0 && households[0] && (
+        <ThemeSelector
+          uid={user.uid}
+          householdId={households[0].id}
+          parametres={households[0].parametres}
+          currentThemeId={households[0].parametres?.themeId ?? DEFAULT_THEME_ID}
+        />
+      )}
 
       {households && households.length > 0 && (
         <section className="space-y-3">

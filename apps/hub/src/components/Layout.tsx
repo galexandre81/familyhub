@@ -1,6 +1,9 @@
+import { useEffect } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { BookOpen, ChefHat, Home, MonitorSmartphone, LayoutGrid, Settings, LogOut } from "lucide-react";
 import { useAuth } from "../lib/auth";
+import { useActiveHouseholdId, useHouseholds } from "../lib/queries";
+import { applyTheme, DEFAULT_THEME_ID } from "../lib/themes";
 import clsx from "clsx";
 
 const navItems = [
@@ -14,6 +17,16 @@ const navItems = [
 
 export default function Layout() {
   const { user, signOut } = useAuth();
+  const householdId = useActiveHouseholdId(user?.uid);
+  const { data: households } = useHouseholds(user?.uid);
+  const household = households?.find((h) => h.id === householdId);
+  const themeId = household?.parametres?.themeId ?? DEFAULT_THEME_ID;
+
+  /* Applique le thème UI (CSS vars) à chaque changement. */
+  useEffect(() => {
+    applyTheme(themeId);
+  }, [themeId]);
+
   const today = new Date().toLocaleDateString("fr-FR", {
     weekday: "long",
     day: "numeric",

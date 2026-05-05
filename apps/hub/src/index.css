@@ -2,6 +2,78 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ----- Thèmes UI -----
+   Les 7 couleurs principales sont stockées en CSS vars RGB triplets
+   pour permettre les modifiers d'alpha Tailwind (ex: bg-brass/15).
+   Le thème par défaut "Caractère" reproduit l'ancienne palette ebony+laiton.
+   Les classes .theme-X sur <html> overrident pour switch de thème. */
+:root {
+  --c-ebony: 15 13 10;        /* fond global */
+  --c-ebony-panel: 21 17 13;  /* header/footer */
+  --c-ebony-card: 28 24 21;   /* cartes */
+  --c-ebony-ridge: 42 31 21;  /* hover */
+  --c-brass: 217 160 91;      /* accent */
+  --c-cream: 242 232 213;     /* texte */
+  --c-cream-mute: 156 138 110;/* texte secondaire */
+  --c-wood-dark: 58 46 34;    /* borders */
+}
+
+html.theme-foret {
+  --c-ebony: 14 26 22;
+  --c-ebony-panel: 18 32 28;
+  --c-ebony-card: 22 38 33;
+  --c-ebony-ridge: 32 50 42;
+  --c-brass: 212 175 95;       /* or chaud */
+  --c-cream: 240 234 215;
+  --c-cream-mute: 138 156 132;
+  --c-wood-dark: 38 56 48;
+}
+
+html.theme-marine {
+  --c-ebony: 11 18 32;
+  --c-ebony-panel: 14 23 40;
+  --c-ebony-card: 19 30 50;
+  --c-ebony-ridge: 28 42 65;
+  --c-brass: 224 145 96;       /* cuivre */
+  --c-cream: 234 224 199;      /* sable */
+  --c-cream-mute: 142 158 178;
+  --c-wood-dark: 38 58 80;
+}
+
+html.theme-bordeaux {
+  --c-ebony: 26 12 14;
+  --c-ebony-panel: 35 16 18;
+  --c-ebony-card: 44 22 26;
+  --c-ebony-ridge: 60 32 34;
+  --c-brass: 214 160 124;      /* or rose */
+  --c-cream: 244 232 219;
+  --c-cream-mute: 178 138 130;
+  --c-wood-dark: 70 36 38;
+}
+
+html.theme-glacier {
+  --c-ebony: 16 22 32;
+  --c-ebony-panel: 22 30 42;
+  --c-ebony-card: 30 40 54;
+  --c-ebony-ridge: 44 56 72;
+  --c-brass: 174 188 210;      /* argent froid */
+  --c-cream: 232 240 248;
+  --c-cream-mute: 132 148 170;
+  --c-wood-dark: 50 64 82;
+}
+
+html.theme-lin {
+  /* Theme clair : fond ivoire, accent caramel, texte brun */
+  --c-ebony: 248 240 222;       /* fond ivoire */
+  --c-ebony-panel: 252 246 232;
+  --c-ebony-card: 255 250 240;
+  --c-ebony-ridge: 232 220 198;
+  --c-brass: 178 110 56;        /* caramel */
+  --c-cream: 60 42 26;          /* texte brun */
+  --c-cream-mute: 130 110 86;
+  --c-wood-dark: 218 200 174;
+}
+
 @layer base {
   body {
     @apply bg-ebony text-cream font-sans;

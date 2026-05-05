@@ -471,6 +471,13 @@ function ShoppingListSection({
         canShare={typeof navigator !== "undefined" && typeof navigator.share === "function"}
       />
 
+      {/* Hint workflow Keep — visible toujours, discret */}
+      <p className="text-[11px] text-cream-mute italic">
+        Astuce : envoie vers <strong>Keep</strong>, puis long-press la note dans
+        Keep → <em>Afficher les cases à cocher</em>. Tu coches en faisant les
+        courses, hors-ligne. Le cochage côté Family Hub est facultatif.
+      </p>
+
       {addOpen && (
         <AddItemForm
           onAdd={(item) => {
