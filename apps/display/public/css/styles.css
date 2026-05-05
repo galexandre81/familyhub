@@ -1445,14 +1445,14 @@ body {
 .tile-livre-icon {
   /* Conteneur du SVG livre laiton — taille fixée par le SVG */
   line-height: 0;
-  margin-bottom: 14px;
+  margin-bottom: 8px;
   -webkit-flex-shrink: 0;
   flex-shrink: 0;
 }
 
 .tile-livre-count {
   font-family: Georgia, serif;
-  font-size: 52px;
+  font-size: 36px;
   font-weight: 400;
   color: #F2E8D5;
   line-height: 1;
@@ -1464,12 +1464,16 @@ body {
 .tile-livre-label {
   font-family: Georgia, serif;
   font-style: italic;
-  font-size: 16px;
+  font-size: 14px;
   color: #C49B6B;
-  margin-top: 4px;
+  margin-top: 2px;
 }
 
+/* CTA "Toucher pour explorer" retiré : il créait un overlay sur le compteur
+   sur iPad mini où la cellule est étroite. La tuile reste cliquable, le user
+   sait par convention qu'il peut tap. */
 .tile-livre-cta {
+  display: none;
   font-size: 12px;
   color: #9C8A6E;
   text-transform: uppercase;

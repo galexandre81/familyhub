@@ -537,10 +537,10 @@
 
       var tdLabel = document.createElement('td');
       tdLabel.style.cssText =
-        'padding:6px 8px; font-size:11px; letter-spacing:0.05em; ' +
-        'text-transform:uppercase; opacity:0.7; white-space:nowrap; ' +
-        'vertical-align:top; border-right:1px solid rgba(217,160,91,0.1);';
-      tdLabel.innerHTML = repasIconSvg(repas, 16) + '<span style="margin-left:6px">' + repasShort(repas) + '</span>';
+        'padding:8px; vertical-align:middle; text-align:center; ' +
+        'border-right:1px solid rgba(217,160,91,0.1);';
+      tdLabel.title = repasShort(repas);
+      tdLabel.innerHTML = repasIconSvg(repas, 28);
       tr.appendChild(tdLabel);
 
       for (var jj = 0; jj < 7; jj++) {
