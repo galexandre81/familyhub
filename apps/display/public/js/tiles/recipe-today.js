@@ -281,6 +281,12 @@
   function expand(container, data, _config, _tileId) {
     container.className = 'tile-overlay-content tile-recipe-today-expand';
     container.innerHTML = '';
+    /* Force flex column layout : sinon le styles.css de base laisse les
+       enfants en flux normal et le body se superpose au header sur iOS 9. */
+    container.style.cssText =
+      'display:-webkit-flex; display:flex; ' +
+      '-webkit-flex-direction:column; flex-direction:column; ' +
+      'height:100%; width:100%; overflow:hidden;';
 
     var d = data || {};
     var recettes = (d.recettes || []);
@@ -294,13 +300,16 @@
 
     var state = {
       idx: 0,
-      portionsTarget: recettes[0].portions || 4
+      portionsTarget: recettes[0].portions || 4,
+      stepIdx: -1   /* -1 = aperçu complet ; 0..N = mode cuisine étape par étape */
     };
 
     /* ---- Header : title + tabs si plusieurs recettes + portion picker ---- */
 
     var header = document.createElement('div');
-    header.style.cssText = 'padding:16px 20px; border-bottom:1px solid rgba(217,160,91,0.15);';
+    header.style.cssText =
+      'padding:16px 20px; border-bottom:1px solid rgba(217,160,91,0.15); ' +
+      '-webkit-flex-shrink:0; flex-shrink:0;';
     container.appendChild(header);
 
     var headerTop = document.createElement('div');
@@ -406,7 +415,9 @@
     /* ---- Body : ingredients + etapes ---- */
 
     var body = document.createElement('div');
-    body.style.cssText = 'padding:20px; overflow-y:auto; -webkit-overflow-scrolling:touch;';
+    body.style.cssText =
+      'padding:20px; overflow-y:auto; -webkit-overflow-scrolling:touch; ' +
+      '-webkit-flex:1 1 auto; flex:1 1 auto; min-height:0;';
     body.id = 'rt-body';
     container.appendChild(body);
 

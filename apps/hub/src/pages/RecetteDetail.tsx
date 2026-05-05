@@ -1,5 +1,5 @@
 import { useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   ChefHat,
@@ -54,7 +54,14 @@ export default function RecetteDetail() {
   const downvote = useDownvoteRecette();
   const del = useDeleteRecette();
 
-  const [portions, setPortions] = useState<number | null>(null);
+  const [searchParams] = useSearchParams();
+  const portionsFromUrl = (() => {
+    const raw = searchParams.get("portions");
+    if (!raw) return null;
+    const n = parseInt(raw, 10);
+    return Number.isFinite(n) && n > 0 && n <= 30 ? n : null;
+  })();
+  const [portions, setPortions] = useState<number | null>(portionsFromUrl);
 
   const targetPortions = portions ?? recette?.portions ?? 4;
   const ratio = recette ? targetPortions / recette.portions : 1;
