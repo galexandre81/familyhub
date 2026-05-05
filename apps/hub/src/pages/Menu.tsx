@@ -1,17 +1,22 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  Check,
   CheckCircle2,
   ChefHat,
   ChevronDown,
   ChevronRight,
   Circle,
   Clock,
+  Copy,
   FileEdit,
   Filter,
+  Loader2,
   Plus,
+  Send,
   ShoppingCart,
   Trash2,
+  X,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import {
@@ -28,7 +33,10 @@ import {
   type ShoppingListWithId,
 } from "../lib/queries";
 import {
+  useAddShoppingItem,
   useDeleteMealPlan,
+  useMarkShoppingShared,
+  useRemoveShoppingItem,
   useToggleBatchSessionDone,
   useToggleShoppingItem,
 } from "../lib/mutations";
@@ -309,7 +317,12 @@ function ShoppingListSection({
   uid: string;
 }) {
   const toggle = useToggleShoppingItem();
+  const remove = useRemoveShoppingItem();
+  const add = useAddShoppingItem();
+  const markShared = useMarkShoppingShared();
   const [hideChecked, setHideChecked] = useState(false);
+  const [addOpen, setAddOpen] = useState(false);
+  const [shareState, setShareState] = useState<"idle" | "sharing" | "copied">("idle");
 
   const visible = useMemo(
     () => (hideChecked ? list.items.filter((it) => !it.checked) : list.items),
@@ -323,7 +336,6 @@ function ShoppingListSection({
       if (!map[key]) map[key] = [];
       map[key].push(it);
     }
-    // Sort by predefined order
     const ordered: Array<[string, typeof list.items]> = [];
     for (const k of RAYON_ORDER) {
       if (map[k]) ordered.push([k, map[k]]);
@@ -335,6 +347,57 @@ function ShoppingListSection({
   }, [visible]);
 
   const checkedCount = list.items.filter((i) => i.checked).length;
+  const sharedAtDate = tsToDate(list.lastSharedAt);
+  const sharedLabel = sharedAtDate ? formatRelativeTime(sharedAtDate) : null;
+
+  async function handleShare() {
+    setShareState("sharing");
+    const text = buildShareText(list);
+    const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
+    let usedTo = "partage natif";
+    let success = false;
+    if (canShare) {
+      try {
+        await navigator.share({ title: "Liste de courses Family Hub", text });
+        success = true;
+      } catch (err) {
+        if (err instanceof Error && err.name === "AbortError") {
+          // User cancelled, no error
+          setShareState("idle");
+          return;
+        }
+        // Fall through to clipboard fallback
+      }
+    }
+    if (!success) {
+      try {
+        await navigator.clipboard.writeText(text);
+        usedTo = "presse-papier";
+        success = true;
+        setShareState("copied");
+        setTimeout(() => setShareState("idle"), 2500);
+      } catch {
+        setShareState("idle");
+        alert(
+          "Impossible de partager. Copie manuellement la liste ci-dessous :\n\n" + text,
+        );
+        return;
+      }
+    }
+    if (success) {
+      try {
+        await markShared.mutateAsync({
+          householdId,
+          listId: list.id,
+          planId,
+          sharedTo: usedTo,
+        });
+      } catch {
+        /* non bloquant : le share a marché côté user, juste pas tracké */
+      }
+      if (canShare) setShareState("idle");
+    }
+  }
 
   return (
     <section className="space-y-3">
@@ -346,14 +409,47 @@ function ShoppingListSection({
             ({checkedCount} / {list.items.length})
           </span>
         </h2>
-        <button
-          onClick={() => setHideChecked((v) => !v)}
-          className="text-xs text-cream-mute hover:text-cream flex items-center gap-1"
-        >
-          <Filter size={12} />
-          {hideChecked ? "Afficher cochés" : "Masquer cochés"}
-        </button>
+        <div className="flex items-center gap-2 flex-wrap">
+          <button
+            onClick={() => setAddOpen((v) => !v)}
+            className="text-xs text-cream-mute hover:text-cream flex items-center gap-1"
+          >
+            {addOpen ? <X size={12} /> : <Plus size={12} />}
+            {addOpen ? "Annuler" : "Ajouter"}
+          </button>
+          <button
+            onClick={() => setHideChecked((v) => !v)}
+            className="text-xs text-cream-mute hover:text-cream flex items-center gap-1"
+          >
+            <Filter size={12} />
+            {hideChecked ? "Afficher cochés" : "Masquer cochés"}
+          </button>
+        </div>
       </div>
+
+      {/* Bouton Envoyer aux courses — proéminent (sticky en mobile via tile-card) */}
+      <ShareButton
+        sharedLabel={sharedLabel}
+        sharingNow={shareState === "sharing"}
+        copied={shareState === "copied"}
+        onShare={handleShare}
+        canShare={typeof navigator !== "undefined" && typeof navigator.share === "function"}
+      />
+
+      {addOpen && (
+        <AddItemForm
+          onAdd={(item) => {
+            add.mutate({
+              householdId,
+              listId: list.id,
+              planId,
+              currentItems: list.items,
+              item,
+            });
+            setAddOpen(false);
+          }}
+        />
+      )}
 
       {grouped.length === 0 && (
         <p className="text-cream-mute italic text-sm">Tout est coché ✨</p>
@@ -375,6 +471,15 @@ function ShoppingListSection({
                 uid,
               })
             }
+            onRemove={(itemId) =>
+              remove.mutate({
+                householdId,
+                listId: list.id,
+                planId,
+                itemId,
+                currentItems: list.items,
+              })
+            }
           />
         ))}
       </div>
@@ -382,14 +487,142 @@ function ShoppingListSection({
   );
 }
 
+function ShareButton({
+  sharedLabel,
+  sharingNow,
+  copied,
+  onShare,
+  canShare,
+}: {
+  sharedLabel: string | null;
+  sharingNow: boolean;
+  copied: boolean;
+  onShare: () => void;
+  canShare: boolean;
+}) {
+  const label = copied
+    ? "Liste copiée ! Colle-la dans Keep / Notes / Messages."
+    : sharedLabel
+      ? `Envoyée ${sharedLabel} · toucher pour renvoyer`
+      : canShare
+        ? "Envoyer aux courses"
+        : "Copier la liste";
+  const Icon = copied ? Check : sharingNow ? Loader2 : canShare ? Send : Copy;
+  return (
+    <button
+      onClick={onShare}
+      disabled={sharingNow}
+      className={`tile-card !p-3 w-full flex items-center justify-center gap-3 transition ${
+        sharedLabel
+          ? "text-cream-mute hover:text-cream"
+          : "text-brass hover:bg-bordure/30"
+      } ${copied ? "ring-1 ring-sage" : ""}`}
+    >
+      <Icon size={18} className={sharingNow ? "animate-spin" : ""} />
+      <span className="font-medium">{label}</span>
+    </button>
+  );
+}
+
+function AddItemForm({
+  onAdd,
+}: {
+  onAdd: (item: {
+    nom: string;
+    quantite: number;
+    unite: string;
+    rayon: ShoppingListWithId["items"][number]["rayon"];
+  }) => void;
+}) {
+  const [nom, setNom] = useState("");
+  const [quantite, setQuantite] = useState("1");
+  const [unite, setUnite] = useState("u");
+  const [rayon, setRayon] = useState<string>("autres");
+
+  function submit(e: React.FormEvent) {
+    e.preventDefault();
+    if (!nom.trim()) return;
+    const q = parseFloat(quantite.replace(",", "."));
+    onAdd({
+      nom: nom.trim(),
+      quantite: Number.isFinite(q) && q > 0 ? q : 1,
+      unite: unite.trim() || "u",
+      rayon: rayon as ShoppingListWithId["items"][number]["rayon"],
+    });
+  }
+
+  return (
+    <form onSubmit={submit} className="tile-card flex flex-wrap items-end gap-2">
+      <div className="flex-1 min-w-[140px]">
+        <label className="block text-[10px] uppercase tracking-widest text-cream-mute mb-1">
+          Nom
+        </label>
+        <input
+          type="text"
+          value={nom}
+          onChange={(e) => setNom(e.target.value)}
+          autoFocus
+          placeholder="ex: yaourts nature"
+          className="input !py-2"
+        />
+      </div>
+      <div className="w-20">
+        <label className="block text-[10px] uppercase tracking-widest text-cream-mute mb-1">
+          Qté
+        </label>
+        <input
+          type="text"
+          inputMode="decimal"
+          value={quantite}
+          onChange={(e) => setQuantite(e.target.value)}
+          className="input !py-2"
+        />
+      </div>
+      <div className="w-20">
+        <label className="block text-[10px] uppercase tracking-widest text-cream-mute mb-1">
+          Unité
+        </label>
+        <input
+          type="text"
+          value={unite}
+          onChange={(e) => setUnite(e.target.value)}
+          className="input !py-2"
+        />
+      </div>
+      <div className="min-w-[140px]">
+        <label className="block text-[10px] uppercase tracking-widest text-cream-mute mb-1">
+          Rayon
+        </label>
+        <select
+          value={rayon}
+          onChange={(e) => setRayon(e.target.value)}
+          className="input !py-2"
+        >
+          {RAYON_ORDER.map((r) => (
+            <option key={r} value={r}>
+              {RAYON_LABELS[r] ?? r}
+            </option>
+          ))}
+        </select>
+      </div>
+      <button type="submit" className="btn-primary !py-2 flex items-center gap-1">
+        <Plus size={14} />
+        Ajouter
+      </button>
+    </form>
+  );
+}
+
 function RayonGroup({
   rayon,
   items,
   onToggle,
+  onRemove,
 }: {
   rayon: string;
   items: ShoppingListWithId["items"];
   onToggle: (itemId: string) => void;
+  onRemove: (itemId: string) => void;
 }) {
   const [open, setOpen] = useState(true);
   const label = RAYON_LABELS[rayon] ?? rayon;
@@ -413,16 +646,16 @@ function RayonGroup({
       {open && (
         <ul className="space-y-1 pl-4">
           {items.map((it) => (
-            <li key={it.id}>
+            <li key={it.id} className="flex items-start gap-1 group">
               <button
                 onClick={() => onToggle(it.id)}
-                className="flex items-start gap-2 w-full text-left text-sm group"
+                className="flex items-start gap-2 flex-1 text-left text-sm py-1 -my-1 hover:bg-bordure/20 rounded transition"
               >
-                <span className="shrink-0 mt-0.5">
+                <span className="shrink-0 mt-1 sm:mt-0.5">
                   {it.checked ? (
-                    <CheckCircle2 size={16} className="text-sage" />
+                    <CheckCircle2 size={20} className="text-sage sm:w-4 sm:h-4" />
                   ) : (
-                    <Circle size={16} className="text-cream-mute group-hover:text-brass transition" />
+                    <Circle size={20} className="text-cream-mute hover:text-brass transition sm:w-4 sm:h-4" />
                   )}
                 </span>
                 <span
@@ -432,8 +665,22 @@ function RayonGroup({
                     {formatQuantite(it.quantite, it.unite)}
                   </span>{" "}
                   {it.nom}
+                  {it.ajoutManuel && (
+                    <span className="ml-1 text-[9px] uppercase tracking-widest text-cream-mute">
+                      ajouté
+                    </span>
+                  )}
                 </span>
               </button>
+              {it.ajoutManuel && (
+                <button
+                  onClick={() => onRemove(it.id)}
+                  className="text-cream-mute hover:text-copper opacity-0 group-hover:opacity-100 transition shrink-0 p-1"
+                  title="Retirer cet item"
+                >
+                  <X size={14} />
+                </button>
+              )}
             </li>
           ))}
         </ul>
@@ -459,7 +706,78 @@ function formatDateFr(iso: string): string {
 
 function formatQuantite(q: number, unite: string): string {
   if (!q || q === 0) return "";
-  // Si entier : pas de décimales
   const num = Number.isInteger(q) ? String(q) : q.toFixed(1);
   return `${num} ${unite}`.trim();
+}
+
+/**
+ * Convertit un Timestamp Firestore (web SDK ou shape sérialisée) en Date.
+ * Renvoie null si absent ou invalide.
+ */
+function tsToDate(ts: unknown): Date | null {
+  if (!ts) return null;
+  if (ts instanceof Date) return ts;
+  if (typeof ts === "string") {
+    const d = new Date(ts);
+    return isNaN(d.getTime()) ? null : d;
+  }
+  if (typeof ts === "object" && ts !== null) {
+    if ("toDate" in ts && typeof (ts as { toDate: () => Date }).toDate === "function") {
+      return (ts as { toDate: () => Date }).toDate();
+    }
+    if ("seconds" in ts) {
+      return new Date((ts as { seconds: number }).seconds * 1000);
+    }
+  }
+  return null;
+}
+
+function formatRelativeTime(d: Date): string {
+  const diffMs = Date.now() - d.getTime();
+  const min = Math.round(diffMs / 60000);
+  if (min < 1) return "à l'instant";
+  if (min < 60) return `il y a ${min} min`;
+  const h = Math.round(min / 60);
+  if (h < 24) return `il y a ${h} h`;
+  const days = Math.round(h / 24);
+  if (days < 7) return `il y a ${days} j`;
+  return `le ${d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`;
+}
+
+/**
+ * Format texte pour Web Share / Keep / Notes.
+ * Cf. brief §7.4 — items non-cochés groupés par rayon.
+ */
+function buildShareText(list: ShoppingListWithId): string {
+  const items = list.items.filter((it) => !it.checked);
+  const byRayon: Record<string, typeof items> = {};
+  for (const it of items) {
+    const k = it.rayon || "autres";
+    if (!byRayon[k]) byRayon[k] = [];
+    byRayon[k].push(it);
+  }
+  const ordered: Array<[string, typeof items]> = [];
+  for (const k of RAYON_ORDER) {
+    if (byRayon[k]) ordered.push([k, byRayon[k]]);
+  }
+  for (const k of Object.keys(byRayon)) {
+    if (!RAYON_ORDER.includes(k)) ordered.push([k, byRayon[k]]);
+  }
+  const today = new Date().toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+  });
+  const lines: string[] = [];
+  lines.push(`Liste de courses — ${today}`);
+  lines.push("");
+  for (const [rayon, list] of ordered) {
+    lines.push(`▸ ${RAYON_LABELS[rayon] ?? rayon}`);
+    for (const it of list) {
+      const qty = formatQuantite(it.quantite, it.unite);
+      lines.push(`☐ ${it.nom}${qty ? ` — ${qty}` : ""}`);
+    }
+    lines.push("");
+  }
+  return lines.join("\n").trim();
 }

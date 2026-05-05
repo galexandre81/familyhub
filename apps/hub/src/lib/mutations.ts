@@ -609,10 +609,128 @@ export function useCreateTimer() {
 /* --- Liste de courses (Phase 3.4 — UI minimale, full mobile en 3.4 dédiée) --- */
 
 /**
+ * Ajoute un item à la liste de courses (saisie manuelle).
+ * Reset `lastSharedAt` à null pour signaler à l'UI qu'une mise à jour
+ * existe depuis le dernier partage Keep.
+ */
+export function useAddShoppingItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      householdId,
+      listId,
+      currentItems,
+      item,
+    }: {
+      householdId: string;
+      listId: string;
+      planId: string;
+      currentItems: ShoppingListItem[];
+      item: Omit<ShoppingListItem, "id" | "checked" | "ajoutManuel" | "recetteIds">;
+    }) => {
+      const newItem: ShoppingListItem = {
+        ...item,
+        id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+        checked: false,
+        ajoutManuel: true,
+        recetteIds: [],
+      };
+      const newItems = [...currentItems, newItem];
+      await updateDoc(
+        doc(db, `households/${householdId}/shoppingLists/${listId}`),
+        {
+          items: newItems,
+          // Reset shared status : la liste a changé depuis le dernier envoi.
+          lastSharedAt: null,
+          updatedAt: serverTimestamp(),
+        },
+      );
+    },
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({
+        queryKey: ["planShoppingList", vars.householdId, vars.planId],
+      });
+    },
+  });
+}
+
+/**
+ * Supprime un item de la liste. Reset `lastSharedAt` à null.
+ */
+export function useRemoveShoppingItem() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      householdId,
+      listId,
+      itemId,
+      currentItems,
+    }: {
+      householdId: string;
+      listId: string;
+      planId: string;
+      itemId: string;
+      currentItems: ShoppingListItem[];
+    }) => {
+      const newItems = currentItems.filter((it) => it.id !== itemId);
+      await updateDoc(
+        doc(db, `households/${householdId}/shoppingLists/${listId}`),
+        {
+          items: newItems,
+          lastSharedAt: null,
+          updatedAt: serverTimestamp(),
+        },
+      );
+    },
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({
+        queryKey: ["planShoppingList", vars.householdId, vars.planId],
+      });
+    },
+  });
+}
+
+/**
+ * Marque la liste comme partagée (à appeler après un share natif réussi).
+ */
+export function useMarkShoppingShared() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      householdId,
+      listId,
+      sharedTo,
+    }: {
+      householdId: string;
+      listId: string;
+      planId: string;
+      sharedTo: string;
+    }) => {
+      await updateDoc(
+        doc(db, `households/${householdId}/shoppingLists/${listId}`),
+        {
+          lastSharedAt: serverTimestamp(),
+          lastSharedTo: sharedTo,
+          updatedAt: serverTimestamp(),
+        },
+      );
+    },
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({
+        queryKey: ["planShoppingList", vars.householdId, vars.planId],
+      });
+    },
+  });
+}
+
+/**
  * Toggle l'état coché d'un item de la liste de courses.
  * Stratégie : on relit le doc en client, on remplace l'item dans
  * l'array, on écrit l'array entier. Acceptable pour un foyer (1-2
  * utilisateurs concurrents max).
+ *
+ * Note : le cochage NE reset PAS lastSharedAt (le brief §7.3 précise
+ * que seuls les ajouts/retraits le font, pas les cochages).
  */
 export function useToggleShoppingItem() {
   const qc = useQueryClient();
