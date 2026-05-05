@@ -8,6 +8,8 @@
 import type { Profil } from "@family-hub/types";
 
 export type PresenceMap = Record<string, string[]>; // key = `${jour}-${repas}`, value = profilIds
+/** Map des slots flagués express (≤ 15 min). key = `${jour}-${repas}`. */
+export type ExpressMap = Record<string, boolean>;
 
 const JOUR_LABELS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
 
@@ -30,10 +32,23 @@ export interface BuildPlanMdInput {
   contexte: { batchCookingOk: boolean; style: string; frigoTexte: string };
   /** Recettes des plans récents pour éviter de resservir. */
   historiqueRecettes: string[];
+  /** Slots flagués express (≤ 15 min). Optionnel. */
+  express?: ExpressMap;
+  /** Index du jour des courses (0=lundi…6=dimanche). -1 ou undefined = pas défini. */
+  jourCoursesIdx?: number;
 }
 
 export function buildPlanMd(input: BuildPlanMdInput): string {
-  const { householdNom, dateDebutISO, profils, presence, contexte, historiqueRecettes } = input;
+  const {
+    householdNom,
+    dateDebutISO,
+    profils,
+    presence,
+    contexte,
+    historiqueRecettes,
+    express,
+    jourCoursesIdx,
+  } = input;
   const dateDebut = new Date(dateDebutISO);
   const dateFin = addDays(dateDebut, 6);
   const saison = deduceSaison(dateDebut);
@@ -63,6 +78,10 @@ export function buildPlanMd(input: BuildPlanMdInput): string {
   // Présence
   lines.push("## Présence aux repas");
   lines.push("");
+  lines.push(
+    "Légende : `⚡ EXPRESS` = recette ≤ 15 min imposée pour ce slot.",
+  );
+  lines.push("");
   lines.push("| Jour | Petit-déj | Déjeuner | Dîner |");
   lines.push("|---|---|---|---|");
   for (let jour = 0; jour < 7; jour++) {
@@ -70,10 +89,13 @@ export function buildPlanMd(input: BuildPlanMdInput): string {
     const dateLabel = `${JOUR_LABELS[jour]} ${date.getDate()}`;
     const cells = (["petitDej", "dej", "diner"] as const).map((repas) => {
       const profilIds = presence[`${jour}-${repas}`] ?? [];
-      if (profilIds.length === 0) return "personne";
-      return profilIds
+      const isExpress = !!(express && express[`${jour}-${repas}`]);
+      const expressTag = isExpress ? " ⚡ EXPRESS" : "";
+      if (profilIds.length === 0) return "personne" + expressTag;
+      const noms = profilIds
         .map((id) => profils.find((p) => p.id === id)?.nom ?? id)
         .join(", ");
+      return noms + expressTag;
     });
     lines.push(`| ${dateLabel} | ${cells[0]} | ${cells[1]} | ${cells[2]} |`);
   }
@@ -82,13 +104,23 @@ export function buildPlanMd(input: BuildPlanMdInput): string {
   // Contexte
   lines.push("## Contexte de la semaine");
   lines.push("");
-  lines.push(
-    `- **Batch cooking** : ${
-      contexte.batchCookingOk
-        ? "OK, peux proposer une session le dimanche après-midi pour préparer en avance"
-        : "non — pas de batch cooking cette semaine"
-    }`,
-  );
+  if (contexte.batchCookingOk) {
+    const dayLabel =
+      typeof jourCoursesIdx === "number" && jourCoursesIdx >= 0 && jourCoursesIdx <= 6
+        ? JOUR_LABELS[jourCoursesIdx].toLowerCase()
+        : null;
+    const batchHint = dayLabel
+      ? `OK — propose une session de batch cooking, mais **PAS le ${dayLabel}** (jour des courses, déjà chargé).`
+      : "OK, peux proposer une session le dimanche après-midi pour préparer en avance.";
+    lines.push(`- **Batch cooking** : ${batchHint}`);
+  } else {
+    lines.push("- **Batch cooking** : non — pas de batch cooking cette semaine.");
+  }
+  if (typeof jourCoursesIdx === "number" && jourCoursesIdx >= 0 && jourCoursesIdx <= 6) {
+    lines.push(
+      `- **Jour des courses** : ${JOUR_LABELS[jourCoursesIdx]}. Évite d'imposer la session de batch cooking ce jour-là.`,
+    );
+  }
   lines.push(`- **Style/envie** : ${contexte.style.trim() || "rien de particulier"}`);
   lines.push("- **À écouler du frigo** :");
   if (contexte.frigoTexte.trim()) {
@@ -147,10 +179,12 @@ Format de la proposition :
 CONSIGNES MENU :
 1. Pour CHAQUE slot où il y a au moins un mangeur, propose un plat principal + un accompagnement (légume, féculent, ou salade selon ce qui équilibre).
 2. Adapte aux contraintes croisées des profils présents (régimes, aversions, objectifs nutrition).
-3. Utilise EN PRIORITÉ les ingrédients du frigo mentionnés.
-4. Privilégie les ingrédients de saison.
-5. Évite les recettes listées dans "Historique récent".
-6. Varie les styles culinaires (pas 3 pâtes, pas 2 ratatouilles).
+3. **EXPRESS — règle stricte** : tout slot marqué \`⚡ EXPRESS\` dans le tableau de présence doit recevoir une recette ≤ 15 min (préparation + cuisson confondues). Idéal : assiettes composées rapides, tartines, smoothies, omelettes, pâtes simples, salades du frigo. Tous les petits-déjeuners sont par défaut en express.
+4. **Jour des courses** : si un "Jour des courses" est mentionné dans le contexte, ne place AUCUNE session de batch cooking ce jour-là (faire les courses + cuisiner en batch = trop sur une seule journée). Privilégie un autre jour off, typiquement dimanche après-midi.
+5. Utilise EN PRIORITÉ les ingrédients du frigo mentionnés.
+6. Privilégie les ingrédients de saison.
+7. Évite les recettes listées dans "Historique récent".
+8. Varie les styles culinaires (pas 3 pâtes, pas 2 ratatouilles).
 
 L'utilisateur peut ensuite te demander des modifs ("remplace mardi soir", "moins de viande", "ajoute une tarte samedi"). Tu adaptes et tu re-poses la même question.
 

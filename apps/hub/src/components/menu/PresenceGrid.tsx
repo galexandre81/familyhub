@@ -1,3 +1,4 @@
+import { Zap } from "lucide-react";
 import type { Profil } from "@family-hub/types";
 import ProfilBadge from "../ProfilBadge";
 
@@ -9,11 +10,16 @@ const REPAS = [
 ] as const;
 
 export type PresenceState = Record<string, string[]>;
+/** Flag « repas express » par slot (max 10-15 min). */
+export type ExpressState = Record<string, boolean>;
 
 interface PresenceGridProps {
   profils: Array<Profil & { id: string }>;
   presence: PresenceState;
   onChange: (next: PresenceState) => void;
+  /** Optionnel : map des slots flagués express. Si non défini, pas de toggle. */
+  express?: ExpressState;
+  onChangeExpress?: (next: ExpressState) => void;
 }
 
 /**
@@ -26,7 +32,13 @@ interface PresenceGridProps {
  * UX : par défaut tous présents (set par le parent à l'init). On décoche
  * les exceptions. Bouton "tous présents" / "personne" en haut de cellule.
  */
-export default function PresenceGrid({ profils, presence, onChange }: PresenceGridProps) {
+export default function PresenceGrid({
+  profils,
+  presence,
+  onChange,
+  express,
+  onChangeExpress,
+}: PresenceGridProps) {
   function slotKey(jour: number, repas: string): string {
     return `${jour}-${repas}`;
   }
@@ -46,6 +58,12 @@ export default function PresenceGrid({ profils, presence, onChange }: PresenceGr
       ...presence,
       [key]: allOrNone === "all" ? profils.map((p) => p.id) : [],
     });
+  }
+
+  function toggleExpress(jour: number, repas: string) {
+    if (!express || !onChangeExpress) return;
+    const key = slotKey(jour, repas);
+    onChangeExpress({ ...express, [key]: !express[key] });
   }
 
   return (
@@ -111,6 +129,28 @@ export default function PresenceGrid({ profils, presence, onChange }: PresenceGr
                           aucun
                         </button>
                       </div>
+                      {express && onChangeExpress && (
+                        <button
+                          type="button"
+                          onClick={() => toggleExpress(jour, r.key)}
+                          className={`flex items-center justify-center gap-1 text-[9px] uppercase tracking-widest mt-0.5 transition ${
+                            express[key]
+                              ? "text-brass font-semibold"
+                              : "text-cream-mute hover:text-brass"
+                          }`}
+                          title={
+                            express[key]
+                              ? "Express activé : Claude proposera une recette ≤15 min"
+                              : "Activer le mode express (≤15 min)"
+                          }
+                        >
+                          <Zap
+                            size={11}
+                            className={express[key] ? "fill-brass" : ""}
+                          />
+                          express
+                        </button>
+                      )}
                     </div>
                   </td>
                 );
@@ -130,6 +170,20 @@ export function buildDefaultPresence(profilIds: string[]): PresenceState {
     for (const repas of ["petitDej", "dej", "diner"]) {
       out[`${jour}-${repas}`] = [...profilIds];
     }
+  }
+  return out;
+}
+
+/**
+ * Initialise les flags express : tous les petits-déjeuners sont express
+ * par défaut (cf. brief utilisateur), les autres slots non.
+ */
+export function buildDefaultExpress(): ExpressState {
+  const out: ExpressState = {};
+  for (let jour = 0; jour < 7; jour++) {
+    out[`${jour}-petitDej`] = true;
+    out[`${jour}-dej`] = false;
+    out[`${jour}-diner`] = false;
   }
   return out;
 }
