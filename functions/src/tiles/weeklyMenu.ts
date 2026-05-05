@@ -122,6 +122,7 @@ async function buildWeeklyMenuData(householdId: string): Promise<WeeklyMenuData>
         jour,
         repas,
         date: slotDateISO,
+        recetteIds: recetteIdsLocal,
         recetteNoms,
         profilsCount: profilsPresents.length,
         invitesCount: invitesNoms.length,

@@ -1,5 +1,6 @@
 import { useState } from "react";
-import { Check, Loader2, RefreshCw, Sparkles, X } from "lucide-react";
+import { Link } from "react-router-dom";
+import { Check, ChefHat, Loader2, RefreshCw, Sparkles, X } from "lucide-react";
 import type { MealPlanSlotWithId, RecetteWithId } from "../../lib/queries";
 import type { Profil } from "@family-hub/types";
 import ProfilBadge from "../ProfilBadge";
@@ -77,17 +78,35 @@ export default function SlotCard({
             🔗 Batch (préparé ailleurs)
           </p>
         )}
-        {recettes.map((r) => (
-          <p key={r.id} className="leading-snug">
-            {r.nom}
-            {!compact && (
-              <span className="text-cream-mute text-xs">
-                {" "}
-                · {r.tempsPrepMinutes + r.tempsCuissonMinutes} min
-              </span>
-            )}
-          </p>
-        ))}
+        {recettes.map((r) => {
+          // Pré-remplit les portions selon le nombre de mangeurs prévus pour ce slot
+          const targetPortions = Math.max(slot.profilsPresents.length || r.portions, 1);
+          return (
+            <div key={r.id} className="leading-snug flex items-start justify-between gap-2 group">
+              <Link
+                to={`/livre-recettes/${r.id}?portions=${targetPortions}`}
+                className="flex-1 hover:text-brass transition"
+                title="Voir la recette détaillée"
+              >
+                {r.nom}
+                {!compact && (
+                  <span className="text-cream-mute text-xs">
+                    {" "}
+                    · {r.tempsPrepMinutes + r.tempsCuissonMinutes} min
+                  </span>
+                )}
+              </Link>
+              <Link
+                to={`/livre-recettes/${r.id}/cuisine?portions=${targetPortions}`}
+                className="text-cream-mute hover:text-brass transition shrink-0"
+                title="Mode cuisine plein écran"
+                onClick={(e) => e.stopPropagation()}
+              >
+                <ChefHat size={14} />
+              </Link>
+            </div>
+          );
+        })}
       </div>
 
       {feedbackOpen && onRegenerate && (

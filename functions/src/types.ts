@@ -211,6 +211,8 @@ export interface WeeklyMenuSlotSnapshot {
   jour: number; // 0=lundi, 6=dimanche
   repas: Repas;
   date: string; // ISO YYYY-MM-DD
+  /** IDs des recettes pour fetch détail au tap (Phase 3.5+). */
+  recetteIds: string[];
   recetteNoms: string[];
   profilsCount: number;
   invitesCount: number;

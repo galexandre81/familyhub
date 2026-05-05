@@ -155,9 +155,71 @@
 
   /* ---------- EXPAND : grille semaine plein écran ---------- */
 
+  /**
+   * Transforme une recette Firestore (champ `nom`, `tempsPrepMinutes`, etc.)
+   * vers le format `RecipeTodayRecette` consommé par recipe-today.expand.
+   */
+  function transformFirestoreRecette(id, raw) {
+    var data = raw || {};
+    var tempsPrep = +data.tempsPrepMinutes || 0;
+    var tempsCuisson = +data.tempsCuissonMinutes || 0;
+    var ingFromFrigo = data.ingredientsFromFrigo || [];
+    var ingredientsRaw = data.ingredients || [];
+    var etapesRaw = data.etapes || [];
+    var ingredients = [];
+    for (var i = 0; i < ingredientsRaw.length; i++) {
+      var ing = ingredientsRaw[i] || {};
+      var item = {
+        libelle: ing.libelle || '',
+        quantite: ing.quantite != null ? String(ing.quantite) : '',
+        unite: ing.unite || ''
+      };
+      if (ing.rayon) item.rayon = String(ing.rayon);
+      if (ingFromFrigo[i]) item.noteFrigo = true;
+      ingredients.push(item);
+    }
+    var etapes = [];
+    for (var j = 0; j < etapesRaw.length; j++) {
+      var e = etapesRaw[j] || {};
+      var step = {
+        ordre: +e.ordre || j + 1,
+        description: e.description || ''
+      };
+      if (e.dureeMinutes && +e.dureeMinutes > 0) step.dureeMinutes = +e.dureeMinutes;
+      etapes.push(step);
+    }
+    return {
+      recetteId: id,
+      nom: data.nom || '(sans nom)',
+      description: data.description || '',
+      portions: +data.portions || 4,
+      tempsPrepMinutes: tempsPrep,
+      tempsCuissonMinutes: tempsCuisson,
+      tempsTotalMinutes: tempsPrep + tempsCuisson,
+      difficulte: +data.difficulte || 1,
+      ingredients: ingredients,
+      etapes: etapes,
+      tags: data.tags || []
+    };
+  }
+
+  function repasLabelLong(repas) {
+    if (repas === 'petitDej') return 'Petit-déj';
+    if (repas === 'dej') return 'Déjeuner';
+    if (repas === 'diner') return 'Dîner';
+    return repas || 'Repas';
+  }
+
   function expand(container, data, _config, _tileId) {
     container.className = 'tile-overlay-content tile-weekly-menu-expand';
     container.innerHTML = '';
+    /* Force layout flex column pour que la grille puisse scroller proprement
+       et que la vue détail (chargée plus tard via recipe-today) se positionne
+       bien (sinon overlap header/body sur iOS 9). */
+    container.style.cssText =
+      'display:-webkit-flex; display:flex; ' +
+      '-webkit-flex-direction:column; flex-direction:column; ' +
+      'height:100%; width:100%; overflow:hidden;';
 
     var d = data || {};
     if (!d.hasActivePlan || !d.semaine || d.semaine.length === 0) {
@@ -168,6 +230,103 @@
       return;
     }
 
+    /* Vue grille — extraite dans une fonction pour pouvoir y revenir
+       depuis la vue détail recette. */
+    renderGrid();
+
+    function renderGrid() {
+      container.innerHTML = '';
+      container.style.cssText =
+        'display:-webkit-flex; display:flex; ' +
+        '-webkit-flex-direction:column; flex-direction:column; ' +
+        'height:100%; width:100%; overflow:hidden;';
+      buildGridUI(container, d, function (slot) { showRecetteForSlot(slot); });
+    }
+
+    function showRecetteForSlot(slot) {
+      if (!slot || !slot.recetteIds || slot.recetteIds.length === 0) return;
+      container.innerHTML =
+        '<div style="padding:60px; text-align:center; font-size:16px; opacity:0.7">' +
+          'Chargement de la recette…' +
+        '</div>';
+      var db = global.FamilyHubGetDb && global.FamilyHubGetDb();
+      var hid = global.FamilyHubGetHouseholdId && global.FamilyHubGetHouseholdId();
+      if (!db || !hid) {
+        container.innerHTML =
+          '<div style="padding:40px; text-align:center; color:#C8553D">' +
+            'Erreur : DB non disponible.' +
+          '</div>';
+        return;
+      }
+      var promises = [];
+      for (var k = 0; k < slot.recetteIds.length; k++) {
+        promises.push(
+          db.collection('households').doc(hid).collection('recettes').doc(slot.recetteIds[k]).get()
+        );
+      }
+      Promise.all(promises).then(function (docs) {
+        var recettes = [];
+        for (var m = 0; m < docs.length; m++) {
+          if (docs[m].exists) {
+            recettes.push(transformFirestoreRecette(docs[m].id, docs[m].data()));
+          }
+        }
+        if (recettes.length === 0) {
+          container.innerHTML =
+            '<div style="padding:40px; text-align:center; opacity:0.7">' +
+              'Aucune recette trouvée pour ce repas.' +
+              '<br><br><button type="button" data-act="back" style="padding:8px 16px; background:#D9A05B; color:#1F1A14; border:none; border-radius:4px; font-weight:600;">← Retour à la semaine</button>' +
+            '</div>';
+          var bb = container.querySelector('[data-act="back"]');
+          if (bb) bb.addEventListener('click', renderGrid);
+          return;
+        }
+        var fakeData = {
+          repasActif: slot.repas,
+          repasLabel: repasLabelLong(slot.repas) + ' · ' +
+            (slot.date ? new Date(slot.date + 'T12:00:00Z').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) : ''),
+          date: slot.date,
+          slotId: '',
+          recettes: recettes,
+          profilsPresents: [],
+          generatedAtISO: new Date().toISOString()
+        };
+        if (global.Tiles && global.Tiles['recipe-today'] && typeof global.Tiles['recipe-today'].expand === 'function') {
+          global.Tiles['recipe-today'].expand(container, fakeData, {}, null);
+          /* Ajoute un bandeau "Retour" en haut du container (avant le header
+             posé par recipe-today.expand). Avec flex-shrink:0, il reste visible. */
+          var backBar = document.createElement('div');
+          backBar.style.cssText =
+            'padding:8px 20px; background:rgba(217,160,91,0.10); ' +
+            'border-bottom:1px solid rgba(217,160,91,0.25); ' +
+            '-webkit-flex-shrink:0; flex-shrink:0;';
+          backBar.innerHTML =
+            '<button type="button" style="background:transparent; color:#D9A05B; ' +
+            'border:none; font-size:14px; padding:4px 0; font-weight:600;">' +
+            '← Retour à la semaine</button>';
+          backBar.querySelector('button').addEventListener('click', renderGrid);
+          container.insertBefore(backBar, container.firstChild);
+        } else {
+          container.innerHTML =
+            '<div style="padding:40px; text-align:center; color:#C8553D">' +
+              'Module recipe-today non chargé.' +
+            '</div>';
+        }
+      }).catch(function (err) {
+        if (window.console && window.console.error) console.error('[weekly-menu] fetch recette', err);
+        container.innerHTML =
+          '<div style="padding:40px; text-align:center; color:#C8553D">' +
+            'Erreur de chargement.' +
+          '</div>';
+      });
+    }
+  }
+
+  /**
+   * Construit la grille semaine dans `container`. Le `onCellTap(slot)` est
+   * appelé au tap d'une cellule contenant des recettes.
+   */
+  function buildGridUI(container, d, onCellTap) {
     /* Header */
     var header = document.createElement('div');
     header.style.cssText = 'padding:16px 20px; border-bottom:1px solid rgba(217,160,91,0.15);';
@@ -241,12 +400,19 @@
         var cell = document.createElement('td');
         var isPast = slot && slot.isPast;
         var isCellToday = jj === todayIdx;
+        var hasRecettes = slot && slot.recetteIds && slot.recetteIds.length > 0;
         cell.style.cssText =
           'padding:8px 6px; vertical-align:top; min-width:100px; ' +
           'border:1px solid ' + (isCellToday ? 'rgba(217,160,91,0.4)' : 'rgba(217,160,91,0.1)') + ';' +
           'background:' + (isCellToday ? 'rgba(217,160,91,0.05)' : 'transparent') + ';' +
           'border-radius:4px;' +
-          (isPast ? 'opacity:0.55;' : '');
+          (isPast ? 'opacity:0.55;' : '') +
+          (hasRecettes ? 'cursor:pointer;' : '');
+        if (hasRecettes && typeof onCellTap === 'function') {
+          (function (s) {
+            cell.addEventListener('click', function () { onCellTap(s); });
+          })(slot);
+        }
         if (!slot || (slot.recetteNoms.length === 0 && slot.profilsCount === 0)) {
           cell.style.opacity = '0.3';
           cell.innerHTML = '<span style="font-size:18px; color:' + BRASS + '">—</span>';
