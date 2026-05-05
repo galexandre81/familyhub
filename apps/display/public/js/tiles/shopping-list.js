@@ -260,14 +260,17 @@
     body.setAttribute('data-role', 'body');
     container.appendChild(body);
 
-    /* Bandeau info read-only */
+    /* Bandeau info workflow Keep */
     var info = document.createElement('div');
     info.style.cssText =
-      'margin:0 20px; padding:8px 12px; background:rgba(217,160,91,0.06); ' +
-      'border-left:3px solid ' + BRASS + '; font-size:11px; opacity:0.75; ' +
+      'margin:0 20px; padding:10px 14px; background:rgba(217,160,91,0.08); ' +
+      'border-left:3px solid ' + BRASS + '; font-size:12px; line-height:1.5; ' +
       '-webkit-flex-shrink:0; flex-shrink:0;';
     info.innerHTML =
-      'Lecture seule depuis ce display. Pour cocher les items, ouvre Family Hub sur ton mobile.';
+      '<strong style="color:' + BRASS + '">Workflow courses</strong><br>' +
+      'Tap « Envoyer aux courses » → choisis <strong>Keep</strong> → ' +
+      'long-press la note dans Keep → <em>Afficher les cases à cocher</em>. ' +
+      'Tu coches au supermarché directement dans Keep, hors-ligne, sans dépendance Family Hub.';
     container.insertBefore(info, body);
 
     /* Render initial + update on snapshot */

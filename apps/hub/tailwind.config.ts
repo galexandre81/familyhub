@@ -5,57 +5,60 @@ export default {
   theme: {
     extend: {
       colors: {
-        /* "Caractère" — noir mat warm + accents laiton/châtaignier */
+        /* Couleurs thémifiables : pointent vers des CSS vars RGB triplets
+           définis dans index.css. Les classes html.theme-* overrident. */
         ebony: {
-          DEFAULT: "#0F0D0A",   /* fond global */
-          panel: "#15110D",     /* panneaux header/footer */
-          card: "#1C1815",      /* cartes */
-          ridge: "#2A1F15",     /* hover/active */
-        },
-        wood: {
-          dark: "#3A2E22",      /* hairline / borders */
-          mid: "#5C3D1F",       /* walnut moyen */
-          light: "#C49B6B",     /* châtaignier clair */
+          DEFAULT: "rgb(var(--c-ebony) / <alpha-value>)",
+          panel: "rgb(var(--c-ebony-panel) / <alpha-value>)",
+          card: "rgb(var(--c-ebony-card) / <alpha-value>)",
+          ridge: "rgb(var(--c-ebony-ridge) / <alpha-value>)",
         },
         brass: {
-          DEFAULT: "#D9A05B",   /* accent principal */
-          deep: "#C28A47",      /* hover */
-          soft: "#2A1F15",      /* fond hover terracotta-style */
+          DEFAULT: "rgb(var(--c-brass) / <alpha-value>)",
+          deep: "#C28A47",
+          soft: "rgb(var(--c-ebony-ridge) / <alpha-value>)",
         },
+        cream: {
+          DEFAULT: "rgb(var(--c-cream) / <alpha-value>)",
+          mute: "rgb(var(--c-cream-mute) / <alpha-value>)",
+        },
+        wood: {
+          dark: "rgb(var(--c-wood-dark) / <alpha-value>)",
+          mid: "#5C3D1F",
+          light: "#C49B6B",
+        },
+
+        /* Couleurs sémantiques fixes (succès / warn / erreur) */
         copper: "#C9712E",
         sage: "#7BA471",
-        cream: {
-          DEFAULT: "#F2E8D5",   /* texte principal */
-          mute: "#9C8A6E",      /* texte secondaire */
-        },
 
-        /* Compat anciens noms — mapped to dark theme */
-        "bg-principal": "#0F0D0A",
-        "bg-card": "#1C1815",
-        "bg-sombre": "#15110D",
-        "text-principal": "#F2E8D5",
-        "text-secondaire": "#9C8A6E",
-        "text-clair": "#F2E8D5",
-        "accent-chaud": "#D9A05B",
+        /* Compat anciens noms */
+        "bg-principal": "rgb(var(--c-ebony) / <alpha-value>)",
+        "bg-card": "rgb(var(--c-ebony-card) / <alpha-value>)",
+        "bg-sombre": "rgb(var(--c-ebony-panel) / <alpha-value>)",
+        "text-principal": "rgb(var(--c-cream) / <alpha-value>)",
+        "text-secondaire": "rgb(var(--c-cream-mute) / <alpha-value>)",
+        "text-clair": "rgb(var(--c-cream) / <alpha-value>)",
+        "accent-chaud": "rgb(var(--c-brass) / <alpha-value>)",
         "accent-secondaire": "#7BA471",
         "accent-attention": "#C9712E",
-        bordure: "#3A2E22",
+        bordure: "rgb(var(--c-wood-dark) / <alpha-value>)",
 
-        /* Aliases pour le redesign Login */
-        paper: "#0F0D0A",
-        ivory: "#1C1815",
+        /* Aliases — themed via CSS vars (login + autres pages) */
+        paper: "rgb(var(--c-ebony) / <alpha-value>)",
+        ivory: "rgb(var(--c-ebony-card) / <alpha-value>)",
         ink: {
-          DEFAULT: "#F2E8D5",
-          mute: "#9C8A6E",
+          DEFAULT: "rgb(var(--c-cream) / <alpha-value>)",
+          mute: "rgb(var(--c-cream-mute) / <alpha-value>)",
           soft: "#C49B6B",
         },
         terracotta: {
-          DEFAULT: "#D9A05B",
+          DEFAULT: "rgb(var(--c-brass) / <alpha-value>)",
           deep: "#C28A47",
-          soft: "#2A1F15",
+          soft: "rgb(var(--c-ebony-ridge) / <alpha-value>)",
         },
-        ochre: "#D9A05B",
-        hairline: "#3A2E22",
+        ochre: "rgb(var(--c-brass) / <alpha-value>)",
+        hairline: "rgb(var(--c-wood-dark) / <alpha-value>)",
       },
       fontFamily: {
         serif: ["Fraunces", "Georgia", "Times New Roman", "serif"],
