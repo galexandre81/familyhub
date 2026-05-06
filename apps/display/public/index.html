@@ -8,8 +8,9 @@
   <meta name="apple-mobile-web-app-title" content="Family Hub">
   <meta name="format-detection" content="telephone=no">
   <title>Family Hub</title>
-  <link rel="stylesheet" href="css/styles.css?v=20260505d">
+  <link rel="stylesheet" href="css/styles.css?v=20260505e">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
+  <link rel="manifest" href="manifest.json">
 </head>
 <body>
   <div id="display-root">
@@ -34,7 +35,7 @@
   <script src="lib/firebase-functions.js"></script>
 
   <!-- Config injectée au build (cf. core.js — pour l'instant valeurs en dur) -->
-  <script src="js/firebase-config.js?v=20260505d"></script>
+  <script src="js/firebase-config.js?v=20260505e"></script>
 
   <!-- Audio player statique. preload=auto pour les flux live (iOS 9 suspend sinon) -->
   <audio id="family-hub-audio-player" preload="auto"></audio>
@@ -43,23 +44,23 @@
   <audio id="family-hub-timer-alarm" preload="auto" src="lib/beep.wav"></audio>
 
   <!-- Singletons partagés (audio persistant + overlay plein écran + timers Firestore) -->
-  <script src="js/audio-singleton.js?v=20260505d"></script>
-  <script src="js/timer-singleton.js?v=20260505d"></script>
-  <script src="js/overlay.js?v=20260505d"></script>
+  <script src="js/audio-singleton.js?v=20260505e"></script>
+  <script src="js/timer-singleton.js?v=20260505e"></script>
+  <script src="js/overlay.js?v=20260505e"></script>
 
   <!-- Tile modules (chacun pose son module sur window.Tiles[type]) -->
-  <script src="js/tiles/clock.js?v=20260505d"></script>
-  <script src="js/tiles/weather.js?v=20260505d"></script>
-  <script src="js/tiles/radio.js?v=20260505d"></script>
-  <script src="js/tiles/timer.js?v=20260505d"></script>
-  <script src="js/tiles/calendar.js?v=20260505d"></script>
-  <script src="js/tiles/livreRecettes.js?v=20260505d"></script>
-  <script src="js/tiles/recipe-today.js?v=20260505d"></script>
-  <script src="js/tiles/weekly-menu.js?v=20260505d"></script>
-  <script src="js/tiles/shopping-list.js?v=20260505d"></script>
+  <script src="js/tiles/clock.js?v=20260505e"></script>
+  <script src="js/tiles/weather.js?v=20260505e"></script>
+  <script src="js/tiles/radio.js?v=20260505e"></script>
+  <script src="js/tiles/timer.js?v=20260505e"></script>
+  <script src="js/tiles/calendar.js?v=20260505e"></script>
+  <script src="js/tiles/livreRecettes.js?v=20260505e"></script>
+  <script src="js/tiles/recipe-today.js?v=20260505e"></script>
+  <script src="js/tiles/weekly-menu.js?v=20260505e"></script>
+  <script src="js/tiles/shopping-list.js?v=20260505e"></script>
 
   <!-- Core -->
-  <script src="js/render.js?v=20260505d"></script>
-  <script src="js/core.js?v=20260505d"></script>
+  <script src="js/render.js?v=20260505e"></script>
+  <script src="js/core.js?v=20260505e"></script>
 </body>
 </html>
