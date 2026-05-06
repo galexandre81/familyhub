@@ -89,6 +89,12 @@ export interface MealPlanSlot {
   statut: SlotStatut;
   /** Note libre, ex: "Marc et Sophie invités", "pizzas commandées". */
   notes?: string;
+  /**
+   * Slot annulé : repas non cuisiné comme prévu (commande, restau, oublié…).
+   * Les recettes restent associées (historique) mais le slot est visuellement
+   * barré et sa liste de courses associée n'a plus à être consommée.
+   */
+  annule?: boolean;
   /** Notation post-repas (1 à 5 étoiles). Posée par recipe-mode iPad. */
   rating?: 1 | 2 | 3 | 4 | 5;
   ratedAt?: Timestamp;

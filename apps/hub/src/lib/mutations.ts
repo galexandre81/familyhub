@@ -421,6 +421,36 @@ function makeSlotMutation(name: "acceptSlot" | "refuseSlot") {
 export const useAcceptSlot = makeSlotMutation("acceptSlot");
 export const useRefuseSlot = makeSlotMutation("refuseSlot");
 
+/**
+ * Patch un slot d'un plan : notes ou annule. L'écriture est faite côté
+ * client (rules autorisent les members à écrire dans les sous-collections
+ * du foyer). Optimistic update via invalidation de la query slots.
+ */
+export function useUpdateSlot() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      householdId,
+      planId,
+      slotId,
+      patch,
+    }: {
+      householdId: string;
+      planId: string;
+      slotId: string;
+      patch: { notes?: string; annule?: boolean };
+    }) => {
+      await updateDoc(
+        doc(db, `households/${householdId}/mealPlans/${planId}/slots/${slotId}`),
+        patch,
+      );
+    },
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ["planSlots", vars.householdId, vars.planId] });
+    },
+  });
+}
+
 export function useUpdateSlotPresence() {
   const qc = useQueryClient();
   return useMutation({

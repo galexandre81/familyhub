@@ -153,6 +153,8 @@ export default function Menu() {
             onOpenRecette={(id, portions, slotId) =>
               setOpenRecette({ id, portions, slotId })
             }
+            editableHouseholdId={householdId}
+            editablePlanId={activePlan.id}
           />
 
           {batchSessions && batchSessions.length > 0 && (

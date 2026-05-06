@@ -26,6 +26,13 @@ interface MealPlanGridProps {
    * au lieu de naviguer vers /livre-recettes/:id.
    */
   onOpenRecette?: (recetteId: string, portions: number, slotId?: string) => void;
+  /**
+   * Si définis : permet l'édition inline notes + toggle annulé sur les
+   * slots (mutation Firestore via useUpdateSlot). Passé uniquement
+   * sur la grille du plan actif.
+   */
+  editableHouseholdId?: string;
+  editablePlanId?: string;
 }
 
 export default function MealPlanGrid({
@@ -38,6 +45,8 @@ export default function MealPlanGrid({
   onRefuse,
   onRegenerate,
   onOpenRecette,
+  editableHouseholdId,
+  editablePlanId,
 }: MealPlanGridProps) {
   const slotByCoord = new Map(slots.map((s) => [`${s.jour}-${s.repas}`, s]));
 
@@ -68,6 +77,8 @@ export default function MealPlanGrid({
             onRefuse={onRefuse}
             onRegenerate={onRegenerate}
             onOpenRecette={onOpenRecette}
+            editableHouseholdId={editableHouseholdId}
+            editablePlanId={editablePlanId}
           />
         ))}
       </div>
@@ -85,6 +96,8 @@ function RowFragment({
   onRefuse,
   onRegenerate,
   onOpenRecette,
+  editableHouseholdId,
+  editablePlanId,
 }: {
   repas: "petitDej" | "dej" | "diner";
   slotByCoord: Map<string, MealPlanSlotWithId>;
@@ -95,6 +108,8 @@ function RowFragment({
   onRefuse?: (slotId: string) => void;
   onRegenerate?: (slotId: string, feedback?: string) => void;
   onOpenRecette?: (recetteId: string, portions: number, slotId?: string) => void;
+  editableHouseholdId?: string;
+  editablePlanId?: string;
 }) {
   return (
     <>
@@ -122,6 +137,8 @@ function RowFragment({
             onRefuse={onRefuse ? () => onRefuse(slotId) : undefined}
             onRegenerate={onRegenerate ? (fb) => onRegenerate(slotId, fb) : undefined}
             onOpenRecette={onOpenRecette}
+            editableHouseholdId={editableHouseholdId}
+            editablePlanId={editablePlanId}
           />
         );
       })}
