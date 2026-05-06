@@ -220,7 +220,15 @@ Family Hub est un projet **open-source** que tu peux fork, cloner, adapter à ta
 
 ## 📜 Licence
 
-MIT — voir [LICENSE](./LICENSE). Tu peux librement copier, modifier, distribuer pour usage perso ou commercial.
+**[PolyForm Noncommercial 1.0.0](./LICENSE)** — usage **non commercial uniquement**.
+
+Tu peux librement copier, modifier, distribuer ce code pour :
+- 🏠 Usage familial / perso
+- 🎓 Étude, recherche, tests, hobby projects
+- 🤝 Organisations caritatives, éducatives, recherche publique, santé
+- 🔧 Contributions open-source, forks pour adaptations
+
+L'**usage commercial** (revente d'un service basé sur ce code, intégration dans un produit commercial, SaaS payant pour des familles tierces) **requiert une licence séparée**. Si c'est ton cas, [ouvre une issue](https://github.com/galexandre81/familyhub/issues) pour qu'on en discute.
 
 ---
 
