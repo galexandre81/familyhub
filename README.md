@@ -1,20 +1,22 @@
-# Family Hub
+<div align="center">
+
+# 🍽️ Family Hub
+
+### **Tu veux installer Family Hub chez toi pour ta famille ?**
+
+# 👉 [📖 LIS LE GUIDE D'INSTALLATION](./ONBOARDING.md) 👈
+
+**~2 à 3 heures · Niveau zéro technique requis · Windows + macOS · 0 € / mois**
+
+*Aucune compétence en programmation nécessaire. Le guide est rédigé pour quelqu'un qui n'a jamais ouvert un terminal de sa vie.*
+
+---
+
+</div>
 
 > Plateforme familiale modulaire à base de tuiles, hébergée sur Firebase. Le PC, l'iPad cuisine, le mobile au supermarché — tous synchronisés, chacun avec sa propre sélection de tuiles.
 
 **Family Hub transforme une famille en un écosystème connecté de tuiles** : meal planner hebdomadaire généré avec Claude.ai, livre de recettes familial, liste de courses partageable vers Google Keep, mode cuisine plein écran avec timers, agenda Google, météo, radio, minuteurs partagés cross-device.
-
----
-
-## 🚀 Installation chez toi (~2-3h, niveau zéro technique requis)
-
-**Tu veux ton propre Family Hub pour ta famille ?**
-
-👉 **[Suis le guide ONBOARDING.md →](./ONBOARDING.md)**
-
-Le guide explique tout pas à pas : installer Node.js, créer un projet Firebase, cloner le code, déployer, configurer le foyer. **Aucune expérience technique n'est requise** — il est rédigé pour quelqu'un qui n'a jamais ouvert un terminal. Windows et macOS couverts.
-
-**Coût pour usage familial** : 0 €/mois en pratique (le quota gratuit Firebase est très large), mais le plan Blaze de Firebase exige une carte bancaire (avec alerte budget à 1 € recommandée).
 
 ---
 
@@ -243,3 +245,13 @@ L'**usage commercial** (revente d'un service basé sur ce code, intégration dan
 ---
 
 **Made with 🤍 for our families.**
+
+---
+
+<div align="center">
+
+### Tu veux ton propre Family Hub ?
+
+# 📖 [LIS LE GUIDE D'INSTALLATION →](./ONBOARDING.md)
+
+</div>
