@@ -11,6 +11,7 @@
   };
 
   var CUSTOM_TOKEN_REFRESH_MS = 50 * 60 * 1000; /* 50 min — Firebase custom tokens valent 1h */
+  var REFRESH_RETRY_DELAYS_MS = [5 * 1000, 30 * 1000, 2 * 60 * 1000]; /* 5s, 30s, 2min */
 
   var state = {
     db: null,
@@ -77,27 +78,132 @@
     document.addEventListener('click', unlock, true);
   }
 
-  function refreshCustomToken() {
+  /**
+   * Tente un refresh du custom token. Si échec : retry avec backoff
+   * exponentiel (5s, 30s, 2min). Après 3 échecs : log visible et
+   * reload de la page pour forcer un re-bootstrap complet (qui
+   * tentera lui-même un fallback exchangeSetupToken si nécessaire).
+   */
+  function refreshCustomToken(attemptIdx) {
+    attemptIdx = attemptIdx || 0;
     var householdId = state.householdId;
     var displayId = state.displayId;
     var authToken = getStored(STORAGE.authToken);
-    if (!householdId || !displayId || !authToken) return;
+    if (!householdId || !displayId || !authToken) {
+      setAuthBadge('error', 'pas d\'authToken');
+      return;
+    }
+
+    setAuthBadge('refreshing');
 
     var fn = state.functions.httpsCallable('refreshDisplayToken');
     fn({ householdId: householdId, displayId: displayId, authToken: authToken })
       .then(function (res) {
         var data = res.data || {};
-        if (data.customToken) {
-          setStored(STORAGE.customToken, data.customToken);
-          setStored(STORAGE.customTokenIssuedAt, String(Date.now()));
-          state.auth.signInWithCustomToken(data.customToken).then(function () {}, function () {});
+        if (!data.customToken) {
+          throw new Error('réponse sans customToken');
+        }
+        setStored(STORAGE.customToken, data.customToken);
+        setStored(STORAGE.customTokenIssuedAt, String(Date.now()));
+        return state.auth.signInWithCustomToken(data.customToken);
+      })
+      .then(function () {
+        setAuthBadge('ok');
+        if (window.console && window.console.log) {
+          window.console.log('[auth] custom token refreshed');
         }
       })
-      .catch(function () { /* silencieux : on retentera dans 50 min */ });
+      .catch(function (err) {
+        if (window.console && window.console.warn) {
+          window.console.warn('[auth] refresh attempt ' + (attemptIdx + 1) + ' failed', err);
+        }
+        if (attemptIdx < REFRESH_RETRY_DELAYS_MS.length) {
+          setAuthBadge('retrying', 'tentative ' + (attemptIdx + 2));
+          setTimeout(function () {
+            refreshCustomToken(attemptIdx + 1);
+          }, REFRESH_RETRY_DELAYS_MS[attemptIdx]);
+        } else {
+          /* Tous les retries ont échoué. Au lieu d'afficher "Reconfigurez le
+             display" qui bloque l'utilisateur, on tente un reload de la page
+             dans 30s — ça remet au tout début, refait un signin avec le
+             customToken stocké (qui peut encore être valide), etc. */
+          setAuthBadge('error', 'reconnexion dans 30s');
+          setTimeout(function () {
+            var url = window.location.pathname + '?reload=' + Date.now();
+            window.location.replace(url);
+          }, 30 * 1000);
+        }
+      });
   }
 
   function startTokenRefreshLoop() {
-    setInterval(refreshCustomToken, CUSTOM_TOKEN_REFRESH_MS);
+    setInterval(function () { refreshCustomToken(0); }, CUSTOM_TOKEN_REFRESH_MS);
+  }
+
+  /**
+   * Affiche un petit badge en haut à droite de l'écran avec l'état auth.
+   * Visible uniquement quand pas "ok" — pour ne pas polluer le grid normal.
+   * states: 'ok' | 'refreshing' | 'retrying' | 'error'
+   */
+  function setAuthBadge(stateName, detail) {
+    var el = document.getElementById('fh-auth-badge');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'fh-auth-badge';
+      el.style.cssText =
+        'position:fixed; top:6px; right:6px; z-index:9990; ' +
+        'padding:4px 10px; border-radius:4px; font-size:10px; ' +
+        'letter-spacing:0.1em; text-transform:uppercase; font-weight:600; ' +
+        'background:rgba(0,0,0,0.55); color:#fff; ' +
+        'transition:opacity 0.4s;';
+      document.body.appendChild(el);
+    }
+    if (stateName === 'ok') {
+      /* fade out après 1.5s puis hide */
+      el.style.background = 'rgba(125,159,118,0.85)';
+      el.innerHTML = '✓ connecté';
+      setTimeout(function () {
+        if (el && el.parentNode) {
+          el.style.opacity = '0';
+          setTimeout(function () {
+            if (el && el.parentNode) el.parentNode.removeChild(el);
+          }, 500);
+        }
+      }, 1500);
+      return;
+    }
+    el.style.opacity = '1';
+    if (stateName === 'refreshing') {
+      el.style.background = 'rgba(217,160,91,0.85)';
+      el.innerHTML = '↻ refresh auth';
+    } else if (stateName === 'retrying') {
+      el.style.background = 'rgba(217,160,91,0.85)';
+      el.innerHTML = '↻ retry · ' + (detail || '');
+    } else if (stateName === 'error') {
+      el.style.background = 'rgba(200,85,61,0.90)';
+      el.innerHTML = '⚠ ' + (detail || 'auth perdue');
+    }
+  }
+
+  /**
+   * Nettoie l'URL au boot : retire les query params qui ne servent qu'à
+   * forcer le cache-bust (?reload=, ?ts=) ou les tokens orphelins
+   * (?token=, ?household=, ?display=). Sans ça, "Add to Home Screen"
+   * sur iOS épingle l'URL avec ces params et l'icône peut pointer vers
+   * un état temporaire (token expiré → 404).
+   */
+  function cleanUrl() {
+    if (!window.history || !window.history.replaceState) return;
+    var search = window.location.search || '';
+    if (!search) return;
+    var keepParams = []; /* aucun query param utile pour /display/ — on vide tout */
+    /* Si dans le futur on veut garder ?debug=audio par exemple : ajouter ici */
+    var keepDebug = '';
+    if (search.indexOf('debug=audio') !== -1) keepDebug = '?debug=audio';
+    var clean = window.location.pathname + keepDebug + window.location.hash;
+    try {
+      window.history.replaceState(null, '', clean);
+    } catch (e) { /* iOS 9 sometimes throws */ }
   }
 
   function loadDisplayAndTiles() {
@@ -252,6 +358,11 @@
   };
 
   function boot() {
+    /* 1. Nettoie l'URL des query params parasites (?reload=, ?token=, etc.).
+       Sans ça, "Add to Home Screen" sur iOS épingle l'URL avec ces params
+       et l'icône peut pointer vers un état temporaire (token expiré). */
+    cleanUrl();
+
     setupAudioUnlock();
 
     if (!window.firebase || !window.__FIREBASE_CONFIG__) {
@@ -276,24 +387,65 @@
     state.db = firebase.firestore();
     state.functions = firebase.app().functions('europe-west1');
 
+    /* 2. Persistence LOCAL : Firebase Auth conserve la session à travers
+       les reloads via son refresh token interne. Notre customToken stocké
+       devient juste un fallback de bootstrap. La session reste vivante
+       même si le customToken local expire entre 2 reloads. */
+    var persistencePromise;
+    try {
+      persistencePromise = state.auth.setPersistence(
+        firebase.auth.Auth.Persistence.LOCAL
+      );
+    } catch (e) {
+      persistencePromise = Promise.resolve();
+    }
+
+    /* 3. Listener global onAuthStateChanged : si Firebase nous notifie
+       qu'on n'est plus auth (session expirée silencieusement, refresh
+       token révoqué…), on déclenche un refresh au lieu d'attendre la
+       prochaine opération qui échouerait. */
+    state.auth.onAuthStateChanged(function (user) {
+      if (!user && state.householdId && state.displayId) {
+        if (window.console && window.console.warn) {
+          window.console.warn('[auth] session lost, attempting refresh');
+        }
+        refreshCustomToken(0);
+      }
+    });
+
     setStatus('Authentification…');
-    state.auth.signInWithCustomToken(customToken)
-      .then(function () { return loadDisplayAndTiles(); })
+    persistencePromise
+      .then(function () {
+        /* Si l'utilisateur est déjà auth via la persistance Firebase
+           (cas reload après session vivante) — pas besoin de re-signin. */
+        if (state.auth.currentUser) {
+          return null;
+        }
+        return state.auth.signInWithCustomToken(customToken);
+      })
+      .then(function () {
+        setAuthBadge('ok');
+        return loadDisplayAndTiles();
+      })
       .then(function () { startTokenRefreshLoop(); })
       .catch(function (err) {
-        /* Custom token probablement expiré → on retente avec authToken */
-        if (window.console && window.console.warn) window.console.warn('signin failed, refreshing', err);
-        refreshCustomToken();
+        /* Custom token expiré ou invalide → tente refresh complet avec
+           authToken local. Le nouveau retry-x3 + reload-final intégré dans
+           refreshCustomToken garantit qu'on ne reste pas bloqué. */
+        if (window.console && window.console.warn) {
+          window.console.warn('[auth] initial signin failed, refreshing', err);
+        }
+        setAuthBadge('refreshing');
+        refreshCustomToken(0);
+        /* Tente loadDisplayAndTiles dans 3s — si le refresh a marché entre
+           temps, currentUser sera rempli et on pourra continuer. */
         setTimeout(function () {
-          var fresh = getStored(STORAGE.customToken);
-          if (!fresh) { showError('Authentification échouée. Reconfigurez le display.'); return; }
-          state.auth.signInWithCustomToken(fresh)
-            .then(function () { return loadDisplayAndTiles(); })
-            .then(function () { startTokenRefreshLoop(); })
-            .catch(function (e2) {
-              showError('Authentification impossible : ' + (e2.message || 'inconnue'));
-            });
-        }, 2000);
+          if (state.auth.currentUser) {
+            loadDisplayAndTiles().then(function () { startTokenRefreshLoop(); });
+          }
+          /* Sinon : refreshCustomToken poursuit ses retries en arrière-plan
+             et finira par reload la page si tout échoue. */
+        }, 3000);
       });
   }
 
