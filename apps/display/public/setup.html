@@ -13,6 +13,40 @@
       <div class="boot-title">Family Hub — Configuration</div>
       <div class="boot-status" id="setup-status">Initialisation…</div>
       <div class="setup-detail" id="setup-detail"></div>
+
+      <!-- Form de saisie manuelle du code court — affiché si l'URL ne contient
+           aucun paramètre de setup. Cas typique : icône Home Screen iOS lancée
+           pour la 1ère fois (localStorage standalone vide, séparé de Safari). -->
+      <div id="setup-manual-form" style="display:none; margin-top:24px; max-width:360px; margin-left:auto; margin-right:auto;">
+        <p style="font-size:13px; opacity:0.85; line-height:1.5; margin-bottom:14px;">
+          Entre le code à 6 caractères affiché dans le hub web<br>
+          (Hub → Écrans → cet écran → <em>Configurer cet écran</em>) :
+        </p>
+        <div style="display:-webkit-flex; display:flex; gap:8px; -webkit-justify-content:center; justify-content:center;">
+          <input
+            id="setup-code-input"
+            type="text"
+            autocapitalize="characters"
+            autocomplete="off"
+            autocorrect="off"
+            spellcheck="false"
+            maxlength="8"
+            placeholder="ABC234"
+            style="font-family:monospace; font-size:24px; letter-spacing:0.3em; text-align:center; width:200px; padding:12px 8px; background:rgba(217,160,91,0.10); border:1.5px solid rgba(217,160,91,0.40); border-radius:6px; color:#FAFAF7; text-transform:uppercase;"
+          />
+          <button
+            id="setup-code-btn"
+            type="button"
+            style="padding:12px 20px; background:#D9A05B; color:#1F1A14; border:none; border-radius:6px; font-weight:600; font-size:14px; cursor:pointer;"
+          >Configurer</button>
+        </div>
+        <p style="font-size:11px; opacity:0.6; margin-top:12px; line-height:1.5;">
+          Astuce : sur iOS, l'icône épinglée à l'écran d'accueil utilise un
+          stockage séparé de Safari, c'est pour ça qu'il faut re-pairer ici.
+          Une fois fait, c'est définitif pour cette icône.
+        </p>
+      </div>
+
       <button id="setup-reset-btn" class="error-link" style="display:none; margin-top:24px; border:0; cursor:pointer;">Effacer la configuration de cet appareil</button>
     </div>
   </div>
@@ -184,7 +218,44 @@
       return;
     }
 
-    show('Lien invalide', 'Les paramètres de setup sont incomplets. Reprends le lien depuis le hub.');
+    /* Pas de paramètre dans l'URL : affiche le formulaire de saisie manuelle
+       du code court. Cas typique iOS : icône standalone lancée pour la 1ère
+       fois (localStorage standalone séparé de Safari). */
+    show(
+      'Configuration requise',
+      'Cet appareil n\'est pas encore associé à un écran Family Hub.'
+    );
+    var form = document.getElementById('setup-manual-form');
+    if (form) form.style.display = 'block';
+
+    var input = document.getElementById('setup-code-input');
+    var btn = document.getElementById('setup-code-btn');
+    function submitCode() {
+      if (!input || !btn) return;
+      var raw = (input.value || '').replace(/[^A-Za-z0-9]/g, '').toUpperCase();
+      if (raw.length < 4) {
+        show('Code trop court', 'Le code fait 6 caractères, ex : ABC234.');
+        return;
+      }
+      btn.disabled = true;
+      btn.innerHTML = 'Configuration…';
+      resolveAndExchange(raw);
+    }
+    if (btn) btn.addEventListener('click', submitCode);
+    if (input) {
+      input.addEventListener('keypress', function (ev) {
+        if (ev.key === 'Enter' || ev.keyCode === 13) {
+          ev.preventDefault();
+          submitCode();
+        }
+      });
+      /* Auto-uppercase pendant la frappe pour aide visuelle */
+      input.addEventListener('input', function () {
+        input.value = input.value.toUpperCase();
+      });
+      /* Focus auto sauf si déjà focus ailleurs */
+      setTimeout(function () { try { input.focus(); } catch (e) {} }, 200);
+    }
   })();
   </script>
 </body>
