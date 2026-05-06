@@ -1,7 +1,7 @@
 import type { Timestamp } from "./common";
 
 /**
- * Profil d'un membre du foyer (Julie, Adèle, Guillaume…).
+ * Profil d'un membre du foyer (Marie, Léo, Alex…).
  *
  * Identité visuelle : initiale + couleur, optionnellement un emoji unicode
  * (ex: "🦊", "🐻"). Pas de photo Firebase Storage en MVP — décision Phase 3.0.

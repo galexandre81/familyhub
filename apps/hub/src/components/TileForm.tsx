@@ -91,9 +91,9 @@ export default function TileForm({
     locations: [
       {
         id: defaultLocId,
-        ville: defaultLocation?.ville ?? "Le Brassus",
-        lat: defaultLocation?.lat ?? 46.5833,
-        lon: defaultLocation?.lon ?? 6.1833,
+        ville: defaultLocation?.ville ?? "Paris",
+        lat: defaultLocation?.lat ?? 48.8566,
+        lon: defaultLocation?.lon ?? 2.3522,
       },
     ],
     selectedLocationId: defaultLocId,

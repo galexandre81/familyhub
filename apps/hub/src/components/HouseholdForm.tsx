@@ -14,11 +14,11 @@ interface HouseholdFormProps {
 
 const defaultsCreate: HouseholdParametres = {
   localisation: {
-    ville: "Le Brassus",
-    pays: "Suisse",
-    lat: 46.5833,
-    lon: 6.1833,
-    timezone: "Europe/Zurich",
+    ville: "Paris",
+    pays: "France",
+    lat: 48.8566,
+    lon: 2.3522,
+    timezone: "Europe/Paris",
   },
   langue: "fr",
   systemeUnites: "metric",

@@ -126,7 +126,7 @@ export default function ProfilForm({
             value={nom}
             onChange={(e) => handleNomChange(e.target.value)}
             className="input"
-            placeholder="Julie"
+            placeholder="Marie"
           />
         </Field>
         <Field label="Initiale" required>

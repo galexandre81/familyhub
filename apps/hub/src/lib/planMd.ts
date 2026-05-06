@@ -245,7 +245,7 @@ SCHÉMA JSON DE SORTIE ATTENDU :
     {
       "date": "YYYY-MM-DD",
       "repas": "petit-dej" | "dejeuner" | "diner",
-      "profilsPresentsNoms": ["Julie", "Adèle"],      // copier les noms exacts du tableau de présence
+      "profilsPresentsNoms": ["Marie", "Léo"],        // copier les noms exacts du tableau de présence
       "invitesNoms": ["Marc"],                        // optionnel
       "source": "fresh" | "batch",
       "batchSessionTempId": "b1" | null,              // requis si source = "batch"
