@@ -4,11 +4,13 @@ import {
   BookOpen,
   Filter,
   Heart,
+  Refrigerator,
   RotateCcw,
   Search,
   ThumbsDown,
   ThumbsUp,
   Trash2,
+  X as XIcon,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useActiveHouseholdId, useRecettes, type RecetteWithId } from "../lib/queries";
@@ -20,6 +22,21 @@ import {
 } from "../lib/mutations";
 
 type FilterMode = "tous" | "favoris" | "exclus";
+
+/** Normalisation : lowercase + retire accents pour comparaison robuste. */
+function deburr(s: string): string {
+  return s
+    .toLowerCase()
+    .replace(/[àâä]/g, "a")
+    .replace(/[éèêë]/g, "e")
+    .replace(/[îï]/g, "i")
+    .replace(/[ôö]/g, "o")
+    .replace(/[ùûü]/g, "u")
+    .replace(/ÿ/g, "y")
+    .replace(/ç/g, "c")
+    .replace(/œ/g, "oe")
+    .replace(/æ/g, "ae");
+}
 
 export default function LivreRecettes() {
   const { user } = useAuth();
@@ -33,7 +50,17 @@ export default function LivreRecettes() {
   const [search, setSearch] = useState("");
   const [filter, setFilter] = useState<FilterMode>("tous");
   const [busyId, setBusyId] = useState<string | null>(null);
+  /** Liste d'ingrédients que l'utilisateur a au frigo (chips multi-saisie). */
+  const [frigo, setFrigo] = useState<string[]>([]);
+  const [frigoInput, setFrigoInput] = useState("");
 
+  /**
+   * Liste filtrée + score "frigo".
+   * Si frigo est vide : pas de filtre supplémentaire, score=0.
+   * Si frigo est rempli : on garde uniquement les recettes qui matchent
+   *   au moins 1 ingrédient du frigo, et on trie par nb de match desc
+   *   puis nb d'ingrédients manquants asc.
+   */
   const filtered = useMemo(() => {
     if (!recettes) return [];
     let list = recettes;
@@ -42,16 +69,63 @@ export default function LivreRecettes() {
     else list = list.filter((r) => !r.excluded);
 
     if (search.trim()) {
-      const q = search.toLowerCase().trim();
+      const q = deburr(search.toLowerCase().trim());
       list = list.filter(
         (r) =>
-          r.nom.toLowerCase().includes(q) ||
-          r.tags.some((t) => t.toLowerCase().includes(q)) ||
-          r.seedTags?.styleCulinaire?.toLowerCase().includes(q),
+          deburr(r.nom.toLowerCase()).includes(q) ||
+          r.tags.some((t) => deburr(t.toLowerCase()).includes(q)) ||
+          (r.seedTags?.styleCulinaire &&
+            deburr(r.seedTags.styleCulinaire.toLowerCase()).includes(q)),
       );
     }
-    return list;
-  }, [recettes, search, filter]);
+
+    // Scoring frigo
+    const frigoNorm = frigo.map((f) => deburr(f.toLowerCase().trim())).filter(Boolean);
+    const scored = list.map((r) => {
+      if (frigoNorm.length === 0) {
+        return { recette: r, matched: 0, missing: 0 };
+      }
+      // Le type legacy n'a pas `optionnel` — on prend tous les ingrédients
+      const recetteIngs = r.ingredients.map((i) =>
+        deburr(i.libelle.toLowerCase()),
+      );
+      let matched = 0;
+      const matchedFrigoIdx = new Set<number>();
+      for (let fi = 0; fi < frigoNorm.length; fi++) {
+        const f = frigoNorm[fi];
+        if (!f) continue;
+        const hit = recetteIngs.some((ing) => ing.includes(f) || f.includes(ing));
+        if (hit) {
+          matched++;
+          matchedFrigoIdx.add(fi);
+        }
+      }
+      const missing = Math.max(0, recetteIngs.length - matched);
+      return { recette: r, matched, missing };
+    });
+
+    if (frigoNorm.length > 0) {
+      const onlyMatches = scored.filter((s) => s.matched > 0);
+      onlyMatches.sort((a, b) => {
+        if (b.matched !== a.matched) return b.matched - a.matched;
+        return a.missing - b.missing;
+      });
+      return onlyMatches;
+    }
+    return scored;
+  }, [recettes, search, filter, frigo]);
+
+  function addFrigo(value: string) {
+    const v = value.trim();
+    if (!v) return;
+    if (frigo.some((f) => deburr(f.toLowerCase()) === deburr(v.toLowerCase()))) return;
+    setFrigo([...frigo, v]);
+    setFrigoInput("");
+  }
+
+  function removeFrigo(idx: number) {
+    setFrigo(frigo.filter((_, i) => i !== idx));
+  }
 
   if (!householdId) return null;
 
@@ -114,6 +188,70 @@ export default function LivreRecettes() {
         </div>
       </div>
 
+      {/* Recherche par frigo */}
+      <div className="tile-card space-y-3">
+        <div className="flex items-center gap-2">
+          <Refrigerator size={16} className="text-brass" />
+          <h2 className="text-sm uppercase tracking-widest text-cream-mute">
+            Que faire avec ce qu'on a ?
+          </h2>
+        </div>
+        <p className="text-xs text-cream-mute">
+          Tape ce que tu as au frigo (un ingrédient à la fois, valide avec
+          Entrée). Le livre te propose les recettes qui utilisent au moins
+          un de ces ingrédients, triées par nombre de match.
+        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          {frigo.map((f, i) => (
+            <span
+              key={`${f}-${i}`}
+              className="inline-flex items-center gap-1 px-2 py-1 bg-brass/15 text-brass border border-brass/40 rounded-sm text-xs"
+            >
+              {f}
+              <button
+                onClick={() => removeFrigo(i)}
+                className="hover:text-cream"
+                aria-label={`Retirer ${f}`}
+              >
+                <XIcon size={11} />
+              </button>
+            </span>
+          ))}
+          <input
+            type="text"
+            value={frigoInput}
+            onChange={(e) => setFrigoInput(e.target.value)}
+            onKeyDown={(e) => {
+              if (e.key === "Enter" || e.key === ",") {
+                e.preventDefault();
+                addFrigo(frigoInput);
+              } else if (e.key === "Backspace" && !frigoInput && frigo.length > 0) {
+                removeFrigo(frigo.length - 1);
+              }
+            }}
+            placeholder={
+              frigo.length === 0
+                ? "ex: tomates, mozzarella, basilic…"
+                : "+ ajouter"
+            }
+            className="input !py-1.5 !px-2 flex-1 min-w-[160px] text-sm"
+          />
+          {frigo.length > 0 && (
+            <button
+              onClick={() => setFrigo([])}
+              className="text-xs text-cream-mute hover:text-copper underline"
+            >
+              vider
+            </button>
+          )}
+        </div>
+        {frigo.length > 0 && (
+          <p className="text-[11px] text-cream-mute italic">
+            {filtered.length} recette{filtered.length > 1 ? "s" : ""} trouvée{filtered.length > 1 ? "s" : ""} avec au moins un ingrédient du frigo.
+          </p>
+        )}
+      </div>
+
       {isLoading && <p className="text-cream-mute">Chargement…</p>}
 
       {!isLoading && filtered.length === 0 && (
@@ -136,11 +274,13 @@ export default function LivreRecettes() {
 
       {filtered.length > 0 && (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-          {filtered.map((r) => (
+          {filtered.map(({ recette: r, matched, missing }) => (
             <RecetteCard
               key={r.id}
               recette={r}
               busy={busyId === r.id}
+              frigoMatched={frigo.length > 0 ? matched : 0}
+              frigoMissing={frigo.length > 0 ? missing : 0}
               onUpvote={() =>
                 withBusy(r.id, () => upvote.mutateAsync({ householdId, recetteId: r.id }))
               }
@@ -165,6 +305,8 @@ export default function LivreRecettes() {
 function RecetteCard({
   recette,
   busy,
+  frigoMatched,
+  frigoMissing,
   onUpvote,
   onDownvote,
   onRestore,
@@ -172,6 +314,10 @@ function RecetteCard({
 }: {
   recette: RecetteWithId;
   busy: boolean;
+  /** Nombre d'ingrédients du frigo qui matchent. 0 si pas de filtre frigo actif. */
+  frigoMatched: number;
+  /** Nombre d'ingrédients restants à acheter pour faire la recette. */
+  frigoMissing: number;
   onUpvote: () => void;
   onDownvote: () => void;
   onRestore: () => void;
@@ -180,9 +326,23 @@ function RecetteCard({
   const isFav = recette.statut === "favorite" && !recette.excluded;
   const isExcluded = !!recette.excluded;
   const tt = recette.tempsPrepMinutes + recette.tempsCuissonMinutes;
+  const showFrigoBadge = frigoMatched > 0;
 
   return (
     <div className={`tile-card !p-4 flex flex-col gap-2 ${isExcluded ? "opacity-50" : ""}`}>
+      {showFrigoBadge && (
+        <div className="flex items-center gap-2 -mb-1">
+          <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest text-brass bg-brass/15 px-2 py-0.5 rounded-sm">
+            <Refrigerator size={10} />
+            {frigoMatched} du frigo utilisé{frigoMatched > 1 ? "s" : ""}
+          </span>
+          {frigoMissing > 0 && (
+            <span className="text-[10px] uppercase tracking-widest text-cream-mute">
+              · {frigoMissing} à acheter
+            </span>
+          )}
+        </div>
+      )}
       <Link to={`/livre-recettes/${recette.id}`} className="space-y-2 hover:opacity-90 transition">
         <div className="flex items-start justify-between gap-2">
           <h3 className="font-serif text-lg leading-tight flex-1">{recette.nom}</h3>
