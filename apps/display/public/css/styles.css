@@ -528,6 +528,16 @@ body {
   margin-right: auto;
   width: 100%;
 }
+/* Modifier opt-in : pour les expand qui posent leur propre layout
+   (recipe-today, weekly-menu, livre-recettes). Retire le max-width
+   et le padding du container parent — le module gère son propre header
+   et son propre body scrollable interne. */
+.tile-overlay-content--full {
+  max-width: none;
+  padding: 0;
+  margin-left: 0;
+  margin-right: 0;
+}
 .tile-overlay-h1 {
   font-family: Georgia, serif;
   font-size: 44px;
