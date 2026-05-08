@@ -206,6 +206,52 @@
     } catch (e) { /* iOS 9 sometimes throws */ }
   }
 
+  function setupScrollLock() {
+    document.addEventListener('touchmove', function (e) {
+      var t = e.target;
+      while (t && t !== document.body && t.nodeType === 1) {
+        if (t.getAttribute && t.getAttribute('data-scroll-lock') === '1') {
+          var atTop = t.scrollTop <= 0;
+          var atBottom = (t.scrollTop + t.clientHeight) >= t.scrollHeight;
+          if (atTop || atBottom) {
+            if (atTop && atBottom) {
+              /* contenu plus court que le scroller : aucun scroll possible, on bloque tout */
+              e.preventDefault();
+              return;
+            }
+            if (atTop) {
+              /* Au top, on ne bloque que les swipes vers le bas (rubber-band haut) */
+              if (e.touches && e.touches[0] && t._lastY != null && e.touches[0].clientY > t._lastY) {
+                e.preventDefault();
+              }
+            }
+            if (atBottom) {
+              /* Au bottom, on ne bloque que les swipes vers le haut (rubber-band bas) */
+              if (e.touches && e.touches[0] && t._lastY != null && e.touches[0].clientY < t._lastY) {
+                e.preventDefault();
+              }
+            }
+          }
+          if (e.touches && e.touches[0]) t._lastY = e.touches[0].clientY;
+          return;
+        }
+        t = t.parentNode;
+      }
+    }, false);
+
+    /* Reset _lastY au touchstart pour ne pas comparer entre 2 gestes distincts */
+    document.addEventListener('touchstart', function (e) {
+      var t = e.target;
+      while (t && t !== document.body && t.nodeType === 1) {
+        if (t.getAttribute && t.getAttribute('data-scroll-lock') === '1') {
+          if (e.touches && e.touches[0]) t._lastY = e.touches[0].clientY;
+          return;
+        }
+        t = t.parentNode;
+      }
+    }, false);
+  }
+
   function loadDisplayAndTiles() {
     var hid = state.householdId;
     var did = state.displayId;
@@ -362,6 +408,8 @@
        Sans ça, "Add to Home Screen" sur iOS épingle l'URL avec ces params
        et l'icône peut pointer vers un état temporaire (token expiré). */
     cleanUrl();
+
+    setupScrollLock();
 
     setupAudioUnlock();
 

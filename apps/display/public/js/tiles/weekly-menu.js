@@ -292,6 +292,7 @@
         'padding:20px; overflow-y:auto; -webkit-overflow-scrolling:touch; ' +
         '-webkit-flex:1 1 auto; flex:1 1 auto; min-height:0;';
       container.appendChild(body);
+      body.setAttribute('data-scroll-lock', '1');
 
       for (var s = 0; s < sessions.length; s++) {
         (function (session) {
@@ -499,6 +500,7 @@
       'padding:16px 20px; overflow:auto; -webkit-overflow-scrolling:touch; ' +
       '-webkit-flex:1 1 auto; flex:1 1 auto; min-height:0;';
     container.appendChild(gridWrap);
+    gridWrap.setAttribute('data-scroll-lock', '1');
 
     var table = document.createElement('table');
     table.style.cssText = 'width:100%; border-collapse:separate; border-spacing:6px; font-size:12px;';
