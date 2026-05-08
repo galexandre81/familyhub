@@ -213,6 +213,11 @@
         if (t.getAttribute && t.getAttribute('data-scroll-lock') === '1') {
           var atTop = t.scrollTop <= 0;
           var atBottom = (t.scrollTop + t.clientHeight) >= t.scrollHeight;
+          /* Update _lastY EN PREMIER pour qu'il soit valide même si on
+             early-return dans le cas "scroller vide" en dessous */
+          var newY = (e.touches && e.touches[0]) ? e.touches[0].clientY : null;
+          var prevY = t._lastY;
+          if (newY != null) t._lastY = newY;
           if (atTop || atBottom) {
             if (atTop && atBottom) {
               /* contenu plus court que le scroller : aucun scroll possible, on bloque tout */
@@ -221,18 +226,17 @@
             }
             if (atTop) {
               /* Au top, on ne bloque que les swipes vers le bas (rubber-band haut) */
-              if (e.touches && e.touches[0] && t._lastY != null && e.touches[0].clientY > t._lastY) {
+              if (newY != null && prevY != null && newY > prevY) {
                 e.preventDefault();
               }
             }
             if (atBottom) {
               /* Au bottom, on ne bloque que les swipes vers le haut (rubber-band bas) */
-              if (e.touches && e.touches[0] && t._lastY != null && e.touches[0].clientY < t._lastY) {
+              if (newY != null && prevY != null && newY < prevY) {
                 e.preventDefault();
               }
             }
           }
-          if (e.touches && e.touches[0]) t._lastY = e.touches[0].clientY;
           return;
         }
         t = t.parentNode;
