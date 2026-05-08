@@ -450,6 +450,7 @@
       'padding:20px; overflow-y:auto; -webkit-overflow-scrolling:touch; ' +
       '-webkit-flex:1 1 auto; flex:1 1 auto; min-height:0;';
     body.id = 'rt-body';
+    body.setAttribute('data-scroll-lock', '1');
     container.appendChild(body);
 
     /* Notes du slot (ex: "Marc et Sophie invités") */
