@@ -303,7 +303,7 @@
    * - portionsTarget : nombre de portions courant
    */
   function expand(container, data, _config, _tileId) {
-    container.className = 'tile-overlay-content tile-recipe-today-expand';
+    container.className = 'tile-overlay-content tile-overlay-content--full tile-recipe-today-expand';
     container.innerHTML = '';
     /* Force flex column layout : sinon le styles.css de base laisse les
        enfants en flux normal et le body se superpose au header sur iOS 9. */

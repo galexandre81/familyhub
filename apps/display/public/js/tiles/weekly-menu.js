@@ -211,7 +211,7 @@
   }
 
   function expand(container, data, _config, _tileId) {
-    container.className = 'tile-overlay-content tile-weekly-menu-expand';
+    container.className = 'tile-overlay-content tile-overlay-content--full tile-weekly-menu-expand';
     container.innerHTML = '';
     /* Force layout flex column pour que la grille puisse scroller proprement
        et que la vue détail (chargée plus tard via recipe-today) se positionne

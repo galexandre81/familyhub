@@ -626,7 +626,7 @@
   /* ---------- Expand : wizard 2 étapes ---------- */
 
   function expand(container, _data, config, _tileId) {
-    container.className = 'tile-overlay-content tile-livre-expand';
+    container.className = 'tile-overlay-content tile-overlay-content--full tile-livre-expand';
     container.innerHTML = '<div class="livre-wizard" data-role="wizard">Chargement…</div>';
     var wrap = container.querySelector('[data-role="wizard"]');
 
