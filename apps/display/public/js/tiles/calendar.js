@@ -51,6 +51,40 @@
     return pad2(d.getHours()) + ':' + pad2(d.getMinutes());
   }
 
+  /* Date locale ISO YYYY-MM-DD (iPad timezone). */
+  function todayISOLocal() {
+    var d = new Date();
+    return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
+  }
+
+  /* Pour un event all-day, on évite la math timezone : on lit juste la
+     date portion (YYYY-MM-DD) du startISO et on compare au today local
+     en string. Évite les bugs node-ical / iOS 9 qui peuvent décaler
+     l'event d'une journée selon l'interprétation TZ de DATE iCal. */
+  function fmtRelativeDayForEvent(ev, evStartDate, now) {
+    if (ev && ev.allDay && ev.startISO) {
+      var eventISO = String(ev.startISO).slice(0, 10);
+      var todayISO = todayISOLocal();
+      /* Construit une Date locale à midi pour avoir un day-of-week stable */
+      var parts = eventISO.split('-');
+      if (parts.length === 3) {
+        var year = parseInt(parts[0], 10);
+        var month = parseInt(parts[1], 10) - 1;
+        var day = parseInt(parts[2], 10);
+        if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+          var localDate = new Date(year, month, day, 12, 0, 0);
+          /* Diff en jours via comparaison string YYYY-MM-DD plus robuste */
+          var diffDays = Math.round((localDate.getTime() - new Date(todayISO + 'T12:00:00').getTime()) / 86400000);
+          if (diffDays === 0) return "Aujourd'hui";
+          if (diffDays === 1) return 'Demain';
+          if (diffDays > 1 && diffDays < 7) return DAYS_LONG_FR[localDate.getDay()];
+          return DAYS_FR[localDate.getDay()] + ' ' + localDate.getDate() + ' ' + MONTHS_FR[localDate.getMonth()];
+        }
+      }
+    }
+    return fmtRelativeDay(evStartDate, now);
+  }
+
   function fmtRelativeDay(d, now) {
     var today = startOfDay(now);
     var diffDays = Math.round((d.getTime() - today.getTime()) / 86400000);
@@ -94,11 +128,20 @@
 
     var events = (data && data.events) || [];
     var now = new Date();
+    var todayStr = todayISOLocal();
     var upcoming = [];
     for (var i = 0; i < events.length; i++) {
       var ev = events[i];
-      var endD = parseISO(ev.endISO);
-      if (endD && endD.getTime() < now.getTime()) continue;
+      if (ev.allDay) {
+        /* Pour all-day : compare juste la date portion en string. Évite
+           le bug où un event Friday all-day apparaît "encore upcoming"
+           samedi à cause d'une interprétation TZ exotique de l'endISO. */
+        var eventEndDate = String(ev.endISO || ev.startISO || '').slice(0, 10);
+        if (eventEndDate <= todayStr) continue;
+      } else {
+        var endD = parseISO(ev.endISO);
+        if (endD && endD.getTime() < now.getTime()) continue;
+      }
       upcoming.push(ev);
     }
 
@@ -114,7 +157,7 @@
       return;
     }
 
-    var when = fmtRelativeDay(firstStart, now);
+    var when = fmtRelativeDayForEvent(first, firstStart, now);
     if (!first.allDay) when += ' · ' + fmtTime(firstStart);
 
     var html = '';
@@ -133,7 +176,7 @@
         var ev = upcoming[k];
         var evStart = parseISO(ev.startISO);
         if (!evStart) continue;
-        var evWhen = fmtRelativeDay(evStart, now);
+        var evWhen = fmtRelativeDayForEvent(ev, evStart, now);
         if (!ev.allDay) evWhen += ' · ' + fmtTime(evStart);
         html += '<div class="cal-compact-next">' +
           '<span class="cal-compact-next-when">' + escapeHtml(evWhen) + '</span>' +
