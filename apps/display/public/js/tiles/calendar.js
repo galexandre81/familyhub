@@ -90,8 +90,16 @@
   }
 
   function fmtRelativeDay(d, now) {
-    var today = startOfDay(now);
-    var diffDays = Math.round((d.getTime() - today.getTime()) / 86400000);
+    /* Ancrage à midi pour calculer un diff EN JOURS calendrier propre.
+       L'ancien code faisait `d.getTime() - startOfDay(now).getTime()` puis
+       Math.round en jours, ce qui pour un event aujourd'hui à 14h donnait
+       14h = 0.58 jour → arrondi à 1 → "Demain" au lieu d'"Aujourd'hui".
+       Bug indépendant du fuseau iPad. Pinning à midi des deux côtés
+       neutralise l'heure de l'event ET les transitions DST (23h/25h day
+       → 0.96/1.04 → arrondi propre). */
+    var todayNoon = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
+    var eventDayNoon = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
+    var diffDays = Math.round((eventDayNoon.getTime() - todayNoon.getTime()) / 86400000);
     return dayLabel(d, diffDays);
   }
 

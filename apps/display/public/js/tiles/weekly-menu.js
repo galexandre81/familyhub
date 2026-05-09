@@ -84,6 +84,29 @@
     return slot.date < getTodayISO();
   }
 
+  /* Label "Lun/Mar/.../Dim" dérivé de la VRAIE date du jour, pas de l'index
+     `jour` du snapshot. Bug fix : les meal plans peuvent avoir un dateDebut
+     qui n'est pas un lundi (ex: dateDebut = mardi → jour 0 est mardi). Avant,
+     JOURS_SHORT[j] retournait toujours "Lun" pour jour 0, "Mar" pour jour 1,
+     etc., ce qui décalait visuellement les labels et affichait "Ven" sur la
+     pastille de samedi (jour 4 quand dateDebut = mardi). */
+  function dayLabelFromDate(dateStr) {
+    if (!dateStr) return '';
+    var parts = String(dateStr).split('-');
+    if (parts.length !== 3) return '';
+    var y = parseInt(parts[0], 10);
+    var m = parseInt(parts[1], 10) - 1;
+    var dd = parseInt(parts[2], 10);
+    if (isNaN(y) || isNaN(m) || isNaN(dd)) return '';
+    /* Date locale à midi pour éviter les bugs DST sur les frontières */
+    var d = new Date(y, m, dd, 12, 0, 0);
+    /* JS getDay() = 0 (Dim) ... 6 (Sam) ; on remappe sur l'ordre français
+       JOURS_SHORT [Lun, Mar, Mer, Jeu, Ven, Sam, Dim] */
+    var jsDay = d.getDay();
+    var idx = jsDay === 0 ? 6 : jsDay - 1;
+    return JOURS_SHORT[idx];
+  }
+
   /* ---------- COMPACT ---------- */
 
   function render(container, data, _config) {
@@ -154,8 +177,9 @@
         'border:1px solid ' + (isToday ? BRASS : 'rgba(217,160,91,0.15)') + ';' +
         'color:' + (isToday ? BRASS : 'inherit') + ';' +
         'opacity:' + (filledCount === 0 ? '0.4' : '1') + ';';
+      var pillLabel = dayLabelFromDate(dayInfo.date) || JOURS_SHORT[j];
       weekRow.innerHTML += '<div style="' + pillStyle + '">' +
-        '<div style="font-weight:600; letter-spacing:0.05em">' + JOURS_SHORT[j].toUpperCase() + '</div>' +
+        '<div style="font-weight:600; letter-spacing:0.05em">' + pillLabel.toUpperCase() + '</div>' +
         '<div style="font-size:8px; margin-top:2px">' + filledCount + '/3</div>' +
         '</div>';
     }
@@ -538,12 +562,16 @@
         'color:' + (isToday ? BRASS : 'inherit') + ';' +
         (isToday ? 'border-bottom:2px solid ' + BRASS + ';' : '');
       var dateLabel = '';
+      var headerDayName = JOURS_SHORT[j];
       if (byJour[j] && byJour[j].date) {
+        /* Idem que la pastille compact : on dérive le label depuis la
+           VRAIE date pour que mardi May 5 affiche "Mar" pas "Lun". */
+        headerDayName = dayLabelFromDate(byJour[j].date) || headerDayName;
         var d2 = new Date(byJour[j].date + 'T12:00:00Z');
         dateLabel = '<div style="font-size:9px; opacity:0.6; margin-top:1px; font-weight:400; letter-spacing:0">' +
                     d2.getDate() + '/' + (d2.getMonth() + 1) + '</div>';
       }
-      th.innerHTML = JOURS_SHORT[j] + dateLabel;
+      th.innerHTML = headerDayName + dateLabel;
       trH.appendChild(th);
     }
     thead.appendChild(trH);
