@@ -57,6 +57,14 @@
     return d.getFullYear() + '-' + pad2(d.getMonth() + 1) + '-' + pad2(d.getDate());
   }
 
+  /* Label relatif partagé : "Aujourd'hui", "Demain", "lundi", ou "lun. 9 mai". */
+  function dayLabel(d, diffDays) {
+    if (diffDays === 0) return "Aujourd'hui";
+    if (diffDays === 1) return 'Demain';
+    if (diffDays > 1 && diffDays < 7) return DAYS_LONG_FR[d.getDay()];
+    return DAYS_FR[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS_FR[d.getMonth()];
+  }
+
   /* Pour un event all-day, on évite la math timezone : on lit juste la
      date portion (YYYY-MM-DD) du startISO et on compare au today local
      en string. Évite les bugs node-ical / iOS 9 qui peuvent décaler
@@ -64,21 +72,17 @@
   function fmtRelativeDayForEvent(ev, evStartDate, now) {
     if (ev && ev.allDay && ev.startISO) {
       var eventISO = String(ev.startISO).slice(0, 10);
-      var todayISO = todayISOLocal();
-      /* Construit une Date locale à midi pour avoir un day-of-week stable */
       var parts = eventISO.split('-');
       if (parts.length === 3) {
         var year = parseInt(parts[0], 10);
         var month = parseInt(parts[1], 10) - 1;
         var day = parseInt(parts[2], 10);
         if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+          /* Date locale à midi pour day-of-week stable et diff sans DST gotcha */
           var localDate = new Date(year, month, day, 12, 0, 0);
-          /* Diff en jours via comparaison string YYYY-MM-DD plus robuste */
-          var diffDays = Math.round((localDate.getTime() - new Date(todayISO + 'T12:00:00').getTime()) / 86400000);
-          if (diffDays === 0) return "Aujourd'hui";
-          if (diffDays === 1) return 'Demain';
-          if (diffDays > 1 && diffDays < 7) return DAYS_LONG_FR[localDate.getDay()];
-          return DAYS_FR[localDate.getDay()] + ' ' + localDate.getDate() + ' ' + MONTHS_FR[localDate.getMonth()];
+          var todayNoon = new Date(todayISOLocal() + 'T12:00:00');
+          var diffDays = Math.round((localDate.getTime() - todayNoon.getTime()) / 86400000);
+          return dayLabel(localDate, diffDays);
         }
       }
     }
@@ -88,10 +92,7 @@
   function fmtRelativeDay(d, now) {
     var today = startOfDay(now);
     var diffDays = Math.round((d.getTime() - today.getTime()) / 86400000);
-    if (diffDays === 0) return "Aujourd'hui";
-    if (diffDays === 1) return 'Demain';
-    if (diffDays > 1 && diffDays < 7) return DAYS_LONG_FR[d.getDay()];
-    return DAYS_FR[d.getDay()] + ' ' + d.getDate() + ' ' + MONTHS_FR[d.getMonth()];
+    return dayLabel(d, diffDays);
   }
 
   function fmtEventTime(ev, evStart, evEnd) {
@@ -168,25 +169,37 @@
       html += '<div class="cal-compact-loc">' + escapeHtml(first.location) + '</div>';
     }
 
-    /* 2 events suivants : compacts (when + summary inline) */
+    /* 2 events suivants : compacts (when + summary inline). On compte les
+       events EFFECTIVEMENT rendus (pas le max théorique) pour que le
+       compteur "+ N autres" reste cohérent si un event a un startISO
+       malformé et est skippé dans la boucle. */
     var nextN = Math.min(2, upcoming.length - 1);
+    var nextRendered = 0;
+    var lastRenderedIdx = 0;
     if (nextN > 0) {
-      html += '<div class="cal-compact-next-list">';
+      var nextHtml = '';
       for (var k = 1; k <= nextN; k++) {
         var ev = upcoming[k];
         var evStart = parseISO(ev.startISO);
         if (!evStart) continue;
         var evWhen = fmtRelativeDayForEvent(ev, evStart, now);
         if (!ev.allDay) evWhen += ' · ' + fmtTime(evStart);
-        html += '<div class="cal-compact-next">' +
+        nextHtml += '<div class="cal-compact-next">' +
           '<span class="cal-compact-next-when">' + escapeHtml(evWhen) + '</span>' +
           '<span class="cal-compact-next-summary">' + escapeHtml(ev.summary) + '</span>' +
           '</div>';
+        nextRendered++;
+        lastRenderedIdx = k;
       }
-      html += '</div>';
+      if (nextRendered > 0) {
+        html += '<div class="cal-compact-next-list">' + nextHtml + '</div>';
+      }
     }
 
-    var moreCount = upcoming.length - 1 - nextN;
+    /* moreCount = events restants après le primary (idx 0) et après le
+       dernier rendu inline. Évite de mentir si un event invalide a été
+       skippé dans la boucle ci-dessus. */
+    var moreCount = upcoming.length - 1 - nextRendered;
     if (moreCount > 0) {
       var label = moreCount === 1 ? '+ 1 autre' : '+ ' + moreCount + ' autres';
       html += '<div class="cal-compact-more">' + label + '</div>';

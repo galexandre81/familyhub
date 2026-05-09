@@ -5,7 +5,7 @@
 (function (global) {
   'use strict';
 
-  var DISPLAY_VERSION = '20260508b';
+  var DISPLAY_VERSION = '20260509b';
 
   /* Synchro avec apps/hub/src/lib/themes.ts. Duplication acceptable
      (6 entrées peu volatiles, pas de transpile sur le display). */
@@ -155,7 +155,12 @@
     body.appendChild(themeSection);
 
     /* Section luminosité — boutons discrets (5 niveaux) plutôt qu'un
-       <input type="range"> qui est fragile sur Safari 9 PWA standalone. */
+       <input type="range"> qui est fragile sur Safari 9 PWA standalone.
+       Note : la value est l'opacité de l'overlay noir (0 = pas d'overlay
+       = max luminosité, 0.6 = overlay 60% noir = lecture nocturne).
+       Cap à 0.6 (cf. brightness.js MAX_DIM) car au-delà c'est illisible.
+       Les labels sont donc INVERSES de la value : "Max" = 0 (le plus
+       clair), "Très basse" = 0.6 (le plus sombre). */
     var LUM_LEVELS = [
       { value: 0,    label: 'Max' },
       { value: 0.15, label: 'Haute' },
@@ -239,16 +244,28 @@
     return card;
   }
 
-  function pickTheme(themeId, cardEl) {
-    /* Apply local immédiat (optimistic) */
-    if (global.FamilyHubApplyTheme) global.FamilyHubApplyTheme(themeId);
-
-    /* Update UI : retire le bord actif des autres cards, ajoute sur celle-ci */
+  function setActiveCardBorder(themeId) {
     var allCards = document.querySelectorAll('[data-theme-id]');
     for (var i = 0; i < allCards.length; i++) {
-      allCards[i].style.border = '1px solid rgba(217,160,91,0.30)';
+      var isActive = allCards[i].getAttribute('data-theme-id') === themeId;
+      allCards[i].style.border = isActive
+        ? '2px solid #D9A05B'
+        : '1px solid rgba(217,160,91,0.30)';
     }
-    if (cardEl) cardEl.style.border = '2px solid #D9A05B';
+  }
+
+  function pickTheme(themeId, _cardEl) {
+    /* Capture le thème actuel AVANT l'apply optimistic — sinon le rollback
+       sur échec Firestore ne saurait pas où revenir (le listener household
+       de core.js ne re-applique que si newThemeId !== state.appliedThemeId,
+       or applyDisplayTheme a déjà mis state.appliedThemeId = themeId, donc
+       sans capture explicite l'iPad reste sur le thème optimistic à vie). */
+    var previousThemeId = getCurrentThemeId();
+    if (previousThemeId === themeId) return;
+
+    /* Apply local immédiat (optimistic) + UI cards */
+    if (global.FamilyHubApplyTheme) global.FamilyHubApplyTheme(themeId);
+    setActiveCardBorder(themeId);
 
     /* Persist Firestore (households/{hid}.parametres.themeId) */
     var db = global.FamilyHubGetDb && global.FamilyHubGetDb();
@@ -263,8 +280,10 @@
       'updatedAt': serverTs
     }).catch(function (err) {
       if (window.console && window.console.error) console.error('[settings] persist theme', err);
-      /* Rollback : on ne sait pas l'ancien thème ici, le snapshot listener
-         de core.js le récupèrera et re-appliquera. */
+      /* Rollback explicite — restaure le thème précédent et la card active.
+         Sans ça, l'optimistic apply resterait à vie (cf. Code Review C1). */
+      if (global.FamilyHubApplyTheme) global.FamilyHubApplyTheme(previousThemeId);
+      setActiveCardBorder(previousThemeId);
     });
   }
 
