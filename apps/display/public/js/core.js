@@ -13,6 +13,15 @@
   var CUSTOM_TOKEN_REFRESH_MS = 50 * 60 * 1000; /* 50 min — Firebase custom tokens valent 1h */
   var REFRESH_RETRY_DELAYS_MS = [5 * 1000, 30 * 1000, 2 * 60 * 1000]; /* 5s, 30s, 2min */
 
+  /* Guard contre les refresh concurrents. Trois sources peuvent firer
+     refreshCustomToken(0) en parallèle : setInterval 50min,
+     visibilitychange, onAuthStateChanged(null). Sans guard, deux
+     signInWithCustomToken concurrents → la 2e invalide la 1ère →
+     onAuthStateChanged(null) → encore un refresh = cascade. Le flag
+     reste à true pendant TOUTE la chaîne (incluant retries internes)
+     et n'est reset qu'à la résolution finale. */
+  var refreshInFlight = false;
+
   var state = {
     db: null,
     functions: null,
@@ -89,11 +98,25 @@
    */
   function refreshCustomToken(attemptIdx) {
     attemptIdx = attemptIdx || 0;
+    /* Guard concurrent refreshes — uniquement au premier appel (attempt 0).
+       Les retries internes (attempt >= 1) sont chaînés depuis le catch
+       du précédent, le flag est déjà à true. */
+    if (attemptIdx === 0) {
+      if (refreshInFlight) {
+        if (window.console && window.console.log) {
+          window.console.log('[auth] refresh already in flight, skip');
+        }
+        return;
+      }
+      refreshInFlight = true;
+    }
+
     var householdId = state.householdId;
     var displayId = state.displayId;
     var authToken = getStored(STORAGE.authToken);
     if (!householdId || !displayId || !authToken) {
       setAuthBadge('error', 'pas d\'authToken');
+      refreshInFlight = false;
       return;
     }
 
@@ -112,31 +135,35 @@
       })
       .then(function () {
         setAuthBadge('ok');
+        refreshInFlight = false;
         if (window.console && window.console.log) {
           window.console.log('[auth] custom token refreshed');
         }
       })
       .catch(function (err) {
-        /* Extrait un identifiant compact de l'erreur pour le badge — le
-           code Firebase (ex: "unavailable", "deadline-exceeded") est plus
-           informatif que le message complet. Fallback sur le message si pas
-           de code. Tronqué à 30 chars pour tenir dans le badge. */
+        /* Affiche le CODE Firebase si dispo (ex: "unavailable",
+           "deadline-exceeded") — sinon "auth-fail" générique. On NE met
+           PAS err.message car il peut contenir des arguments échoés
+           (ex: un householdId invalide) — l'iPad est dans la cuisine,
+           visible à tous, donc pas de leak côté UI. Le full err est loggé
+           console.warn pour debug par devtools si nécessaire. */
         var code = (err && err.code) ? String(err.code) : '';
-        var msgRaw = (err && err.message) ? String(err.message) : 'unknown';
-        var detail = code ? code : msgRaw.substring(0, 30);
+        var detail = code ? code : 'auth-fail';
         if (window.console && window.console.warn) {
           window.console.warn('[auth] refresh attempt ' + (attemptIdx + 1) + ' failed', err);
         }
         if (attemptIdx < REFRESH_RETRY_DELAYS_MS.length) {
+          /* Retry programmé — on garde refreshInFlight = true pendant la
+             chaîne pour que les triggers concurrents (visibilitychange,
+             setInterval, onAuthStateChanged) skipent silencieusement. */
           setAuthBadge('retrying', 'try ' + (attemptIdx + 2) + ' · ' + detail);
           setTimeout(function () {
             refreshCustomToken(attemptIdx + 1);
           }, REFRESH_RETRY_DELAYS_MS[attemptIdx]);
         } else {
-          /* Tous les retries ont échoué. Au lieu d'afficher "Reconfigurez le
-             display" qui bloque l'utilisateur, on tente un reload de la page
-             dans 30s — ça remet au tout début, refait un signin avec le
-             customToken stocké (qui peut encore être valide), etc. */
+          /* Tous les retries ont échoué. Reload de la page dans 30s pour
+             re-bootstrap propre. Le reload reset le module state donc
+             refreshInFlight sera réinitialisé. */
           setAuthBadge('error', detail + ' · reload 30s');
           setTimeout(function () {
             var url = window.location.pathname + '?reload=' + Date.now();
@@ -294,7 +321,10 @@
   }
 
   /* Applique un thème sur <html>. Retire d'abord toute classe theme-*
-     présente. Vide / 'caractere' = thème par défaut (pas de classe). */
+     présente. Vide / 'caractere' = thème par défaut (pas de classe).
+     Re-render aussi les tuiles 'settings' compactes pour mettre à jour
+     leur aperçu thème (swatches + nom) — sans ça la tuile compacte
+     reste figée sur l'ancien thème jusqu'au prochain snapshot. */
   function applyDisplayTheme(themeId) {
     var html = document.documentElement;
     var classes = (html.className || '').split(/\s+/);
@@ -310,6 +340,25 @@
     }
     html.className = kept.join(' ');
     state.appliedThemeId = themeId || 'caractere';
+
+    /* Force re-render des compact tiles 'settings' qui affichent l'aperçu
+       du thème courant — sans ça l'aperçu reste figé. */
+    if (state.cellsByTileId && state.tilesById && window.FamilyHubRender) {
+      for (var tileId in state.cellsByTileId) {
+        if (!state.cellsByTileId.hasOwnProperty(tileId)) continue;
+        var tile = state.tilesById[tileId];
+        if (!tile || tile.type !== 'settings') continue;
+        var snapshotData = window.FamilyHubGetTileSnapshot
+          ? window.FamilyHubGetTileSnapshot(tileId)
+          : null;
+        window.FamilyHubRender.renderTile(
+          tile.type,
+          state.cellsByTileId[tileId],
+          snapshotData || {},
+          tile.config
+        );
+      }
+    }
   }
   window.FamilyHubApplyTheme = applyDisplayTheme;
 

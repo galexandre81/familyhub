@@ -1,6 +1,6 @@
 /**
  * Définition des thèmes UI disponibles. La valeur stockée dans
- * `households/{hid}.parametres.theme` est l'`id` du thème ; le hook
+ * `households/{hid}.parametres.themeId` est l'`id` du thème ; le hook
  * useThemeApply (Layout) ajoute la classe correspondante sur <html>.
  */
 

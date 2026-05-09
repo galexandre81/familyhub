@@ -784,6 +784,10 @@
           if (ev.key === 'Enter' || ev.keyCode === 13) {
             ev.preventDefault();
             commitFrigoInput();
+            /* Re-focus pour garder le clavier iOS ouvert — sans ça le
+               clavier soft se ferme après le commit (renderFrigoChips
+               mute le DOM et iOS perd le focus). */
+            try { frigoInput.focus(); } catch (e) { /* noop */ }
           }
         });
         frigoInput.addEventListener('input', function () {
