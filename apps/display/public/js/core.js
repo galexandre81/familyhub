@@ -22,7 +22,10 @@
     cellsByTileId: {},
     tilesById: {},
     snapshotUnsub: null,
-    displayConfig: null
+    displayConfig: null,
+    householdConfig: null,
+    householdUnsub: null,
+    appliedThemeId: null
   };
 
   function setStatus(text) {
@@ -256,14 +259,43 @@
     }, false);
   }
 
+  /* Applique un thème sur <html>. Retire d'abord toute classe theme-*
+     présente. Vide / 'caractere' = thème par défaut (pas de classe). */
+  function applyDisplayTheme(themeId) {
+    var html = document.documentElement;
+    var classes = (html.className || '').split(/\s+/);
+    var kept = [];
+    for (var i = 0; i < classes.length; i++) {
+      var c = classes[i];
+      if (!c) continue;
+      if (c.indexOf('theme-') === 0) continue;
+      kept.push(c);
+    }
+    if (themeId && themeId !== 'caractere') {
+      kept.push('theme-' + themeId);
+    }
+    html.className = kept.join(' ');
+    state.appliedThemeId = themeId || 'caractere';
+  }
+  window.FamilyHubApplyTheme = applyDisplayTheme;
+
   function loadDisplayAndTiles() {
     var hid = state.householdId;
     var did = state.displayId;
-    var displayRef = state.db.collection('households').doc(hid).collection('displays').doc(did);
-    var tilesRef = state.db.collection('households').doc(hid).collection('tiles');
+    var householdRef = state.db.collection('households').doc(hid);
+    var displayRef = householdRef.collection('displays').doc(did);
+    var tilesRef = householdRef.collection('tiles');
 
     setStatus('Chargement de la configuration…');
-    return displayRef.get().then(function (snap) {
+    return householdRef.get().then(function (hSnap) {
+      if (hSnap.exists) {
+        var hData = hSnap.data() || {};
+        state.householdConfig = hData;
+        var themeId = hData.parametres && hData.parametres.themeId;
+        applyDisplayTheme(themeId);
+      }
+      return displayRef.get();
+    }).then(function (snap) {
       if (!snap.exists) throw new Error('Display introuvable');
       state.displayConfig = snap.data();
       return tilesRef.get();
@@ -274,10 +306,28 @@
       renderInitialGrid();
       attachSnapshotListener(displayRef);
       attachDisplayConfigListener(displayRef);
+      attachHouseholdListener(householdRef);
       /* Démarre le singleton timers une fois auth + db prêts */
       if (window.FamilyHubTimers) {
         window.FamilyHubTimers.init(state.db, hid);
       }
+    });
+  }
+
+  /* Listener live sur le doc household — détecte changement de thème
+     pushé depuis le hub web. Re-applique sans reload. */
+  function attachHouseholdListener(householdRef) {
+    if (state.householdUnsub) state.householdUnsub();
+    state.householdUnsub = householdRef.onSnapshot(function (snap) {
+      if (!snap.exists) return;
+      var data = snap.data() || {};
+      state.householdConfig = data;
+      var newThemeId = (data.parametres && data.parametres.themeId) || 'caractere';
+      if (newThemeId !== state.appliedThemeId) {
+        applyDisplayTheme(newThemeId);
+      }
+    }, function (err) {
+      if (window.console && window.console.error) window.console.error('household listener', err);
     });
   }
 
@@ -416,6 +466,10 @@
     setupScrollLock();
 
     setupAudioUnlock();
+
+    if (window.FamilyHubBrightness) {
+      window.FamilyHubBrightness.init();
+    }
 
     if (!window.firebase || !window.__FIREBASE_CONFIG__) {
       showError('Firebase SDK ou configuration manquante.');
