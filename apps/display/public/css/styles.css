@@ -1160,50 +1160,45 @@ body {
   font-family: Georgia, serif;
 }
 .cal-compact-next-list {
-  margin-top: 18px;
-  padding-top: 14px;
+  margin-top: 12px;
+  padding-top: 8px;
   border-top: 1px solid rgba(58, 46, 34, 0.6);
   display: -webkit-flex;
   display: flex;
   -webkit-flex-direction: column;
   flex-direction: column;
-  gap: 8px;
+  gap: 4px;
 }
 .cal-compact-next {
-  font-size: 14px;
-  line-height: 1.35;
+  font-size: 13px;
+  line-height: 1.25;
   color: #F2E8D5;
-  display: -webkit-flex;
-  display: flex;
-  -webkit-flex-direction: column;
-  flex-direction: column;
-  gap: 1px;
+  /* Une seule ligne par event suivant : when puis summary inline */
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .cal-compact-next-when {
   font-family: Georgia, serif;
-  font-size: 11px;
+  font-size: 10px;
   color: #C49B6B;
   text-transform: uppercase;
-  letter-spacing: 0.15em;
+  letter-spacing: 0.12em;
   font-feature-settings: "tnum";
   -webkit-font-feature-settings: "tnum";
+  margin-right: 8px;
 }
 .cal-compact-next-summary {
   font-family: Georgia, serif;
-  font-size: 16px;
+  font-size: 13px;
   color: #F2E8D5;
-  line-height: 1.25;
-  word-wrap: break-word;
-  overflow-wrap: break-word;
 }
 .cal-compact-more {
-  margin-top: 14px;
-  padding-top: 10px;
-  font-size: 12px;
+  margin-top: 6px;
+  font-size: 11px;
   color: #9C8A6E;
   font-style: italic;
   letter-spacing: 0.04em;
-  border-top: 1px solid rgba(58,46,34,0.4);
   text-align: right;
 }
 
@@ -2347,6 +2342,7 @@ html.theme-lin .cal-compact-next,
 html.theme-lin .cal-compact-next-summary,
 html.theme-lin .cal-compact-summary,
 html.theme-lin .cal-day-pill-name,
+html.theme-lin .cal-event-summary,
 html.theme-lin .cal-pager-label-range,
 html.theme-lin .input-tile,
 html.theme-lin .livre-card,
@@ -2440,6 +2436,7 @@ html.theme-lin .wiz-step { color:#8C7456; }
 html.theme-lin .boot-title,
 html.theme-lin .cal-compact-when,
 html.theme-lin .cal-event-time,
+html.theme-lin .cal-day-row-today .cal-day-pill-name,
 html.theme-lin .cal-pager-arrow,
 html.theme-lin .error-title,
 html.theme-lin .livre-back-btn,
