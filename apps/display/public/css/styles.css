@@ -2457,3 +2457,27 @@ html.theme-lin .wiz-frigo-title,
 html.theme-lin .wiz-results-count,
 html.theme-lin .wiz-section-title,
 html.theme-lin .wiz-toggle-all { color:#B26E38; }
+
+/* === BACKGROUNDS — dark theme card (#1C1815) → Lin card (#FFFAF0) === */
+html.theme-lin .btn-tile-secondary,
+html.theme-lin .input-tile,
+html.theme-lin .livre-card,
+html.theme-lin .livre-search-input,
+html.theme-lin .tile-radio-expand-btn,
+html.theme-lin .tile-radio-expand-nowplaying,
+html.theme-lin .tile-timer-preset-btn,
+html.theme-lin .timer-active-row,
+html.theme-lin .timer-picker,
+html.theme-lin .weather-card-week,
+html.theme-lin .weather-chip,
+html.theme-lin .weather-hero,
+html.theme-lin .wiz-frigo-input,
+html.theme-lin .wiz-icon-btn { background:#FFFAF0; border-color:#D4C7AC; }
+
+/* Active states (darker dark) → slightly tinted Lin */
+html.theme-lin .livre-card:active,
+html.theme-lin .wiz-icon-btn:active,
+html.theme-lin .wiz-secondary:active { background:#F0E5CA; }
+
+/* Very dark backgrounds (#15110D, #0F0D0A) on timer-compact-others etc. */
+html.theme-lin .timer-compact-others { background:#F0E5CA; }
