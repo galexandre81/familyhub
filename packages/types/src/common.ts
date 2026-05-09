@@ -19,7 +19,8 @@ export type TileType =
   | "batch-mode"
   | "livre-recettes"
   | "cuisine-quoi"
-  | "profils";
+  | "profils"
+  | "settings";
 
 export type DisplayDeviceType = "ipad-mini-1" | "modern-tablet" | "desktop" | "mobile";
 

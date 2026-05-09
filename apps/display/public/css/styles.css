@@ -2086,3 +2086,69 @@ body {
   text-align: center;
   margin: 16px 0 0;
 }
+
+/* ===========================================================================
+   THEMES — synchro avec apps/hub/src/lib/themes.ts (6 entrées).
+   Pas de variables CSS (Safari 9 ne les supporte pas), duplication brute.
+   La classe est posée sur <html> par core.js au boot et au snapshot household.
+   =========================================================================== */
+
+/* ----- Forêt ----- */
+html.theme-foret,
+html.theme-foret body { background:#0E1A16; color:#F0EAD7; }
+html.theme-foret .grid-cell { background:#162621; border-color:#2C3E37; }
+html.theme-foret .tile-title { color:#D4AF5F; }
+html.theme-foret .tile-overlay { background:#0E1A16; }
+html.theme-foret .tile-overlay-bar { background:#0F1B17; border-bottom-color:#2C3E37; }
+html.theme-foret .tile-overlay-back { color:#D4AF5F; }
+html.theme-foret .boot-title,
+html.theme-foret .error-title { color:#D4AF5F; }
+html.theme-foret .error-link { background:#D4AF5F; color:#0E1A16; }
+
+/* ----- Marine ----- */
+html.theme-marine,
+html.theme-marine body { background:#0B1220; color:#EAE0C7; }
+html.theme-marine .grid-cell { background:#131E32; border-color:#2A3850; }
+html.theme-marine .tile-title { color:#E09160; }
+html.theme-marine .tile-overlay { background:#0B1220; }
+html.theme-marine .tile-overlay-bar { background:#0C1426; border-bottom-color:#2A3850; }
+html.theme-marine .tile-overlay-back { color:#E09160; }
+html.theme-marine .boot-title,
+html.theme-marine .error-title { color:#E09160; }
+html.theme-marine .error-link { background:#E09160; color:#0B1220; }
+
+/* ----- Bordeaux ----- */
+html.theme-bordeaux,
+html.theme-bordeaux body { background:#1A0C0E; color:#F4E8DB; }
+html.theme-bordeaux .grid-cell { background:#2C161A; border-color:#4A2932; }
+html.theme-bordeaux .tile-title { color:#D6A07C; }
+html.theme-bordeaux .tile-overlay { background:#1A0C0E; }
+html.theme-bordeaux .tile-overlay-bar { background:#1C0E10; border-bottom-color:#4A2932; }
+html.theme-bordeaux .tile-overlay-back { color:#D6A07C; }
+html.theme-bordeaux .boot-title,
+html.theme-bordeaux .error-title { color:#D6A07C; }
+html.theme-bordeaux .error-link { background:#D6A07C; color:#1A0C0E; }
+
+/* ----- Glacier ----- */
+html.theme-glacier,
+html.theme-glacier body { background:#101620; color:#E8F0F8; }
+html.theme-glacier .grid-cell { background:#1E2836; border-color:#2F3D52; }
+html.theme-glacier .tile-title { color:#AEBCD2; }
+html.theme-glacier .tile-overlay { background:#101620; }
+html.theme-glacier .tile-overlay-bar { background:#121824; border-bottom-color:#2F3D52; }
+html.theme-glacier .tile-overlay-back { color:#AEBCD2; }
+html.theme-glacier .boot-title,
+html.theme-glacier .error-title { color:#AEBCD2; }
+html.theme-glacier .error-link { background:#AEBCD2; color:#101620; }
+
+/* ----- Lin (clair) ----- */
+html.theme-lin,
+html.theme-lin body { background:#F8F0DE; color:#3C2A1A; }
+html.theme-lin .grid-cell { background:#FFFAF0; border-color:#D4C7AC; }
+html.theme-lin .tile-title { color:#B26E38; }
+html.theme-lin .tile-overlay { background:#F8F0DE; }
+html.theme-lin .tile-overlay-bar { background:#FCF6E6; border-bottom-color:#D4C7AC; }
+html.theme-lin .tile-overlay-back { color:#B26E38; }
+html.theme-lin .boot-title,
+html.theme-lin .error-title { color:#B26E38; }
+html.theme-lin .error-link { background:#B26E38; color:#F8F0DE; }

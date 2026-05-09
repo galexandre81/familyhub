@@ -29,6 +29,7 @@ const TYPE_LABEL: Record<TileType, string> = {
   "livre-recettes": "Livre de recettes",
   "cuisine-quoi": "Cuisine quoi ?",
   profils: "Profils",
+  settings: "Réglages",
 };
 
 export default function Tiles() {
