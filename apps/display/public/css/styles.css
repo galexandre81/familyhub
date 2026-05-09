@@ -517,7 +517,12 @@ body {
 .tile-overlay-content {
   -webkit-flex: 1;
   flex: 1;
+  /* min-height:0 indispensable pour qu'un flex item scrolle au lieu de
+     grandir au-delà du parent (bug Safari 9 / iPad mini 1). Sans ça, le
+     wizard livre-recettes (sans scroller interne) ne scrolle pas en page 2. */
+  min-height: 0;
   overflow: auto;
+  -webkit-overflow-scrolling: touch;
   padding: 32px 36px;
   display: -webkit-flex;
   display: flex;
