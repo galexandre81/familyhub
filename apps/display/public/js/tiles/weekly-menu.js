@@ -58,11 +58,30 @@
     return byJour;
   }
 
+  /* Date locale ISO au format YYYY-MM-DD. iOS 9 sans Intl reliable :
+     on construit à la main pour ne pas dépendre du fuseau iPad mal réglé. */
+  function getTodayISO() {
+    var d = new Date();
+    var y = d.getFullYear();
+    var m = d.getMonth() + 1;
+    var day = d.getDate();
+    return y + '-' + (m < 10 ? '0' : '') + m + '-' + (day < 10 ? '0' : '') + day;
+  }
+
+  /* On ne fait PAS confiance à slot.isToday / slot.isPast du snapshot serveur
+     (Cloud Function refresh 15min — peut être stale ou avoir failé). On
+     recompute côté client à partir de slot.date qui lui est stable. */
   function todayJourIndex(semaine) {
+    var today = getTodayISO();
     for (var i = 0; i < (semaine || []).length; i++) {
-      if (semaine[i].isToday) return semaine[i].jour;
+      if (semaine[i].date === today) return semaine[i].jour;
     }
     return -1;
+  }
+
+  function isSlotPast(slot) {
+    if (!slot || !slot.date) return false;
+    return slot.date < getTodayISO();
   }
 
   /* ---------- COMPACT ---------- */
@@ -548,7 +567,7 @@
       for (var jj = 0; jj < 7; jj++) {
         var slot = (byJour[jj] && byJour[jj].slots[repas]) || null;
         var cell = document.createElement('td');
-        var isPast = slot && slot.isPast;
+        var isPast = isSlotPast(slot);
         var isCellToday = jj === todayIdx;
         var hasRecettes = slot && slot.recetteIds && slot.recetteIds.length > 0;
         cell.style.cssText =
