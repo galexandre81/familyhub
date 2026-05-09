@@ -5,7 +5,7 @@
 (function (global) {
   'use strict';
 
-  var DISPLAY_VERSION = '20260509c';
+  var DISPLAY_VERSION = '20260509d';
 
   /* Synchro avec apps/hub/src/lib/themes.ts. Duplication acceptable
      (6 entrées peu volatiles, pas de transpile sur le display). */

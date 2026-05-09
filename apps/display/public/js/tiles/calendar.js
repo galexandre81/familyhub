@@ -72,6 +72,12 @@
   function fmtRelativeDayForEvent(ev, evStartDate, now) {
     if (ev && ev.allDay && ev.startISO) {
       var eventISO = String(ev.startISO).slice(0, 10);
+      var todayStr = todayISOLocal();
+      /* Event multi-jours qui a commencé dans le passé mais est encore
+         upcoming (le filtre upcoming garantit que eventEndDate > todayStr).
+         L'event est en cours aujourd'hui → label "Aujourd'hui" plutôt que
+         la date de début dans le passé ("ven. 8 mai"). */
+      if (eventISO < todayStr) return "Aujourd'hui";
       var parts = eventISO.split('-');
       if (parts.length === 3) {
         var year = parseInt(parts[0], 10);
@@ -80,7 +86,7 @@
         if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
           /* Date locale à midi pour day-of-week stable et diff sans DST gotcha */
           var localDate = new Date(year, month, day, 12, 0, 0);
-          var todayNoon = new Date(todayISOLocal() + 'T12:00:00');
+          var todayNoon = new Date(todayStr + 'T12:00:00');
           var diffDays = Math.round((localDate.getTime() - todayNoon.getTime()) / 86400000);
           return dayLabel(localDate, diffDays);
         }
@@ -100,6 +106,9 @@
     var todayNoon = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
     var eventDayNoon = new Date(d.getFullYear(), d.getMonth(), d.getDate(), 12, 0, 0);
     var diffDays = Math.round((eventDayNoon.getTime() - todayNoon.getTime()) / 86400000);
+    /* Idem all-day : event timé multi-jours qui a commencé hier ou avant
+       et qui est encore upcoming → en cours aujourd'hui. */
+    if (diffDays < 0) return "Aujourd'hui";
     return dayLabel(d, diffDays);
   }
 
