@@ -117,11 +117,18 @@
         }
       })
       .catch(function (err) {
+        /* Extrait un identifiant compact de l'erreur pour le badge — le
+           code Firebase (ex: "unavailable", "deadline-exceeded") est plus
+           informatif que le message complet. Fallback sur le message si pas
+           de code. Tronqué à 30 chars pour tenir dans le badge. */
+        var code = (err && err.code) ? String(err.code) : '';
+        var msgRaw = (err && err.message) ? String(err.message) : 'unknown';
+        var detail = code ? code : msgRaw.substring(0, 30);
         if (window.console && window.console.warn) {
           window.console.warn('[auth] refresh attempt ' + (attemptIdx + 1) + ' failed', err);
         }
         if (attemptIdx < REFRESH_RETRY_DELAYS_MS.length) {
-          setAuthBadge('retrying', 'tentative ' + (attemptIdx + 2));
+          setAuthBadge('retrying', 'try ' + (attemptIdx + 2) + ' · ' + detail);
           setTimeout(function () {
             refreshCustomToken(attemptIdx + 1);
           }, REFRESH_RETRY_DELAYS_MS[attemptIdx]);
@@ -130,13 +137,40 @@
              display" qui bloque l'utilisateur, on tente un reload de la page
              dans 30s — ça remet au tout début, refait un signin avec le
              customToken stocké (qui peut encore être valide), etc. */
-          setAuthBadge('error', 'reconnexion dans 30s');
+          setAuthBadge('error', detail + ' · reload 30s');
           setTimeout(function () {
             var url = window.location.pathname + '?reload=' + Date.now();
             window.location.replace(url);
           }, 30 * 1000);
         }
       });
+  }
+
+  /**
+   * iPad PWA standalone : quand l'iPad sort de veille (visibilitychange →
+   * visible), si le customToken stocké approche de l'expiration, force un
+   * refresh immédiat plutôt que d'attendre le tick setInterval. Ça évite
+   * le scénario "timer fire pendant que le WiFi iPad n'est pas encore
+   * réveillé après le sleep" qui causait des cycles de retry à répétition.
+   */
+  function setupVisibilityRefresh() {
+    if (!document || !document.addEventListener) return;
+    document.addEventListener('visibilitychange', function () {
+      if (document.hidden) return;
+      if (!state.auth || !state.householdId || !state.functions) return;
+      var issuedAtRaw = getStored(STORAGE.customTokenIssuedAt);
+      var issuedAt = issuedAtRaw ? parseInt(issuedAtRaw, 10) : 0;
+      if (!issuedAt) return;
+      var ageMs = Date.now() - issuedAt;
+      /* customToken Firebase = 1h de validité. Si > 40min on refresh
+         proactivement (10min de marge avant expiration). */
+      if (ageMs > 40 * 60 * 1000) {
+        if (window.console && window.console.log) {
+          window.console.log('[auth] visibilitychange wake : token age ' + Math.round(ageMs / 60000) + 'min, refresh');
+        }
+        refreshCustomToken(0);
+      }
+    });
   }
 
   function startTokenRefreshLoop() {
@@ -466,6 +500,8 @@
     setupScrollLock();
 
     setupAudioUnlock();
+
+    setupVisibilityRefresh();
 
     if (window.FamilyHubBrightness) {
       window.FamilyHubBrightness.init();
