@@ -118,15 +118,34 @@
     if (!first.allDay) when += ' · ' + fmtTime(firstStart);
 
     var html = '';
+    /* Premier event : grand format (when + summary + loc) */
     html += '<div class="cal-compact-when">' + escapeHtml(when) + '</div>';
     html += '<div class="cal-compact-summary">' + escapeHtml(first.summary) + '</div>';
     if (first.location) {
       html += '<div class="cal-compact-loc">' + escapeHtml(first.location) + '</div>';
     }
 
-    var moreCount = upcoming.length - 1;
+    /* 2 events suivants : compacts (when + summary inline) */
+    var nextN = Math.min(2, upcoming.length - 1);
+    if (nextN > 0) {
+      html += '<div class="cal-compact-next-list">';
+      for (var k = 1; k <= nextN; k++) {
+        var ev = upcoming[k];
+        var evStart = parseISO(ev.startISO);
+        if (!evStart) continue;
+        var evWhen = fmtRelativeDay(evStart, now);
+        if (!ev.allDay) evWhen += ' · ' + fmtTime(evStart);
+        html += '<div class="cal-compact-next">' +
+          '<span class="cal-compact-next-when">' + escapeHtml(evWhen) + '</span>' +
+          '<span class="cal-compact-next-summary">' + escapeHtml(ev.summary) + '</span>' +
+          '</div>';
+      }
+      html += '</div>';
+    }
+
+    var moreCount = upcoming.length - 1 - nextN;
     if (moreCount > 0) {
-      var label = moreCount === 1 ? '+ 1 autre événement' : '+ ' + moreCount + ' autres événements';
+      var label = moreCount === 1 ? '+ 1 autre' : '+ ' + moreCount + ' autres';
       html += '<div class="cal-compact-more">' + label + '</div>';
     }
 

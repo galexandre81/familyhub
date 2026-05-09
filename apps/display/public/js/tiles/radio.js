@@ -183,10 +183,16 @@
     }
     buildList();
 
-    /* Bouton stop global */
+    /* Bouton stop global — icône SVG (carré plein) + libellé. Le glyph
+       Unicode ⏸ s'affichait mal sur iPad mini 1 (fallback Safari moche). */
+    var STOP_ICON_SVG =
+      '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" ' +
+        'style="display:inline-block; vertical-align:-2px; margin-right:8px;">' +
+        '<rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/>' +
+      '</svg>';
     var stopBtn = document.createElement('button');
     stopBtn.className = 'tile-radio-expand-stop';
-    stopBtn.innerHTML = '⏸ Arrêter la lecture';
+    stopBtn.innerHTML = STOP_ICON_SVG + 'Arrêter';
     stopBtn.addEventListener('click', function () { global.FamilyHubAudio.pause(); });
     container.appendChild(stopBtn);
 
