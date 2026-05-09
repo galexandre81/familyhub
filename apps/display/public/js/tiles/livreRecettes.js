@@ -636,6 +636,7 @@
     var pickedInsp  = {};
     var pickedGout  = {};
     var pickedType  = {};
+    var pickedFrigo = []; /* Liste libre d'ingrédients tapés par l'utilisateur (chips) */
     var allRecettes = [];
 
     fetchRecettes().then(function (list) {
@@ -694,6 +695,7 @@
       wrap.querySelector('[data-act="all"]').addEventListener('click', function () {
         pickedRepas = {}; pickedIng = {}; pickedAcc = {}; pickedInsp = {};
         pickedGout = {}; pickedType = {};
+        pickedFrigo = [];
         goStep2();
       });
       wrap.querySelector('[data-act="next"]').addEventListener('click', goStep2);
@@ -721,6 +723,17 @@
         '<div class="wiz-surprise-bar">' +
           '<button type="button" class="wiz-mini-surprise" data-act="surprise">' +
           ICON_DICE + 'Surprends-moi</button>' +
+        '</div>' +
+        '<div class="wiz-frigo">' +
+          '<div class="wiz-frigo-title">Ce que j\'ai au frigo</div>' +
+          '<p class="wiz-frigo-hint">Tape un ingrédient et valide (Entrée ou virgule). Les recettes utilisant tes ingrédients passent en haut.</p>' +
+          '<div class="wiz-frigo-input-row">' +
+            '<input type="text" class="wiz-frigo-input" data-role="frigo-input" ' +
+              'placeholder="ex: tomate, oignon, pâtes…" ' +
+              'autocapitalize="off" autocorrect="off" spellcheck="false" />' +
+            '<button type="button" class="wiz-frigo-add" data-act="frigo-add">Ajouter</button>' +
+          '</div>' +
+          '<div class="wiz-frigo-chips" data-role="frigo-chips"></div>' +
         '</div>';
 
       if (petitDej) {
@@ -744,16 +757,114 @@
       wrap.querySelector('[data-act="clear"]').addEventListener('click', function () {
         pickedIng = {}; pickedAcc = {}; pickedInsp = {};
         pickedGout = {}; pickedType = {};
+        pickedFrigo = [];
         goStep2();
       });
       wrap.querySelector('[data-act="surprise"]').addEventListener('click', function () {
         var list = filteredRecettes();
         if (list.length === 0) return;
-        showDetail(list[Math.floor(Math.random() * list.length)]);
+        showDetail(list[Math.floor(Math.random() * list.length)].recette);
       });
+
+      /* Frigo : input + bouton + chips */
+      var frigoInput = wrap.querySelector('[data-role="frigo-input"]');
+      var frigoAddBtn = wrap.querySelector('[data-act="frigo-add"]');
+      function commitFrigoInput() {
+        if (!frigoInput) return;
+        var raw = frigoInput.value || '';
+        /* Si l'utilisateur a tapé "tomate, oignon", on splitte en plusieurs */
+        var parts = raw.split(',');
+        for (var i = 0; i < parts.length; i++) {
+          addFrigoItem(parts[i]);
+        }
+        frigoInput.value = '';
+      }
+      if (frigoInput) {
+        frigoInput.addEventListener('keypress', function (ev) {
+          if (ev.key === 'Enter' || ev.keyCode === 13) {
+            ev.preventDefault();
+            commitFrigoInput();
+          }
+        });
+        frigoInput.addEventListener('input', function () {
+          /* Auto-commit à la virgule (la virgule reste dans l'input le temps qu'on splitte) */
+          if (frigoInput.value.indexOf(',') !== -1) {
+            commitFrigoInput();
+          }
+        });
+        frigoInput.addEventListener('keydown', function (ev) {
+          /* Backspace dans un input vide retire le dernier chip */
+          if ((ev.key === 'Backspace' || ev.keyCode === 8) && frigoInput.value === '' && pickedFrigo.length > 0) {
+            pickedFrigo.pop();
+            renderFrigoChips();
+            renderResults();
+          }
+        });
+      }
+      if (frigoAddBtn) {
+        frigoAddBtn.addEventListener('click', function () {
+          commitFrigoInput();
+          if (frigoInput) frigoInput.focus();
+        });
+      }
+      renderFrigoChips();
 
       bindSectionHandlers();
       renderResults();
+    }
+
+    function addFrigoItem(value) {
+      if (value == null) return;
+      var v = String(value).replace(/^\s+|\s+$/g, '');
+      if (!v) return;
+      var vNorm = deburr(v);
+      /* Pas de doublon (insensible à la casse + accents) */
+      for (var i = 0; i < pickedFrigo.length; i++) {
+        if (deburr(pickedFrigo[i]) === vNorm) return;
+      }
+      pickedFrigo.push(v);
+      renderFrigoChips();
+      renderResults();
+    }
+
+    function renderFrigoChips() {
+      var chipsEl = wrap.querySelector('[data-role="frigo-chips"]');
+      if (!chipsEl) return;
+      if (pickedFrigo.length === 0) {
+        chipsEl.innerHTML = '';
+        return;
+      }
+      var html = '';
+      for (var i = 0; i < pickedFrigo.length; i++) {
+        html += '<span class="wiz-frigo-chip" data-idx="' + i + '">' +
+          escapeHTML(pickedFrigo[i]) +
+          '<button type="button" class="wiz-frigo-chip-x" data-act="frigo-rm" data-idx="' + i + '" aria-label="Retirer">×</button>' +
+          '</span>';
+      }
+      html += '<button type="button" class="wiz-frigo-clear" data-act="frigo-clear">Vider</button>';
+      chipsEl.innerHTML = html;
+
+      var rmBtns = chipsEl.querySelectorAll('[data-act="frigo-rm"]');
+      for (var b = 0; b < rmBtns.length; b++) {
+        (function (btn) {
+          btn.addEventListener('click', function () {
+            var idx = parseInt(btn.getAttribute('data-idx'), 10);
+            if (!isNaN(idx)) {
+              pickedFrigo.splice(idx, 1);
+              renderFrigoChips();
+              renderResults();
+            }
+          });
+        })(rmBtns[b]);
+      }
+      var clearBtn = chipsEl.querySelector('[data-act="frigo-clear"]');
+      if (clearBtn) {
+        clearBtn.addEventListener('click', function () {
+          pickedFrigo = [];
+          renderFrigoChips();
+          renderResults();
+        });
+      }
     }
 
     function renderSection(name, title, items, dict, colsClass) {
@@ -928,26 +1039,80 @@
 
         list.push(r);
       }
-      return list;
+
+      /* Scoring frigo : compte ingrédients matchés (substring bidirectionnel
+         + déaccentué + lowercase). Si frigo vide → matched=0 partout, ordre
+         préservé. Si frigo non vide → garde uniquement matched > 0, trie par
+         matched DESC puis missing ASC (favorise les recettes "presque complètes"). */
+      var frigoNorm = [];
+      for (var f = 0; f < pickedFrigo.length; f++) {
+        var fn = deburr(pickedFrigo[f]);
+        if (fn) frigoNorm.push(fn);
+      }
+
+      var scored = [];
+      for (var j = 0; j < list.length; j++) {
+        var rec = list[j];
+        if (frigoNorm.length === 0) {
+          scored.push({ recette: rec, matched: 0, missing: 0 });
+          continue;
+        }
+        var ingsNorm = [];
+        var ings = rec.ingredients || [];
+        for (var k = 0; k < ings.length; k++) {
+          ingsNorm.push(deburr(ings[k].libelle || ''));
+        }
+        var matched = 0;
+        for (var fi = 0; fi < frigoNorm.length; fi++) {
+          var fNorm = frigoNorm[fi];
+          var hit = false;
+          for (var ii = 0; ii < ingsNorm.length; ii++) {
+            var ingN = ingsNorm[ii];
+            if (ingN.indexOf(fNorm) !== -1 || fNorm.indexOf(ingN) !== -1) { hit = true; break; }
+          }
+          if (hit) matched++;
+        }
+        var missing = ingsNorm.length - matched;
+        if (missing < 0) missing = 0;
+        scored.push({ recette: rec, matched: matched, missing: missing });
+      }
+
+      if (frigoNorm.length > 0) {
+        var onlyMatches = [];
+        for (var m = 0; m < scored.length; m++) {
+          if (scored[m].matched > 0) onlyMatches.push(scored[m]);
+        }
+        onlyMatches.sort(function (a, b) {
+          if (b.matched !== a.matched) return b.matched - a.matched;
+          return a.missing - b.missing;
+        });
+        return onlyMatches;
+      }
+      return scored;
     }
 
     function renderResults() {
       var resultsEl = wrap.querySelector('[data-role="results"]');
       if (!resultsEl) return;
       var list = filteredRecettes();
+      var frigoActive = pickedFrigo.length > 0;
 
+      var countLabel = list.length === 0 ? 'Aucune recette' :
+        list.length === 1 ? '1 recette' : list.length + ' recettes';
+      if (frigoActive && list.length > 0) {
+        countLabel += ' avec au moins 1 ingrédient du frigo';
+      }
       var html = '<div class="wiz-results-bar">' +
-        '<span class="wiz-results-count">' +
-          (list.length === 0 ? 'Aucune recette' :
-           list.length === 1 ? '1 recette' :
-           list.length + ' recettes') +
-        '</span>' +
+        '<span class="wiz-results-count">' + escapeHTML(countLabel) + '</span>' +
       '</div>';
 
       if (list.length === 0) {
+        var emptyMsg = frigoActive
+          ? 'Aucune recette ne contient un de tes ingrédients. Retire des chips ou élargis les filtres.'
+          : 'Aucune recette ne correspond. Essaie de retirer un filtre.';
         html += '<div class="wiz-empty">' +
           '<div class="wiz-empty-icon">' + ICON_EMPTY + '</div>' +
-          '<p>Aucune recette ne correspond. Essaie de retirer un filtre.</p>' +
+          '<p>' + escapeHTML(emptyMsg) + '</p>' +
           '</div>';
       } else {
         var shuffled = list.slice();
@@ -955,12 +1120,20 @@
 
         html += '<div class="livre-grid">';
         for (var i = 0; i < shuffled.length; i++) {
-          var r = shuffled[i];
+          var entry = shuffled[i];
+          var r = entry.recette;
           var meta = [];
           var t = tempsTotal(r); if (t > 0) meta.push(t + ' min');
           if (r.portions) meta.push(r.portions + ' pers.');
+          var badgeHtml = '';
+          if (frigoActive) {
+            badgeHtml = '<div class="livre-card-frigo">' +
+              entry.matched + ' du frigo · ' + entry.missing + ' à acheter' +
+              '</div>';
+          }
           html += '<button type="button" class="livre-card" data-rid="' + escapeHTML(r.id) + '">' +
             '<div class="livre-card-name">' + escapeHTML(r.nom) + '</div>' +
+            badgeHtml +
             '<div class="livre-card-meta">' + meta.join(' · ') + '</div>' +
             '</button>';
         }
