@@ -5,7 +5,7 @@
 (function (global) {
   'use strict';
 
-  var DISPLAY_VERSION = '20260508a';
+  var DISPLAY_VERSION = '20260508b';
 
   /* Synchro avec apps/hub/src/lib/themes.ts. Duplication acceptable
      (6 entrées peu volatiles, pas de transpile sur le display). */
@@ -51,6 +51,12 @@
     return global.FamilyHubBrightness.get();
   }
 
+  /* Engrenage Material — 8 dents propres, viewBox 24x24. Laiton plein. */
+  var GEAR_SVG =
+    '<svg viewBox="0 0 24 24" width="36" height="36" aria-hidden="true" style="display:block">' +
+      '<path fill="#D9A05B" d="M19.14 12.94c0.04-0.3 0.06-0.61 0.06-0.94c0-0.32-0.02-0.64-0.07-0.94l2.03-1.58c0.18-0.14 0.23-0.41 0.12-0.61l-1.92-3.32c-0.12-0.22-0.37-0.29-0.59-0.22l-2.39 0.96c-0.5-0.38-1.03-0.7-1.62-0.94L14.4 2.81c-0.04-0.24-0.24-0.41-0.48-0.41h-3.84c-0.24 0-0.43 0.17-0.47 0.41L9.25 5.35C8.66 5.59 8.12 5.92 7.63 6.29L5.24 5.33c-0.22-0.08-0.47 0-0.59 0.22L2.74 8.87C2.62 9.08 2.66 9.34 2.86 9.48l2.03 1.58C4.84 11.36 4.8 11.69 4.8 12s0.02 0.64 0.07 0.94l-2.03 1.58c-0.18 0.14-0.23 0.41-0.12 0.61l1.92 3.32c0.12 0.22 0.37 0.29 0.59 0.22l2.39-0.96c0.5 0.38 1.03 0.7 1.62 0.94l0.36 2.54c0.05 0.24 0.24 0.41 0.48 0.41h3.84c0.24 0 0.44-0.17 0.47-0.41l0.36-2.54c0.59-0.24 1.13-0.56 1.62-0.94l2.39 0.96c0.22 0.08 0.47 0 0.59-0.22l1.92-3.32c0.12-0.22 0.07-0.47-0.12-0.61L19.14 12.94zM12 15.6c-1.98 0-3.6-1.62-3.6-3.6s1.62-3.6 3.6-3.6s3.6 1.62 3.6 3.6S13.98 15.6 12 15.6z"/>' +
+    '</svg>';
+
   /* ---------- COMPACT ---------- */
 
   function render(container, _data, _config) {
@@ -59,7 +65,8 @@
 
     var titleEl = document.createElement('div');
     titleEl.className = 'tile-title';
-    titleEl.innerHTML = 'Réglages';
+    titleEl.style.cssText = 'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; gap:10px;';
+    titleEl.innerHTML = GEAR_SVG + '<span>Réglages</span>';
     container.appendChild(titleEl);
 
     var body = document.createElement('div');
@@ -147,34 +154,50 @@
     themeSection.appendChild(grid);
     body.appendChild(themeSection);
 
-    /* Section luminosité */
+    /* Section luminosité — boutons discrets (5 niveaux) plutôt qu'un
+       <input type="range"> qui est fragile sur Safari 9 PWA standalone. */
+    var LUM_LEVELS = [
+      { value: 0,    label: 'Max' },
+      { value: 0.15, label: 'Haute' },
+      { value: 0.3,  label: 'Moyenne' },
+      { value: 0.45, label: 'Basse' },
+      { value: 0.6,  label: 'Très basse' }
+    ];
     var lumSection = document.createElement('section');
     lumSection.style.cssText = 'margin-bottom:36px;';
     lumSection.innerHTML =
       '<h3 style="font-size:13px; letter-spacing:0.2em; text-transform:uppercase; opacity:0.7; margin:0 0 12px 0;">Luminosité</h3>' +
       '<p style="font-size:12px; opacity:0.6; margin:0 0 14px 0;">Réglage local à cet écran. Les autres displays gardent leur propre luminosité.</p>';
     var lumRow = document.createElement('div');
-    lumRow.style.cssText = 'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; gap:14px;';
+    lumRow.className = 'tile-settings-lum-row';
     var current = (global.FamilyHubBrightness ? global.FamilyHubBrightness.get() : 0);
-    var sliderVal = Math.round(current * 100);  /* 0..60 */
-    lumRow.innerHTML =
-      '<span style="font-size:11px; opacity:0.7; min-width:60px; text-align:right">Très clair</span>' +
-      '<input type="range" min="0" max="60" step="5" value="' + sliderVal + '" data-role="brightness-slider" ' +
-        'style="-webkit-flex:1; flex:1; min-width:0;">' +
-      '<span style="font-size:11px; opacity:0.7; min-width:60px">Très sombre</span>';
-    lumSection.appendChild(lumRow);
 
-    var slider = lumRow.querySelector('[data-role="brightness-slider"]');
-    if (slider) {
-      slider.addEventListener('input', function () {
-        var v = parseFloat(slider.value) / 100;
-        if (global.FamilyHubBrightness) global.FamilyHubBrightness.set(v);
-      });
-      slider.addEventListener('change', function () {
-        var v = parseFloat(slider.value) / 100;
-        if (global.FamilyHubBrightness) global.FamilyHubBrightness.set(v);
-      });
+    function renderLumButtons() {
+      var html = '';
+      for (var i = 0; i < LUM_LEVELS.length; i++) {
+        var lvl = LUM_LEVELS[i];
+        var active = Math.abs(current - lvl.value) < 0.05;
+        html += '<button type="button" data-lum="' + lvl.value + '" ' +
+          'class="tile-settings-lum-btn' + (active ? ' is-active' : '') + '">' +
+          escapeHtml(lvl.label) +
+        '</button>';
+      }
+      lumRow.innerHTML = html;
+      var btns = lumRow.querySelectorAll('[data-lum]');
+      for (var b = 0; b < btns.length; b++) {
+        (function (btn) {
+          btn.addEventListener('click', function () {
+            var v = parseFloat(btn.getAttribute('data-lum'));
+            if (isNaN(v)) return;
+            if (global.FamilyHubBrightness) global.FamilyHubBrightness.set(v);
+            current = v;
+            renderLumButtons();
+          });
+        })(btns[b]);
+      }
     }
+    renderLumButtons();
+    lumSection.appendChild(lumRow);
     body.appendChild(lumSection);
 
     /* Section infos */

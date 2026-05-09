@@ -24,13 +24,22 @@ service cloud.firestore {
         && request.auth.token.householdId == hid;
     }
 
-    // Households : membres lisent/écrivent ; displays lisent uniquement leur foyer.
+    // Households : membres lisent/écrivent. Displays peuvent lire et changer
+    // uniquement parametres.themeId (tuile Réglages iPad) — toute autre
+    // modification depuis un display est refusée.
     match /households/{hid} {
       allow read: if request.auth != null
                   && (request.auth.uid in resource.data.membres
                       || isDisplayOfHousehold(hid));
       allow update: if request.auth != null
-                    && request.auth.uid in resource.data.membres;
+                    && (
+                      (request.auth.uid in resource.data.membres) ||
+                      (
+                        isDisplayOfHousehold(hid)
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['parametres', 'updatedAt'])
+                        && request.resource.data.parametres.diff(resource.data.parametres).affectedKeys().hasOnly(['themeId'])
+                      )
+                    );
       allow create: if request.auth != null
                     && request.auth.uid == request.resource.data.ownerUid;
       allow delete: if request.auth != null

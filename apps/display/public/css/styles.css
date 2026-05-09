@@ -2201,6 +2201,41 @@ body {
 }
 
 /* ===========================================================================
+   Tuile Réglages — boutons de luminosité (5 niveaux discrets, iOS 9 OK).
+   =========================================================================== */
+.tile-settings-lum-row {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  gap: 8px;
+}
+.tile-settings-lum-btn {
+  -webkit-flex: 1;
+  flex: 1;
+  min-width: 80px;
+  min-height: 48px;
+  background: transparent;
+  border: 1px solid rgba(217, 160, 91, 0.35);
+  border-radius: 6px;
+  color: #C49B6B;
+  font-family: Georgia, serif;
+  font-size: 14px;
+  cursor: pointer;
+  padding: 12px 8px;
+}
+.tile-settings-lum-btn.is-active {
+  background: rgba(217, 160, 91, 0.18);
+  border-color: #D9A05B;
+  color: #F2E8D5;
+  border-width: 2px;
+  padding: 11px 7px; /* compense border-width 2px */
+}
+.tile-settings-lum-btn:active {
+  background: rgba(217, 160, 91, 0.10);
+}
+
+/* ===========================================================================
    THEMES — synchro avec apps/hub/src/lib/themes.ts (6 entrées).
    Pas de variables CSS (Safari 9 ne les supporte pas), duplication brute.
    La classe est posée sur <html> par core.js au boot et au snapshot household.
