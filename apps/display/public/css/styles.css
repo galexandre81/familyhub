@@ -2327,14 +2327,136 @@ html.theme-glacier .boot-title,
 html.theme-glacier .error-title { color:#AEBCD2; }
 html.theme-glacier .error-link { background:#AEBCD2; color:#101620; }
 
-/* ----- Lin (clair) ----- */
+/* ----- Lin (clair) -----
+   Thème clair sur fond crème — il faut overrider TOUS les textes hardcodés
+   en couleurs sombres-thème pour la lisibilité. Mapping appliqué :
+     #F2E8D5 (cream primary)  → #3C2A1A (dark brown)
+     #C49B6B (warm secondary) → #6B5238 (medium brown)
+     #9C8A6E (gris brown)     → #8C7456 (muted)
+     #D9A05B (laiton accent)  → #B26E38 (caramel) */
 html.theme-lin,
 html.theme-lin body { background:#F8F0DE; color:#3C2A1A; }
 html.theme-lin .grid-cell { background:#FFFAF0; border-color:#D4C7AC; }
-html.theme-lin .tile-title { color:#B26E38; }
 html.theme-lin .tile-overlay { background:#F8F0DE; }
 html.theme-lin .tile-overlay-bar { background:#FCF6E6; border-bottom-color:#D4C7AC; }
-html.theme-lin .tile-overlay-back { color:#B26E38; }
-html.theme-lin .boot-title,
-html.theme-lin .error-title { color:#B26E38; }
 html.theme-lin .error-link { background:#B26E38; color:#F8F0DE; }
+
+/* === #F2E8D5 (primary text) → #3C2A1A === */
+html.theme-lin .btn-tile-secondary,
+html.theme-lin .cal-compact-next,
+html.theme-lin .cal-compact-next-summary,
+html.theme-lin .cal-compact-summary,
+html.theme-lin .cal-day-pill-name,
+html.theme-lin .cal-pager-label-range,
+html.theme-lin .input-tile,
+html.theme-lin .livre-card,
+html.theme-lin .livre-card-name,
+html.theme-lin .livre-detail-ing li,
+html.theme-lin .livre-detail-name,
+html.theme-lin .livre-detail-steps,
+html.theme-lin .livre-search-input,
+html.theme-lin .preset-label,
+html.theme-lin .tile-clock-time,
+html.theme-lin .tile-livre-count,
+html.theme-lin .tile-overlay-h1,
+html.theme-lin .tile-radio-compact-station,
+html.theme-lin .tile-radio-expand-btn,
+html.theme-lin .tile-radio-expand-nowplaying,
+html.theme-lin .tile-radio-expand-stop,
+html.theme-lin .tile-settings-lum-btn.is-active,
+html.theme-lin .tile-weather-label,
+html.theme-lin .tile-weather-temp,
+html.theme-lin .timer-active-label,
+html.theme-lin .timer-active-time,
+html.theme-lin .timer-picker-select,
+html.theme-lin .weather-chip-ville,
+html.theme-lin .weather-day-max,
+html.theme-lin .weather-hero-label,
+html.theme-lin .weather-hero-temp,
+html.theme-lin .weather-hero-ville,
+html.theme-lin .wiz-frigo-input,
+html.theme-lin .wiz-icon-label,
+html.theme-lin .wiz-question,
+html.theme-lin .wiz-surprise,
+html.theme-lin .cal-pager-arrow:active,
+html.theme-lin .wiz-back:active,
+html.theme-lin .wiz-frigo-chip-x:active,
+html.theme-lin .wiz-frigo-clear:active { color:#3C2A1A; }
+
+/* === #C49B6B (secondary text) → #6B5238 === */
+html.theme-lin .cal-compact-loc,
+html.theme-lin .cal-compact-next-when,
+html.theme-lin .cal-event-allday .cal-event-time,
+html.theme-lin .livre-card-meta,
+html.theme-lin .livre-detail-desc,
+html.theme-lin .livre-detail-meta,
+html.theme-lin .livre-step-time,
+html.theme-lin .livre-tag-btn,
+html.theme-lin .tile-clock-date,
+html.theme-lin .tile-livre-label,
+html.theme-lin .tile-radio-compact-status,
+html.theme-lin .tile-settings-lum-btn,
+html.theme-lin .tile-weather-range,
+html.theme-lin .timer-compact-others,
+html.theme-lin .timer-hero-label,
+html.theme-lin .weather-chip-temp,
+html.theme-lin .weather-day-name,
+html.theme-lin .weather-hero-range,
+html.theme-lin .weather-section-title,
+html.theme-lin .wiz-secondary,
+html.theme-lin .wiz-summary { color:#6B5238; }
+
+/* === #9C8A6E (muted) → #8C7456 === */
+html.theme-lin .boot-status,
+html.theme-lin .cal-compact-empty,
+html.theme-lin .cal-compact-more,
+html.theme-lin .cal-day-pill-date,
+html.theme-lin .cal-empty-global,
+html.theme-lin .cal-event-loc,
+html.theme-lin .cal-head-meta,
+html.theme-lin .cal-pager-label-step,
+html.theme-lin .error-text,
+html.theme-lin .input-tile-label,
+html.theme-lin .livre-status,
+html.theme-lin .livre-tag,
+html.theme-lin .preset-duration,
+html.theme-lin .setup-detail,
+html.theme-lin .tile-livre-cta,
+html.theme-lin .tile-radio-compact-btn.loading,
+html.theme-lin .tile-weather-hint,
+html.theme-lin .timer-active-empty,
+html.theme-lin .timer-compact-empty,
+html.theme-lin .timer-picker-unit,
+html.theme-lin .weather-day-min,
+html.theme-lin .weather-hero-sun,
+html.theme-lin .wiz-empty,
+html.theme-lin .wiz-frigo-clear,
+html.theme-lin .wiz-frigo-hint,
+html.theme-lin .wiz-hint,
+html.theme-lin .wiz-results-more,
+html.theme-lin .wiz-step { color:#8C7456; }
+
+/* === #D9A05B (accent laiton) → #B26E38 === */
+html.theme-lin .boot-title,
+html.theme-lin .cal-compact-when,
+html.theme-lin .cal-event-time,
+html.theme-lin .cal-pager-arrow,
+html.theme-lin .error-title,
+html.theme-lin .livre-back-btn,
+html.theme-lin .livre-card-stars,
+html.theme-lin .livre-detail-h3,
+html.theme-lin .livre-detail-ing strong,
+html.theme-lin .livre-tag-btn.is-active,
+html.theme-lin .tile-overlay-back,
+html.theme-lin .tile-radio-compact-btn,
+html.theme-lin .tile-radio-expand-btn.active,
+html.theme-lin .tile-timer-section-h2,
+html.theme-lin .tile-title,
+html.theme-lin .timer-picker-sep,
+html.theme-lin .wiz-back,
+html.theme-lin .wiz-frigo-chip,
+html.theme-lin .wiz-frigo-chip-x,
+html.theme-lin .wiz-frigo-title,
+html.theme-lin .wiz-results-count,
+html.theme-lin .wiz-section-title,
+html.theme-lin .wiz-toggle-all { color:#B26E38; }
