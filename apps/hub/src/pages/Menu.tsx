@@ -9,6 +9,7 @@ import {
   Circle,
   Clock,
   Copy,
+  Download,
   FileEdit,
   Filter,
   Loader2,
@@ -473,11 +474,35 @@ function ShoppingListSection({
         canShare={typeof navigator !== "undefined" && typeof navigator.share === "function"}
       />
 
+      {/* Bouton HTML — fallback fiable si Web Share rate ou si l'utilisateur
+          veut juste un fichier à envoyer par mail / AirDrop / partage natif OS */}
+      <button
+        type="button"
+        onClick={() => {
+          const html = buildShareHtml(list);
+          const today = new Date().toISOString().slice(0, 10);
+          const blob = new Blob([html], { type: "text/html;charset=utf-8" });
+          const url = URL.createObjectURL(blob);
+          const a = document.createElement("a");
+          a.href = url;
+          a.download = `liste-courses-${today}.html`;
+          document.body.appendChild(a);
+          a.click();
+          document.body.removeChild(a);
+          setTimeout(() => URL.revokeObjectURL(url), 1000);
+        }}
+        className="tile-card !p-2.5 w-full flex items-center justify-center gap-2 text-sm text-cream-mute hover:text-cream transition"
+      >
+        <Download size={14} />
+        Télécharger en HTML (mail / AirDrop)
+      </button>
+
       {/* Hint workflow Keep — visible toujours, discret */}
       <p className="text-[11px] text-cream-mute italic">
         Astuce : envoie vers <strong>Keep</strong>, puis long-press la note dans
         Keep → <em>Afficher les cases à cocher</em>. Tu coches en faisant les
-        courses, hors-ligne. Le cochage côté Family Hub est facultatif.
+        courses, hors-ligne. Si Keep ne marche pas, le bouton HTML te donne
+        un fichier autonome (checkboxes cliquables, ouvre depuis téléphone).
       </p>
 
       {addOpen && (
@@ -824,4 +849,86 @@ function buildShareText(list: ShoppingListWithId): string {
     lines.push("");
   }
   return lines.join("\n").trim();
+}
+
+/**
+ * Génère un HTML self-contained pour la liste de courses, téléchargeable
+ * en .html. Cases à cocher cliquables, groupé par rayon, CSS inline pour
+ * que le fichier marche partout (mail, AirDrop, ouvert depuis téléphone).
+ */
+function buildShareHtml(list: ShoppingListWithId): string {
+  const items = list.items.filter((it) => !it.checked);
+  const byRayon: Record<string, typeof items> = {};
+  for (const it of items) {
+    const k = it.rayon || "autres";
+    if (!byRayon[k]) byRayon[k] = [];
+    byRayon[k].push(it);
+  }
+  const ordered: Array<[string, typeof items]> = [];
+  for (const k of RAYON_ORDER) {
+    if (byRayon[k]) ordered.push([k, byRayon[k]]);
+  }
+  for (const k of Object.keys(byRayon)) {
+    if (!RAYON_ORDER.includes(k)) ordered.push([k, byRayon[k]]);
+  }
+  const today = new Date().toLocaleDateString("fr-FR", {
+    weekday: "long",
+    day: "numeric",
+    month: "long",
+    year: "numeric",
+  });
+  const esc = (s: string) =>
+    s
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;");
+  const sections = ordered
+    .map(([rayon, list]) => {
+      const lis = list
+        .map((it) => {
+          const qty = formatQuantite(it.quantite, it.unite);
+          return `<li><label><input type="checkbox"> <span class="n">${esc(it.nom)}</span>${qty ? `<span class="q"> — ${esc(qty)}</span>` : ""}</label></li>`;
+        })
+        .join("\n");
+      return `<section><h2>${esc(RAYON_LABELS[rayon] ?? rayon)}</h2><ul>${lis}</ul></section>`;
+    })
+    .join("\n");
+  return `<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Liste de courses — ${esc(today)}</title>
+<style>
+  * { box-sizing: border-box; }
+  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+         max-width: 640px; margin: 0 auto; padding: 20px 16px 80px;
+         background: #FAFAF7; color: #1F1A14; line-height: 1.4; }
+  h1 { font-size: 22px; margin: 0 0 4px; }
+  .date { font-size: 13px; color: #6B5A47; margin-bottom: 24px; font-style: italic; }
+  h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.15em;
+       color: #B26E38; border-bottom: 1px solid #D4C7AC; padding-bottom: 4px;
+       margin: 24px 0 10px; }
+  ul { list-style: none; padding: 0; margin: 0; }
+  li { padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
+  label { display: flex; align-items: baseline; gap: 10px; cursor: pointer;
+          font-size: 16px; }
+  input[type="checkbox"] { width: 20px; height: 20px; flex-shrink: 0;
+                            accent-color: #B26E38; cursor: pointer; }
+  input[type="checkbox"]:checked + .n { text-decoration: line-through;
+                                          color: #9C8A6E; }
+  .q { color: #6B5A47; font-size: 14px; }
+  @media print {
+    body { background: white; }
+    input[type="checkbox"] { border: 1.5px solid #333; }
+  }
+</style>
+</head>
+<body>
+<h1>Liste de courses</h1>
+<div class="date">${esc(today)}</div>
+${sections}
+</body>
+</html>`;
 }
