@@ -118,8 +118,12 @@
     var hid = global.FamilyHubGetHouseholdId && global.FamilyHubGetHouseholdId();
     if (!db || !hid) return;
 
-    /* On cherche le shoppingList du plan actif. Approche simple : on écoute
-       tous les shoppingLists du foyer et on prend le 1er (1 par plan actif). */
+    /* On écoute tous les shoppingLists du foyer et on prend celui qui a le
+       updatedAt LE PLUS RÉCENT. Avant on prenait snap.docs[0] arbitraire,
+       ce qui faisait que quand un nouveau plan est importé (nouveau planId,
+       l'ancien shoppingList n'est pas supprimé par l'importer dans certains
+       cas), le tile pouvait afficher l'ancienne liste indéfiniment. Le tri
+       par updatedAt desc garantit qu'on prend toujours la dernière. */
     state.unsub = db.collection('households').doc(hid).collection('shoppingLists')
       .onSnapshot(function (snap) {
         if (snap.empty) {
@@ -129,11 +133,24 @@
           if (typeof onUpdate === 'function') onUpdate(null, null);
           return;
         }
-        /* Si plusieurs : on prend celui dont le planId correspond au plan
-           actif. Pour simplicité V1 : le 1er. */
-        var doc = snap.docs[0];
-        state.list = doc.data();
-        state.listId = doc.id;
+        /* Pick le plus récent par updatedAt (fallback createdAt si absent).
+           Firestore Timestamp expose .toMillis() ; on fallback à 0 si manquant. */
+        function tsMs(t) {
+          if (!t) return 0;
+          if (typeof t.toMillis === 'function') return t.toMillis();
+          if (typeof t.seconds === 'number') return t.seconds * 1000;
+          return 0;
+        }
+        var best = null;
+        var bestMs = -1;
+        snap.docs.forEach(function (d) {
+          var data = d.data() || {};
+          var ms = tsMs(data.updatedAt) || tsMs(data.createdAt);
+          if (ms > bestMs) { best = d; bestMs = ms; }
+        });
+        if (!best) best = snap.docs[0]; /* défensif */
+        state.list = best.data();
+        state.listId = best.id;
         for (var j = 0; j < state.cells.length; j++) refreshCell(state.cells[j]);
         if (typeof onUpdate === 'function') onUpdate(state.list, state.listId);
       }, function (err) {
