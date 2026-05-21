@@ -172,9 +172,11 @@ interface DayCell {
 
 /**
  * Calcule la liste de jours à afficher.
- * Stratégie : si dateDebut+dateFin fournis → range complet. Sinon, déduit
- * la plage à partir des dates des slots eux-mêmes (min/max). Sinon, fallback
- * 7 jours depuis aujourd'hui.
+ *
+ * Plage = UNION de (dateDebut→dateFin) du plan ET des dates effectives des
+ * slots. Robuste aux plans dont le dateDebut/dateFin Firestore ne couvre
+ * pas tous les slots (cas typique : import JSON dont les dates débordent
+ * du dateDebut posé par le wizard).
  */
 function computeDayList(
   slots: MealPlanSlotWithId[],
@@ -184,15 +186,15 @@ function computeDayList(
   let start: Date | undefined = dateDebut;
   let end: Date | undefined = dateFin;
 
-  if (!start || !end) {
-    const slotDates = slots
-      .map((s) => s.date)
-      .filter((d): d is string => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d))
-      .sort();
-    if (slotDates.length > 0) {
-      if (!start) start = parseISODate(slotDates[0]);
-      if (!end) end = parseISODate(slotDates[slotDates.length - 1]);
-    }
+  const slotDates = slots
+    .map((s) => s.date)
+    .filter((d): d is string => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d))
+    .sort();
+  if (slotDates.length > 0) {
+    const slotMin = parseISODate(slotDates[0]);
+    const slotMax = parseISODate(slotDates[slotDates.length - 1]);
+    if (!start || slotMin < start) start = slotMin;
+    if (!end || slotMax > end) end = slotMax;
   }
   if (!start) {
     start = new Date();

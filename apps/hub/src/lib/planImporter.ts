@@ -338,12 +338,31 @@ export async function importPlanFromJson(args: {
     archivedIds.push(d.id);
   }
 
+  // Réécrit dateDebut/dateFin du plan à partir des vraies dates des slots
+  // importés. Évite le bug où le wizard pose dateDebut=lundi mais le JSON
+  // contient des slots qui débordent (avant lundi ou après dimanche).
+  const slotDatesSorted = data.slots
+    .map((s) => s.date)
+    .filter((d): d is string => /^\d{4}-\d{2}-\d{2}$/.test(d))
+    .sort();
+  const planDateUpdates: { dateDebut?: Date; dateFin?: Date } = {};
+  if (slotDatesSorted.length > 0) {
+    const minISO = slotDatesSorted[0];
+    const maxISO = slotDatesSorted[slotDatesSorted.length - 1];
+    // Construit en local pour respecter la timezone du foyer.
+    const [ymin, mmin, dmin] = minISO.split("-").map(Number);
+    const [ymax, mmax, dmax] = maxISO.split("-").map(Number);
+    planDateUpdates.dateDebut = new Date(ymin, mmin - 1, dmin, 0, 0, 0, 0);
+    planDateUpdates.dateFin = new Date(ymax, mmax - 1, dmax, 23, 59, 59, 999);
+  }
+
   // Promote ce plan en active
   const planRef = doc(db, `households/${householdId}/mealPlans/${planId}`);
   batch.update(planRef, {
     statut: "active",
     activatedAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
+    ...planDateUpdates,
     ...(data.commentaireGeneral ? { commentaireImport: data.commentaireGeneral } : {}),
   });
 
