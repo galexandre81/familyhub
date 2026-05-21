@@ -598,6 +598,20 @@ Avec **tes** valeurs Firebase, comme dans le `.env.local`.
 
 Sauvegarde.
 
+### Étape 4 (optionnelle) : adapter la région et la timezone si tu n'es pas en Europe
+
+Par défaut, le code déploie les Cloud Functions en **`europe-west1`** (Belgique) et calcule "aujourd'hui" en **`Europe/Paris`**. Pour un foyer en France/Belgique/Suisse, **rien à faire**, saute cette étape.
+
+Si tu es ailleurs (USA, Canada, Asie, etc.) tu peux laisser tel quel — ça marche mais avec une latence sub-optimale, et "aujourd'hui" sur la tuile recette du jour basculera à minuit Paris au lieu de minuit local. Pour corriger :
+
+**A) Région des Cloud Functions** — find/replace `europe-west1` partout dans le code par ta région ([liste des régions](https://firebase.google.com/docs/functions/locations), ex: `us-central1`, `asia-northeast1`). Fichiers concernés : `apps/hub/src/lib/firebase.ts`, `apps/display/public/js/core.js`, `apps/display/public/setup.html`, tous les fichiers `functions/src/**/*.ts`.
+
+**B) Timezone** — find/replace `Europe/Paris` par ta timezone ([liste IANA](https://en.wikipedia.org/wiki/List_of_tz_database_time_zones), ex: `America/New_York`, `Asia/Tokyo`). Fichiers concernés : tous les `functions/src/tiles/*.ts`. La timezone du foyer dans le hub est elle déjà éditable dans `Paramètres → Foyer`.
+
+> 💡 Sur VS Code : `Ctrl+Shift+H` (Windows) ou `Cmd+Shift+H` (macOS) pour find/replace global dans tout le projet. Pense à **exclure** `node_modules/` et `*.md` du replace.
+
+Sauvegarde, et reprends à 6.5.
+
 ## 6.5 Première compilation
 
 Pour vérifier que tout est correctement configuré, on compile le projet :

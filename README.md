@@ -23,9 +23,11 @@
 ## ✨ Fonctionnalités
 
 ### 🍽️ Meal planner hebdomadaire
-- **Wizard 4 étapes** : date / présence par profil par repas (avec mode ⚡ express ≤ 15 min) / contexte (batch cooking, jour des courses, frigo à écouler) / export
+- **Wizard 5 étapes** : date / qui est là cette semaine (filtre rapide pour exclure les profils absents) / présence par profil par repas (avec mode ⚡ express ≤ 15 min) / contexte (batch cooking, jour des courses, frigo à écouler) / export
+- **Plans de durée variable** : un plan peut démarrer n'importe quel jour (pas forcément lundi) et s'étendre sur plus de 7 jours si besoin
 - **Workflow human-in-the-loop avec Claude.ai** : le hub génère un `.md` structuré, tu le colles dans Claude.ai (compte Pro recommandé), tu dialogues pour ajuster, tu récupères un JSON validé, tu l'importes
 - **Édition inline** : notes par slot, marquer un repas annulé (pizzas commandées), changer de recette
+- **Navigation historique** : chevrons ◀ ▶ sur le hub et sur la tuile iPad pour parcourir les semaines précédentes archivées (idées de menus, traçabilité)
 - **Batch cooking** intégré : sessions de prep dimanche affichées séparément avec leurs recettes
 
 ### 📖 Livre de recettes familial
