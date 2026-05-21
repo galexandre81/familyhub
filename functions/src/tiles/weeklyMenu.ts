@@ -78,8 +78,8 @@ async function buildPlanSnapshot(
   todayISO: string,
   nomById: Map<string, string>,
 ): Promise<{ snapshot: WeeklyPlanSnapshot; recetteIds: Set<string> }> {
-  const dateDebutISO = dateISOFromTimestamp(plan.dateDebut) ?? todayISO;
-  const dateFinISO = dateISOFromTimestamp(plan.dateFin) ?? addDaysISO(dateDebutISO, 6);
+  let dateDebutISO = dateISOFromTimestamp(plan.dateDebut) ?? todayISO;
+  let dateFinISO = dateISOFromTimestamp(plan.dateFin) ?? addDaysISO(dateDebutISO, 6);
   const statut =
     (plan.statut as "active" | "archived" | "draft" | undefined) ?? "archived";
 
@@ -91,6 +91,7 @@ async function buildPlanSnapshot(
   // Index par "date|repas". On préfère slot.date (Phase 3), fallback dateDebut+jour.
   const slotMap = new Map<string, Record<string, unknown>>();
   const localRecetteIds = new Set<string>();
+  const realSlotDates: string[] = [];
   for (const d of slotsSnap.docs) {
     const data = d.data() as Record<string, unknown>;
     const repas = data.repas as Repas | undefined;
@@ -100,6 +101,7 @@ async function buildPlanSnapshot(
     const slotDateISO = rawDate ?? (jour != null ? addDaysISO(dateDebutISO, jour) : null);
     if (!slotDateISO) continue;
     slotMap.set(`${slotDateISO}|${repas}`, data);
+    realSlotDates.push(slotDateISO);
     const ids = (data.recetteIds as string[]) || [];
     ids.forEach((rid) => localRecetteIds.add(rid));
   }
@@ -107,6 +109,17 @@ async function buildPlanSnapshot(
     const ids = (d.data().recetteIds as string[]) || [];
     ids.forEach((rid) => localRecetteIds.add(rid));
   });
+
+  // Défensif : si les slots débordent du dateDebut/dateFin posé sur le doc
+  // plan (cas import JSON dont les dates dépassent le wizard), on étend la
+  // plage rendue pour englober tous les slots.
+  if (realSlotDates.length > 0) {
+    realSlotDates.sort();
+    const slotMin = realSlotDates[0];
+    const slotMax = realSlotDates[realSlotDates.length - 1];
+    if (slotMin < dateDebutISO) dateDebutISO = slotMin;
+    if (slotMax > dateFinISO) dateFinISO = slotMax;
+  }
 
   // Plage de jours réelle, cappée pour éviter l'explosion (plans mal formés).
   const nDaysRaw = daysBetweenISO(dateDebutISO, dateFinISO) + 1;
