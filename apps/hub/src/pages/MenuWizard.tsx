@@ -9,7 +9,9 @@ import {
   Download,
   Loader2,
   Upload,
+  Users,
 } from "lucide-react";
+import ProfilBadge from "../components/ProfilBadge";
 import { useAuth } from "../lib/auth";
 import {
   useActiveHouseholdId,
@@ -32,7 +34,7 @@ import PresenceGrid, {
 import { buildPlanMd, PLAN_PROMPT_TEMPLATE, type PresenceMap } from "../lib/planMd";
 import type { Profil } from "@family-hub/types";
 
-type WizardStep = "date" | "presence" | "contexte" | "review";
+type WizardStep = "date" | "attendance" | "presence" | "contexte" | "review";
 
 export default function MenuWizard() {
   const { user } = useAuth();
@@ -46,6 +48,12 @@ export default function MenuWizard() {
   const [error, setError] = useState<string | null>(null);
 
   const [dateDebut, setDateDebut] = useState<string>(nextMondayISO());
+  /**
+   * Qui est présent cette semaine ? Filtre week-level avant la grille fine
+   * par slot. Permet d'exclure Pop/Mima en 1 clic s'ils ne sont pas là.
+   * Vide tant qu'on n'a pas chargé les profils.
+   */
+  const [attendees, setAttendees] = useState<string[]>([]);
   const [presence, setPresence] = useState<PresenceState>({});
   const [express, setExpress] = useState<ExpressState>(buildDefaultExpress());
   const [batchOk, setBatchOk] = useState(false);
@@ -57,12 +65,35 @@ export default function MenuWizard() {
 
   const profilIds = useMemo(() => (profils ?? []).map((p) => p.id), [profils]);
 
-  // Init présence par défaut quand on connaît les profils
+  // Init présence + attendees par défaut quand on connaît les profils
   useMemo(() => {
     if (profilIds.length && Object.keys(presence).length === 0) {
       setPresence(buildDefaultPresence(profilIds));
     }
-  }, [profilIds, presence]);
+    if (profilIds.length && attendees.length === 0) {
+      setAttendees(profilIds);
+    }
+  }, [profilIds, presence, attendees]);
+
+  /**
+   * Profils affichés dans la grille fine (step "presence") : uniquement ceux
+   * cochés à la step "attendance". Si rien n'est coché (cas avant init),
+   * fallback sur tous les profils.
+   */
+  const attendingProfils = useMemo(() => {
+    if (!profils) return [];
+    if (attendees.length === 0) return profils;
+    return profils.filter((p) => attendees.includes(p.id));
+  }, [profils, attendees]);
+
+  /**
+   * Transition attendance → presence : rebuild la grille fine pour ne contenir
+   * que les attendees (si on a changé la sélection depuis le dernier passage).
+   */
+  function goToPresenceFromAttendance() {
+    setPresence(buildDefaultPresence(attendees));
+    setStep("presence");
+  }
 
   const create = useCreateMealPlan();
   const deletePlan = useDeleteMealPlan();
@@ -127,18 +158,28 @@ export default function MenuWizard() {
         <StepDate
           dateDebut={dateDebut}
           setDateDebut={setDateDebut}
-          onNext={() => setStep("presence")}
+          onNext={() => setStep("attendance")}
+        />
+      )}
+
+      {step === "attendance" && (
+        <StepAttendance
+          profils={profils}
+          attendees={attendees}
+          setAttendees={setAttendees}
+          onPrev={() => setStep("date")}
+          onNext={goToPresenceFromAttendance}
         />
       )}
 
       {step === "presence" && (
         <StepPresence
-          profils={profils}
+          profils={attendingProfils}
           presence={presence}
           setPresence={setPresence}
           express={express}
           setExpress={setExpress}
-          onPrev={() => setStep("date")}
+          onPrev={() => setStep("attendance")}
           onNext={() => setStep("contexte")}
         />
       )}
@@ -177,7 +218,8 @@ export default function MenuWizard() {
 function Stepper({ current, hasDraft }: { current: WizardStep; hasDraft: boolean }) {
   const steps: Array<{ key: WizardStep; label: string }> = [
     { key: "date", label: "Date" },
-    { key: "presence", label: "Présence" },
+    { key: "attendance", label: "Qui est là" },
+    { key: "presence", label: "Repas" },
     { key: "contexte", label: "Contexte" },
     { key: "review", label: "Revue" },
   ];
@@ -240,6 +282,115 @@ function StepDate({
       />
       <div className="flex justify-end">
         <button onClick={onNext} className="btn-primary flex items-center gap-2">
+          Suivant <ArrowRight size={14} />
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function StepAttendance({
+  profils,
+  attendees,
+  setAttendees,
+  onPrev,
+  onNext,
+}: {
+  profils: Array<Profil & { id: string }>;
+  attendees: string[];
+  setAttendees: (next: string[]) => void;
+  onPrev: () => void;
+  onNext: () => void;
+}) {
+  function toggle(id: string) {
+    setAttendees(
+      attendees.includes(id)
+        ? attendees.filter((x) => x !== id)
+        : [...attendees, id],
+    );
+  }
+  function selectAll() {
+    setAttendees(profils.map((p) => p.id));
+  }
+  const noneSelected = attendees.length === 0;
+
+  return (
+    <div className="space-y-4">
+      <div className="tile-card space-y-3">
+        <div className="flex items-start gap-3">
+          <Users size={20} className="text-brass shrink-0 mt-1" />
+          <div>
+            <h2 className="text-xl mb-1">Qui est là cette semaine ?</h2>
+            <p className="text-cream-mute text-sm">
+              Décoche les personnes qui ne sont pas là (ex: Pop / Mima qui ne
+              viennent qu'occasionnellement). Tu pourras toujours les rajouter
+              ponctuellement sur un repas spécifique à l'étape suivante.
+            </p>
+          </div>
+        </div>
+      </div>
+
+      <div className="tile-card">
+        <div className="flex flex-wrap gap-3 justify-center">
+          {profils.map((p) => {
+            const on = attendees.includes(p.id);
+            return (
+              <button
+                key={p.id}
+                type="button"
+                onClick={() => toggle(p.id)}
+                className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border transition ${
+                  on
+                    ? "border-brass/40 bg-brass/5"
+                    : "border-bordure bg-transparent opacity-50 hover:opacity-75"
+                }`}
+                title={on ? `${p.nom} : présent(e) cette semaine` : `${p.nom} : absent(e) cette semaine`}
+              >
+                <div className={on ? "" : "grayscale"}>
+                  <ProfilBadge
+                    initiale={p.initiale}
+                    couleur={p.couleur}
+                    emoji={p.emoji}
+                    size="md"
+                  />
+                </div>
+                <span className="text-xs">{p.nom}</span>
+                <span
+                  className={`text-[9px] uppercase tracking-widest ${
+                    on ? "text-sage" : "text-cream-mute"
+                  }`}
+                >
+                  {on ? "présent" : "absent"}
+                </span>
+              </button>
+            );
+          })}
+        </div>
+        <div className="flex justify-center mt-4">
+          <button
+            type="button"
+            onClick={selectAll}
+            className="text-[10px] uppercase tracking-widest text-cream-mute hover:text-brass"
+          >
+            Tout cocher
+          </button>
+        </div>
+        {noneSelected && (
+          <p className="text-copper text-xs text-center mt-3">
+            Coche au moins une personne pour continuer.
+          </p>
+        )}
+      </div>
+
+      <div className="flex justify-between">
+        <button onClick={onPrev} className="btn-secondary flex items-center gap-2">
+          <ArrowLeft size={14} /> Précédent
+        </button>
+        <button
+          onClick={onNext}
+          disabled={noneSelected}
+          className="btn-primary flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
+        >
           Suivant <ArrowRight size={14} />
         </button>
       </div>

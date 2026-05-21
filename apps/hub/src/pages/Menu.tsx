@@ -1,10 +1,12 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
+  Archive,
   Check,
   CheckCircle2,
   ChefHat,
   ChevronDown,
+  ChevronLeft,
   ChevronRight,
   Circle,
   Clock,
@@ -22,7 +24,7 @@ import {
 import { useAuth } from "../lib/auth";
 import {
   useActiveHouseholdId,
-  useActivePlan,
+  useAllPlans,
   useDraftPlan,
   usePlanBatchSessions,
   usePlanRecettes,
@@ -48,12 +50,22 @@ export default function Menu() {
   const { user } = useAuth();
   const householdId = useActiveHouseholdId(user?.uid);
   const { data: profils } = useProfils(householdId);
-  const { data: activePlan, isLoading: loadingActive } = useActivePlan(householdId);
+  const { data: allPlans, isLoading: loadingPlans } = useAllPlans(householdId);
   const { data: draftPlan } = useDraftPlan(householdId);
-  const { data: slots } = usePlanSlots(householdId, activePlan?.id);
+
+  /**
+   * Index du plan affiché dans `allPlans` (0 = plus récent = actif si présent).
+   * Réinitialisé quand la liste change (nouveau plan créé, etc.).
+   */
+  const [selectedIdx, setSelectedIdx] = useState(0);
+  const safeIdx = Math.min(selectedIdx, Math.max(0, (allPlans?.length ?? 1) - 1));
+  const currentPlan = allPlans?.[safeIdx];
+  const isArchived = currentPlan?.statut === "archived";
+
+  const { data: slots } = usePlanSlots(householdId, currentPlan?.id);
   const { data: recettesById } = usePlanRecettes(householdId, slots);
-  const { data: batchSessions } = usePlanBatchSessions(householdId, activePlan?.id);
-  const { data: shoppingList } = usePlanShoppingList(householdId, activePlan?.id);
+  const { data: batchSessions } = usePlanBatchSessions(householdId, currentPlan?.id);
+  const { data: shoppingList } = usePlanShoppingList(householdId, currentPlan?.id);
   const deletePlan = useDeleteMealPlan();
 
   /** Modal in-place pour voir la recette sans naviguer hors de /menu. */
@@ -67,6 +79,9 @@ export default function Menu() {
     () => Object.fromEntries((profils ?? []).map((p) => [p.id, p])),
     [profils],
   );
+
+  const canPrev = !!allPlans && safeIdx < allPlans.length - 1;
+  const canNext = safeIdx > 0;
 
   if (!householdId) return null;
 
@@ -93,9 +108,9 @@ export default function Menu() {
         </div>
       </div>
 
-      {loadingActive && <p className="text-cream-mute">Chargement…</p>}
+      {loadingPlans && <p className="text-cream-mute">Chargement…</p>}
 
-      {!loadingActive && !activePlan && !draftPlan && (
+      {!loadingPlans && (!allPlans || allPlans.length === 0) && !draftPlan && (
         <div className="tile-card text-center py-10">
           <p className="text-lg mb-2">Aucun plan actif.</p>
           <p className="text-cream-mute text-sm mb-4">
@@ -109,69 +124,111 @@ export default function Menu() {
         </div>
       )}
 
-      {activePlan && slots && (
+      {currentPlan && slots && (
         <>
           <div className="tile-card flex flex-wrap items-center justify-between gap-3">
-            <div>
-              <p className="eyebrow">Plan actif</p>
-              <p className="text-lg mt-1">
-                Semaine du{" "}
-                {activePlan.dateDebut instanceof Date
-                  ? activePlan.dateDebut.toLocaleDateString("fr-FR")
-                  : new Date(
-                      (activePlan.dateDebut as { seconds: number }).seconds * 1000,
-                    ).toLocaleDateString("fr-FR")}
-              </p>
-              <p className="text-cream-mute text-xs mt-0.5">
-                {(shoppingList?.items.length ?? 0)} items de courses
-                {(batchSessions && batchSessions.length > 0)
-                  ? ` · ${batchSessions.length} session${batchSessions.length > 1 ? "s" : ""} batch`
-                  : ""}
-              </p>
-              {activePlan.commentaireImport && (
-                <p className="text-cream-mute italic font-serif text-sm mt-2 max-w-prose">
-                  « {activePlan.commentaireImport} »
+            <div className="flex items-start gap-3 flex-1 min-w-0">
+              {/* Boutons prev/next : navigation dans l'historique */}
+              <div className="flex flex-col gap-1 shrink-0 pt-1">
+                <button
+                  type="button"
+                  onClick={() => canPrev && setSelectedIdx((i) => i + 1)}
+                  disabled={!canPrev}
+                  title="Semaine précédente (archivée)"
+                  className="p-1.5 rounded border border-bordure text-cream-mute hover:text-brass hover:border-brass disabled:opacity-30 disabled:cursor-not-allowed transition"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <button
+                  type="button"
+                  onClick={() => canNext && setSelectedIdx((i) => i - 1)}
+                  disabled={!canNext}
+                  title="Semaine suivante"
+                  className="p-1.5 rounded border border-bordure text-cream-mute hover:text-brass hover:border-brass disabled:opacity-30 disabled:cursor-not-allowed transition"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+              <div className="min-w-0">
+                <div className="flex items-center gap-2 flex-wrap">
+                  <p className="eyebrow">{isArchived ? "Plan archivé" : "Plan actif"}</p>
+                  {isArchived && (
+                    <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest px-1.5 py-0.5 rounded border border-brass/40 bg-brass/10 text-brass">
+                      <Archive size={10} />
+                      Historique
+                    </span>
+                  )}
+                  {allPlans && allPlans.length > 1 && (
+                    <span className="text-[10px] text-cream-mute tabular-nums">
+                      {safeIdx + 1} / {allPlans.length}
+                    </span>
+                  )}
+                </div>
+                <p className="text-lg mt-1">
+                  Semaine du{" "}
+                  {currentPlan.dateDebut instanceof Date
+                    ? currentPlan.dateDebut.toLocaleDateString("fr-FR")
+                    : new Date(
+                        (currentPlan.dateDebut as { seconds: number }).seconds * 1000,
+                      ).toLocaleDateString("fr-FR")}
                 </p>
-              )}
+                <p className="text-cream-mute text-xs mt-0.5">
+                  {(shoppingList?.items.length ?? 0)} items de courses
+                  {(batchSessions && batchSessions.length > 0)
+                    ? ` · ${batchSessions.length} session${batchSessions.length > 1 ? "s" : ""} batch`
+                    : ""}
+                </p>
+                {currentPlan.commentaireImport && (
+                  <p className="text-cream-mute italic font-serif text-sm mt-2 max-w-prose">
+                    « {currentPlan.commentaireImport} »
+                  </p>
+                )}
+              </div>
             </div>
-            <button
-              onClick={async () => {
-                if (!confirm("Archiver ce plan actif ? (suppression complète)")) return;
-                await deletePlan.mutateAsync({ householdId, planId: activePlan.id });
-              }}
-              className="text-cream-mute hover:text-copper text-sm flex items-center gap-1"
-            >
-              <Trash2 size={14} />
-              Supprimer
-            </button>
+            {!isArchived && (
+              <button
+                onClick={async () => {
+                  if (!confirm("Archiver ce plan actif ? (suppression complète)")) return;
+                  await deletePlan.mutateAsync({ householdId, planId: currentPlan.id });
+                }}
+                className="text-cream-mute hover:text-copper text-sm flex items-center gap-1"
+              >
+                <Trash2 size={14} />
+                Supprimer
+              </button>
+            )}
           </div>
 
           <MealPlanGrid
             slots={slots}
             recettesById={recettesById ?? {}}
             profilsById={profilsById as never}
-            dateDebut={getDateFromTimestamp(activePlan.dateDebut)}
+            dateDebut={getDateFromTimestamp(currentPlan.dateDebut)}
+            dateFin={getDateFromTimestamp(currentPlan.dateFin)}
             onOpenRecette={(id, portions, slotId) =>
               setOpenRecette({ id, portions, slotId })
             }
-            editableHouseholdId={householdId}
-            editablePlanId={activePlan.id}
+            // Édition inline uniquement sur le plan actif. Sur un plan
+            // archivé, la grille est read-only (pas de notes, pas d'annulé).
+            editableHouseholdId={isArchived ? undefined : householdId}
+            editablePlanId={isArchived ? undefined : currentPlan.id}
           />
 
           {batchSessions && batchSessions.length > 0 && (
             <BatchSessionsSection
               householdId={householdId}
-              planId={activePlan.id}
+              planId={currentPlan.id}
               sessions={batchSessions}
               recettesById={recettesById ?? {}}
               onOpenRecette={(id, portions) => setOpenRecette({ id, portions })}
             />
           )}
 
-          {shoppingList && (
+          {/* Liste de courses : cachée sur les plans archivés (sans intérêt). */}
+          {!isArchived && shoppingList && (
             <ShoppingListSection
               householdId={householdId}
-              planId={activePlan.id}
+              planId={currentPlan.id}
               list={shoppingList}
               uid={user?.uid ?? ""}
             />
@@ -184,7 +241,7 @@ export default function Menu() {
           householdId={householdId}
           recetteId={openRecette.id}
           initialPortions={openRecette.portions}
-          planId={activePlan?.id}
+          planId={currentPlan?.id}
           slotId={openRecette.slotId}
           onClose={() => setOpenRecette(null)}
         />

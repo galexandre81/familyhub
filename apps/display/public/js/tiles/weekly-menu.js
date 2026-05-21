@@ -253,6 +253,35 @@
     return repas || 'Repas';
   }
 
+  /**
+   * Sélectionne le plan à afficher dans la vue expand.
+   * - Si `data.plans` existe (snapshot Phase 4) → retourne plans[idx]
+   * - Sinon (snapshot ancien, sans historique) → fabrique un plan-shape
+   *   depuis les champs top-level (back-compat).
+   */
+  function selectPlan(data, idx) {
+    var d = data || {};
+    if (d.plans && d.plans.length > 0) {
+      var safe = Math.max(0, Math.min(idx | 0, d.plans.length - 1));
+      return d.plans[safe];
+    }
+    if (!d.hasActivePlan) return null;
+    return {
+      planId: d.planId || '',
+      statut: 'active',
+      dateDebutISO: d.dateDebutISO || '',
+      dateFinISO: d.dateFinISO || '',
+      semaine: d.semaine || [],
+      batchSessions: d.batchSessions || []
+    };
+  }
+
+  function plansCount(data) {
+    var d = data || {};
+    if (d.plans && d.plans.length > 0) return d.plans.length;
+    return d.hasActivePlan ? 1 : 0;
+  }
+
   function expand(container, data, _config, _tileId) {
     container.className = 'tile-overlay-content tile-overlay-content--full tile-weekly-menu-expand';
     container.innerHTML = '';
@@ -265,13 +294,19 @@
       'height:100%; width:100%; overflow:hidden;';
 
     var d = data || {};
-    if (!d.hasActivePlan || !d.semaine || d.semaine.length === 0) {
+    var nPlans = plansCount(d);
+    if (nPlans === 0) {
       container.innerHTML =
         '<div style="padding:60px; text-align:center; font-size:18px; opacity:0.7">' +
           'Pas de plan actif cette semaine.' +
         '</div>';
       return;
     }
+
+    /* Index du plan courant dans data.plans : 0 = plus récent = actif si présent.
+       État closure : préservé entre re-renders du même expand mais reset à
+       chaque ouverture (volontaire — on commence toujours sur l'actif). */
+    var currentIdx = 0;
 
     /* Vue grille — extraite dans une fonction pour pouvoir y revenir
        depuis la vue détail recette. */
@@ -283,11 +318,34 @@
         'display:-webkit-flex; display:flex; ' +
         '-webkit-flex-direction:column; flex-direction:column; ' +
         'height:100%; width:100%; overflow:hidden;';
-      buildGridUI(container, d, function (slot) { showRecetteForSlot(slot); }, function () { showBatchView(); });
+      var plan = selectPlan(d, currentIdx);
+      if (!plan) {
+        container.innerHTML =
+          '<div style="padding:60px; text-align:center; font-size:18px; opacity:0.7">' +
+            'Plan introuvable.' +
+          '</div>';
+        return;
+      }
+      var nav = {
+        index: currentIdx,
+        total: nPlans,
+        canPrev: currentIdx < nPlans - 1, /* plus ancien = idx supérieur */
+        canNext: currentIdx > 0,
+        onPrev: function () { if (currentIdx < nPlans - 1) { currentIdx++; renderGrid(); } },
+        onNext: function () { if (currentIdx > 0) { currentIdx--; renderGrid(); } }
+      };
+      buildGridUI(
+        container,
+        plan,
+        function (slot) { showRecetteForSlot(slot); },
+        function () { showBatchView(); },
+        nav
+      );
     }
 
     function showBatchView() {
-      var sessions = (d.batchSessions || []);
+      var plan = selectPlan(d, currentIdx) || {};
+      var sessions = (plan.batchSessions || []);
       if (sessions.length === 0) {
         container.innerHTML =
           '<div style="padding:60px; text-align:center; opacity:0.7">' +
@@ -474,69 +532,121 @@
     }
   }
 
+  var MOIS_SHORT = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
+
   /**
-   * Construit la grille semaine dans `container`. Le `onCellTap(slot)` est
-   * appelé au tap d'une cellule contenant des recettes.
+   * Construit la grille semaine dans `container` à partir d'un PLAN (actif ou
+   * archivé). Le nombre de jours est dérivé du plan lui-même, pas hardcodé 7.
+   *
+   * @param plan { planId, statut, dateDebutISO, dateFinISO, semaine[], batchSessions[] }
+   * @param nav  { index, total, canPrev, canNext, onPrev, onNext } pour ◀ ▶
    */
-  function buildGridUI(container, d, onCellTap, onBatchTap) {
-    /* Header */
+  function buildGridUI(container, plan, onCellTap, onBatchTap, nav) {
+    var p = plan || {};
+    var isArchived = p.statut === 'archived';
+
+    /* ---- Header ---- */
     var header = document.createElement('div');
     header.style.cssText =
-      'padding:16px 20px; border-bottom:1px solid rgba(217,160,91,0.15); ' +
+      'padding:14px 20px 12px; border-bottom:1px solid rgba(217,160,91,0.15); ' +
       '-webkit-flex-shrink:0; flex-shrink:0;';
+
     var dateRange = '';
-    if (d.dateDebutISO) {
-      var debut = new Date(d.dateDebutISO + 'T12:00:00Z');
-      var fin = new Date((d.dateFinISO || d.dateDebutISO) + 'T12:00:00Z');
+    if (p.dateDebutISO) {
+      var debut = new Date(p.dateDebutISO + 'T12:00:00Z');
+      var fin = new Date((p.dateFinISO || p.dateDebutISO) + 'T12:00:00Z');
       dateRange = 'Semaine du ' +
-        debut.getDate() + ' ' + ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'][debut.getMonth()] +
+        debut.getDate() + ' ' + MOIS_SHORT[debut.getMonth()] +
         ' au ' +
-        fin.getDate() + ' ' + ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'][fin.getMonth()];
+        fin.getDate() + ' ' + MOIS_SHORT[fin.getMonth()];
     }
-    var batchSessions = d.batchSessions || [];
+
+    /* ─ Première ligne : eyebrow "MENU…" + nav ◀ ▶ ─ */
+    var topRow = document.createElement('div');
+    topRow.style.cssText =
+      'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; ' +
+      '-webkit-justify-content:space-between; justify-content:space-between; gap:8px;';
+    var eyebrow = document.createElement('div');
+    eyebrow.style.cssText =
+      'font-size:11px; letter-spacing:0.2em; text-transform:uppercase; opacity:0.7;';
+    eyebrow.innerHTML = 'Menu de la semaine';
+    topRow.appendChild(eyebrow);
+
+    if (nav && nav.total > 1) {
+      var navWrap = document.createElement('div');
+      navWrap.style.cssText =
+        'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; gap:6px;';
+      var prevBtn = makeNavBtn('◀', 'Semaine précédente', nav.canPrev, nav.onPrev);
+      var counter = document.createElement('span');
+      counter.style.cssText =
+        'font-size:10px; letter-spacing:0.12em; opacity:0.55; min-width:38px; text-align:center;';
+      counter.innerHTML = (nav.index + 1) + ' / ' + nav.total;
+      var nextBtn = makeNavBtn('▶', 'Semaine suivante', nav.canNext, nav.onNext);
+      navWrap.appendChild(prevBtn);
+      navWrap.appendChild(counter);
+      navWrap.appendChild(nextBtn);
+      topRow.appendChild(navWrap);
+    }
+    header.appendChild(topRow);
+
+    /* ─ Deuxième ligne : range de dates + badge archivé ─ */
+    var titleRow = document.createElement('div');
+    titleRow.style.cssText =
+      'display:-webkit-flex; display:flex; -webkit-align-items:baseline; align-items:baseline; gap:10px; margin-top:2px;';
+    var title = document.createElement('div');
+    title.style.cssText = 'font-family:Georgia,serif; font-size:24px;';
+    title.innerHTML = escapeHtml(dateRange);
+    titleRow.appendChild(title);
+    if (isArchived) {
+      var badge = document.createElement('span');
+      badge.style.cssText =
+        'display:inline-block; padding:2px 8px; font-size:10px; letter-spacing:0.15em; ' +
+        'text-transform:uppercase; background:rgba(217,160,91,0.15); ' +
+        'border:1px solid rgba(217,160,91,0.35); color:' + BRASS + '; border-radius:3px;';
+      badge.innerHTML = 'Archivé';
+      titleRow.appendChild(badge);
+    }
+    header.appendChild(titleRow);
+
+    /* ─ Bouton batch (inchangé) ─ */
+    var batchSessions = p.batchSessions || [];
     var batchCount = batchSessions.length;
     var batchTotalMin = 0;
     for (var bi = 0; bi < batchSessions.length; bi++) {
       batchTotalMin += +batchSessions[bi].dureeEstimeeMinutes || 0;
     }
-    var batchBtnHtml = '';
     if (batchCount > 0 && typeof onBatchTap === 'function') {
-      batchBtnHtml =
-        '<button type="button" data-act="batch" ' +
-          'style="margin-top:10px; padding:10px 14px; background:rgba(217,160,91,0.12); ' +
-          'border:1px solid rgba(217,160,91,0.40); color:#D9A05B; border-radius:4px; ' +
-          'font-size:13px; font-weight:600; cursor:pointer; ' +
-          'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; gap:8px">' +
-          /* SVG mini chef hat / casserole */
-          '<svg viewBox="0 0 50 50" width="18" height="18" aria-hidden="true">' +
-            '<path d="M10 22 L40 22 L38 38 Q38 42, 34 42 L16 42 Q12 42, 12 38 Z" ' +
-              'fill="rgba(217,160,91,0.18)" stroke="#D9A05B" stroke-width="2" stroke-linejoin="round"/>' +
-            '<path d="M14 22 Q14 12, 25 12 Q36 12, 36 22" fill="none" stroke="#D9A05B" stroke-width="2"/>' +
-            '<line x1="6" y1="42" x2="44" y2="42" stroke="#D9A05B" stroke-width="2" stroke-linecap="round"/>' +
-          '</svg>' +
-          '<span>Batch cooking de la semaine · ' + batchCount + ' session' + (batchCount > 1 ? 's' : '') +
-          ' · ' + batchTotalMin + ' min</span>' +
-          '<span style="margin-left:auto; opacity:0.7">→</span>' +
-        '</button>';
+      var batchBtn = document.createElement('button');
+      batchBtn.type = 'button';
+      batchBtn.style.cssText =
+        'margin-top:10px; padding:10px 14px; background:rgba(217,160,91,0.12); ' +
+        'border:1px solid rgba(217,160,91,0.40); color:#D9A05B; border-radius:4px; ' +
+        'font-size:13px; font-weight:600; cursor:pointer; ' +
+        'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; gap:8px;';
+      batchBtn.innerHTML =
+        '<svg viewBox="0 0 50 50" width="18" height="18" aria-hidden="true">' +
+          '<path d="M10 22 L40 22 L38 38 Q38 42, 34 42 L16 42 Q12 42, 12 38 Z" ' +
+            'fill="rgba(217,160,91,0.18)" stroke="#D9A05B" stroke-width="2" stroke-linejoin="round"/>' +
+          '<path d="M14 22 Q14 12, 25 12 Q36 12, 36 22" fill="none" stroke="#D9A05B" stroke-width="2"/>' +
+          '<line x1="6" y1="42" x2="44" y2="42" stroke="#D9A05B" stroke-width="2" stroke-linecap="round"/>' +
+        '</svg>' +
+        '<span>Batch cooking de la semaine · ' + batchCount + ' session' + (batchCount > 1 ? 's' : '') +
+        ' · ' + batchTotalMin + ' min</span>' +
+        '<span style="margin-left:auto; opacity:0.7">→</span>';
+      batchBtn.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        onBatchTap();
+      });
+      header.appendChild(batchBtn);
     }
-    header.innerHTML =
-      '<div style="font-size:11px; letter-spacing:0.2em; text-transform:uppercase; opacity:0.7">Menu de la semaine</div>' +
-      '<div style="font-family:Georgia,serif; font-size:24px; margin-top:2px">' + escapeHtml(dateRange) + '</div>' +
-      batchBtnHtml;
-    if (batchBtnHtml) {
-      var batchBtn = header.querySelector('[data-act="batch"]');
-      if (batchBtn) {
-        batchBtn.addEventListener('click', function (ev) {
-          ev.stopPropagation();
-          onBatchTap();
-        });
-      }
-    }
+
     container.appendChild(header);
 
-    /* Grid 8 cols (1 label repas + 7 jours), 4 rows (1 header + 3 repas) */
-    var byJour = groupByJour(d.semaine);
-    var todayIdx = todayJourIndex(d.semaine);
+    /* ---- Grille (variable nDays = semaine.length / 3) ---- */
+    var semaine = p.semaine || [];
+    var nDays = Math.max(1, Math.floor(semaine.length / 3));
+    var byJour = groupByJour(semaine);
+    var todayIdx = todayJourIndex(semaine);
 
     var gridWrap = document.createElement('div');
     gridWrap.style.cssText =
@@ -553,7 +663,7 @@
     var thead = document.createElement('thead');
     var trH = document.createElement('tr');
     trH.appendChild(document.createElement('th'));
-    for (var j = 0; j < 7; j++) {
+    for (var j = 0; j < nDays; j++) {
       var th = document.createElement('th');
       var isToday = j === todayIdx;
       th.style.cssText =
@@ -562,10 +672,8 @@
         'color:' + (isToday ? BRASS : 'inherit') + ';' +
         (isToday ? 'border-bottom:2px solid ' + BRASS + ';' : '');
       var dateLabel = '';
-      var headerDayName = JOURS_SHORT[j];
+      var headerDayName = JOURS_SHORT[j % 7];
       if (byJour[j] && byJour[j].date) {
-        /* Idem que la pastille compact : on dérive le label depuis la
-           VRAIE date pour que mardi May 5 affiche "Mar" pas "Lun". */
         headerDayName = dayLabelFromDate(byJour[j].date) || headerDayName;
         var d2 = new Date(byJour[j].date + 'T12:00:00Z');
         dateLabel = '<div style="font-size:9px; opacity:0.6; margin-top:1px; font-weight:400; letter-spacing:0">' +
@@ -592,7 +700,7 @@
       tdLabel.innerHTML = repasIconSvg(repas, 28);
       tr.appendChild(tdLabel);
 
-      for (var jj = 0; jj < 7; jj++) {
+      for (var jj = 0; jj < nDays; jj++) {
         var slot = (byJour[jj] && byJour[jj].slots[repas]) || null;
         var cell = document.createElement('td');
         var isPast = isSlotPast(slot);
@@ -639,6 +747,27 @@
       tbody.appendChild(tr);
     }
     table.appendChild(tbody);
+  }
+
+  function makeNavBtn(label, title, enabled, onClick) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.title = title;
+    b.innerHTML = label;
+    b.style.cssText =
+      'width:38px; height:38px; padding:0; border-radius:50%; ' +
+      'background:' + (enabled ? 'rgba(217,160,91,0.10)' : 'transparent') + '; ' +
+      'border:1px solid ' + (enabled ? 'rgba(217,160,91,0.40)' : 'rgba(217,160,91,0.15)') + '; ' +
+      'color:' + (enabled ? BRASS : 'rgba(217,160,91,0.30)') + '; ' +
+      'font-size:14px; cursor:' + (enabled ? 'pointer' : 'default') + '; ' +
+      '-webkit-tap-highlight-color:transparent;';
+    if (enabled && typeof onClick === 'function') {
+      b.addEventListener('click', function (ev) {
+        ev.stopPropagation();
+        onClick();
+      });
+    }
+    return b;
   }
 
   function collapse(_container) { /* nothing to clean */ }

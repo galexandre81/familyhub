@@ -2,7 +2,7 @@ import type { Profil } from "@family-hub/types";
 import type { MealPlanSlotWithId, RecetteWithId } from "../../lib/queries";
 import SlotCard from "./SlotCard";
 
-const JOURS_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+const JOUR_LABELS_BY_DOW = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
 const REPAS_LABELS = {
   petitDej: "Petit-déj",
   dej: "Déjeuner",
@@ -13,8 +13,10 @@ interface MealPlanGridProps {
   slots: MealPlanSlotWithId[];
   recettesById: Record<string, RecetteWithId>;
   profilsById: Record<string, Profil & { id: string }>;
-  /** Date du lundi pour l'en-tête. */
+  /** Date de début du plan (jour 1, peut être n'importe quel jour de la semaine). */
   dateDebut?: Date;
+  /** Date de fin du plan. Si omis, on dérive le nombre de jours des slots eux-mêmes. */
+  dateFin?: Date;
   /** Slot actuellement en train d'être traité (loader). */
   busySlotId?: string | null;
   onAccept?: (slotId: string) => void;
@@ -40,6 +42,7 @@ export default function MealPlanGrid({
   recettesById,
   profilsById,
   dateDebut,
+  dateFin,
   busySlotId,
   onAccept,
   onRefuse,
@@ -48,20 +51,29 @@ export default function MealPlanGrid({
   editableHouseholdId,
   editablePlanId,
 }: MealPlanGridProps) {
-  const slotByCoord = new Map(slots.map((s) => [`${s.jour}-${s.repas}`, s]));
+  const days = computeDayList(slots, dateDebut, dateFin);
+  // Slots indexés par "YYYY-MM-DD-repas". Fallback "jour-repas" pour très vieux slots sans champ date.
+  const slotByCoord = new Map<string, MealPlanSlotWithId>();
+  for (const s of slots) {
+    const key = s.date ? `${s.date}-${s.repas}` : `j${s.jour}-${s.repas}`;
+    slotByCoord.set(key, s);
+  }
+
+  // CSS grid columns dynamiques (1 label + N jours).
+  const nCols = days.length;
+  const gridStyle = {
+    gridTemplateColumns: `100px repeat(${nCols}, minmax(140px, 1fr))`,
+    minWidth: `${100 + nCols * 140 + (nCols + 1) * 8}px`,
+  };
 
   return (
     <div className="overflow-x-auto">
-      <div className="grid grid-cols-[100px_repeat(7,minmax(140px,1fr))] gap-2 min-w-[1100px]">
+      <div className="grid gap-2" style={gridStyle}>
         <div />
-        {JOURS_LABELS.map((label, i) => (
-          <div key={i} className="text-center">
-            <div className="eyebrow text-[10px]">{label}</div>
-            {dateDebut && (
-              <div className="text-cream-mute text-[10px] mt-0.5">
-                {formatDayLabel(dateDebut, i)}
-              </div>
-            )}
+        {days.map((day) => (
+          <div key={day.iso} className="text-center">
+            <div className="eyebrow text-[10px]">{JOUR_LABELS_BY_DOW[day.date.getDay()]}</div>
+            <div className="text-cream-mute text-[10px] mt-0.5">{day.shortLabel}</div>
           </div>
         ))}
 
@@ -69,6 +81,7 @@ export default function MealPlanGrid({
           <RowFragment
             key={repas}
             repas={repas}
+            days={days}
             slotByCoord={slotByCoord}
             recettesById={recettesById}
             profilsById={profilsById}
@@ -88,6 +101,7 @@ export default function MealPlanGrid({
 
 function RowFragment({
   repas,
+  days,
   slotByCoord,
   recettesById,
   profilsById,
@@ -100,6 +114,7 @@ function RowFragment({
   editablePlanId,
 }: {
   repas: "petitDej" | "dej" | "diner";
+  days: DayCell[];
   slotByCoord: Map<string, MealPlanSlotWithId>;
   recettesById: Record<string, RecetteWithId>;
   profilsById: Record<string, Profil & { id: string }>;
@@ -116,11 +131,13 @@ function RowFragment({
       <div className="flex items-center justify-end pr-2">
         <span className="eyebrow text-[10px]">{REPAS_LABELS[repas]}</span>
       </div>
-      {Array.from({ length: 7 }, (_, jour) => {
-        const slot = slotByCoord.get(`${jour}-${repas}`);
+      {days.map((day) => {
+        const slot =
+          slotByCoord.get(`${day.iso}-${repas}`) ??
+          slotByCoord.get(`j${day.jourIndex}-${repas}`);
         if (!slot) {
           return (
-            <div key={jour} className="tile-card !p-3 min-h-[110px] opacity-30 italic text-xs">
+            <div key={day.iso} className="tile-card !p-3 min-h-[110px] opacity-30 italic text-xs">
               —
             </div>
           );
@@ -128,7 +145,7 @@ function RowFragment({
         const slotId = slot.id;
         return (
           <SlotCard
-            key={jour}
+            key={day.iso}
             slot={slot}
             recettesById={recettesById}
             profilsById={profilsById}
@@ -146,8 +163,79 @@ function RowFragment({
   );
 }
 
-function formatDayLabel(monday: Date, offsetDays: number): string {
-  const d = new Date(monday);
-  d.setDate(d.getDate() + offsetDays);
-  return d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" });
+interface DayCell {
+  iso: string; // "YYYY-MM-DD"
+  date: Date;
+  shortLabel: string; // ex "21 mai"
+  jourIndex: number; // offset depuis le 1er jour (pour fallback legacy)
+}
+
+/**
+ * Calcule la liste de jours à afficher.
+ * Stratégie : si dateDebut+dateFin fournis → range complet. Sinon, déduit
+ * la plage à partir des dates des slots eux-mêmes (min/max). Sinon, fallback
+ * 7 jours depuis aujourd'hui.
+ */
+function computeDayList(
+  slots: MealPlanSlotWithId[],
+  dateDebut?: Date,
+  dateFin?: Date,
+): DayCell[] {
+  let start: Date | undefined = dateDebut;
+  let end: Date | undefined = dateFin;
+
+  if (!start || !end) {
+    const slotDates = slots
+      .map((s) => s.date)
+      .filter((d): d is string => typeof d === "string" && /^\d{4}-\d{2}-\d{2}$/.test(d))
+      .sort();
+    if (slotDates.length > 0) {
+      if (!start) start = parseISODate(slotDates[0]);
+      if (!end) end = parseISODate(slotDates[slotDates.length - 1]);
+    }
+  }
+  if (!start) {
+    start = new Date();
+    start.setHours(0, 0, 0, 0);
+  }
+  if (!end) {
+    end = new Date(start);
+    end.setDate(end.getDate() + 6);
+  }
+
+  // Normalize: noon to avoid DST drift when adding days.
+  const s = new Date(start);
+  s.setHours(12, 0, 0, 0);
+  const e = new Date(end);
+  e.setHours(12, 0, 0, 0);
+
+  const nDays = Math.max(1, Math.round((e.getTime() - s.getTime()) / 86_400_000) + 1);
+  // Garde-fou : un plan ne dépasse pas 31 jours dans l'UI.
+  const capped = Math.min(nDays, 31);
+
+  const out: DayCell[] = [];
+  for (let i = 0; i < capped; i++) {
+    const d = new Date(s);
+    d.setDate(s.getDate() + i);
+    out.push({
+      iso: toISODate(d),
+      date: d,
+      shortLabel: d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" }),
+      jourIndex: i,
+    });
+  }
+  return out;
+}
+
+function parseISODate(iso: string): Date {
+  // Construit en local pour éviter le shift UTC.
+  const [y, m, d] = iso.split("-").map(Number);
+  return new Date(y, m - 1, d, 12, 0, 0, 0);
+}
+
+function toISODate(d: Date): string {
+  const y = d.getFullYear();
+  const m = String(d.getMonth() + 1).padStart(2, "0");
+  const day = String(d.getDate()).padStart(2, "0");
+  return `${y}-${m}-${day}`;
 }

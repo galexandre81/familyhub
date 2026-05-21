@@ -4,6 +4,8 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
+  orderBy,
   query,
   where,
 } from "firebase/firestore";
@@ -162,6 +164,29 @@ export function useDraftPlan(householdId: string | undefined) {
       const snap = await getDocs(q);
       if (snap.empty) return null;
       return { id: snap.docs[0].id, ...(snap.docs[0].data() as MealPlan) };
+    },
+  });
+}
+
+/**
+ * Récupère les N plans les plus récents (actif + archivés), triés par
+ * dateDebut desc. Utilisé pour la navigation dans l'historique sur /menu.
+ * Requiert l'index composite `(statut ASC, dateDebut DESC)` sur mealPlans.
+ */
+export function useAllPlans(householdId: string | undefined, max = 12) {
+  return useQuery({
+    enabled: !!householdId,
+    queryKey: ["allPlans", householdId, max],
+    queryFn: async (): Promise<MealPlanWithId[]> => {
+      if (!householdId) return [];
+      const q = query(
+        collection(db, `households/${householdId}/mealPlans`),
+        where("statut", "in", ["active", "archived"]),
+        orderBy("dateDebut", "desc"),
+        limit(max),
+      );
+      const snap = await getDocs(q);
+      return snap.docs.map((d) => ({ id: d.id, ...(d.data() as MealPlan) }));
     },
   });
 }

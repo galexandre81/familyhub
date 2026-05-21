@@ -1,9 +1,12 @@
 /**
- * Cloud Functions de la tuile `weekly-menu` (Phase 3.5).
+ * Cloud Functions de la tuile `weekly-menu`.
  *
- * Calcule un snapshot léger du plan actif (juste les noms des recettes
- * et le nombre de mangeurs par slot, pas les ingrédients/étapes —
- * pour l'affichage de la grille semaine sur iPad).
+ * Calcule un snapshot léger des plans de repas du foyer (noms des recettes
+ * + compteurs présents, pas les ingrédients/étapes) pour l'affichage sur
+ * iPad / téléphone.
+ *
+ * Embarque le plan actif + jusqu'aux 12 plans archivés les plus récents,
+ * pour permettre la navigation en arrière dans l'historique sans refetch.
  */
 
 import { onCall, HttpsError } from "firebase-functions/v2/https";
@@ -17,9 +20,13 @@ import type {
   WeeklyMenuBatchSnapshot,
   WeeklyMenuData,
   WeeklyMenuSlotSnapshot,
+  WeeklyPlanSnapshot,
 } from "../types";
 
 const REPAS_ORDER: Repas[] = ["petitDej", "dej", "diner"];
+const MAX_ARCHIVED_PLANS = 12;
+/** Garde-fou : un plan ne peut pas excéder 31 jours dans le snapshot. */
+const MAX_PLAN_DAYS = 31;
 
 function getNowParisDateISO(): string {
   return new Intl.DateTimeFormat("en-CA", {
@@ -53,75 +60,63 @@ function addDaysISO(dateISO: string, days: number): string {
   return d.toISOString().slice(0, 10);
 }
 
-async function buildWeeklyMenuData(householdId: string): Promise<WeeklyMenuData> {
-  const generatedAtISO = new Date().toISOString();
-  const todayISO = getNowParisDateISO();
+function daysBetweenISO(startISO: string, endISO: string): number {
+  const a = new Date(`${startISO}T12:00:00Z`).getTime();
+  const b = new Date(`${endISO}T12:00:00Z`).getTime();
+  return Math.round((b - a) / 86_400_000);
+}
 
-  const planQ = await db
-    .collection(`households/${householdId}/mealPlans`)
-    .where("statut", "==", "active")
-    .get();
-  if (planQ.empty) {
-    return {
-      hasActivePlan: false,
-      semaine: [],
-      batchSessions: [],
-      generatedAtISO,
-    };
-  }
-  const planDoc = planQ.docs[0];
-  const planId = planDoc.id;
-  const plan = planDoc.data();
-
+/**
+ * Construit le snapshot d'un seul plan : itère par date (dateDebut → dateFin),
+ * indexe les slots par (date, repas). Si un slot n'a pas de `date` (legacy),
+ * on dérive depuis `dateDebut + jour`.
+ */
+async function buildPlanSnapshot(
+  householdId: string,
+  planId: string,
+  plan: Record<string, unknown>,
+  todayISO: string,
+  nomById: Map<string, string>,
+): Promise<{ snapshot: WeeklyPlanSnapshot; recetteIds: Set<string> }> {
   const dateDebutISO = dateISOFromTimestamp(plan.dateDebut) ?? todayISO;
   const dateFinISO = dateISOFromTimestamp(plan.dateFin) ?? addDaysISO(dateDebutISO, 6);
+  const statut =
+    (plan.statut as "active" | "archived" | "draft" | undefined) ?? "archived";
 
   const [slotsSnap, batchesSnap] = await Promise.all([
     db.collection(`households/${householdId}/mealPlans/${planId}/slots`).get(),
     db.collection(`households/${householdId}/mealPlans/${planId}/batchSessions`).get(),
   ]);
 
-  // Collect all recetteIds we need to resolve to names
-  const recetteIds = new Set<string>();
-  slotsSnap.docs.forEach((d) => {
-    const ids = (d.data().recetteIds as string[]) || [];
-    ids.forEach((rid) => recetteIds.add(rid));
-  });
+  // Index par "date|repas". On préfère slot.date (Phase 3), fallback dateDebut+jour.
+  const slotMap = new Map<string, Record<string, unknown>>();
+  const localRecetteIds = new Set<string>();
+  for (const d of slotsSnap.docs) {
+    const data = d.data() as Record<string, unknown>;
+    const repas = data.repas as Repas | undefined;
+    if (!repas) continue;
+    const rawDate = typeof data.date === "string" ? data.date : null;
+    const jour = typeof data.jour === "number" ? data.jour : null;
+    const slotDateISO = rawDate ?? (jour != null ? addDaysISO(dateDebutISO, jour) : null);
+    if (!slotDateISO) continue;
+    slotMap.set(`${slotDateISO}|${repas}`, data);
+    const ids = (data.recetteIds as string[]) || [];
+    ids.forEach((rid) => localRecetteIds.add(rid));
+  }
   batchesSnap.docs.forEach((d) => {
     const ids = (d.data().recetteIds as string[]) || [];
-    ids.forEach((rid) => recetteIds.add(rid));
+    ids.forEach((rid) => localRecetteIds.add(rid));
   });
 
-  const nomById = new Map<string, string>();
-  if (recetteIds.size > 0) {
-    const docs = await Promise.all(
-      Array.from(recetteIds).map((rid) =>
-        db.doc(`households/${householdId}/recettes/${rid}`).get(),
-      ),
-    );
-    docs.forEach((d) => {
-      if (d.exists) {
-        const nom = (d.data() as Record<string, unknown>).nom;
-        if (typeof nom === "string") nomById.set(d.id, nom);
-      }
-    });
-  }
-
-  // Build a map by (jour, repas) for the 21 cells of the week
-  const slotMap = new Map<string, Record<string, unknown>>();
-  slotsSnap.docs.forEach((d) => {
-    const data = d.data() as Record<string, unknown>;
-    const jour = typeof data.jour === "number" ? data.jour : null;
-    const repas = data.repas as Repas | undefined;
-    if (jour == null || !repas) return;
-    slotMap.set(`${jour}-${repas}`, data);
-  });
+  // Plage de jours réelle, cappée pour éviter l'explosion (plans mal formés).
+  const nDaysRaw = daysBetweenISO(dateDebutISO, dateFinISO) + 1;
+  const nDays = Math.max(1, Math.min(MAX_PLAN_DAYS, nDaysRaw));
 
   const semaine: WeeklyMenuSlotSnapshot[] = [];
-  for (let jour = 0; jour < 7; jour++) {
-    const slotDateISO = addDaysISO(dateDebutISO, jour);
+  for (let i = 0; i < nDays; i++) {
+    const slotDateISO = addDaysISO(dateDebutISO, i);
     for (const repas of REPAS_ORDER) {
-      const data = slotMap.get(`${jour}-${repas}`);
+      const data = slotMap.get(`${slotDateISO}|${repas}`);
       const profilsPresents = (data?.profilsPresents as string[]) || [];
       const invitesNoms = (data?.invitesNoms as string[]) || [];
       const recetteIdsLocal = (data?.recetteIds as string[]) || [];
@@ -130,7 +125,7 @@ async function buildWeeklyMenuData(householdId: string): Promise<WeeklyMenuData>
         .map((rid) => nomById.get(rid))
         .filter((n): n is string => !!n);
       semaine.push({
-        jour,
+        jour: i,
         repas,
         date: slotDateISO,
         recetteIds: recetteIdsLocal,
@@ -144,7 +139,6 @@ async function buildWeeklyMenuData(householdId: string): Promise<WeeklyMenuData>
     }
   }
 
-  // Batch sessions
   const batchSessions: WeeklyMenuBatchSnapshot[] = [];
   for (const d of batchesSnap.docs) {
     const data = d.data() as Record<string, unknown>;
@@ -160,16 +154,108 @@ async function buildWeeklyMenuData(householdId: string): Promise<WeeklyMenuData>
       done: !!data.done,
     });
   }
-  // Tri chronologique
   batchSessions.sort((a, b) => a.date.localeCompare(b.date));
 
   return {
-    hasActivePlan: true,
-    planId,
-    dateDebutISO,
-    dateFinISO,
-    semaine,
-    batchSessions,
+    snapshot: {
+      planId,
+      statut,
+      dateDebutISO,
+      dateFinISO,
+      semaine,
+      batchSessions,
+    },
+    recetteIds: localRecetteIds,
+  };
+}
+
+async function buildWeeklyMenuData(householdId: string): Promise<WeeklyMenuData> {
+  const generatedAtISO = new Date().toISOString();
+  const todayISO = getNowParisDateISO();
+
+  // Récupère tous les plans non-draft. Tri par `dateDebut` desc côté serveur.
+  const allPlansSnap = await db
+    .collection(`households/${householdId}/mealPlans`)
+    .where("statut", "in", ["active", "archived"])
+    .orderBy("dateDebut", "desc")
+    .limit(MAX_ARCHIVED_PLANS + 1) // 1 actif + jusqu'à 12 archivés
+    .get();
+
+  if (allPlansSnap.empty) {
+    return {
+      hasActivePlan: false,
+      semaine: [],
+      batchSessions: [],
+      plans: [],
+      generatedAtISO,
+    };
+  }
+
+  // Pré-charge TOUTES les recettes référencées dans TOUS les plans, en une passe.
+  // (sinon on aurait N×M reads pour M plans × N recettes par plan)
+  const firstPassSlotsAndBatches = await Promise.all(
+    allPlansSnap.docs.map((planDoc) =>
+      Promise.all([
+        db.collection(`households/${householdId}/mealPlans/${planDoc.id}/slots`).get(),
+        db.collection(`households/${householdId}/mealPlans/${planDoc.id}/batchSessions`).get(),
+      ]),
+    ),
+  );
+  const allRecetteIds = new Set<string>();
+  for (const [slotsSnap, batchesSnap] of firstPassSlotsAndBatches) {
+    slotsSnap.docs.forEach((d) => {
+      ((d.data().recetteIds as string[]) || []).forEach((rid) => allRecetteIds.add(rid));
+    });
+    batchesSnap.docs.forEach((d) => {
+      ((d.data().recetteIds as string[]) || []).forEach((rid) => allRecetteIds.add(rid));
+    });
+  }
+
+  const nomById = new Map<string, string>();
+  if (allRecetteIds.size > 0) {
+    const docs = await Promise.all(
+      Array.from(allRecetteIds).map((rid) =>
+        db.doc(`households/${householdId}/recettes/${rid}`).get(),
+      ),
+    );
+    docs.forEach((d) => {
+      if (d.exists) {
+        const nom = (d.data() as Record<string, unknown>).nom;
+        if (typeof nom === "string") nomById.set(d.id, nom);
+      }
+    });
+  }
+
+  // Build chaque plan (re-fetch slots/batches via buildPlanSnapshot — petits docs,
+  // déjà chauds en cache Firestore après la 1ʳᵉ passe).
+  const plans: WeeklyPlanSnapshot[] = [];
+  for (const planDoc of allPlansSnap.docs) {
+    const { snapshot } = await buildPlanSnapshot(
+      householdId,
+      planDoc.id,
+      planDoc.data(),
+      todayISO,
+      nomById,
+    );
+    plans.push(snapshot);
+  }
+
+  // Plan actif : pointe vers le plan avec statut="active", sinon le 1er
+  // (qui par tri desc est le plus récent ⇒ probablement l'actif).
+  const active = plans.find((p) => p.statut === "active");
+
+  return {
+    hasActivePlan: !!active,
+    ...(active
+      ? {
+          planId: active.planId,
+          dateDebutISO: active.dateDebutISO,
+          dateFinISO: active.dateFinISO,
+          semaine: active.semaine,
+          batchSessions: active.batchSessions,
+        }
+      : { semaine: [], batchSessions: [] }),
+    plans,
     generatedAtISO,
   };
 }
@@ -210,6 +296,7 @@ export const refreshWeeklyMenuTile = onCall<RefreshInput, Promise<{ success: tru
       tileId,
       hasPlan: data.hasActivePlan,
       slotsCount: data.semaine.length,
+      plansCount: data.plans?.length ?? 0,
     });
     return { success: true };
   },

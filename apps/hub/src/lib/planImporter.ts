@@ -404,19 +404,17 @@ function mapRayonToLegacy(r: RayonImport):
 }
 
 /**
- * Calcule le `jour` (0=lundi, 6=dimanche) d'une date ISO, en se basant
- * sur la première date de la liste de slots comme référence du lundi.
- * Approximation suffisante pour les besoins du legacy `MealPlanGrid`.
+ * Calcule le `jour` = offset en jours depuis la 1ʳᵉ date des slots.
+ * Champ legacy : la grille principale utilise désormais `slot.date`. On
+ * conserve `jour` pour le tri et la rétro-compat des consommateurs qui ne
+ * lisent pas encore `date`. Pas de clamp à 6 — un plan peut dépasser 7 jours.
+ *
+ * Note : on ancre à midi pour neutraliser les sauts d'heure d'été.
  */
 function dayIndexFromISO(dateISO: string, firstDateISO: string): number {
-  const d = new Date(dateISO);
-  const first = new Date(firstDateISO);
-  // Calcule le lundi de la semaine du first
-  const dow = first.getDay(); // 0=dim, 1=lun, ..., 6=sam
-  const offsetToMonday = (dow + 6) % 7; // dist depuis lundi
-  const monday = new Date(first);
-  monday.setDate(first.getDate() - offsetToMonday);
-  const diffMs = d.getTime() - monday.getTime();
+  const d = new Date(`${dateISO}T12:00:00`);
+  const first = new Date(`${firstDateISO}T12:00:00`);
+  const diffMs = d.getTime() - first.getTime();
   const days = Math.round(diffMs / (1000 * 60 * 60 * 24));
-  return Math.max(0, Math.min(6, days));
+  return Math.max(0, days);
 }
