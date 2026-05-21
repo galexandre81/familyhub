@@ -231,12 +231,33 @@ export interface WeeklyMenuBatchSnapshot {
   done: boolean;
 }
 
+/**
+ * Snapshot d'un plan (actif OU archivé) embarqué dans `WeeklyMenuData.plans`.
+ * Permet à la tuile display de naviguer entre semaines sans refetch.
+ */
+export interface WeeklyPlanSnapshot {
+  planId: string;
+  statut: "active" | "archived" | "draft";
+  dateDebutISO: string;
+  dateFinISO: string;
+  /** Slots de CE plan, dans l'ordre date asc puis petitDej/dej/diner. */
+  semaine: WeeklyMenuSlotSnapshot[];
+  batchSessions: WeeklyMenuBatchSnapshot[];
+}
+
 export interface WeeklyMenuData {
   hasActivePlan: boolean;
+  /** Champs ci-dessous : pointent vers le plan actif (back-compat). */
   planId?: string;
   dateDebutISO?: string;
   dateFinISO?: string;
   semaine: WeeklyMenuSlotSnapshot[];
   batchSessions: WeeklyMenuBatchSnapshot[];
+  /**
+   * Historique navigable : plan actif + jusqu'à 12 plans archivés les plus récents,
+   * ordonnés par `dateDebutISO` desc. Optionnel pour back-compat avec d'anciens
+   * snapshots qui n'ont pas encore été rebuildés.
+   */
+  plans?: WeeklyPlanSnapshot[];
   generatedAtISO: string;
 }
