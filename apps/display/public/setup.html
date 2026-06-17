@@ -2,7 +2,7 @@
 <html lang="fr">
 <head>
   <meta charset="utf-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <title>Family Hub — Setup</title>
   <link rel="stylesheet" href="/display/css/styles.css">
@@ -169,16 +169,21 @@
       setTimeout(function () { window.location.href = '/display/'; }, 800);
     }
 
-    function exchange(householdId, displayId, setupToken) {
+    /* Échange unifié : payload = { shortId } (chemin court, le serveur résout
+       et consomme le token) OU { householdId, displayId, setupToken } (chemin
+       long avec ?token=). Le serveur renvoie householdId/displayId. */
+    function doExchange(payload, fallbackHouseholdId, fallbackDisplayId) {
       show('Échange du token…', '');
       var fn = functions.httpsCallable('exchangeSetupToken');
-      fn({ householdId: householdId, displayId: displayId, setupToken: setupToken })
+      fn(payload)
         .then(function (res) {
           var data = res.data || {};
           if (!data.customToken || !data.authToken) {
             throw new Error('Réponse invalide du serveur');
           }
-          persistAndRedirect(householdId, displayId, data);
+          var hid = data.householdId || fallbackHouseholdId;
+          var did = data.displayId || fallbackDisplayId;
+          persistAndRedirect(hid, did, data);
         })
         .catch(function (err) {
           var msg = (err && err.message) ? err.message : 'Erreur inconnue';
@@ -186,26 +191,24 @@
         });
     }
 
-    function resolveAndExchange(shortId) {
-      show('Résolution du code « ' + shortId + ' »…', '');
-      var fn = functions.httpsCallable('resolveSetupShortId');
-      fn({ shortId: shortId })
-        .then(function (res) {
-          var data = res.data || {};
-          if (!data.householdId || !data.displayId || !data.setupToken) {
-            throw new Error('Code invalide');
-          }
-          exchange(data.householdId, data.displayId, data.setupToken);
-        })
-        .catch(function (err) {
-          var msg = (err && err.message) ? err.message : 'Code introuvable';
-          show('Échec', msg + '. Vérifie le code et réessaie.');
-        });
+    function exchange(householdId, displayId, setupToken) {
+      doExchange(
+        { householdId: householdId, displayId: displayId, setupToken: setupToken },
+        householdId,
+        displayId,
+      );
+    }
+
+    /* Chemin court : on envoie seulement le shortId. Le setup token n'est jamais
+       exposé au client (corrige l'oracle à token). */
+    function exchangeByShortId(shortId) {
+      show('Configuration du code « ' + shortId + ' »…', '');
+      doExchange({ shortId: shortId });
     }
 
     var shortId = detectShortId();
     if (shortId) {
-      resolveAndExchange(shortId);
+      exchangeByShortId(shortId);
       return;
     }
 
@@ -239,7 +242,7 @@
       }
       btn.disabled = true;
       btn.innerHTML = 'Configuration…';
-      resolveAndExchange(raw);
+      exchangeByShortId(raw);
     }
     if (btn) btn.addEventListener('click', submitCode);
     if (input) {
