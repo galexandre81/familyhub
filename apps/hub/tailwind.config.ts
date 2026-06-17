@@ -66,7 +66,7 @@ export default {
         mono: ["DM Mono", "ui-monospace", "monospace"],
       },
       fontSize: {
-        eyebrow: ["10px", { lineHeight: "1.2", letterSpacing: "0.22em" }],
+        eyebrow: ["12px", { lineHeight: "1.2", letterSpacing: "0.22em" }],
       },
       borderRadius: {
         tile: "4px",

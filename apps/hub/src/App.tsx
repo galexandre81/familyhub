@@ -15,6 +15,7 @@ import LivreRecettes from "./pages/LivreRecettes";
 import RecetteDetail from "./pages/RecetteDetail";
 import RecetteCuisine from "./pages/RecetteCuisine";
 import Layout from "./components/Layout";
+import NotFound from "./components/NotFound";
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -62,7 +63,7 @@ export default function App() {
           <Route path="kitchen-buddy/livre/:recetteId" element={<NavigateLivre />} />
           <Route path="kitchen-buddy/livre/:recetteId/cuisine" element={<NavigateLivreCuisine />} />
         </Route>
-        <Route path="*" element={<Navigate to="/" replace />} />
+        <Route path="*" element={<NotFound />} />
       </Routes>
     </AuthProvider>
   );
