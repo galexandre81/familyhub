@@ -81,7 +81,38 @@ demandent un test sur device/émulateur — non appliqués en aveugle.
 
 ---
 
-## Vérification
-`npm run build` (racine : types → functions → hub) **vert** ; build functions vert ;
-code-splitting confirmé (chunks firebase/vendor/par-page) ; règles : syntaxe validée
-(non déployées). Tests : aucun (gap documenté ci-dessus).
+## MISE À JOUR FINALE — 2026-06-17 (soir) : backlog résorbé + tout déployé
+
+> Le backlog « différé » ci-dessus a été traité dans deux tours supplémentaires.
+> Tout est en production (`firebase deploy`) et poussé sur `main`, CI vert.
+
+### Résolu et déployé
+- ✅ **Auth display durcie** : `exchangeSetupToken` consume **transactionnel**
+  (non rejouable) ; chemin court par `shortId` résolu/consommé côté serveur ;
+  `resolveSetupShortId` n'expose plus le token (fin de l'oracle) ; kill switch
+  `display.revoked`. setup.html mis à jour. **Rétro-compatible** (displays appairés OK).
+- ✅ **Scoping lectures display** : règles réécrites — le display lit seulement
+  `tiles/displays/recettes/shoppingLists/timers` + doc foyer ; `profils` (données
+  médicales) et `mealPlans` réservés aux membres. **Validé par tests émulateur
+  en CI AVANT déploiement** (`firestore-tests/`, job CI `rules-tests`, Java 21).
+- ✅ **Import** : suppression des listes de courses scopée au `planId` (plus de
+  perte multi-plans).
+- ✅ **Indexes morts** : 2 supprimés en prod.
+- ✅ **Indicateur offline / fraîcheur kiosk** : badge discret (seuil max(ttl,2h)*2),
+  listeners/intervalle nettoyés.
+- ✅ **Tests** : functions (8) + hub (24, logique pure planMd/import/portions) +
+  rules (émulateur). CI = 2 jobs verts (`build`, `rules-tests`).
+- ℹ️ **C2 (createMealPlan slots jour-id)** : laissé tel quel **volontairement** —
+  pas un vrai bug : `planImporter` wipe déjà les anciens slots (ligne ~205) avant
+  réécriture en convention `${date}_${repas}`.
+
+### Seul reliquat (nécessite une décision/compte externe)
+- ⏳ **Observabilité (Sentry ou équivalent)** : besoin d'un compte/DSN de Guillaume.
+  Le reste (pagination recettes, versioning assets display, i18n, backup Firestore)
+  reste « faible / non urgent ».
+
+### Vérification finale
+`npm run build` (racine) **vert** ; tests functions **8/8**, hub **24/24**, rules
+**émulateur vert** ; **CI 2 jobs verts** ; `firebase deploy` (rules + 18 functions +
+indexes + hosting) **OK** ; smoke live hub/setup/imprimante/`/d/` → **200**.
+Hosting : https://family-hub-guillaume.web.app
