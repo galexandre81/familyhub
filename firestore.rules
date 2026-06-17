@@ -33,7 +33,11 @@ service cloud.firestore {
                       || isDisplayOfHousehold(hid));
       allow update: if request.auth != null
                     && (
-                      (request.auth.uid in resource.data.membres) ||
+                      (
+                        request.auth.uid in resource.data.membres
+                        && request.resource.data.ownerUid == resource.data.ownerUid
+                        && request.resource.data.membres == resource.data.membres
+                      ) ||
                       (
                         isDisplayOfHousehold(hid)
                         && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['parametres', 'updatedAt'])
@@ -48,6 +52,20 @@ service cloud.firestore {
       // Timers : displays peuvent aussi écrire (création/pause/stop depuis l'iPad cuisine).
       match /timers/{timerId} {
         allow read, write: if isMember(hid) || isDisplayOfHousehold(hid);
+      }
+
+      // Recettes : membres = read/write. Les displays (tuile recette du jour)
+      // votent en écrivant statut/excluded/updatedAt sur le doc recette.
+      // Firestore autorise dès qu'UNE règle correspondante l'autorise : ce
+      // bloc spécifique s'ajoute au catch-all foyer-scope ci-dessous.
+      match /recettes/{recetteId} {
+        allow read: if isMember(hid) || isDisplayOfHousehold(hid);
+        allow write: if isMember(hid);
+        allow update: if isMember(hid)
+                      || (
+                        isDisplayOfHousehold(hid)
+                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['statut', 'excluded', 'updatedAt'])
+                      );
       }
 
       // Sous-collections : membres = read/write, displays = read seul.
