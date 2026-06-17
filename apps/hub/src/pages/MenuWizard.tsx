@@ -31,10 +31,17 @@ import PresenceGrid, {
   type ExpressState,
   type PresenceState,
 } from "../components/menu/PresenceGrid";
-import { buildPlanMd, PLAN_PROMPT_TEMPLATE, type PresenceMap } from "../lib/planMd";
+import { buildPlanMd, PLAN_PROMPT_TEMPLATE, realDayLabel, type PresenceMap } from "../lib/planMd";
 import type { Profil } from "@family-hub/types";
 
 type WizardStep = "date" | "attendance" | "presence" | "contexte" | "review";
+
+type NbJours = 3 | 5 | 7 | 10;
+type PremierRepas = "midi" | "soir";
+interface PetitDejRotation {
+  actif: boolean;
+  nbFormules: 2 | 3;
+}
 
 export default function MenuWizard() {
   const { user } = useAuth();
@@ -47,7 +54,18 @@ export default function MenuWizard() {
   const [step, setStep] = useState<WizardStep>(initialStep);
   const [error, setError] = useState<string | null>(null);
 
-  const [dateDebut, setDateDebut] = useState<string>(nextMondayISO());
+  const [dateDebut, setDateDebut] = useState<string>(
+    new Date().toISOString().slice(0, 10),
+  );
+  /** Nombre de jours couverts par le plan (n'importe quel jour de départ). */
+  const [nbJours, setNbJours] = useState<NbJours>(7);
+  /** Premier repas cuisiné du jour 1. */
+  const [premierRepas, setPremierRepas] = useState<PremierRepas>("midi");
+  /** Rotation des petits-déjeuners express (off par défaut). */
+  const [petitDejRotation, setPetitDejRotation] = useState<PetitDejRotation>({
+    actif: false,
+    nbFormules: 2,
+  });
   /**
    * Qui est présent cette semaine ? Filtre week-level avant la grille fine
    * par slot. Permet d'exclure Pop/Mima en 1 clic s'ils ne sont pas là.
@@ -55,7 +73,7 @@ export default function MenuWizard() {
    */
   const [attendees, setAttendees] = useState<string[]>([]);
   const [presence, setPresence] = useState<PresenceState>({});
-  const [express, setExpress] = useState<ExpressState>(buildDefaultExpress());
+  const [express, setExpress] = useState<ExpressState>(buildDefaultExpress(7));
   const [batchOk, setBatchOk] = useState(false);
   const [style, setStyle] = useState("");
   const [frigo, setFrigo] = useState("");
@@ -65,15 +83,16 @@ export default function MenuWizard() {
 
   const profilIds = useMemo(() => (profils ?? []).map((p) => p.id), [profils]);
 
-  // Init présence + attendees par défaut quand on connaît les profils
+  // Init présence + attendees par défaut quand on connaît les profils.
+  // La présence par défaut applique déjà les absences déclarées des profils.
   useMemo(() => {
     if (profilIds.length && Object.keys(presence).length === 0) {
-      setPresence(buildDefaultPresence(profilIds));
+      setPresence(buildDefaultPresence(profilIds, nbJours, dateDebut, profils));
     }
     if (profilIds.length && attendees.length === 0) {
       setAttendees(profilIds);
     }
-  }, [profilIds, presence, attendees]);
+  }, [profilIds, presence, attendees, nbJours, dateDebut, profils]);
 
   /**
    * Profils affichés dans la grille fine (step "presence") : uniquement ceux
@@ -91,7 +110,10 @@ export default function MenuWizard() {
    * que les attendees (si on a changé la sélection depuis le dernier passage).
    */
   function goToPresenceFromAttendance() {
-    setPresence(buildDefaultPresence(attendees));
+    const attendingProfilsList = (profils ?? []).filter((p) => attendees.includes(p.id));
+    // Rebuild la grille fine + auto-applique les absences déclarées de chaque attendee.
+    setPresence(buildDefaultPresence(attendees, nbJours, dateDebut, attendingProfilsList));
+    setExpress(buildDefaultExpress(nbJours));
     setStep("presence");
   }
 
@@ -162,6 +184,10 @@ export default function MenuWizard() {
         <StepDate
           dateDebut={dateDebut}
           setDateDebut={setDateDebut}
+          nbJours={nbJours}
+          setNbJours={setNbJours}
+          premierRepas={premierRepas}
+          setPremierRepas={setPremierRepas}
           onNext={() => setStep("attendance")}
         />
       )}
@@ -183,6 +209,10 @@ export default function MenuWizard() {
           setPresence={setPresence}
           express={express}
           setExpress={setExpress}
+          nbJours={nbJours}
+          dateDebut={dateDebut}
+          petitDejRotation={petitDejRotation}
+          setPetitDejRotation={setPetitDejRotation}
           onPrev={() => setStep("attendance")}
           onNext={() => setStep("contexte")}
         />
@@ -198,6 +228,8 @@ export default function MenuWizard() {
           setFrigo={setFrigo}
           jourCoursesIdx={jourCoursesIdx}
           setJourCoursesIdx={setJourCoursesIdx}
+          nbJours={nbJours}
+          dateDebut={dateDebut}
           error={error}
           onPrev={() => setStep("presence")}
           onNext={handleStartReview}
@@ -212,6 +244,8 @@ export default function MenuWizard() {
           profils={profils}
           express={express}
           jourCoursesIdx={jourCoursesIdx}
+          premierRepas={premierRepas}
+          petitDejRotation={petitDejRotation}
           onAbandon={handleAbandonDraft}
         />
       )}
@@ -268,18 +302,28 @@ function Stepper({ current, hasDraft }: { current: WizardStep; hasDraft: boolean
 function StepDate({
   dateDebut,
   setDateDebut,
+  nbJours,
+  setNbJours,
+  premierRepas,
+  setPremierRepas,
   onNext,
 }: {
   dateDebut: string;
   setDateDebut: (v: string) => void;
+  nbJours: NbJours;
+  setNbJours: (v: NbJours) => void;
+  premierRepas: PremierRepas;
+  setPremierRepas: (v: PremierRepas) => void;
   onNext: () => void;
 }) {
+  const NB_OPTIONS: NbJours[] = [3, 5, 7, 10];
   return (
-    <div className="tile-card space-y-4">
+    <div className="tile-card space-y-5">
       <div>
-        <h2 className="text-xl mb-1">Quand commence la semaine ?</h2>
+        <h2 className="text-xl mb-1">Quand commence le plan ?</h2>
         <p className="text-cream-mute text-sm">
-          Par défaut, lundi prochain. Tu peux choisir un autre lundi si tu planifies à l'avance.
+          Le plan démarre le jour que tu choisis — n'importe quel jour, pas
+          forcément un lundi. Idéal pour planifier au fil de l'eau.
         </p>
       </div>
       <input
@@ -288,6 +332,56 @@ function StepDate({
         onChange={(e) => setDateDebut(e.target.value)}
         className="input"
       />
+
+      <div>
+        <label className="block text-sm text-cream-mute mb-2">Durée du plan</label>
+        <div className="inline-flex rounded-lg border border-bordure overflow-hidden">
+          {NB_OPTIONS.map((n) => {
+            const on = n === nbJours;
+            return (
+              <button
+                key={n}
+                type="button"
+                onClick={() => setNbJours(n)}
+                aria-pressed={on}
+                className={`px-4 min-h-11 text-sm transition ${
+                  on ? "bg-brass text-ebony font-semibold" : "text-cream-mute hover:text-brass"
+                }`}
+              >
+                {n} j
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      <div>
+        <label className="block text-sm text-cream-mute mb-2">
+          Premier repas cuisiné du jour 1
+        </label>
+        <div className="inline-flex rounded-lg border border-bordure overflow-hidden">
+          {(["midi", "soir"] as PremierRepas[]).map((r) => {
+            const on = r === premierRepas;
+            return (
+              <button
+                key={r}
+                type="button"
+                onClick={() => setPremierRepas(r)}
+                aria-pressed={on}
+                className={`px-4 min-h-11 text-sm transition ${
+                  on ? "bg-brass text-ebony font-semibold" : "text-cream-mute hover:text-brass"
+                }`}
+              >
+                {r === "midi" ? "Midi (déjeuner)" : "Soir (dîner)"}
+              </button>
+            );
+          })}
+        </div>
+        <p className="text-xs text-cream-mute mt-1">
+          Les créneaux antérieurs du jour 1 ne seront pas cuisinés.
+        </p>
+      </div>
+
       <div className="flex justify-end">
         <button onClick={onNext} className="btn-primary flex items-center gap-2">
           Suivant <ArrowRight size={14} aria-hidden="true" />
@@ -413,14 +507,22 @@ function StepPresence({
   setPresence,
   express,
   setExpress,
+  nbJours,
+  dateDebut,
+  petitDejRotation,
+  setPetitDejRotation,
   onPrev,
   onNext,
 }: {
-  profils: Array<{ id: string; nom: string; initiale: string; couleur: string; emoji?: string }>;
+  profils: Array<Profil & { id: string }>;
   presence: PresenceState;
   setPresence: (p: PresenceState) => void;
   express: ExpressState;
   setExpress: (e: ExpressState) => void;
+  nbJours: NbJours;
+  dateDebut: string;
+  petitDejRotation: PetitDejRotation;
+  setPetitDejRotation: (v: PetitDejRotation) => void;
   onPrev: () => void;
   onNext: () => void;
 }) {
@@ -429,7 +531,8 @@ function StepPresence({
       <div className="tile-card">
         <h2 className="text-xl mb-1">Qui mange à quels repas ?</h2>
         <p className="text-cream-mute text-sm">
-          Par défaut tout le monde est présent à tous les repas. Décoche les exceptions
+          Par défaut tout le monde est présent à tous les repas (les absences
+          déclarées dans les profils sont déjà retirées). Décoche les exceptions
           (école, dîner chez des amis, déjeuner au bureau…). Le toggle{" "}
           <span className="text-brass">⚡ express</span> force Claude à
           choisir une recette ≤ 15 min pour ce slot — utile les jours pressés.
@@ -437,12 +540,53 @@ function StepPresence({
         </p>
       </div>
       <PresenceGrid
-        profils={profils as never}
+        profils={profils}
         presence={presence}
         onChange={setPresence}
+        nbJours={nbJours}
+        dateDebut={dateDebut}
         express={express}
         onChangeExpress={setExpress}
       />
+      <div className="tile-card space-y-2">
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={petitDejRotation.actif}
+            onChange={(e) =>
+              setPetitDejRotation({ ...petitDejRotation, actif: e.target.checked })
+            }
+            className="w-4 h-4 rounded text-brass focus:ring-brass"
+          />
+          <span className="text-sm">
+            Petits-déjeuners en rotation (réutiliser quelques formules express au
+            lieu d'un PDJ unique chaque jour)
+          </span>
+        </label>
+        {petitDejRotation.actif && (
+          <div className="flex items-center gap-2 pl-6">
+            <span className="text-xs text-cream-mute">Nombre de formules :</span>
+            <div className="inline-flex rounded-lg border border-bordure overflow-hidden">
+              {([2, 3] as const).map((n) => {
+                const on = n === petitDejRotation.nbFormules;
+                return (
+                  <button
+                    key={n}
+                    type="button"
+                    onClick={() => setPetitDejRotation({ ...petitDejRotation, nbFormules: n })}
+                    aria-pressed={on}
+                    className={`px-3 min-h-11 text-sm transition ${
+                      on ? "bg-brass text-ebony font-semibold" : "text-cream-mute hover:text-brass"
+                    }`}
+                  >
+                    {n}
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
       <div className="flex justify-between">
         <button onClick={onPrev} className="btn-secondary flex items-center gap-2">
           <ArrowLeft size={14} aria-hidden="true" /> Précédent
@@ -464,6 +608,8 @@ function StepContexte({
   setFrigo,
   jourCoursesIdx,
   setJourCoursesIdx,
+  nbJours,
+  dateDebut,
   error,
   onPrev,
   onNext,
@@ -477,12 +623,19 @@ function StepContexte({
   setFrigo: (v: string) => void;
   jourCoursesIdx: number;
   setJourCoursesIdx: (i: number) => void;
+  nbJours: NbJours;
+  dateDebut: string;
   error: string | null;
   onPrev: () => void;
   onNext: () => void;
   loading: boolean;
 }) {
-  const JOURS = ["Lundi", "Mardi", "Mercredi", "Jeudi", "Vendredi", "Samedi", "Dimanche"];
+  // Libellés des jours = vraies dates du plan (jour réel + numéro), pas un
+  // tableau fixe lundi→dimanche. L'index stocké reste 0..nbJours-1.
+  const dateDebutObj = new Date(dateDebut);
+  const JOURS = Array.from({ length: nbJours }, (_, i) =>
+    realDayLabel(dateDebutObj, i),
+  );
   return (
     <div className="tile-card space-y-5">
       <div>
@@ -583,6 +736,8 @@ function StepReview({
   profils,
   express,
   jourCoursesIdx,
+  premierRepas,
+  petitDejRotation,
   onAbandon,
 }: {
   householdId: string;
@@ -590,6 +745,8 @@ function StepReview({
   profils: Array<Profil & { id: string }>;
   express: ExpressState;
   jourCoursesIdx: number;
+  premierRepas: PremierRepas;
+  petitDejRotation: PetitDejRotation;
   onAbandon: () => void;
 }) {
   const { user } = useAuth();
@@ -622,6 +779,14 @@ function StepReview({
     return new Date().toISOString().slice(0, 10);
   }, [draftPlan]);
 
+  // nbJours dérivé des slots réels (max index jour + 1) pour survivre au
+  // rechargement du brouillon (non persisté dans la contexte du mealPlan).
+  const nbJours = useMemo(() => {
+    if (!slots || slots.length === 0) return 7;
+    const maxJour = slots.reduce((m, s) => Math.max(m, s.jour), 0);
+    return maxJour + 1;
+  }, [slots]);
+
   const md = useMemo(() => {
     if (!draftPlan || !slots || !household) return "";
     return buildPlanMd({
@@ -633,8 +798,23 @@ function StepReview({
       historiqueRecettes: [], // TODO 3.2+ : query recettes used in last 3 plans
       express,
       jourCoursesIdx,
+      nbJours,
+      premierRepas,
+      petitDejRotation,
     });
-  }, [draftPlan, slots, household, dateDebutISO, profils, presence, express, jourCoursesIdx]);
+  }, [
+    draftPlan,
+    slots,
+    household,
+    dateDebutISO,
+    profils,
+    presence,
+    express,
+    jourCoursesIdx,
+    nbJours,
+    premierRepas,
+    petitDejRotation,
+  ]);
 
   async function handleCopyPrompt() {
     try {
@@ -814,12 +994,4 @@ function StepReview({
       </div>
     </div>
   );
-}
-
-function nextMondayISO(): string {
-  const d = new Date();
-  const dow = d.getDay(); // 0=dim, 1=lun
-  const daysUntilMonday = (8 - dow) % 7 || 7;
-  d.setDate(d.getDate() + daysUntilMonday);
-  return d.toISOString().slice(0, 10);
 }
