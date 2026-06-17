@@ -1,22 +1,44 @@
 import { Zap } from "lucide-react";
-import type { Profil } from "@family-hub/types";
+import type { Profil, RepasKey } from "@family-hub/types";
 import ProfilBadge from "../ProfilBadge";
+import { isAbsent } from "../../lib/planMd";
 
-const JOURS_LABELS = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const REPAS = [
   { key: "petitDej", label: "Petit-déj" },
   { key: "dej", label: "Déjeuner" },
   { key: "diner", label: "Dîner" },
 ] as const;
 
+const REPAS_KEYS: RepasKey[] = ["petitDej", "dej", "diner"];
+
 export type PresenceState = Record<string, string[]>;
 /** Flag « repas express » par slot (max 10-15 min). */
 export type ExpressState = Record<string, boolean>;
+
+/** ISO YYYY-MM-DD d'un jour relatif à dateDebut (0-based). */
+function dayISO(dateDebutISO: string, jourIndex: number): string {
+  const d = new Date(dateDebutISO);
+  d.setDate(d.getDate() + jourIndex);
+  return d.toISOString().slice(0, 10);
+}
+
+/** Libellé réel jour+date (ex: "Mar 18") d'un index relatif à dateDebut. */
+function dayLabel(dateDebutISO: string, jourIndex: number): string {
+  const d = new Date(dateDebutISO);
+  d.setDate(d.getDate() + jourIndex);
+  const wd = d.toLocaleDateString("fr-FR", { weekday: "short" }).replace(".", "");
+  const cap = wd.charAt(0).toUpperCase() + wd.slice(1);
+  return `${cap} ${d.getDate()}`;
+}
 
 interface PresenceGridProps {
   profils: Array<Profil & { id: string }>;
   presence: PresenceState;
   onChange: (next: PresenceState) => void;
+  /** Nombre de jours affichés (défaut 7). */
+  nbJours?: number;
+  /** ISO YYYY-MM-DD du premier jour, pour des libellés de ligne réels. */
+  dateDebut: string;
   /** Optionnel : map des slots flagués express. Si non défini, pas de toggle. */
   express?: ExpressState;
   onChangeExpress?: (next: ExpressState) => void;
@@ -36,6 +58,8 @@ export default function PresenceGrid({
   profils,
   presence,
   onChange,
+  nbJours = 7,
+  dateDebut,
   express,
   onChangeExpress,
 }: PresenceGridProps) {
@@ -80,10 +104,10 @@ export default function PresenceGrid({
           </tr>
         </thead>
         <tbody>
-          {Array.from({ length: 7 }, (_, jour) => (
+          {Array.from({ length: nbJours }, (_, jour) => (
             <tr key={jour}>
-              <td className="font-serif text-cream-mute pl-2 align-top pt-2">
-                {JOURS_LABELS[jour]}
+              <td className="font-serif text-cream-mute pl-2 align-top pt-2 whitespace-nowrap">
+                {dayLabel(dateDebut, jour)}
               </td>
               {REPAS.map((r) => {
                 const key = slotKey(jour, r.key);
@@ -167,12 +191,35 @@ export default function PresenceGrid({
   );
 }
 
-/** Helper : initialise une présence "tous présents pour tous les slots". */
-export function buildDefaultPresence(profilIds: string[]): PresenceState {
+/**
+ * Helper : initialise une présence "tous présents pour tous les slots",
+ * puis RETIRE automatiquement chaque profil de ses créneaux d'absence.
+ *
+ * Si `profils` (avec leurs `absences`) et `dateDebutISO` sont fournis, chaque
+ * slot est résolu en (date réelle, repasKey) et on enlève un profil dès qu'une
+ * de ses absences matche CE créneau précis.
+ *
+ * INVARIANT : une absence sur "dej" ne retire la personne QUE du "dej" — jamais
+ * du "diner" du même jour (cf. isAbsent). On itère donc slot par slot.
+ */
+export function buildDefaultPresence(
+  profilIds: string[],
+  nbJours = 7,
+  dateDebutISO?: string,
+  profils?: Array<Profil & { id: string }>,
+): PresenceState {
   const out: PresenceState = {};
-  for (let jour = 0; jour < 7; jour++) {
-    for (const repas of ["petitDej", "dej", "diner"]) {
-      out[`${jour}-${repas}`] = [...profilIds];
+  const byId = new Map((profils ?? []).map((p) => [p.id, p]));
+  for (let jour = 0; jour < nbJours; jour++) {
+    const iso = dateDebutISO ? dayISO(dateDebutISO, jour) : null;
+    for (const repas of REPAS_KEYS) {
+      out[`${jour}-${repas}`] = profilIds.filter((id) => {
+        if (!iso) return true;
+        const p = byId.get(id);
+        if (!p?.absences || p.absences.length === 0) return true;
+        // Garder le profil sauf si une absence matche EXACTEMENT ce slot.
+        return !p.absences.some((a) => isAbsent(a, iso, repas));
+      });
     }
   }
   return out;
@@ -182,9 +229,9 @@ export function buildDefaultPresence(profilIds: string[]): PresenceState {
  * Initialise les flags express : tous les petits-déjeuners sont express
  * par défaut (cf. brief utilisateur), les autres slots non.
  */
-export function buildDefaultExpress(): ExpressState {
+export function buildDefaultExpress(nbJours = 7): ExpressState {
   const out: ExpressState = {};
-  for (let jour = 0; jour < 7; jour++) {
+  for (let jour = 0; jour < nbJours; jour++) {
     out[`${jour}-petitDej`] = true;
     out[`${jour}-dej`] = false;
     out[`${jour}-diner`] = false;
