@@ -16,5 +16,18 @@ export default defineConfig({
   build: {
     outDir: "dist",
     sourcemap: true,
+    rollupOptions: {
+      output: {
+        manualChunks: {
+          firebase: ["firebase/app", "firebase/auth", "firebase/firestore"],
+          vendor: [
+            "react",
+            "react-dom",
+            "react-router-dom",
+            "@tanstack/react-query",
+          ],
+        },
+      },
+    },
   },
 });
