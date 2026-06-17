@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Imprimer la liste de courses</title>
+<style>
+  * { box-sizing: border-box; }
+  :root {
+    --bg: #FAFAF7;
+    --ink: #1F1A14;
+    --brass: #B26E38;
+    --muted: #6B5A47;
+    --rule: #D4C7AC;
+    --card: #FFFFFF;
+  }
+  html, body { margin: 0; padding: 0; }
+  body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", "Helvetica Neue", sans-serif;
+    background: var(--bg);
+    color: var(--ink);
+    line-height: 1.45;
+    padding: 24px 16px 96px;
+  }
+  .wrap { max-width: 760px; margin: 0 auto; }
+
+  /* ── Controls (hidden on print) ───────────────────────── */
+  .controls {
+    background: var(--card);
+    border: 1px solid var(--rule);
+    border-radius: 14px;
+    padding: 20px;
+    margin-bottom: 28px;
+    box-shadow: 0 1px 3px rgba(0,0,0,0.04);
+  }
+  .hint {
+    font-size: 13px;
+    color: var(--muted);
+    margin: 0 0 16px;
+    font-style: italic;
+  }
+  .hint code {
+    font-style: normal;
+    background: rgba(178,110,56,0.10);
+    color: var(--brass);
+    padding: 1px 5px;
+    border-radius: 4px;
+    font-size: 12px;
+  }
+  .row { display: flex; flex-wrap: wrap; gap: 12px; align-items: center; }
+  .dropzone {
+    flex: 1 1 280px;
+    min-height: 96px;
+    border: 2px dashed var(--rule);
+    border-radius: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 16px;
+    color: var(--muted);
+    font-size: 14px;
+    transition: border-color .15s, background .15s;
+    cursor: pointer;
+  }
+  .dropzone strong { color: var(--ink); }
+  .dropzone.drag { border-color: var(--brass); background: rgba(178,110,56,0.06); }
+  textarea {
+    width: 100%;
+    min-height: 110px;
+    margin-top: 14px;
+    border: 1px solid var(--rule);
+    border-radius: 10px;
+    padding: 10px 12px;
+    font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    font-size: 12.5px;
+    color: var(--ink);
+    background: #FCFBF8;
+    resize: vertical;
+  }
+  textarea:focus { outline: 2px solid rgba(178,110,56,0.4); outline-offset: 1px; }
+  .btnbar { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+  button {
+    font: inherit;
+    font-size: 14px;
+    font-weight: 600;
+    border: none;
+    border-radius: 10px;
+    padding: 10px 18px;
+    cursor: pointer;
+    transition: filter .15s, background .15s;
+  }
+  .btn-primary { background: var(--brass); color: #fff; }
+  .btn-primary:hover { filter: brightness(1.07); }
+  .btn-ghost { background: transparent; color: var(--muted); border: 1px solid var(--rule); }
+  .btn-ghost:hover { background: rgba(0,0,0,0.03); }
+  .btn-print {
+    background: var(--ink); color: #fff;
+    font-size: 15px; padding: 12px 26px;
+  }
+  .btn-print:hover { filter: brightness(1.25); }
+  input[type="file"] { display: none; }
+
+  .error {
+    margin-top: 14px;
+    background: #FBEDE9;
+    border: 1px solid #E3B7A8;
+    color: #8A3A22;
+    border-radius: 10px;
+    padding: 12px 14px;
+    font-size: 13.5px;
+  }
+  .error strong { display: block; margin-bottom: 4px; }
+  .error ul { margin: 6px 0 0; padding-left: 18px; }
+
+  /* ── Document / list ──────────────────────────────────── */
+  .doc { display: none; }
+  .doc.has-data { display: block; }
+  h1 {
+    font-size: 24px;
+    margin: 0 0 4px;
+    font-weight: 700;
+    letter-spacing: -0.01em;
+  }
+  .subtitle {
+    font-size: 13px;
+    color: var(--muted);
+    font-style: italic;
+    margin: 0 0 8px;
+  }
+  .toolbar {
+    display: flex;
+    gap: 12px;
+    align-items: center;
+    margin: 14px 0 28px;
+    flex-wrap: wrap;
+  }
+  .count { font-size: 13px; color: var(--muted); }
+
+  section.rayon {
+    margin: 0 0 22px;
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  section.rayon h2 {
+    font-size: 13px;
+    text-transform: uppercase;
+    letter-spacing: 0.15em;
+    color: var(--brass);
+    border-bottom: 1px solid var(--rule);
+    padding-bottom: 5px;
+    margin: 0 0 8px;
+  }
+  ul.items { list-style: none; padding: 0; margin: 0; }
+  li.item {
+    padding: 6px 0;
+    border-bottom: 1px solid rgba(0,0,0,0.06);
+    break-inside: avoid;
+    page-break-inside: avoid;
+  }
+  li.item label {
+    display: flex;
+    align-items: baseline;
+    gap: 11px;
+    cursor: pointer;
+    font-size: 16px;
+  }
+  li.item input[type="checkbox"] {
+    width: 18px; height: 18px;
+    flex-shrink: 0;
+    accent-color: var(--brass);
+    cursor: pointer;
+    align-self: center;
+  }
+  .qty { color: var(--muted); font-size: 14px; }
+  .name { color: var(--ink); }
+  li.item input[type="checkbox"]:checked ~ .name { text-decoration: line-through; color: #9C8A6E; }
+
+  /* ── Print ────────────────────────────────────────────── */
+  @page { size: A4; margin: 14mm; }
+  @media print {
+    body { background: #fff; color: #000; padding: 0; }
+    .no-print { display: none !important; }
+    .doc { display: block; }
+    .wrap { max-width: none; }
+    h1 { font-size: 20px; }
+    section.rayon h2 { color: #000; border-color: #888; }
+    li.item input[type="checkbox"] {
+      width: 14px; height: 14px;
+      -webkit-appearance: none; appearance: none;
+      border: 1.5px solid #333; border-radius: 3px;
+    }
+    .qty { color: #333; }
+  }
+</style>
+</head>
+<body>
+<div class="wrap">
+
+  <div class="controls no-print">
+    <p class="hint">
+      Collez ou déposez ici le <strong>JSON du plan</strong> &mdash; c'est exactement le même JSON
+      que celui généré par Claude et importé dans Family Hub (les blocs <code>```json</code>
+      et le texte autour sont tolérés). Puis cliquez sur <strong>Imprimer</strong>.
+    </p>
+
+    <div class="row">
+      <label class="dropzone" id="dropzone" for="fileInput">
+        <strong>Glissez-déposez</strong> un fichier .json ici<br>
+        ou cliquez pour choisir un fichier
+        <input type="file" id="fileInput" accept=".json,application/json">
+      </label>
+    </div>
+
+    <textarea id="pasteArea" placeholder="… ou collez le JSON ici"></textarea>
+
+    <div class="btnbar">
+      <button type="button" class="btn-primary" id="loadBtn">Charger</button>
+      <button type="button" class="btn-ghost" id="clearBtn">Effacer</button>
+    </div>
+
+    <div id="error" class="error" style="display:none"></div>
+  </div>
+
+  <div class="doc" id="doc">
+    <div class="toolbar no-print">
+      <button type="button" class="btn-print" id="printBtn">Imprimer</button>
+      <span class="count" id="count"></span>
+    </div>
+    <h1 id="title">Liste de courses</h1>
+    <p class="subtitle" id="subtitle" style="display:none"></p>
+    <div id="list"></div>
+  </div>
+
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ── Canonical rayon ordering + labels (mirrored from Menu.tsx) ──────────
+  var RAYON_LABELS = {
+    "fruits-legumes": "Fruits & légumes",
+    "boucherie": "Boucherie",
+    "poissonnerie": "Poissonnerie",
+    "cremerie": "Crémerie",
+    "epicerie": "Épicerie",
+    "surgeles": "Surgelés",
+    "boulangerie": "Boulangerie",
+    "boissons": "Boissons",
+    "autres": "Autres",
+    // Legacy
+    "frais-fruits-legumes": "Fruits & légumes",
+    "frais-laitier": "Crémerie",
+    "frais-boucherie": "Boucherie",
+    "frais-poissonnerie": "Poissonnerie",
+    "sec-epicerie": "Épicerie",
+    "surgele": "Surgelés",
+    "autre": "Autres"
+  };
+
+  var RAYON_ORDER = [
+    "fruits-legumes",
+    "frais-fruits-legumes",
+    "boulangerie",
+    "boucherie",
+    "frais-boucherie",
+    "poissonnerie",
+    "frais-poissonnerie",
+    "cremerie",
+    "frais-laitier",
+    "epicerie",
+    "sec-epicerie",
+    "surgeles",
+    "surgele",
+    "boissons",
+    "autres",
+    "autre"
+  ];
+
+  // ── Helpers ─────────────────────────────────────────────────────────────
+  function escapeHtml(s) {
+    return String(s == null ? "" : s)
+      .replace(/&/g, "&amp;")
+      .replace(/</g, "&lt;")
+      .replace(/>/g, "&gt;")
+      .replace(/"/g, "&quot;")
+      .replace(/'/g, "&#39;");
+  }
+
+  function formatQuantite(q, unite) {
+    var n = typeof q === "number" ? q : Number(q);
+    if (!n || n === 0 || isNaN(n)) return "";
+    var num = Number.isInteger(n) ? String(n) : n.toFixed(1);
+    return (num + " " + (unite || "")).trim();
+  }
+
+  // Tolerant: strip ```json fences + surrounding prose, then JSON.parse.
+  // Mirrors planImportSchema.ts fence-stripping (lines ~125-130).
+  function tolerantParse(raw) {
+    var trimmed = String(raw || "").trim();
+    if (!trimmed) throw new Error("Aucun contenu à charger.");
+    var cleaned = trimmed
+      .replace(/^```(?:json)?\s*/i, "")
+      .replace(/\s*```\s*$/, "")
+      .trim();
+    try {
+      return JSON.parse(cleaned);
+    } catch (e1) {
+      // Fallback: prose around the JSON — grab the outermost { … } block.
+      var first = cleaned.indexOf("{");
+      var last = cleaned.lastIndexOf("}");
+      if (first !== -1 && last !== -1 && last > first) {
+        try {
+          return JSON.parse(cleaned.slice(first, last + 1));
+        } catch (e2) { /* fall through */ }
+      }
+      throw new Error(
+        "JSON invalide : " + (e1 && e1.message ? e1.message : String(e1)) +
+        " — Vérifie qu'il n'y a pas de virgule en trop ni de guillemets non fermés."
+      );
+    }
+  }
+
+  // ── Date range from slots[].date (YYYY-MM-DD) ───────────────────────────
+  function frDate(isoDay) {
+    // Parse as local date to avoid TZ shifts.
+    var m = /^(\d{4})-(\d{2})-(\d{2})/.exec(String(isoDay));
+    if (!m) return null;
+    var d = new Date(Number(m[1]), Number(m[2]) - 1, Number(m[3]));
+    if (isNaN(d.getTime())) return null;
+    return d.toLocaleDateString("fr-FR", { day: "numeric", month: "long", year: "numeric" });
+  }
+
+  function dateRange(slots) {
+    if (!Array.isArray(slots)) return null;
+    var days = slots
+      .map(function (s) { return s && typeof s.date === "string" ? s.date : null; })
+      .filter(function (d) { return d && /^\d{4}-\d{2}-\d{2}/.test(d); })
+      .sort();
+    if (!days.length) return null;
+    return { min: days[0], max: days[days.length - 1] };
+  }
+
+  // ── Group items by rayon using canonical order ──────────────────────────
+  function groupByRayon(items) {
+    var byRayon = {};
+    items.forEach(function (it) {
+      var k = (it && it.rayon) ? String(it.rayon) : "autres";
+      if (!RAYON_LABELS.hasOwnProperty(k) && RAYON_ORDER.indexOf(k) === -1) {
+        // Unknown rayon → bucket into "autres"
+        k = "autres";
+      }
+      if (!byRayon[k]) byRayon[k] = [];
+      byRayon[k].push(it);
+    });
+    var ordered = [];
+    RAYON_ORDER.forEach(function (k) {
+      if (byRayon[k]) { ordered.push([k, byRayon[k]]); delete byRayon[k]; }
+    });
+    // Any leftover keys (shouldn't normally happen) → end.
+    Object.keys(byRayon).forEach(function (k) {
+      ordered.push([k, byRayon[k]]);
+    });
+    return ordered;
+  }
+
+  // ── Render ──────────────────────────────────────────────────────────────
+  function render(data) {
+    var doc = document.getElementById("doc");
+    var listEl = document.getElementById("list");
+    var titleEl = document.getElementById("title");
+    var subEl = document.getElementById("subtitle");
+    var countEl = document.getElementById("count");
+
+    var shopping = (data && data.shoppingList) || {};
+    var items = Array.isArray(shopping.items) ? shopping.items : [];
+
+    // Title + date range
+    var range = dateRange(data && data.slots);
+    if (range) {
+      var minF = frDate(range.min);
+      var maxF = frDate(range.max);
+      if (minF && maxF && range.min !== range.max) {
+        titleEl.textContent = "Liste de courses — du " + minF + " au " + maxF;
+      } else if (minF) {
+        titleEl.textContent = "Liste de courses — " + minF;
+      } else {
+        titleEl.textContent = "Liste de courses";
+      }
+    } else {
+      titleEl.textContent = "Liste de courses";
+    }
+
+    var general = data && typeof data.commentaireGeneral === "string" ? data.commentaireGeneral.trim() : "";
+    if (general) {
+      subEl.textContent = general;
+      subEl.style.display = "";
+    } else {
+      subEl.style.display = "none";
+    }
+
+    countEl.textContent = items.length
+      ? (items.length + (items.length > 1 ? " articles" : " article"))
+      : "";
+
+    if (!items.length) {
+      listEl.innerHTML = '<p class="hint">Aucun article dans la liste de courses.</p>';
+      doc.classList.add("has-data");
+      return;
+    }
+
+    var grouped = groupByRayon(items);
+    var html = grouped.map(function (pair) {
+      var rayon = pair[0];
+      var list = pair[1];
+      var label = RAYON_LABELS[rayon] || rayon;
+      var lis = list.map(function (it) {
+        it = it || {};
+        var qty = formatQuantite(it.quantite, it.unite);
+        return '<li class="item"><label>' +
+          '<input type="checkbox">' +
+          (qty ? '<span class="qty">' + escapeHtml(qty) + '</span>' : '') +
+          '<span class="name">' + escapeHtml(it.nom) + '</span>' +
+          '</label></li>';
+      }).join("");
+      return '<section class="rayon"><h2>' + escapeHtml(label) + '</h2>' +
+        '<ul class="items">' + lis + '</ul></section>';
+    }).join("");
+
+    listEl.innerHTML = html;
+    doc.classList.add("has-data");
+  }
+
+  // ── Error display ───────────────────────────────────────────────────────
+  function showError(msg) {
+    var el = document.getElementById("error");
+    el.innerHTML = '<strong>Impossible de charger le JSON</strong>' + escapeHtml(msg);
+    el.style.display = "";
+  }
+  function clearError() {
+    var el = document.getElementById("error");
+    el.style.display = "none";
+    el.innerHTML = "";
+  }
+
+  // ── Load entrypoint ─────────────────────────────────────────────────────
+  function loadFromText(raw) {
+    clearError();
+    var data;
+    try {
+      data = tolerantParse(raw);
+    } catch (e) {
+      showError(e && e.message ? e.message : String(e));
+      return;
+    }
+    if (!data || typeof data !== "object" || Array.isArray(data)) {
+      showError("Le JSON ne correspond pas à un plan (objet attendu).");
+      return;
+    }
+    if (!data.shoppingList || !Array.isArray(data.shoppingList.items)) {
+      showError("Le JSON ne contient pas de \"shoppingList.items\".");
+      return;
+    }
+    try {
+      render(data);
+      // Reflect raw into textarea for transparency.
+      document.getElementById("pasteArea").value = typeof raw === "string" ? raw : "";
+      document.getElementById("doc").scrollIntoView({ behavior: "smooth", block: "start" });
+    } catch (e) {
+      showError("Erreur d'affichage : " + (e && e.message ? e.message : String(e)));
+    }
+  }
+
+  function readFile(file) {
+    if (!file) return;
+    var reader = new FileReader();
+    reader.onload = function () { loadFromText(String(reader.result || "")); };
+    reader.onerror = function () { showError("Lecture du fichier impossible."); };
+    reader.readAsText(file);
+  }
+
+  // ── Wire up UI ──────────────────────────────────────────────────────────
+  var dropzone = document.getElementById("dropzone");
+  var fileInput = document.getElementById("fileInput");
+  var pasteArea = document.getElementById("pasteArea");
+
+  fileInput.addEventListener("change", function () {
+    if (fileInput.files && fileInput.files[0]) readFile(fileInput.files[0]);
+  });
+
+  ["dragenter", "dragover"].forEach(function (ev) {
+    dropzone.addEventListener(ev, function (e) {
+      e.preventDefault(); e.stopPropagation();
+      dropzone.classList.add("drag");
+    });
+  });
+  ["dragleave", "dragend"].forEach(function (ev) {
+    dropzone.addEventListener(ev, function (e) {
+      e.preventDefault(); e.stopPropagation();
+      dropzone.classList.remove("drag");
+    });
+  });
+  dropzone.addEventListener("drop", function (e) {
+    e.preventDefault(); e.stopPropagation();
+    dropzone.classList.remove("drag");
+    var dt = e.dataTransfer;
+    if (!dt) return;
+    if (dt.files && dt.files.length) {
+      readFile(dt.files[0]);
+    } else {
+      var txt = dt.getData("text");
+      if (txt) loadFromText(txt);
+    }
+  });
+
+  document.getElementById("loadBtn").addEventListener("click", function () {
+    loadFromText(pasteArea.value);
+  });
+  document.getElementById("clearBtn").addEventListener("click", function () {
+    pasteArea.value = "";
+    clearError();
+    document.getElementById("doc").classList.remove("has-data");
+    document.getElementById("list").innerHTML = "";
+  });
+  document.getElementById("printBtn").addEventListener("click", function () {
+    window.print();
+  });
+})();
+</script>
+</body>
+</html>
