@@ -11,6 +11,25 @@
 
 import { z } from "zod";
 
+/**
+ * Vérifie qu'une string `YYYY-MM-DD` est une vraie date calendaire.
+ * Le regex seul laisse passer "2026-02-31" : on reconstruit la date en local
+ * et on vérifie que chaque composante "round-trip" (pas de débordement de mois).
+ */
+function isRealCalendarDate(iso: string): boolean {
+  const m = /^(\d{4})-(\d{2})-(\d{2})$/.exec(iso);
+  if (!m) return false;
+  const y = Number(m[1]);
+  const mo = Number(m[2]);
+  const d = Number(m[3]);
+  const dt = new Date(y, mo - 1, d);
+  return (
+    dt.getFullYear() === y &&
+    dt.getMonth() === mo - 1 &&
+    dt.getDate() === d
+  );
+}
+
 const RAYON_VALUES = [
   "fruits-legumes",
   "boucherie",
@@ -72,7 +91,12 @@ export const BatchSessionImportSchema = z.object({
 });
 
 export const SlotImportSchema = z.object({
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/)
+    .refine(isRealCalendarDate, {
+      message: "date impossible (jour/mois inexistant dans le calendrier)",
+    }),
   repas: RepasImportSchema,
   profilsPresentsNoms: z.array(z.string()).default([]),
   invitesNoms: z.array(z.string()).default([]).optional(),
@@ -172,6 +196,39 @@ export function parsePlanImport(raw: string): {
           `batchSessions[${i}].recetteTempIds référence un recette.tempId inconnu : "${rid}"`,
         );
       }
+    }
+  }
+
+  // Unicité (date, repas) : deux slots identiques partageraient le doc ID
+  // `${date}_${repas}` et s'écraseraient silencieusement à l'import.
+  const seenSlotKeys = new Set<string>();
+  for (const s of result.data.slots) {
+    const key = `${s.date}_${s.repas}`;
+    if (seenSlotKeys.has(key)) {
+      errors.push(
+        `slots : deux créneaux partagent la même date et le même repas (${s.date} / ${s.repas}). Chaque (date, repas) doit être unique.`,
+      );
+    }
+    seenSlotKeys.add(key);
+  }
+
+  // Fenêtre du plan : refuse un span > 31 jours (probable date aberrante).
+  const slotDatesSorted = result.data.slots
+    .map((s) => s.date)
+    .sort();
+  if (slotDatesSorted.length > 0) {
+    const toLocal = (iso: string) => {
+      const [y, mo, d] = iso.split("-").map(Number);
+      return new Date(y, mo - 1, d);
+    };
+    const minDt = toLocal(slotDatesSorted[0]);
+    const maxDt = toLocal(slotDatesSorted[slotDatesSorted.length - 1]);
+    const spanDays =
+      Math.round((maxDt.getTime() - minDt.getTime()) / (1000 * 60 * 60 * 24)) + 1;
+    if (spanDays > 31) {
+      errors.push(
+        `slots : la fenêtre du plan s'étend sur ${spanDays} jours (max 31). Vérifie les dates des créneaux.`,
+      );
     }
   }
 
