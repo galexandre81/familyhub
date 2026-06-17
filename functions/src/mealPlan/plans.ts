@@ -162,37 +162,40 @@ export const validateMealPlan = onCall<ValidateMealPlanInput, Promise<{ success:
     await assertHouseholdMember(uid, householdId);
 
     const planRef = db.doc(`households/${householdId}/mealPlans/${planId}`);
-    const planSnap = await planRef.get();
-    if (!planSnap.exists) {
-      throw new HttpsError("not-found", "Plan introuvable");
-    }
-    if (planSnap.data()?.statut !== "draft") {
-      throw new HttpsError("failed-precondition", "Seul un plan en draft peut être validé");
-    }
-
-    // Archive le plan actif précédent
-    const previousActive = await db
+    const activesQuery = db
       .collection(`households/${householdId}/mealPlans`)
-      .where("statut", "==", "active")
-      .get();
+      .where("statut", "==", "active");
 
-    const batch = db.batch();
-    for (const doc of previousActive.docs) {
-      batch.update(doc.ref, {
-        statut: "archived",
+    // Transaction : on (re)lit le plan + les actifs courants, puis on archive
+    // et active dans la même opération atomique pour garantir l'invariant
+    // "au plus un plan actif" (sinon une race peut laisser deux actifs).
+    const previousArchived = await db.runTransaction(async (txn) => {
+      const planSnap = await txn.get(planRef);
+      if (!planSnap.exists) {
+        throw new HttpsError("not-found", "Plan introuvable");
+      }
+      if (planSnap.data()?.statut !== "draft") {
+        throw new HttpsError("failed-precondition", "Seul un plan en draft peut être validé");
+      }
+
+      const previousActive = await txn.get(activesQuery);
+      for (const doc of previousActive.docs) {
+        txn.update(doc.ref, {
+          statut: "archived",
+          updatedAt: FieldValue.serverTimestamp(),
+        });
+      }
+      txn.update(planRef, {
+        statut: "active",
         updatedAt: FieldValue.serverTimestamp(),
       });
-    }
-    batch.update(planRef, {
-      statut: "active",
-      updatedAt: FieldValue.serverTimestamp(),
+      return previousActive.size;
     });
-    await batch.commit();
 
     logger.info("MealPlan validé (active)", {
       householdId,
       planId,
-      previousArchived: previousActive.size,
+      previousArchived,
     });
     return { success: true };
   },
@@ -221,14 +224,10 @@ export const deleteMealPlan = onCall<DeleteMealPlanInput, Promise<{ success: tru
     const planSnap = await planRef.get();
     if (!planSnap.exists) return { success: true };
 
-    // Suppression récursive des sous-collections
-    for (const sub of ["slots", "courses"]) {
-      const subSnap = await planRef.collection(sub).get();
-      const batch = db.batch();
-      for (const doc of subSnap.docs) batch.delete(doc.ref);
-      if (!subSnap.empty) await batch.commit();
-    }
-    await planRef.delete();
+    // Suppression récursive du doc + TOUTES ses sous-collections
+    // (slots, courses, batchSessions, chatMessages, shoppingLists, ...).
+    // recursiveDelete gère le batching interne (>500 writes) sans risque.
+    await db.recursiveDelete(planRef);
 
     logger.info("MealPlan supprimé", { householdId, planId });
     return { success: true };

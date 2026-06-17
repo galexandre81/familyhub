@@ -77,16 +77,13 @@ async function buildPlanSnapshot(
   plan: Record<string, unknown>,
   todayISO: string,
   nomById: Map<string, string>,
+  slotsSnap: FirebaseFirestore.QuerySnapshot,
+  batchesSnap: FirebaseFirestore.QuerySnapshot,
 ): Promise<{ snapshot: WeeklyPlanSnapshot; recetteIds: Set<string> }> {
   let dateDebutISO = dateISOFromTimestamp(plan.dateDebut) ?? todayISO;
   let dateFinISO = dateISOFromTimestamp(plan.dateFin) ?? addDaysISO(dateDebutISO, 6);
   const statut =
     (plan.statut as "active" | "archived" | "draft" | undefined) ?? "archived";
-
-  const [slotsSnap, batchesSnap] = await Promise.all([
-    db.collection(`households/${householdId}/mealPlans/${planId}/slots`).get(),
-    db.collection(`households/${householdId}/mealPlans/${planId}/batchSessions`).get(),
-  ]);
 
   // Index par "date|repas". On préfère slot.date (Phase 3), fallback dateDebut+jour.
   const slotMap = new Map<string, Record<string, unknown>>();
@@ -239,16 +236,20 @@ async function buildWeeklyMenuData(householdId: string): Promise<WeeklyMenuData>
     });
   }
 
-  // Build chaque plan (re-fetch slots/batches via buildPlanSnapshot — petits docs,
-  // déjà chauds en cache Firestore après la 1ʳᵉ passe).
+  // Build chaque plan en réutilisant les slots/batches déjà chargés lors de la
+  // 1ʳᵉ passe (même ordre que allPlansSnap.docs) — évite de re-fetcher.
   const plans: WeeklyPlanSnapshot[] = [];
-  for (const planDoc of allPlansSnap.docs) {
+  for (let i = 0; i < allPlansSnap.docs.length; i++) {
+    const planDoc = allPlansSnap.docs[i];
+    const [slotsSnap, batchesSnap] = firstPassSlotsAndBatches[i];
     const { snapshot } = await buildPlanSnapshot(
       householdId,
       planDoc.id,
       planDoc.data(),
       todayISO,
       nomById,
+      slotsSnap,
+      batchesSnap,
     );
     plans.push(snapshot);
   }
