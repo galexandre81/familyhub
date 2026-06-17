@@ -31,22 +31,6 @@
         { "fieldPath": "statut", "order": "ASCENDING" },
         { "fieldPath": "hashDedupe", "order": "ASCENDING" }
       ]
-    },
-    {
-      "collectionGroup": "recettes",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "statut", "order": "ASCENDING" },
-        { "fieldPath": "rating", "order": "DESCENDING" }
-      ]
-    },
-    {
-      "collectionGroup": "courses",
-      "queryScope": "COLLECTION",
-      "fields": [
-        { "fieldPath": "coche", "order": "ASCENDING" },
-        { "fieldPath": "rayon", "order": "ASCENDING" }
-      ]
     }
   ],
   "fieldOverrides": [
