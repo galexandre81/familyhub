@@ -79,6 +79,8 @@ export interface ImportPlanResult {
   batchSessionsCreated: number;
   shoppingItemsCreated: number;
   archivedPreviousPlanIds: string[];
+  /** Noms de `profilsPresentsNoms` non rattachés à un profil (ignorés). */
+  unresolvedProfilNoms: string[];
 }
 
 export async function importPlanFromJson(args: {
@@ -147,15 +149,23 @@ export async function importPlanFromJson(args: {
   }
 
   // ---- 5. profil noms → IDs ----
+  // Normalise les accents (NFD + suppression des diacritiques) pour que
+  // "Léa" et "Lea" matchent le même profil.
+  const normalizeNom = (s: string): string =>
+    s
+      .normalize("NFD")
+      .replace(/\p{Diacritic}/gu, "")
+      .toLowerCase()
+      .trim();
   const profilNomToId = new Map<string, string>();
   for (const p of profils) {
-    profilNomToId.set(p.nom.trim().toLowerCase(), p.id);
+    profilNomToId.set(normalizeNom(p.nom), p.id);
   }
   const resolveProfils = (noms: string[]): { ids: string[]; unresolved: string[] } => {
     const ids: string[] = [];
     const unresolved: string[] = [];
     for (const n of noms) {
-      const id = profilNomToId.get(n.trim().toLowerCase());
+      const id = profilNomToId.get(normalizeNom(n));
       if (id) ids.push(id);
       else unresolved.push(n);
     }
@@ -267,9 +277,25 @@ export async function importPlanFromJson(args: {
   }
 
   // Creates : slots (ID = `${date}_${repas}` Phase 3 convention)
+  // `jour` est ancré sur la date MINIMALE des slots (pas le 1ᵉ élément du
+  // tableau, qui n'est pas forcément le plus tôt) pour que des dates distinctes
+  // donnent des index distincts.
+  const slotDates = data.slots.map((s) => s.date).sort();
+  const minSlotDate = slotDates.length > 0 ? slotDates[0] : undefined;
+  // Tri chronologique stable (par date, puis ordre des repas) pour que les
+  // slots soient écrits dans l'ordre du calendrier.
+  const REPAS_ORDER: Record<string, number> = {
+    "petit-dej": 0,
+    dejeuner: 1,
+    diner: 2,
+  };
+  const slotsSorted = [...data.slots].sort((a, b) => {
+    if (a.date !== b.date) return a.date < b.date ? -1 : 1;
+    return (REPAS_ORDER[a.repas] ?? 99) - (REPAS_ORDER[b.repas] ?? 99);
+  });
   let slotsCreated = 0;
-  let unresolvedNoms = new Set<string>();
-  for (const s of data.slots) {
+  const unresolvedNoms = new Set<string>();
+  for (const s of slotsSorted) {
     const slotId = `${s.date}_${s.repas}`;
     const ref = doc(slotsRef, slotId);
     const repasLegacy: Repas = REPAS_IMPORT_TO_LEGACY[s.repas];
@@ -281,7 +307,7 @@ export async function importPlanFromJson(args: {
     batch.set(ref, {
       planId,
       date: s.date,
-      jour: dayIndexFromISO(s.date, data.slots[0]?.date ?? s.date),
+      jour: dayIndexFromISO(s.date, minSlotDate ?? s.date),
       repas: repasLegacy,
       profilsPresents: presence.ids,
       ...(s.invitesNoms && s.invitesNoms.length > 0
@@ -375,6 +401,7 @@ export async function importPlanFromJson(args: {
     batchSessionsCreated: data.batchSessions.length,
     shoppingItemsCreated: shoppingItems.length,
     archivedPreviousPlanIds: archivedIds,
+    unresolvedProfilNoms: Array.from(unresolvedNoms),
   };
 }
 
@@ -423,17 +450,20 @@ function mapRayonToLegacy(r: RayonImport):
 }
 
 /**
- * Calcule le `jour` = offset en jours depuis la 1ʳᵉ date des slots.
+ * Calcule le `jour` = offset en jours depuis la date MINIMALE des slots.
  * Champ legacy : la grille principale utilise désormais `slot.date`. On
  * conserve `jour` pour le tri et la rétro-compat des consommateurs qui ne
  * lisent pas encore `date`. Pas de clamp à 6 — un plan peut dépasser 7 jours.
  *
+ * L'ancre `anchorDateISO` doit être la date la plus tôt des slots : tous les
+ * offsets sont alors >= 0 sans clamp, et des dates distinctes donnent des
+ * index distincts (pas de collapse à 0).
+ *
  * Note : on ancre à midi pour neutraliser les sauts d'heure d'été.
  */
-function dayIndexFromISO(dateISO: string, firstDateISO: string): number {
+function dayIndexFromISO(dateISO: string, anchorDateISO: string): number {
   const d = new Date(`${dateISO}T12:00:00`);
-  const first = new Date(`${firstDateISO}T12:00:00`);
-  const diffMs = d.getTime() - first.getTime();
-  const days = Math.round(diffMs / (1000 * 60 * 60 * 24));
-  return Math.max(0, days);
+  const anchor = new Date(`${anchorDateISO}T12:00:00`);
+  const diffMs = d.getTime() - anchor.getTime();
+  return Math.round(diffMs / (1000 * 60 * 60 * 24));
 }

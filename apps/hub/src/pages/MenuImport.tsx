@@ -1,6 +1,6 @@
 import { useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
-import { ArrowLeft, CheckCircle2, Loader2, Upload, XCircle } from "lucide-react";
+import { AlertTriangle, ArrowLeft, CheckCircle2, Loader2, Upload, XCircle } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useActiveHouseholdId, usePlan, useProfils } from "../lib/queries";
 import { parsePlanImport, type PlanImport } from "../lib/planImportSchema";
@@ -234,6 +234,20 @@ export default function MenuImport() {
               </li>
             )}
           </ul>
+          {result.unresolvedProfilNoms.length > 0 && (
+            <div className="border-t border-wood-dark pt-2 flex items-start gap-2">
+              <AlertTriangle
+                size={14}
+                className="text-copper shrink-0 mt-0.5"
+                aria-hidden="true"
+              />
+              <p className="text-copper text-xs">
+                Noms non reconnus, ignorés :{" "}
+                {result.unresolvedProfilNoms.join(", ")} — vérifie
+                l'orthographe des profils.
+              </p>
+            </div>
+          )}
           <p className="text-cream-mute text-xs">Redirection vers le menu…</p>
         </div>
       )}
