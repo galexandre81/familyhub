@@ -92,24 +92,28 @@
       if (state.error) {
         playBtn.innerHTML = ICON_ERROR;
         playBtn.className = 'tile-radio-compact-btn error';
+        playBtn.setAttribute('aria-label', 'Erreur radio — réessayer');
         stationEl.innerHTML = state.currentStation ? state.currentStation.nom : '—';
         statusEl.innerHTML = state.error;
         statusEl.style.display = '';
       } else if (state.loading) {
         playBtn.innerHTML = ICON_LOADING;
         playBtn.className = 'tile-radio-compact-btn loading';
+        playBtn.setAttribute('aria-label', 'Chargement de la radio');
         stationEl.innerHTML = state.currentStation ? state.currentStation.nom : '—';
         statusEl.innerHTML = '';
         statusEl.style.display = 'none';
       } else if (state.playing) {
         playBtn.innerHTML = ICON_PAUSE;
         playBtn.className = 'tile-radio-compact-btn playing';
+        playBtn.setAttribute('aria-label', 'Mettre la radio en pause');
         stationEl.innerHTML = state.currentStation ? state.currentStation.nom : '—';
         statusEl.innerHTML = '';
         statusEl.style.display = 'none';
       } else if (state.currentStation) {
         playBtn.innerHTML = ICON_PLAY;
         playBtn.className = 'tile-radio-compact-btn';
+        playBtn.setAttribute('aria-label', 'Reprendre la radio (' + state.currentStation.nom + ')');
         stationEl.innerHTML = state.currentStation.nom;
         statusEl.innerHTML = '';
         statusEl.style.display = 'none';
@@ -117,6 +121,7 @@
         playBtn.innerHTML = ICON_PLAY;
         playBtn.className = 'tile-radio-compact-btn';
         var def = findDefaultStation();
+        playBtn.setAttribute('aria-label', def ? 'Lire ' + def.nom : 'Lire la radio');
         stationEl.innerHTML = def ? def.nom : (stations.length + ' station' + (stations.length > 1 ? 's' : ''));
         statusEl.innerHTML = '';
         statusEl.style.display = 'none';
@@ -165,6 +170,7 @@
         (function (st) {
           var btn = document.createElement('button');
           btn.className = 'tile-radio-expand-btn';
+          btn.setAttribute('aria-pressed', 'false');
           btn.innerHTML = st.nom;
           /* IMPORTANT iOS 9 : appel synchrone à FamilyHubAudio.play(),
              sans setTimeout / await — sinon Safari bloque. */
@@ -218,6 +224,9 @@
             else classes += ' active';
           }
           b.className = classes;
+          b.setAttribute('aria-pressed', (isCurrent && state.playing) ? 'true' : 'false');
+          if (isCurrent) b.setAttribute('aria-current', 'true');
+          else b.removeAttribute('aria-current');
         }
       }
       /* Now playing */

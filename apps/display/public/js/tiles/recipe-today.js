@@ -386,6 +386,7 @@
           'display:inline-block; width:32px; height:32px; line-height:32px; text-align:center; ' +
           'border-radius:50%; font-size:14px; font-weight:600; ' +
           'background:' + (prof.couleur || '#888') + '; color:#fff;';
+        if (prof.nom) pill.setAttribute('aria-label', prof.nom);
         pill.innerHTML = escapeHtml(prof.initiale || (prof.nom ? prof.nom.charAt(0).toUpperCase() : '?'));
         profilsBlock.appendChild(pill);
       }
@@ -399,12 +400,16 @@
          lieu de casser/déborder le header sur iPad mini. */
       tabs.style.cssText = 'display:-webkit-flex; display:flex; gap:6px; margin-top:12px; ' +
         'overflow-x:auto; -webkit-overflow-scrolling:touch; white-space:nowrap;';
+      tabs.setAttribute('role', 'tablist');
+      tabs.setAttribute('aria-label', 'Recettes du repas');
       header.appendChild(tabs);
       for (var ti = 0; ti < recettes.length; ti++) {
         (function (ix) {
           var btn = document.createElement('button');
           btn.type = 'button';
           btn.setAttribute('data-tab-idx', ix);
+          btn.setAttribute('role', 'tab');
+          btn.setAttribute('aria-selected', ix === 0 ? 'true' : 'false');
           btn.style.cssText =
             'padding:8px 14px; font-size:13px; border:1px solid rgba(217,160,91,0.3); ' +
             'background:transparent; color:#FAFAF7; border-radius:4px; cursor:pointer; ' +
@@ -427,10 +432,10 @@
       'gap:10px; margin-top:14px; font-size:13px;';
     portionRow.innerHTML =
       '<span style="opacity:0.7">Portions :</span>' +
-      '<button type="button" data-act="minus" style="width:36px; height:36px; border:1px solid rgba(217,160,91,0.3); background:transparent; color:#FAFAF7; border-radius:4px; font-size:18px;">−</button>' +
-      '<span data-role="portions-display" style="font-size:20px; font-weight:600; min-width:34px; text-align:center;">' + state.portionsTarget + '</span>' +
-      '<button type="button" data-act="plus" style="width:36px; height:36px; border:1px solid rgba(217,160,91,0.3); background:transparent; color:#FAFAF7; border-radius:4px; font-size:18px;">+</button>' +
-      '<button type="button" data-act="reset" style="margin-left:8px; padding:4px 10px; background:transparent; color:#D9A05B; border:none; font-size:12px; text-decoration:underline;">réinit.</button>';
+      '<button type="button" data-act="minus" aria-label="Une portion de moins" style="width:36px; height:36px; border:1px solid rgba(217,160,91,0.3); background:transparent; color:#FAFAF7; border-radius:4px; font-size:18px;">−</button>' +
+      '<span data-role="portions-display" aria-live="polite" style="font-size:20px; font-weight:600; min-width:34px; text-align:center;">' + state.portionsTarget + '</span>' +
+      '<button type="button" data-act="plus" aria-label="Une portion de plus" style="width:36px; height:36px; border:1px solid rgba(217,160,91,0.3); background:transparent; color:#FAFAF7; border-radius:4px; font-size:18px;">+</button>' +
+      '<button type="button" data-act="reset" aria-label="Réinitialiser les portions" style="margin-left:8px; padding:4px 10px; background:transparent; color:#D9A05B; border:none; font-size:12px; text-decoration:underline;">réinit.</button>';
     header.appendChild(portionRow);
 
     portionRow.querySelector('[data-act="minus"]').addEventListener('click', function () {
@@ -483,6 +488,7 @@
         var active = parseInt(tabBtns[t].getAttribute('data-tab-idx'), 10) === state.idx;
         tabBtns[t].style.background = active ? '#D9A05B' : 'transparent';
         tabBtns[t].style.color = active ? '#1F1A14' : '#FAFAF7';
+        tabBtns[t].setAttribute('aria-selected', active ? 'true' : 'false');
       }
 
       /* Update title + meta */
