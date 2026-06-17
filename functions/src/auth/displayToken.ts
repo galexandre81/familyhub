@@ -25,13 +25,12 @@ function generateShortId(): string {
 
 /** Trouve un shortId unique via lookup direct sur la collection racine `setupShortIds`. */
 async function generateUniqueShortId(): Promise<string> {
-  for (let attempt = 0; attempt < 5; attempt++) {
+  for (let attempt = 0; attempt < 8; attempt++) {
     const id = generateShortId();
     const existing = await db.doc(`setupShortIds/${id}`).get();
     if (!existing.exists) return id;
   }
-  // Fallback : ajoute du bruit pour quasi-garantir l'unicité
-  return generateShortId() + Math.floor(Math.random() * 100);
+  throw new HttpsError("internal", "Impossible de générer un code unique, réessayez");
 }
 
 /**
@@ -96,8 +95,10 @@ export const createDisplayToken = onCall(
 );
 
 /**
- * Résout un setupShortId court → renvoie les paramètres complets de setup.
- * Public (callable). Permet à setup.html de transformer un short ID en flow complet.
+ * Résout un setupShortId court → renvoie SEULEMENT householdId/displayId (jamais
+ * le setupToken : un endpoint public ne doit pas être un oracle à token).
+ * L'échange réel se fait via `exchangeSetupToken({ shortId })` qui résout et
+ * consomme le token côté serveur dans une transaction.
  */
 export const resolveSetupShortId = onCall(
   { region: "europe-west1", invoker: "public" },
@@ -121,97 +122,143 @@ export const resolveSetupShortId = onCall(
     return {
       householdId: data.householdId as string,
       displayId: data.displayId as string,
-      setupToken: data.setupToken as string,
     };
   },
 );
 
 /**
- * Appelé depuis le display vanilla au boot avec ?token=xxx :
- * échange le setup token contre un Firebase custom auth token + un long-lived
- * authToken stocké en localStorage côté display (pour future ré-auth automatique).
+ * Appelé depuis le display vanilla au boot :
+ *  - chemin court : `{ shortId }` → le token est résolu ET consommé côté serveur ;
+ *  - chemin long  : `{ householdId, displayId, setupToken }` (URL/QR avec ?token=).
+ * Échange le setup token contre un Firebase custom auth token + un long-lived
+ * authToken stocké en localStorage côté display (pour ré-auth automatique).
+ *
+ * Sécurité : validation + suppression du setup token se font dans une SEULE
+ * transaction Firestore (consume atomique → non rejouable). Le setupShortId est
+ * supprimé dans la même transaction.
  */
 export const exchangeSetupToken = onCall(
   { region: "europe-west1", invoker: "public" },
   async (req) => {
-    const { householdId, displayId, setupToken } = req.data as {
-      householdId: string;
-      displayId: string;
-      setupToken: string;
+    const {
+      householdId: bodyHouseholdId,
+      displayId: bodyDisplayId,
+      setupToken: bodySetupToken,
+      shortId,
+    } = req.data as {
+      householdId?: string;
+      displayId?: string;
+      setupToken?: string;
+      shortId?: string;
     };
 
-    if (!householdId || !displayId || !setupToken) {
-      throw new HttpsError("invalid-argument", "householdId, displayId, setupToken requis");
+    if (!shortId && (!bodyHouseholdId || !bodyDisplayId || !bodySetupToken)) {
+      throw new HttpsError(
+        "invalid-argument",
+        "Fournir shortId, ou householdId+displayId+setupToken",
+      );
     }
-
-    const displayRef = db.doc(`households/${householdId}/displays/${displayId}`);
-    const displaySnap = await displayRef.get();
-    if (!displaySnap.exists) {
-      throw new HttpsError("not-found", "Display introuvable");
-    }
-    const data = displaySnap.data()!;
-
-    if (data.setupToken !== setupToken) {
-      throw new HttpsError("permission-denied", "Token de setup invalide");
-    }
-    const expiresAt = data.setupTokenExpiresAt as FirebaseFirestore.Timestamp | undefined;
-    if (!expiresAt || expiresAt.toMillis() < Date.now()) {
-      throw new HttpsError("deadline-exceeded", "Token de setup expiré");
-    }
-
-    // Crée un compte service pour ce display si pas déjà fait.
-    const displayUid = `display:${displayId}`;
-    try {
-      await auth.getUser(displayUid);
-    } catch {
-      await auth.createUser({ uid: displayUid, displayName: `Display ${data.nom}` });
-    }
-
-    // Custom claims pour permettre aux règles Firestore (futures) de distinguer un display
-    await auth.setCustomUserClaims(displayUid, {
-      isDisplay: true,
-      householdId,
-      displayId,
-    });
-
-    const customToken = await auth.createCustomToken(displayUid, {
-      isDisplay: true,
-      householdId,
-      displayId,
-    });
 
     const authToken = generateToken();
     const authTokenExpiresAt = admin.firestore.Timestamp.fromMillis(
       Date.now() + AUTH_TOKEN_TTL_SECONDS * 1000,
     );
 
-    // Récupère le shortId AVANT de l'effacer du doc display, pour pouvoir nettoyer
-    // la lookup table racine `setupShortIds/{shortId}`.
-    const consumedShortId = data.setupShortId as string | undefined;
+    // Consume atomique : tout (résolution shortId, validation token, écriture
+    // authToken, suppression du setup) dans une transaction. Empêche le rejeu.
+    const result = await db.runTransaction(async (tx) => {
+      let householdId = bodyHouseholdId;
+      let displayId = bodyDisplayId;
+      let expectedToken = bodySetupToken;
+      let shortIdRef: FirebaseFirestore.DocumentReference | null = null;
 
-    await displayRef.update({
-      authToken,
-      authTokenExpiresAt,
-      setupToken: admin.firestore.FieldValue.delete(),
-      setupTokenExpiresAt: admin.firestore.FieldValue.delete(),
-      setupShortId: admin.firestore.FieldValue.delete(),
-      updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      // ----- Lectures (toutes avant les écritures, contrainte Firestore) -----
+      if (shortId) {
+        shortIdRef = db.doc(`setupShortIds/${String(shortId).toUpperCase()}`);
+        const sidSnap = await tx.get(shortIdRef);
+        if (!sidSnap.exists) {
+          throw new HttpsError("not-found", "Code introuvable ou expiré");
+        }
+        const sid = sidSnap.data()!;
+        const sidExp = sid.expiresAt as FirebaseFirestore.Timestamp | undefined;
+        if (!sidExp || sidExp.toMillis() < Date.now()) {
+          throw new HttpsError("deadline-exceeded", "Code expiré");
+        }
+        householdId = sid.householdId as string;
+        displayId = sid.displayId as string;
+        expectedToken = sid.setupToken as string;
+      }
+
+      if (!householdId || !displayId) {
+        throw new HttpsError("invalid-argument", "Paramètres manquants");
+      }
+
+      const displayRef = db.doc(`households/${householdId}/displays/${displayId}`);
+      const displaySnap = await tx.get(displayRef);
+      if (!displaySnap.exists) {
+        throw new HttpsError("not-found", "Display introuvable");
+      }
+      const data = displaySnap.data()!;
+
+      if (data.revoked === true) {
+        throw new HttpsError("permission-denied", "Cet écran a été révoqué");
+      }
+      if (!data.setupToken || data.setupToken !== expectedToken) {
+        throw new HttpsError("permission-denied", "Token de setup invalide");
+      }
+      const exp = data.setupTokenExpiresAt as FirebaseFirestore.Timestamp | undefined;
+      if (!exp || exp.toMillis() < Date.now()) {
+        throw new HttpsError("deadline-exceeded", "Token de setup expiré");
+      }
+
+      const consumedShortId = data.setupShortId as string | undefined;
+
+      // ----- Écritures -----
+      tx.update(displayRef, {
+        authToken,
+        authTokenExpiresAt,
+        setupToken: admin.firestore.FieldValue.delete(),
+        setupTokenExpiresAt: admin.firestore.FieldValue.delete(),
+        setupShortId: admin.firestore.FieldValue.delete(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+      // Supprime la lookup table (empêche un vieux bookmark /d/{shortId} de
+      // relancer un échange).
+      if (shortIdRef) {
+        tx.delete(shortIdRef);
+      } else if (consumedShortId) {
+        tx.delete(db.doc(`setupShortIds/${consumedShortId}`));
+      }
+
+      return { householdId, displayId, nom: (data.nom as string) || "" };
     });
 
-    // Supprime la lookup table : empêche un vieux bookmark /d/{shortId} de retomber
-    // dessus et de relancer un échange qui échouerait avec "Token de setup invalide".
-    if (consumedShortId) {
-      await db.doc(`setupShortIds/${consumedShortId}`).delete().catch(() => {/* noop */});
+    // Hors transaction : provisionne le compte service + custom token.
+    const displayUid = `display:${result.displayId}`;
+    try {
+      await auth.getUser(displayUid);
+    } catch {
+      await auth.createUser({ uid: displayUid, displayName: `Display ${result.nom}` });
     }
+    await auth.setCustomUserClaims(displayUid, {
+      isDisplay: true,
+      householdId: result.householdId,
+      displayId: result.displayId,
+    });
+    const customToken = await auth.createCustomToken(displayUid, {
+      isDisplay: true,
+      householdId: result.householdId,
+      displayId: result.displayId,
+    });
 
     // Note : le custom token Firebase Auth a une durée de 1h max imposée par Firebase.
-    // Le display doit appeler `refreshDisplayToken` avant expiration en utilisant le authToken local.
+    // Le display appelle `refreshDisplayToken` avant expiration via le authToken local.
     return {
       customToken,
       authToken,
       authTokenExpiresAt: authTokenExpiresAt.toMillis(),
-      householdId,
-      displayId,
+      householdId: result.householdId,
+      displayId: result.displayId,
     };
   },
 );
@@ -239,6 +286,10 @@ export const refreshDisplayToken = onCall(
     }
     const data = displaySnap.data()!;
 
+    // Kill switch : un écran marqué `revoked` ne peut plus se ré-authentifier.
+    if (data.revoked === true) {
+      throw new HttpsError("permission-denied", "Cet écran a été révoqué");
+    }
     if (data.authToken !== authToken) {
       throw new HttpsError("permission-denied", "Token invalide");
     }
