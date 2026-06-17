@@ -1,21 +1,24 @@
+import { lazy, Suspense } from "react";
 import { Navigate, Route, Routes } from "react-router-dom";
 import { AuthProvider, useAuth } from "./lib/auth";
-import Login from "./pages/Login";
-import Dashboard from "./pages/Dashboard";
-import Displays from "./pages/Displays";
-import DisplayEditor from "./pages/DisplayEditor";
-import Tiles from "./pages/Tiles";
-import TileEditor from "./pages/TileEditor";
-import Parametres from "./pages/Parametres";
-import Profils from "./pages/Profils";
-import Menu from "./pages/Menu";
-import MenuWizard from "./pages/MenuWizard";
-import MenuImport from "./pages/MenuImport";
-import LivreRecettes from "./pages/LivreRecettes";
-import RecetteDetail from "./pages/RecetteDetail";
-import RecetteCuisine from "./pages/RecetteCuisine";
 import Layout from "./components/Layout";
 import NotFound from "./components/NotFound";
+import { LoadingState } from "./components/states";
+
+const Login = lazy(() => import("./pages/Login"));
+const Dashboard = lazy(() => import("./pages/Dashboard"));
+const Displays = lazy(() => import("./pages/Displays"));
+const DisplayEditor = lazy(() => import("./pages/DisplayEditor"));
+const Tiles = lazy(() => import("./pages/Tiles"));
+const TileEditor = lazy(() => import("./pages/TileEditor"));
+const Parametres = lazy(() => import("./pages/Parametres"));
+const Profils = lazy(() => import("./pages/Profils"));
+const Menu = lazy(() => import("./pages/Menu"));
+const MenuWizard = lazy(() => import("./pages/MenuWizard"));
+const MenuImport = lazy(() => import("./pages/MenuImport"));
+const LivreRecettes = lazy(() => import("./pages/LivreRecettes"));
+const RecetteDetail = lazy(() => import("./pages/RecetteDetail"));
+const RecetteCuisine = lazy(() => import("./pages/RecetteCuisine"));
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -33,6 +36,7 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 export default function App() {
   return (
     <AuthProvider>
+      <Suspense fallback={<LoadingState />}>
       <Routes>
         <Route path="/login" element={<Login />} />
         <Route
@@ -65,6 +69,7 @@ export default function App() {
         </Route>
         <Route path="*" element={<NotFound />} />
       </Routes>
+      </Suspense>
     </AuthProvider>
   );
 }

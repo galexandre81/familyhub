@@ -9,6 +9,7 @@ import {
 } from "@tanstack/react-query";
 import App from "./App";
 import { toast, Toaster } from "./components/Toast";
+import ErrorBoundary from "./components/ErrorBoundary";
 import "./index.css";
 
 function getMsg(err: unknown): string {
@@ -34,10 +35,12 @@ const queryClient = new QueryClient({
 createRoot(document.getElementById("root")!).render(
   <StrictMode>
     <QueryClientProvider client={queryClient}>
-      <BrowserRouter>
-        <App />
-        <Toaster />
-      </BrowserRouter>
+      <ErrorBoundary>
+        <BrowserRouter>
+          <App />
+          <Toaster />
+        </BrowserRouter>
+      </ErrorBoundary>
     </QueryClientProvider>
   </StrictMode>,
 );
