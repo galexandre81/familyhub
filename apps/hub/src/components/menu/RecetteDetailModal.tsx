@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   ChefHat,
@@ -15,6 +15,7 @@ import {
   useDownvoteRecette,
   useUpvoteRecette,
 } from "../../lib/mutations";
+import { PORTIONS_MAX, PORTIONS_MIN } from "../../lib/recipeConstants";
 
 const RAYON_LABELS: Record<string, string> = {
   "frais-fruits-legumes": "Fruits & légumes",
@@ -54,6 +55,9 @@ export default function RecetteDetailModal({
   const upvote = useUpvoteRecette();
   const downvote = useDownvoteRecette();
   const [portions, setPortions] = useState<number>(initialPortions);
+  /** Ref sur la carte modale pour le focus trap et le focus initial. */
+  const cardRef = useRef<HTMLDivElement>(null);
+  const closeBtnRef = useRef<HTMLButtonElement>(null);
 
   // Fermer avec Échap
   useEffect(() => {
@@ -73,6 +77,45 @@ export default function RecetteDetailModal({
     };
   }, []);
 
+  // Gestion du focus : focus le bouton Fermer à l'ouverture, restaure le
+  // focus sur l'élément précédemment actif à la fermeture.
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    // Focus initial sur la croix (différé pour laisser le DOM se monter).
+    const id = window.setTimeout(() => closeBtnRef.current?.focus(), 0);
+    return () => {
+      window.clearTimeout(id);
+      if (previouslyFocused && typeof previouslyFocused.focus === "function") {
+        previouslyFocused.focus();
+      }
+    };
+  }, []);
+
+  // Focus trap : maintient le focus à l'intérieur de la modale au Tab.
+  function handleTrapKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key !== "Tab") return;
+    const card = cardRef.current;
+    if (!card) return;
+    const focusables = card.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), textarea, input, select, [tabindex]:not([tabindex="-1"])',
+    );
+    if (focusables.length === 0) return;
+    const first = focusables[0];
+    const last = focusables[focusables.length - 1];
+    const active = document.activeElement as HTMLElement | null;
+    if (e.shiftKey) {
+      if (active === first || !card.contains(active)) {
+        e.preventDefault();
+        last.focus();
+      }
+    } else {
+      if (active === last || !card.contains(active)) {
+        e.preventDefault();
+        first.focus();
+      }
+    }
+  }
+
   const ratio = recette ? portions / (recette.portions || 1) : 1;
 
   return (
@@ -85,8 +128,13 @@ export default function RecetteDetailModal({
 
       {/* Modal */}
       <div
+        ref={cardRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="recette-modal-titre"
         className="relative tile-card max-w-3xl w-full max-h-[90vh] flex flex-col overflow-hidden"
         onClick={(e) => e.stopPropagation()}
+        onKeyDown={handleTrapKeyDown}
       >
         {isLoading && (
           <div className="p-12 text-center text-cream-mute">Chargement…</div>
@@ -106,7 +154,10 @@ export default function RecetteDetailModal({
             {/* Header sticky */}
             <div className="flex items-start justify-between gap-3 p-5 border-b border-wood-dark">
               <div className="flex-1">
-                <h2 className="text-2xl font-serif leading-tight">
+                <h2
+                  id="recette-modal-titre"
+                  className="text-2xl font-serif leading-tight"
+                >
                   {recette.nom}
                 </h2>
                 {recette.description && (
@@ -170,6 +221,7 @@ export default function RecetteDetailModal({
                   <ThumbsUp size={18} />
                 </button>
                 <button
+                  ref={closeBtnRef}
                   onClick={onClose}
                   className="text-cream-mute hover:text-cream p-1 ml-1"
                   aria-label="Fermer"
@@ -185,7 +237,7 @@ export default function RecetteDetailModal({
                 Portions :
               </span>
               <button
-                onClick={() => setPortions((p) => Math.max(1, p - 1))}
+                onClick={() => setPortions((p) => Math.max(PORTIONS_MIN, p - 1))}
                 className="w-8 h-8 rounded border border-wood-dark hover:bg-bordure flex items-center justify-center"
                 aria-label="Moins de portions"
               >
@@ -195,7 +247,7 @@ export default function RecetteDetailModal({
                 {portions}
               </span>
               <button
-                onClick={() => setPortions((p) => Math.min(30, p + 1))}
+                onClick={() => setPortions((p) => Math.min(PORTIONS_MAX, p + 1))}
                 className="w-8 h-8 rounded border border-wood-dark hover:bg-bordure flex items-center justify-center"
                 aria-label="Plus de portions"
               >

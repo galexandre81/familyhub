@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   BookOpen,
@@ -38,6 +38,36 @@ function deburr(s: string): string {
     .replace(/æ/g, "ae");
 }
 
+/**
+ * Helpers sessionStorage robustes (guard SSR / mode privé / quota).
+ * On persiste recherche + filtre + frigo + scroll pour restaurer l'état
+ * de la liste au retour depuis une fiche recette (UX retour arrière).
+ */
+const SS = {
+  search: "livre.search",
+  filter: "livre.filter",
+  frigo: "livre.frigo",
+  scrollY: "livre.scrollY",
+} as const;
+
+function ssGet(key: string): string | null {
+  try {
+    if (typeof sessionStorage === "undefined") return null;
+    return sessionStorage.getItem(key);
+  } catch {
+    return null;
+  }
+}
+
+function ssSet(key: string, value: string): void {
+  try {
+    if (typeof sessionStorage === "undefined") return;
+    sessionStorage.setItem(key, value);
+  } catch {
+    /* ignore (mode privé / quota) */
+  }
+}
+
 export default function LivreRecettes() {
   const { user } = useAuth();
   const householdId = useActiveHouseholdId(user?.uid);
@@ -47,12 +77,71 @@ export default function LivreRecettes() {
   const restore = useRestoreRecette();
   const del = useDeleteRecette();
 
-  const [search, setSearch] = useState("");
-  const [filter, setFilter] = useState<FilterMode>("tous");
+  // Initialisation depuis sessionStorage (restauration au retour arrière).
+  const [search, setSearch] = useState(() => ssGet(SS.search) ?? "");
+  const [filter, setFilter] = useState<FilterMode>(() => {
+    const saved = ssGet(SS.filter);
+    return saved === "favoris" || saved === "exclus" || saved === "tous"
+      ? saved
+      : "tous";
+  });
   const [busyId, setBusyId] = useState<string | null>(null);
   /** Liste d'ingrédients que l'utilisateur a au frigo (chips multi-saisie). */
-  const [frigo, setFrigo] = useState<string[]>([]);
+  const [frigo, setFrigo] = useState<string[]>(() => {
+    const saved = ssGet(SS.frigo);
+    if (!saved) return [];
+    try {
+      const parsed = JSON.parse(saved);
+      return Array.isArray(parsed) ? (parsed as string[]) : [];
+    } catch {
+      return [];
+    }
+  });
   const [frigoInput, setFrigoInput] = useState("");
+
+  /** Vrai une fois la restauration du scroll effectuée (one-shot). */
+  const scrollRestored = useRef(false);
+
+  // Persiste recherche / filtre / frigo à chaque changement.
+  useEffect(() => {
+    ssSet(SS.search, search);
+  }, [search]);
+  useEffect(() => {
+    ssSet(SS.filter, filter);
+  }, [filter]);
+  useEffect(() => {
+    ssSet(SS.frigo, JSON.stringify(frigo));
+  }, [frigo]);
+
+  // Sauvegarde la position de scroll (window) avec un throttle léger via rAF.
+  useEffect(() => {
+    let ticking = false;
+    function onScroll() {
+      if (ticking) return;
+      ticking = true;
+      window.requestAnimationFrame(() => {
+        ssSet(SS.scrollY, String(window.scrollY));
+        ticking = false;
+      });
+    }
+    window.addEventListener("scroll", onScroll, { passive: true });
+    return () => window.removeEventListener("scroll", onScroll);
+  }, []);
+
+  // Restaure le scroll une fois la liste rendue (dépend des données chargées).
+  useEffect(() => {
+    if (scrollRestored.current) return;
+    if (!recettes) return; // attendre que les données soient là
+    const raw = ssGet(SS.scrollY);
+    if (raw != null) {
+      const y = parseInt(raw, 10);
+      if (Number.isFinite(y) && y > 0) {
+        // rAF pour laisser le layout des cartes se peindre avant de scroller.
+        window.requestAnimationFrame(() => window.scrollTo(0, y));
+      }
+    }
+    scrollRestored.current = true;
+  }, [recettes]);
 
   /**
    * Liste filtrée + score "frigo".
