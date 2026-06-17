@@ -33,7 +33,7 @@ jobs:
       - uses: actions/setup-java@v4
         with:
           distribution: temurin
-          java-version: 17
+          java-version: 21
       - name: Install rules-test deps
         run: npm install --prefix firestore-tests
       - name: Run Firestore rules tests (emulator)
