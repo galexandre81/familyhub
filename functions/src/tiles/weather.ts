@@ -20,6 +20,8 @@ interface OpenMeteoResponse {
     temperature: number;
     weathercode: number;
     is_day: 0 | 1;
+    /** Heure locale ISO de la mesure courante, ex "2026-06-17T14:00". */
+    time?: string;
   };
   hourly?: {
     time: string[];
@@ -73,9 +75,19 @@ function transformOpenMeteoToLocationData(
   }
   const isDay = cw.is_day === 1;
 
+  // `hourly.time` est indexé depuis le début des données (souvent minuit local),
+  // pas depuis "maintenant". On trouve d'abord l'index de l'heure courante
+  // (préfixe "YYYY-MM-DDTHH" de current_weather.time), puis on ajoute chaque
+  // offset à cette base pour que forecastHours = [0,6,12] donne now/+6h/+12h.
+  const hourly = json.hourly;
+  let baseIdx = 0;
+  if (hourly && cw.time) {
+    const currentHourPrefix = cw.time.slice(0, 13); // "YYYY-MM-DDTHH"
+    const found = hourly.time.findIndex((t) => t.slice(0, 13) === currentHourPrefix);
+    if (found >= 0) baseIdx = found;
+  }
+
   const forecast = (forecastHours ?? [0, 6, 12]).map((hourOffset) => {
-    const idx = Math.max(0, hourOffset);
-    const hourly = json.hourly;
     if (!hourly) {
       return {
         hourOffset,
@@ -84,6 +96,10 @@ function transformOpenMeteoToLocationData(
         iconKey: weatherCodeToIconKey(cw.weathercode, isDay),
       };
     }
+    // Index = base (heure courante) + offset, borné dans les limites du tableau.
+    const rawIdx = baseIdx + Math.max(0, hourOffset);
+    const maxIdx = Math.min(hourly.temperature_2m.length, hourly.weather_code.length) - 1;
+    const idx = Math.max(0, Math.min(rawIdx, maxIdx));
     const tempC = hourly.temperature_2m[idx] ?? cw.temperature;
     const wc = hourly.weather_code[idx] ?? cw.weathercode;
     return {

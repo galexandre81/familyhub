@@ -1,6 +1,7 @@
 import { logger } from "firebase-functions";
+import { Timestamp } from "firebase-admin/firestore";
 import type { TileType } from "../types";
-import { admin, db } from "../lib/admin";
+import { db } from "../lib/admin";
 
 const SNAPSHOT_TTL_SECONDS = 60 * 60; // 1h
 
@@ -19,6 +20,10 @@ export async function rebuildSnapshotForTile(
 
   const writes: Promise<unknown>[] = [];
 
+  // Un seul timestamp calculé une fois, réutilisé au niveau doc et par-tuile,
+  // pour garantir que generatedAt (doc) === tiles[tileId].generatedAt.
+  const now = Timestamp.now();
+
   for (const displayDoc of displaysSnap.docs) {
     const layout = (displayDoc.data().layout as Array<{ tileId: string }> | undefined) ?? [];
     const containsTile = layout.some((l) => l.tileId === tileId);
@@ -26,12 +31,12 @@ export async function rebuildSnapshotForTile(
 
     const snapshotRef = displayDoc.ref.collection("snapshot").doc("current");
     const update = {
-      generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      generatedAt: now,
       ttlSeconds: SNAPSHOT_TTL_SECONDS,
       tiles: {
         [tileId]: {
           data,
-          generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+          generatedAt: now,
         },
       },
     };
@@ -54,7 +59,10 @@ export async function rebuildSnapshotForDisplay(householdId: string, displayId: 
   const layout = (displaySnap.data()?.layout as Array<{ tileId: string }> | undefined) ?? [];
   const tileIds = layout.map((l) => l.tileId);
 
-  const tiles: Record<string, { data: unknown; generatedAt: FirebaseFirestore.FieldValue }> = {};
+  // Un seul timestamp calculé une fois, réutilisé au niveau doc et par-tuile.
+  const now = Timestamp.now();
+
+  const tiles: Record<string, { data: unknown; generatedAt: Timestamp }> = {};
   for (const tileId of tileIds) {
     const tileSnap = await db.doc(`households/${householdId}/tiles/${tileId}`).get();
     if (!tileSnap.exists) continue;
@@ -62,13 +70,13 @@ export async function rebuildSnapshotForDisplay(householdId: string, displayId: 
     // Les tuiles sans pré-calcul (ex: clock, radio) n'ont pas de data ici — calcul côté display.
     tiles[tileId] = {
       data: {},
-      generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      generatedAt: now,
     };
   }
 
   await displayRef.collection("snapshot").doc("current").set(
     {
-      generatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      generatedAt: now,
       ttlSeconds: SNAPSHOT_TTL_SECONDS,
       tiles,
     },
