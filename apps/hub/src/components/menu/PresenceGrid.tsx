@@ -99,7 +99,9 @@ export default function PresenceGrid({
                               key={p.id}
                               type="button"
                               onClick={() => togglePresence(jour, r.key, p.id)}
-                              className={`transition ${on ? "" : "opacity-25 grayscale"}`}
+                              aria-pressed={on}
+                              aria-label={`${p.nom} ${on ? "présent" : "absent"}`}
+                              className={`flex items-center justify-center min-h-11 min-w-11 transition ${on ? "" : "opacity-25 grayscale"}`}
                               title={on ? `${p.nom} présent(e)` : `${p.nom} absent(e)`}
                             >
                               <ProfilBadge
@@ -116,15 +118,15 @@ export default function PresenceGrid({
                         <button
                           type="button"
                           onClick={() => setAllForSlot(jour, r.key, "all")}
-                          className="text-cream-mute hover:text-brass"
+                          className="text-cream-mute hover:text-brass inline-flex items-center justify-center min-h-11 px-3"
                         >
                           tous
                         </button>
-                        <span className="text-wood-dark">·</span>
+                        <span className="text-wood-dark self-center">·</span>
                         <button
                           type="button"
                           onClick={() => setAllForSlot(jour, r.key, "none")}
-                          className="text-cream-mute hover:text-copper"
+                          className="text-cream-mute hover:text-copper inline-flex items-center justify-center min-h-11 px-3"
                         >
                           aucun
                         </button>
@@ -133,7 +135,8 @@ export default function PresenceGrid({
                         <button
                           type="button"
                           onClick={() => toggleExpress(jour, r.key)}
-                          className={`flex items-center justify-center gap-1 text-[9px] uppercase tracking-widest mt-0.5 transition ${
+                          aria-pressed={!!express[key]}
+                          className={`flex items-center justify-center gap-1 text-[9px] uppercase tracking-widest mt-0.5 min-h-11 px-3 transition ${
                             express[key]
                               ? "text-brass font-semibold"
                               : "text-cream-mute hover:text-brass"
@@ -147,6 +150,7 @@ export default function PresenceGrid({
                           <Zap
                             size={11}
                             className={express[key] ? "fill-brass" : ""}
+                            aria-hidden="true"
                           />
                           express
                         </button>
