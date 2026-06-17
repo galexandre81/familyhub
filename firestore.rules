@@ -68,18 +68,42 @@ service cloud.firestore {
                       );
       }
 
-      // Sous-collections : membres = read/write, displays = read seul.
+      // Catch-all foyer-scope : MEMBRES uniquement (read + write) sur toutes les
+      // sous-collections, y compris profils, mealPlans, mealPlans/{id}/slots,
+      // coursesItems, etc. — qui contiennent des données médicales/sensibles.
       //
-      // Phase 3 (meal planner / recettes / liste de courses) :
-      // profils, mealPlans, mealPlans/{id}/slots, recettes,
-      // shoppingLists, coursesItems — toutes couvertes par cette règle
-      // générique foyer-scope. L'enforcement de checkedAt/checkedBy au
-      // cochage d'un item de courses est porté côté client (l'array
-      // `items` est dans le doc parent, non validable par élément côté
-      // rules).
+      // IMPORTANT : ce catch-all n'accorde AUCUN accès aux displays. Les rules
+      // Firestore sont OR-combinées : pour qu'un display ne puisse PAS lire
+      // profils/mealPlans, aucune règle correspondante ne doit l'autoriser. La
+      // lecture display est donc accordée explicitement, collection par
+      // collection, dans les blocs ci-dessous (tiles, displays, shoppingLists),
+      // ainsi que dans les blocs recettes et timers définis plus haut.
+      //
+      // L'enforcement de checkedAt/checkedBy au cochage d'un item de courses est
+      // porté côté client (l'array `items` est dans le doc parent, non validable
+      // par élément côté rules).
       match /{collection}/{docId=**} {
-        allow read: if isMember(hid) || isDisplayOfHousehold(hid);
-        allow write: if isMember(hid);
+        allow read, write: if isMember(hid);
+      }
+
+      // Tiles : configuration/données des tuiles affichées sur l'iPad.
+      // Membres = read/write (via catch-all). Displays = read seul (ici).
+      match /tiles/{tileId=**} {
+        allow read: if isDisplayOfHousehold(hid);
+      }
+
+      // Shopping lists : le display affiche la liste de courses (lecture seule).
+      // Membres = read/write (via catch-all). Displays = read seul (ici).
+      match /shoppingLists/{docId=**} {
+        allow read: if isDisplayOfHousehold(hid);
+      }
+
+      // Displays : un écran lit son propre doc de config ET son snapshot
+      // pré-calculé (sous-collection snapshot/current). {doc=**} couvre le doc
+      // display lui-même + la sous-collection snapshot imbriquée.
+      // Membres = read/write (via catch-all). Displays = read seul (ici).
+      match /displays/{doc=**} {
+        allow read: if isDisplayOfHousehold(hid);
       }
     }
   }

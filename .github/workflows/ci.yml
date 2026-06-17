@@ -20,3 +20,21 @@ jobs:
         run: npm run build
       - name: Test (functions)
         run: npm test --workspace=functions --if-present
+      - name: Test (hub)
+        run: npm test --workspace=hub --if-present
+
+  rules-tests:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 17
+      - name: Install rules-test deps
+        run: npm install --prefix firestore-tests
+      - name: Run Firestore rules tests (emulator)
+        run: npx firebase-tools emulators:exec --only firestore --project demo-fh "npm test --prefix firestore-tests"
