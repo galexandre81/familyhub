@@ -178,16 +178,19 @@ export async function importPlanFromJson(args: {
     db,
     `households/${householdId}/mealPlans/${planId}/batchSessions`,
   );
-  /* Wipe les shoppingLists du PLAN COURANT (réimport sur même plan) ET
-     ceux des plans qui vont être archivés (réimport d'un nouveau plan).
-     Sans le 2e wipe, les anciens shoppingLists s'accumulaient et le tile
-     iPad pouvait afficher une vieille liste indéfiniment. */
-  const allShoppingQ = collection(db, `households/${householdId}/shoppingLists`);
+  /* Wipe UNIQUEMENT les shoppingLists du PLAN COURANT (réimport sur même
+     plan). On filtre sur `planId` pour ne pas détruire les listes des autres
+     plans (perte de données en multi-plan) et borner le nombre de deletes
+     sous la limite des 500 writes par batch. */
+  const planShoppingQ = query(
+    collection(db, `households/${householdId}/shoppingLists`),
+    where("planId", "==", planId),
+  );
 
-  const [oldSlotsSnap, oldBatchesSnap, allShoppingSnap, activePlanSnap] = await Promise.all([
+  const [oldSlotsSnap, oldBatchesSnap, planShoppingSnap, activePlanSnap] = await Promise.all([
     getDocs(slotsRef),
     getDocs(batchesRef),
-    getDocs(allShoppingQ),
+    getDocs(planShoppingQ),
     getDocs(
       query(
         collection(db, `households/${householdId}/mealPlans`),
@@ -199,12 +202,12 @@ export async function importPlanFromJson(args: {
   // ---- 7. Big batch write ----
   const batch = writeBatch(db);
 
-  // Wipes : slots + batches du plan courant + TOUS les shoppingLists sauf
-  // celui du plan courant (qu'on va recréer). Ça nettoie aussi les listes
-  // orphelines des plans précédemment archivés.
+  // Wipes : slots + batches du plan courant + la/les shoppingList(s) du plan
+  // courant (qu'on va recréer). Scopé au planId : les listes des autres plans
+  // sont préservées.
   oldSlotsSnap.docs.forEach((d) => batch.delete(d.ref));
   oldBatchesSnap.docs.forEach((d) => batch.delete(d.ref));
-  allShoppingSnap.docs.forEach((d) => batch.delete(d.ref));
+  planShoppingSnap.docs.forEach((d) => batch.delete(d.ref));
 
   // Creates : recettes
   for (const { ref, data: r } of recettesToCreate) {
