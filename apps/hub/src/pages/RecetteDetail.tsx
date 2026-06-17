@@ -1,4 +1,4 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
@@ -21,6 +21,7 @@ import {
   useDownvoteRecette,
   useUpvoteRecette,
 } from "../lib/mutations";
+import { PORTIONS_MAX, PORTIONS_MIN, clampPortions } from "../lib/recipeConstants";
 
 const RAYON_LABELS: Record<string, string> = {
   "frais-fruits-legumes": "Fruits & légumes",
@@ -59,9 +60,16 @@ export default function RecetteDetail() {
     const raw = searchParams.get("portions");
     if (!raw) return null;
     const n = parseInt(raw, 10);
-    return Number.isFinite(n) && n > 0 && n <= 30 ? n : null;
+    // Clampe la valeur d'URL dans [MIN, MAX] pour rester cohérent avec le +/-.
+    return Number.isFinite(n) && n > 0 ? clampPortions(n) : null;
   })();
   const [portions, setPortions] = useState<number | null>(portionsFromUrl);
+
+  // Resync de l'état si l'URL change après le montage (ex: navigation interne).
+  useEffect(() => {
+    setPortions(portionsFromUrl);
+    // portionsFromUrl est dérivé de searchParams ; on dépend de sa valeur.
+  }, [portionsFromUrl]);
 
   const targetPortions = portions ?? recette?.portions ?? 4;
   const ratio = recette ? targetPortions / recette.portions : 1;
@@ -133,7 +141,7 @@ export default function RecetteDetail() {
           <span className="text-sm text-text-secondaire">Portions</span>
           <button
             type="button"
-            onClick={() => setPortions((p) => Math.max(1, (p ?? recette.portions) - 1))}
+            onClick={() => setPortions((p) => Math.max(PORTIONS_MIN, (p ?? recette.portions) - 1))}
             className="w-9 h-9 rounded-md border border-bordure hover:bg-bordure flex items-center justify-center"
             aria-label="Moins de portions"
           >
@@ -142,7 +150,7 @@ export default function RecetteDetail() {
           <span className="text-2xl font-semibold w-12 text-center">{targetPortions}</span>
           <button
             type="button"
-            onClick={() => setPortions((p) => Math.min(20, (p ?? recette.portions) + 1))}
+            onClick={() => setPortions((p) => Math.min(PORTIONS_MAX, (p ?? recette.portions) + 1))}
             className="w-9 h-9 rounded-md border border-bordure hover:bg-bordure flex items-center justify-center"
             aria-label="Plus de portions"
           >
