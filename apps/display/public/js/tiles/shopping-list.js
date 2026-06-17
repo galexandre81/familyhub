@@ -298,6 +298,14 @@
     /* Le listener met à jour state.list ; refresh manuel sur snapshot via
        la pile de cells. On ajoute un re-render local toutes les 4 secondes
        au cas où le snapshot global ne propage pas (rare). */
+    /* Défensif : si expand() est rappelé sans collapse() intermédiaire
+       (overlay réouvert, ré-entrance), l'ancien interval serait orphelin
+       et continuerait à redraw indéfiniment. On le clear avant d'assigner
+       le nouveau. */
+    if (container._shoppingExpandTimer) {
+      clearInterval(container._shoppingExpandTimer);
+      container._shoppingExpandTimer = null;
+    }
     var redrawTimer = setInterval(redraw, 4000);
 
     /* Stocke pour collapse */

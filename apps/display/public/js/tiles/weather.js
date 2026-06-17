@@ -105,7 +105,10 @@
       wrap.innerHTML = '<div class="tile-weather-label">Aucune ville configurée</div>';
       return;
     }
-    if (!ld) {
+    /* Garde contre un snapshot partiel : si current/daily manquent, on
+       retombe sur "en attente" plutôt que de throw (ce qui figerait la
+       tuile sur "Erreur rendu" via le catch de renderTile). */
+    if (!ld || !ld.current || !ld.daily) {
       wrap.innerHTML = '<div class="tile-weather-label">En attente des données…</div>';
       return;
     }
@@ -167,6 +170,10 @@
     function renderBody() {
       var loc = findLoc(selectedId);
       var ld = dataFor(data, loc.id);
+      /* Garde contre un snapshot partiel : on ne considère ld "présent"
+         que si current ET daily existent, sinon on retombe sur le branch
+         "Données indisponibles" plutôt que de throw. */
+      if (ld && (!ld.current || !ld.daily)) ld = null;
       var html = '';
 
       /* HERO : ville sélectionnée en grand */
@@ -214,6 +221,7 @@
           var l = locs[i];
           if (l.id === selectedId) continue;
           var lld = dataFor(data, l.id);
+          if (lld && !lld.current) lld = null;
           html += '<button class="weather-chip" data-loc-id="' + l.id + '">';
           if (lld) {
             html += '<div class="weather-chip-icon">' + iconSVG(lld.current.iconKey) + '</div>';
