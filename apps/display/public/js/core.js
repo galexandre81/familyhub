@@ -47,8 +47,19 @@
     displayConfig: null,
     householdConfig: null,
     householdUnsub: null,
-    appliedThemeId: null
+    appliedThemeId: null,
+    /* Indicateur fraîcheur / hors-ligne (kiosk 24/7) */
+    snapshotGeneratedAtMs: 0,    /* age de référence du dernier snapshot reçu (ms epoch) */
+    snapshotTtlSeconds: 0,       /* ttlSeconds top-level du snapshot, sert au seuil */
+    staleCheckInterval: null,    /* id du setInterval de re-vérification (à nettoyer) */
+    isOffline: false,            /* dernier état connu navigator/online-offline */
+    onlineHandler: null,         /* ref des listeners window pour cleanup */
+    offlineHandler: null
   };
+
+  /* Seuil par défaut si le snapshot n'expose pas de ttlSeconds exploitable.
+     2h en secondes — large, pour ne pas crier au stale sur un simple retard. */
+  var STALE_FALLBACK_SECONDS = 2 * 60 * 60;
 
   function setStatus(text) {
     var el = document.getElementById('boot-status');
@@ -278,6 +289,134 @@
     } else if (stateName === 'error') {
       el.style.background = 'rgba(200,85,61,0.90)';
       el.innerHTML = '⚠ ' + (detail || 'auth perdue');
+    }
+  }
+
+  /* ----- Indicateur fraîcheur / hors-ligne (kiosk) ---------------------- */
+
+  /**
+   * Crée (lazy) et renvoie le noeud du badge de statut, distinct du badge
+   * auth (#fh-auth-badge en haut à droite). Celui-ci vit en bas à gauche,
+   * stylé via la classe .fh-status-badge dans styles.css.
+   */
+  function getStatusBadge() {
+    var el = document.getElementById('fh-status-badge');
+    if (!el) {
+      el = document.createElement('div');
+      el.id = 'fh-status-badge';
+      el.className = 'fh-status-badge fh-status-badge--hidden';
+      if (document.body) document.body.appendChild(el);
+    }
+    return el;
+  }
+
+  function hideStatusBadge() {
+    var el = getStatusBadge();
+    if (el && el.className.indexOf('fh-status-badge--hidden') === -1) {
+      el.className = 'fh-status-badge fh-status-badge--hidden';
+    }
+  }
+
+  /**
+   * Affiche le badge avec un texte donné. variant: '' (stale) | 'offline'.
+   */
+  function showStatusBadge(text, variant) {
+    var el = getStatusBadge();
+    if (!el) return;
+    var cls = 'fh-status-badge';
+    if (variant === 'offline') cls += ' fh-status-badge--offline';
+    el.className = cls;
+    el.innerHTML = text;
+  }
+
+  /* Formate un ms epoch en "HH:MM" local, robuste sur Safari 9. */
+  function formatHHMM(ms) {
+    var d = new Date(ms);
+    var h = d.getHours();
+    var m = d.getMinutes();
+    return (h < 10 ? '0' + h : '' + h) + ':' + (m < 10 ? '0' + m : '' + m);
+  }
+
+  /**
+   * Re-calcule l'état fraîcheur du dernier snapshot et met à jour le badge.
+   * Hors-ligne a priorité (badge "Hors ligne"). Sinon, si l'âge du snapshot
+   * dépasse le seuil, on montre "Données du HH:MM". Sinon on masque.
+   *
+   * Seuil = max(ttlSeconds du snapshot, fallback 2h) * 2. Le *2 laisse une
+   * marge généreuse : un snapshot d'1h de TTL doit avoir >2h avant d'être
+   * signalé périmé, pour absorber un cron en retard sans fausse alerte.
+   */
+  function evaluateStaleness() {
+    /* L'état offline est géré par updateOfflineState ; ne pas l'écraser. */
+    if (state.isOffline) return;
+    if (!state.snapshotGeneratedAtMs) { hideStatusBadge(); return; }
+    var ttl = state.snapshotTtlSeconds > 0
+      ? state.snapshotTtlSeconds
+      : STALE_FALLBACK_SECONDS;
+    var thresholdMs = Math.max(ttl, STALE_FALLBACK_SECONDS) * 2 * 1000;
+    var ageMs = Date.now() - state.snapshotGeneratedAtMs;
+    if (ageMs > thresholdMs) {
+      showStatusBadge('Données du ' + formatHHMM(state.snapshotGeneratedAtMs), '');
+    } else {
+      hideStatusBadge();
+    }
+  }
+
+  /* Met à jour l'état hors-ligne et le badge en conséquence. */
+  function updateOfflineState(offline) {
+    state.isOffline = !!offline;
+    if (state.isOffline) {
+      showStatusBadge('Hors ligne', 'offline');
+    } else {
+      /* Retour en ligne : on retombe sur l'évaluation de fraîcheur
+         (qui masquera le badge si tout est frais). */
+      evaluateStaleness();
+    }
+  }
+
+  /**
+   * Démarre la surveillance fraîcheur/offline :
+   *  - re-évaluation périodique (toutes les 60s) de la fraîcheur du snapshot ;
+   *  - listeners window 'online'/'offline'.
+   * Idempotent : nettoie d'abord toute surveillance précédente pour ne pas
+   * empiler d'intervalles/listeners (device 24/7, zéro leak toléré).
+   */
+  function setupStalenessWatch() {
+    stopStalenessWatch();
+
+    if (window.addEventListener) {
+      state.onlineHandler = function () { updateOfflineState(false); };
+      state.offlineHandler = function () { updateOfflineState(true); };
+      window.addEventListener('online', state.onlineHandler, false);
+      window.addEventListener('offline', state.offlineHandler, false);
+    }
+
+    /* État initial : navigator.onLine peut être absent / peu fiable sur
+       iOS 9 — on ne l'utilise que s'il est explicitement false. */
+    if (typeof navigator !== 'undefined'
+        && navigator
+        && navigator.onLine === false) {
+      updateOfflineState(true);
+    }
+
+    state.staleCheckInterval = setInterval(evaluateStaleness, 60 * 1000);
+  }
+
+  /* Nettoie intervalle + listeners (anti-leak sur ré-init). */
+  function stopStalenessWatch() {
+    if (state.staleCheckInterval) {
+      clearInterval(state.staleCheckInterval);
+      state.staleCheckInterval = null;
+    }
+    if (window.removeEventListener) {
+      if (state.onlineHandler) {
+        window.removeEventListener('online', state.onlineHandler, false);
+        state.onlineHandler = null;
+      }
+      if (state.offlineHandler) {
+        window.removeEventListener('offline', state.offlineHandler, false);
+        state.offlineHandler = null;
+      }
     }
   }
 
@@ -549,6 +688,25 @@
       var data = snap.data() || {};
       var tiles = data.tiles || {};
       state.lastSnapshotTiles = tiles;
+
+      /* Fraîcheur : lit le generatedAt top-level (Firestore Timestamp) et le
+         ttlSeconds. generatedAt peut être absent ou pas encore résolu (write
+         serveur en attente) → on garde l'ancienne valeur dans ce cas. */
+      var genMs = 0;
+      var gen = data.generatedAt;
+      if (gen) {
+        if (typeof gen.toMillis === 'function') {
+          genMs = gen.toMillis();
+        } else if (typeof gen.seconds === 'number') {
+          genMs = gen.seconds * 1000;
+        }
+      }
+      if (genMs) {
+        state.snapshotGeneratedAtMs = genMs;
+        state.snapshotTtlSeconds = (typeof data.ttlSeconds === 'number')
+          ? data.ttlSeconds : 0;
+        evaluateStaleness();
+      }
       for (var tileId in tiles) {
         if (!tiles.hasOwnProperty(tileId)) continue;
         var cell = state.cellsByTileId[tileId];
@@ -618,6 +776,8 @@
     setupAudioUnlock();
 
     setupVisibilityRefresh();
+
+    setupStalenessWatch();
 
     if (window.FamilyHubBrightness) {
       window.FamilyHubBrightness.init();
