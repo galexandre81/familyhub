@@ -23,6 +23,29 @@
     return h + ' h ' + m + ' min';
   }
 
+  /* Icônes SVG inline (currentColor) — les glyphes Unicode ▶ ⏸ ✕ 🔔
+     s'affichaient en tofu / mal rendus sur iPad mini 1 (Safari 9). On suit
+     le pattern déjà utilisé dans radio.js (STOP_ICON_SVG). aria-hidden car
+     le bouton porte un aria-label. */
+  var ICON_PLAY_SM =
+    '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="display:block">' +
+      '<path d="M7 5 L19 12 L7 19 Z" fill="currentColor"/>' +
+    '</svg>';
+  var ICON_PAUSE_SM =
+    '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="display:block">' +
+      '<rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/>' +
+      '<rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/>' +
+    '</svg>';
+  var ICON_CLOSE_SM =
+    '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="display:block">' +
+      '<path d="M6 6 L18 18 M18 6 L6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>' +
+    '</svg>';
+  var ICON_BELL_SM =
+    '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" style="display:inline-block; vertical-align:-4px; margin-right:6px">' +
+      '<path d="M12 3 Q17 3, 17 10 L18 16 L6 16 L7 10 Q7 3, 12 3 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>' +
+      '<path d="M10 18 Q12 21, 14 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>' +
+    '</svg>';
+
   /* Détermine la couleur en fonction du % restant */
   function timeColor(progress) {
     if (progress >= 0.9) return '#C8553D';      /* terracotta urgent */
@@ -93,7 +116,7 @@
         + 'stroke-linecap="round" transform="rotate(-90 50 50)"/>';
       html += '</svg>';
       html += '<div class="timer-hero-inner">';
-      html += '<div class="timer-hero-time" style="color:' + topColor + '">' + (top.status === 'ended' ? '🔔' : fmt(topRemaining)) + '</div>';
+      html += '<div class="timer-hero-time" style="color:' + topColor + '">' + (top.status === 'ended' ? '<span aria-label="Minuteur terminé">' + ICON_BELL_SM.replace('width="20" height="20"', 'width="40" height="40"').replace('margin-right:6px', 'margin:0') + '</span>' : fmt(topRemaining)) + '</div>';
       html += '<div class="timer-hero-label">' + (top.label || '?') + '</div>';
       html += '</div></div>';
 
@@ -213,7 +236,8 @@
     /* 4. Bouton de test du son — discret, tout en bas */
     var testBtn = document.createElement('button');
     testBtn.className = 'btn-tile-secondary timer-test-sound';
-    testBtn.innerHTML = '🔔 Tester le son';
+    testBtn.setAttribute('aria-label', 'Tester le son');
+    testBtn.innerHTML = ICON_BELL_SM + 'Tester le son';
     testBtn.addEventListener('click', function () {
       global.FamilyHubTimers.beepSequence(2);
     });
@@ -250,18 +274,18 @@
 
           var html = '<div class="timer-active-info">';
           html += '<div class="timer-active-label">' + (t.label || '?') + '</div>';
-          html += '<div class="timer-active-time">' + (t.status === 'ended' ? '🔔 Terminé !' : fmt(remaining)) + '</div>';
+          html += '<div class="timer-active-time">' + (t.status === 'ended' ? ICON_BELL_SM + 'Terminé !' : fmt(remaining)) + '</div>';
           html += '<div class="timer-active-progress"><div class="timer-active-progress-fill" style="width:' + Math.round(progress * 100) + '%"></div></div>';
           html += '</div>';
           html += '<div class="timer-active-actions">';
           if (t.status === 'ended') {
-            html += '<button class="btn-tile-primary timer-ack">OK</button>';
+            html += '<button class="btn-tile-primary timer-ack" aria-label="OK, arrêter l\'alarme">OK</button>';
           } else if (t.status === 'paused') {
-            html += '<button class="btn-tile-secondary timer-resume">▶</button>';
-            html += '<button class="btn-tile-secondary timer-stop">✕</button>';
+            html += '<button class="btn-tile-secondary timer-resume" aria-label="Reprendre">' + ICON_PLAY_SM + '</button>';
+            html += '<button class="btn-tile-secondary timer-stop" aria-label="Arrêter">' + ICON_CLOSE_SM + '</button>';
           } else {
-            html += '<button class="btn-tile-secondary timer-pause">⏸</button>';
-            html += '<button class="btn-tile-secondary timer-stop">✕</button>';
+            html += '<button class="btn-tile-secondary timer-pause" aria-label="Mettre en pause">' + ICON_PAUSE_SM + '</button>';
+            html += '<button class="btn-tile-secondary timer-stop" aria-label="Arrêter">' + ICON_CLOSE_SM + '</button>';
           }
           html += '</div>';
           row.innerHTML = html;

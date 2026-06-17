@@ -93,10 +93,15 @@
     var lvl = brightnessLevel();
     var pct = Math.round((lvl / 0.6) * 100);
     var lumBlock = document.createElement('div');
+    /* La barre représente la luminosité (inverse de l'overlay sombre) : pct=0
+       => barre pleine (max lumino). aria-valuenow exprime la luminosité 0-100. */
+    var lumNow = 100 - pct;
     lumBlock.innerHTML =
-      '<div style="font-size:10px; letter-spacing:0.18em; text-transform:uppercase; opacity:0.7; margin-bottom:6px">Luminosité</div>' +
-      '<div style="background:rgba(217,160,91,0.10); height:6px; border-radius:3px; position:relative; overflow:hidden">' +
-        '<div style="position:absolute; left:0; top:0; bottom:0; width:' + (100 - pct) + '%; background:#D9A05B"></div>' +
+      '<div id="settings-lum-label" style="font-size:10px; letter-spacing:0.18em; text-transform:uppercase; opacity:0.7; margin-bottom:6px">Luminosité</div>' +
+      '<div role="progressbar" aria-labelledby="settings-lum-label" ' +
+        'aria-valuemin="0" aria-valuemax="100" aria-valuenow="' + lumNow + '" ' +
+        'style="background:rgba(217,160,91,0.10); height:6px; border-radius:3px; position:relative; overflow:hidden">' +
+        '<div style="position:absolute; left:0; top:0; bottom:0; width:' + lumNow + '%; background:#D9A05B"></div>' +
       '</div>';
     body.appendChild(lumBlock);
 
@@ -183,6 +188,7 @@
         var lvl = LUM_LEVELS[i];
         var active = Math.abs(current - lvl.value) < 0.05;
         html += '<button type="button" data-lum="' + lvl.value + '" ' +
+          'aria-pressed="' + (active ? 'true' : 'false') + '" ' +
           'class="tile-settings-lum-btn' + (active ? ' is-active' : '') + '">' +
           escapeHtml(lvl.label) +
         '</button>';

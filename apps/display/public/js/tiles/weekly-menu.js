@@ -662,9 +662,13 @@
     /* Header row */
     var thead = document.createElement('thead');
     var trH = document.createElement('tr');
-    trH.appendChild(document.createElement('th'));
+    var thCorner = document.createElement('th');
+    thCorner.setAttribute('scope', 'col');
+    thCorner.innerHTML = '<span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Repas</span>';
+    trH.appendChild(thCorner);
     for (var j = 0; j < nDays; j++) {
       var th = document.createElement('th');
+      th.setAttribute('scope', 'col');
       var isToday = j === todayIdx;
       th.style.cssText =
         'padding:6px 4px; font-weight:600; letter-spacing:0.08em; ' +
@@ -692,11 +696,13 @@
       var repas = repasList[ri];
       var tr = document.createElement('tr');
 
-      var tdLabel = document.createElement('td');
+      var tdLabel = document.createElement('th');
+      tdLabel.setAttribute('scope', 'row');
       tdLabel.style.cssText =
         'padding:8px; vertical-align:middle; text-align:center; ' +
         'border-right:1px solid rgba(217,160,91,0.1);';
       tdLabel.title = repasShort(repas);
+      tdLabel.setAttribute('aria-label', repasShort(repas));
       tdLabel.innerHTML = repasIconSvg(repas, 28);
       tr.appendChild(tdLabel);
 
@@ -714,9 +720,26 @@
           (isPast ? 'opacity:0.55;' : '') +
           (hasRecettes ? 'cursor:pointer;' : '');
         if (hasRecettes && typeof onCellTap === 'function') {
-          (function (s) {
+          (function (s, dayJ) {
+            cell.setAttribute('role', 'button');
+            cell.setAttribute('tabindex', '0');
+            var dayLbl = (byJour[dayJ] && byJour[dayJ].date)
+              ? (dayLabelFromDate(byJour[dayJ].date) || JOURS_SHORT[dayJ % 7])
+              : JOURS_SHORT[dayJ % 7];
+            var nomsLbl = (s.recetteNoms && s.recetteNoms.length > 0)
+              ? ' : ' + s.recetteNoms.join(', ')
+              : '';
+            cell.setAttribute('aria-label',
+              'Voir la recette — ' + repasShort(repas) + ' ' + dayLbl + nomsLbl);
             cell.addEventListener('click', function () { onCellTap(s); });
-          })(slot);
+            cell.addEventListener('keydown', function (ev) {
+              if (ev.keyCode === 13 || ev.keyCode === 32 ||
+                  ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') {
+                ev.preventDefault();
+                onCellTap(s);
+              }
+            });
+          })(slot, jj);
         }
         if (!slot || (slot.recetteNoms.length === 0 && slot.profilsCount === 0)) {
           cell.style.opacity = '0.3';
@@ -753,6 +776,8 @@
     var b = document.createElement('button');
     b.type = 'button';
     b.title = title;
+    b.setAttribute('aria-label', title);
+    if (!enabled) b.setAttribute('aria-disabled', 'true');
     b.innerHTML = label;
     b.style.cssText =
       'width:38px; height:38px; padding:0; border-radius:50%; ' +

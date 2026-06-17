@@ -666,7 +666,8 @@
       for (var i = 0; i < REPAS.length; i++) {
         var r = REPAS[i];
         var active = pickedRepas[r.key] ? ' is-active' : '';
-        html += '<button type="button" class="wiz-icon-btn' + active + '" data-key="' + r.key + '">' +
+        html += '<button type="button" class="wiz-icon-btn' + active + '" data-key="' + r.key + '"' +
+          ' aria-pressed="' + (pickedRepas[r.key] ? 'true' : 'false') + '">' +
           '<span class="wiz-icon-svg">' + r.svg + '</span>' +
           '<span class="wiz-icon-label">' + escapeHTML(r.label) + '</span>' +
           '</button>';
@@ -685,9 +686,11 @@
             if (pickedRepas[key]) {
               delete pickedRepas[key];
               btn.className = btn.className.replace(/\s*is-active\b/g, '');
+              btn.setAttribute('aria-pressed', 'false');
             } else {
               pickedRepas[key] = true;
               btn.className += ' is-active';
+              btn.setAttribute('aria-pressed', 'true');
             }
           };
         })(btns[b], btns[b].getAttribute('data-key')));
@@ -732,6 +735,7 @@
           '<p class="wiz-frigo-hint">Tape un ingrédient et valide (Entrée ou virgule). Les recettes utilisant tes ingrédients passent en haut.</p>' +
           '<div class="wiz-frigo-input-row">' +
             '<input type="text" class="wiz-frigo-input" data-role="frigo-input" ' +
+              'aria-label="Ajouter un ingrédient que tu as au frigo" ' +
               'placeholder="ex: tomate, oignon, pâtes…" ' +
               'autocapitalize="off" autocorrect="off" spellcheck="false" />' +
             '<button type="button" class="wiz-frigo-add" data-act="frigo-add">Ajouter</button>' +
@@ -891,7 +895,8 @@
         var it = items[j];
         var act = dict[it.key] ? ' is-active' : '';
         html += '<button type="button" class="wiz-icon-btn wiz-icon-btn-sm' + act + '"' +
-          ' data-section="' + name + '" data-key="' + it.key + '">' +
+          ' data-section="' + name + '" data-key="' + it.key + '"' +
+          ' aria-pressed="' + (dict[it.key] ? 'true' : 'false') + '">' +
           '<span class="wiz-icon-svg">' + it.svg + '</span>' +
           '<span class="wiz-icon-label">' + escapeHTML(it.label) + '</span>' +
           '</button>';
@@ -929,9 +934,11 @@
             if (dict[key]) {
               delete dict[key];
               btn.className = btn.className.replace(/\s*is-active\b/g, '');
+              btn.setAttribute('aria-pressed', 'false');
             } else {
               dict[key] = true;
               btn.className += ' is-active';
+              btn.setAttribute('aria-pressed', 'true');
             }
             refreshToggleLabel(sec);
             renderResults();
@@ -984,6 +991,7 @@
         var has2 = btns[i].className.indexOf('is-active') >= 0;
         if (has && !has2) btns[i].className += ' is-active';
         if (!has && has2) btns[i].className = btns[i].className.replace(/\s*is-active\b/g, '');
+        btns[i].setAttribute('aria-pressed', has ? 'true' : 'false');
       }
       refreshToggleLabel(name);
     }
