@@ -180,8 +180,12 @@ export default function DisplayEditor() {
 
   return (
     <div className="space-y-6">
-      <Link to="/displays" className="text-sm text-text-secondaire hover:text-accent-chaud flex items-center gap-1">
-        <ArrowLeft size={14} /> Retour aux écrans
+      <Link
+        to="/displays"
+        aria-label="Retour aux écrans"
+        className="text-sm text-text-secondaire hover:text-accent-chaud flex items-center gap-1"
+      >
+        <ArrowLeft size={14} aria-hidden="true" /> Retour aux écrans
       </Link>
 
       <header className="flex items-start justify-between">
@@ -199,7 +203,7 @@ export default function DisplayEditor() {
             className="btn-secondary flex items-center gap-1"
             title="Force le pré-calcul météo (Open-Meteo)"
           >
-            <RefreshCw size={14} className={refreshWeather.isPending ? "animate-spin" : ""} />
+            <RefreshCw size={14} className={refreshWeather.isPending ? "animate-spin" : ""} aria-hidden="true" />
             Rafraîchir
           </button>
           <button
@@ -249,10 +253,11 @@ export default function DisplayEditor() {
                   />
                   <button
                     onClick={() => removeFromLayout(entry.tileId)}
-                    className="text-text-secondaire hover:text-accent-chaud"
-                    aria-label="Retirer du layout"
+                    className="text-text-secondaire hover:text-accent-chaud p-2.5 -m-2.5 min-h-11 min-w-11 flex items-center justify-center"
+                    aria-label={`Retirer ${tile?.nom ?? "cette tuile"} du layout`}
+                    title={`Retirer ${tile?.nom ?? "cette tuile"} du layout`}
                   >
-                    <X size={18} />
+                    <X size={18} aria-hidden="true" />
                   </button>
                 </li>
               );
@@ -280,7 +285,7 @@ export default function DisplayEditor() {
                   onClick={() => addTileToLayout(t.id)}
                   className="btn-primary text-sm flex items-center gap-1"
                 >
-                  <Plus size={14} /> Ajouter
+                  <Plus size={14} aria-hidden="true" /> Ajouter
                 </button>
               </li>
             ))}
@@ -343,7 +348,7 @@ function Num({
         max={max}
         value={value}
         onChange={(e) => onChange(Number(e.target.value))}
-        className="input w-16 px-2 py-1 text-sm"
+        className="input w-16 px-2 py-2.5 text-sm"
       />
     </label>
   );

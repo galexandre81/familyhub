@@ -29,8 +29,12 @@ export default function Profils() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Link to="/parametres" className="text-text-secondaire hover:text-text-principal">
-          <ArrowLeft size={20} />
+        <Link
+          to="/parametres"
+          aria-label="Retour aux paramètres"
+          className="text-text-secondaire hover:text-text-principal"
+        >
+          <ArrowLeft size={20} aria-hidden="true" />
         </Link>
         <h1 className="text-3xl">Profils famille</h1>
       </div>
@@ -75,7 +79,7 @@ export default function Profils() {
                     onClick={() => setEditingId(p.id)}
                     className="btn-secondary text-sm flex items-center gap-1"
                   >
-                    <Pencil size={14} />
+                    <Pencil size={14} aria-hidden="true" />
                     Modifier
                   </button>
                   <button
@@ -83,7 +87,7 @@ export default function Profils() {
                     disabled={del.isPending}
                     className="text-text-secondaire hover:text-accent-chaud text-sm flex items-center gap-1"
                   >
-                    <Trash2 size={14} />
+                    <Trash2 size={14} aria-hidden="true" />
                     Supprimer
                   </button>
                 </div>
@@ -115,7 +119,7 @@ export default function Profils() {
           onClick={() => setCreating(true)}
           className="btn-primary flex items-center gap-2"
         >
-          <Plus size={16} />
+          <Plus size={16} aria-hidden="true" />
           Nouveau profil
         </button>
       )}

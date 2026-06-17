@@ -6,12 +6,13 @@ import { useAuth } from "../lib/auth";
 import { useActiveHouseholdId, useHouseholds, useTiles } from "../lib/queries";
 import { useDeleteTile } from "../lib/mutations";
 import TileForm from "../components/TileForm";
+import { ErrorState } from "../components/states";
 
 const TYPE_ICONS: Record<string, React.ReactNode> = {
-  clock: <Clock size={18} className="text-accent-chaud" />,
-  weather: <CloudSun size={18} className="text-accent-chaud" />,
-  radio: <RadioIcon size={18} className="text-accent-chaud" />,
-  timer: <Timer size={18} className="text-accent-chaud" />,
+  clock: <Clock size={18} className="text-accent-chaud" aria-hidden="true" />,
+  weather: <CloudSun size={18} className="text-accent-chaud" aria-hidden="true" />,
+  radio: <RadioIcon size={18} className="text-accent-chaud" aria-hidden="true" />,
+  timer: <Timer size={18} className="text-accent-chaud" aria-hidden="true" />,
 };
 
 const TYPE_LABEL: Record<TileType, string> = {
@@ -36,7 +37,12 @@ export default function Tiles() {
   const { user } = useAuth();
   const { data: households } = useHouseholds(user?.uid);
   const householdId = useActiveHouseholdId(user?.uid);
-  const { data: tiles, isLoading } = useTiles(householdId);
+  const {
+    data: tiles,
+    isLoading,
+    isError,
+    refetch,
+  } = useTiles(householdId);
   const deleteTile = useDeleteTile();
 
   const [showForm, setShowForm] = useState(false);
@@ -74,7 +80,14 @@ export default function Tiles() {
 
       {isLoading && <p className="text-text-secondaire">Chargement…</p>}
 
-      {!isLoading && (showForm || !tiles || tiles.length === 0) && (
+      {isError && (
+        <ErrorState
+          message="Impossible de charger les tuiles."
+          onRetry={() => void refetch()}
+        />
+      )}
+
+      {!isLoading && !isError && (showForm || !tiles || tiles.length === 0) && (
         <TileForm
           householdId={householdId}
           defaultLocation={household?.parametres?.localisation}
@@ -98,10 +111,11 @@ export default function Tiles() {
                       void deleteTile.mutate({ householdId, tileId: t.id });
                     }
                   }}
-                  className="text-text-secondaire hover:text-accent-chaud"
-                  aria-label="Supprimer"
+                  className="text-text-secondaire hover:text-accent-chaud p-2.5 -m-2.5 min-h-11 min-w-11 flex items-center justify-center"
+                  aria-label={`Supprimer la tuile ${t.nom}`}
+                  title={`Supprimer la tuile ${t.nom}`}
                 >
-                  <Trash2 size={16} />
+                  <Trash2 size={16} aria-hidden="true" />
                 </button>
               </div>
               <h2 className="text-xl">{t.nom}</h2>

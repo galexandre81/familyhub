@@ -83,11 +83,15 @@ export default function MenuImport() {
   return (
     <div className="space-y-6 max-w-4xl">
       <div className="flex items-center gap-3">
-        <Link to="/menu/nouveau" className="text-cream-mute hover:text-cream">
-          <ArrowLeft size={20} />
+        <Link
+          to="/menu/nouveau"
+          aria-label="Retour au nouveau plan"
+          className="text-cream-mute hover:text-cream"
+        >
+          <ArrowLeft size={20} aria-hidden="true" />
         </Link>
         <h1 className="text-3xl flex items-center gap-3">
-          <Upload size={26} className="text-brass" />
+          <Upload size={26} className="text-brass" aria-hidden="true" />
           Importer le plan depuis Claude.ai
         </h1>
       </div>
@@ -101,8 +105,11 @@ export default function MenuImport() {
       </div>
 
       <div className="tile-card space-y-3">
-        <label className="block text-sm text-cream-mute">JSON Claude.ai</label>
+        <label htmlFor="json-claude" className="block text-sm text-cream-mute">
+          JSON Claude.ai
+        </label>
         <textarea
+          id="json-claude"
           value={raw}
           onChange={(e) => {
             setRaw(e.target.value);
@@ -134,11 +141,11 @@ export default function MenuImport() {
             >
               {importing ? (
                 <>
-                  <Loader2 size={14} className="animate-spin" /> Import en cours…
+                  <Loader2 size={14} className="animate-spin" aria-hidden="true" /> Import en cours…
                 </>
               ) : (
                 <>
-                  <Upload size={14} /> Importer et activer le plan
+                  <Upload size={14} aria-hidden="true" /> Importer et activer le plan
                 </>
               )}
             </button>
@@ -147,9 +154,9 @@ export default function MenuImport() {
       </div>
 
       {errors && errors.length > 0 && (
-        <div className="tile-card border-copper space-y-2">
+        <div role="alert" className="tile-card border-copper space-y-2">
           <p className="text-copper font-semibold flex items-center gap-2">
-            <XCircle size={16} />
+            <XCircle size={16} aria-hidden="true" />
             JSON invalide ({errors.length} erreur{errors.length > 1 ? "s" : ""})
           </p>
           <ul className="space-y-1 text-sm">
@@ -165,7 +172,7 @@ export default function MenuImport() {
       {validated && !result && (
         <div className="tile-card border-sage space-y-3">
           <p className="text-sage font-semibold flex items-center gap-2">
-            <CheckCircle2 size={16} />
+            <CheckCircle2 size={16} aria-hidden="true" />
             JSON valide
           </p>
           <ul className="text-sm text-cream-mute space-y-1">
@@ -199,7 +206,7 @@ export default function MenuImport() {
       )}
 
       {importError && (
-        <div className="tile-card border-copper">
+        <div role="alert" className="tile-card border-copper">
           <p className="text-copper text-sm">Erreur à l'import : {importError}</p>
         </div>
       )}
@@ -207,7 +214,7 @@ export default function MenuImport() {
       {result && (
         <div className="tile-card border-sage space-y-2">
           <p className="text-sage font-semibold flex items-center gap-2">
-            <CheckCircle2 size={16} />
+            <CheckCircle2 size={16} aria-hidden="true" />
             Plan importé et activé
           </p>
           <ul className="text-sm text-cream-mute space-y-1">

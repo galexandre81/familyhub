@@ -1,10 +1,16 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
 import { useDisplays, useHouseholds, useTiles } from "../lib/queries";
+import { ErrorState } from "../components/states";
 
 export default function Dashboard() {
   const { user } = useAuth();
-  const { data: households, isLoading } = useHouseholds(user?.uid);
+  const {
+    data: households,
+    isLoading,
+    isError,
+    refetch,
+  } = useHouseholds(user?.uid);
   const household = households?.[0];
   const { data: displays } = useDisplays(household?.id);
   const { data: tiles } = useTiles(household?.id);
@@ -33,7 +39,14 @@ export default function Dashboard() {
         <p className="text-ink-mute italic font-serif">Chargement…</p>
       )}
 
-      {!isLoading && households?.length === 0 && (
+      {isError && (
+        <ErrorState
+          message="Impossible de charger vos foyers."
+          onRetry={() => void refetch()}
+        />
+      )}
+
+      {!isLoading && !isError && households?.length === 0 && (
         <div className="tile-card text-center py-12 max-w-xl mx-auto">
           <p className="font-serif italic text-2xl text-ink mb-2">
             Première étape
@@ -47,7 +60,7 @@ export default function Dashboard() {
         </div>
       )}
 
-      {households && households.length > 0 && (
+      {!isError && households && households.length > 0 && (
         <>
           {/* Stats grid */}
           <section className="grid grid-cols-1 md:grid-cols-3 gap-6">
