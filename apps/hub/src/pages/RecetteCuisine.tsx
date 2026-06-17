@@ -1,5 +1,5 @@
-import { useEffect, useMemo, useRef, useState } from "react";
-import { Link, useParams, useSearchParams } from "react-router-dom";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   ArrowRight,
@@ -20,15 +20,24 @@ import { scaleQuantite } from "./RecetteDetail";
  * Pensé tablette / iPad mini en cuisine : grosses zones cliquables, contraste
  * fort, pas de défilement parasite.
  */
+
+/** État d'un minuteur persistant entre les navigations d'étapes. */
+type TimerState = { secondsLeft: number; running: boolean };
+
 export default function RecetteCuisine() {
   const { recetteId } = useParams<{ recetteId: string }>();
   const [search] = useSearchParams();
+  const navigate = useNavigate();
   const portionsParam = parseInt(search.get("portions") ?? "0", 10);
   const { user } = useAuth();
   const householdId = useActiveHouseholdId(user?.uid);
   const { data: recette, isLoading } = useRecette(householdId, recetteId);
 
   const [stepIdx, setStepIdx] = useState(0);
+
+  // État des minuteurs conservé au niveau page, indexé par ordre d'étape :
+  // changer d'étape puis revenir préserve le temps restant et l'état de marche.
+  const [timers, setTimers] = useState<Map<number, TimerState>>(() => new Map());
 
   const sortedEtapes = useMemo(
     () => (recette ? [...recette.etapes].sort((a, b) => a.ordre - b.ordre) : []),
@@ -41,6 +50,33 @@ export default function RecetteCuisine() {
       setStepIdx(sortedEtapes.length - 1);
     }
   }, [stepIdx, sortedEtapes.length]);
+
+  // Destination de sortie : si on vient du menu, on y retourne ; sinon détail recette.
+  const exitTo =
+    search.get("from") === "menu"
+      ? "/menu"
+      : recette
+        ? `/livre-recettes/${recette.id}`
+        : "/livre-recettes";
+
+  // Bouton de fermeture : focus au montage + cible de l'Échap.
+  const closeRef = useRef<HTMLAnchorElement | null>(null);
+
+  // Échap = quitter le mode cuisine.
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") {
+        navigate(exitTo);
+      }
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [navigate, exitTo]);
+
+  // Focus sur le bouton de fermeture au montage (accessibilité dialog).
+  useEffect(() => {
+    closeRef.current?.focus();
+  }, [recette]);
 
   if (isLoading) {
     return (
@@ -62,14 +98,99 @@ export default function RecetteCuisine() {
 
   const targetPortions = portionsParam > 0 ? portionsParam : recette.portions;
   const ratio = targetPortions / recette.portions;
+
+  // Recette sans étapes détaillées : on évite le crash et on propose les ingrédients.
+  if (sortedEtapes.length === 0) {
+    return (
+      <FullscreenWrapper
+        role="dialog"
+        aria-modal="true"
+        aria-label={recette.nom}
+      >
+        <div className="flex items-center justify-between mb-6">
+          <div>
+            <p className="text-xs uppercase tracking-widest text-text-secondaire">
+              Mode cuisine · {targetPortions} pers
+            </p>
+            <h1 className="text-2xl md:text-3xl font-serif">{recette.nom}</h1>
+          </div>
+          <Link
+            ref={closeRef}
+            to={exitTo}
+            className="p-3 rounded-full hover:bg-bordure transition"
+            aria-label="Quitter le mode cuisine"
+          >
+            <X size={24} />
+          </Link>
+        </div>
+
+        <div className="flex-1 min-h-0 overflow-auto flex flex-col">
+          <p className="text-2xl md:text-3xl leading-snug font-serif mb-6">
+            Cette recette n'a pas d'étapes détaillées.
+          </p>
+
+          <details className="mt-2 group" open>
+            <summary className="cursor-pointer text-sm uppercase tracking-widest text-text-secondaire hover:text-text-principal">
+              Voir les ingrédients ({recette.ingredients.length})
+            </summary>
+            <ul className="mt-3 space-y-1 text-sm text-text-secondaire">
+              {recette.ingredients.map((ing, i) => (
+                <li key={`${ing.libelle}-${i}`}>
+                  <span className="font-medium tabular-nums">
+                    {scaleQuantite(ing.quantite, ratio)} {ing.unite}
+                  </span>{" "}
+                  · {ing.libelle}
+                </li>
+              ))}
+            </ul>
+          </details>
+        </div>
+
+        <div className="shrink-0 flex items-center justify-end gap-3 mt-6">
+          <Link
+            to={`/livre-recettes/${recette.id}`}
+            className="btn-primary flex items-center gap-2 px-8 py-3"
+          >
+            Retour à la recette
+            <ArrowRight size={18} />
+          </Link>
+        </div>
+      </FullscreenWrapper>
+    );
+  }
+
   const etape = sortedEtapes[stepIdx];
   const isLast = stepIdx === sortedEtapes.length - 1;
   const isFirst = stepIdx === 0;
 
+  // Accesseurs minuteur pour l'étape courante (sécurisés si etape est absent).
+  const currentOrdre = etape?.ordre;
+  const initialSec = (etape?.dureeMinutes ?? 0) * 60;
+  const timerState: TimerState =
+    currentOrdre !== undefined
+      ? timers.get(currentOrdre) ?? { secondsLeft: initialSec, running: false }
+      : { secondsLeft: initialSec, running: false };
+
+  const setTimerState = useCallback(
+    (ordre: number, updater: (prev: TimerState) => TimerState) => {
+      setTimers((prev) => {
+        const next = new Map(prev);
+        const existing = next.get(ordre) ?? { secondsLeft: initialSec, running: false };
+        next.set(ordre, updater(existing));
+        return next;
+      });
+    },
+    [initialSec],
+  );
+
   return (
-    <FullscreenWrapper>
-      {/* Header : titre + sortie */}
-      <div className="flex items-center justify-between mb-6">
+    <FullscreenWrapper
+      role="dialog"
+      aria-modal="true"
+      aria-label={recette.nom}
+    >
+      {/* Header : titre + sortie (fixe en haut) */}
+      <div className="shrink-0 flex items-center justify-between mb-6">
         <div>
           <p className="text-xs uppercase tracking-widest text-text-secondaire">
             Mode cuisine · {targetPortions} pers
@@ -77,7 +198,8 @@ export default function RecetteCuisine() {
           <h1 className="text-2xl md:text-3xl font-serif">{recette.nom}</h1>
         </div>
         <Link
-          to={`/livre-recettes/${recette.id}`}
+          ref={closeRef}
+          to={exitTo}
           className="p-3 rounded-full hover:bg-bordure transition"
           aria-label="Quitter le mode cuisine"
         >
@@ -85,11 +207,14 @@ export default function RecetteCuisine() {
         </Link>
       </div>
 
-      {/* Progression */}
-      <div className="flex gap-1 mb-6">
+      {/* Progression : segments tappables qui sautent à l'étape (fixe en haut) */}
+      <div className="shrink-0 flex gap-1 mb-6">
         {sortedEtapes.map((_, i) => (
-          <div
+          <button
             key={i}
+            type="button"
+            onClick={() => setStepIdx(i)}
+            aria-label={`Aller à l'étape ${i + 1}`}
             className={`h-1.5 flex-1 rounded-full transition ${
               i < stepIdx
                 ? "bg-accent-chaud"
@@ -101,17 +226,21 @@ export default function RecetteCuisine() {
         ))}
       </div>
 
-      {/* Étape courante : prend toute la place */}
-      <div className="flex-1 flex flex-col">
+      {/* Étape courante : zone scrollable qui prend la place restante */}
+      <div className="flex-1 min-h-0 overflow-auto flex flex-col">
         <div className="text-sm uppercase tracking-widest text-text-secondaire mb-2">
           Étape {stepIdx + 1} / {sortedEtapes.length}
         </div>
         <p className="text-2xl md:text-4xl leading-snug font-serif mb-6">
-          {etape.description}
+          {etape?.description ?? ""}
         </p>
 
-        {etape.dureeMinutes && etape.dureeMinutes > 0 && (
-          <Minuteur key={etape.ordre} initialMinutes={etape.dureeMinutes} />
+        {etape?.dureeMinutes && etape.dureeMinutes > 0 && currentOrdre !== undefined && (
+          <Minuteur
+            initialMinutes={etape.dureeMinutes}
+            state={timerState}
+            onChange={(updater) => setTimerState(currentOrdre, updater)}
+          />
         )}
 
         {/* Ingrédients utiles (toujours visibles à droite/dessous) */}
@@ -132,8 +261,8 @@ export default function RecetteCuisine() {
         </details>
       </div>
 
-      {/* Navigation */}
-      <div className="flex items-center justify-between gap-3 mt-6">
+      {/* Navigation : footer fixe, toujours visible */}
+      <div className="shrink-0 flex items-center justify-between gap-3 mt-6">
         <button
           type="button"
           onClick={() => setStepIdx((i) => Math.max(0, i - 1))}
@@ -145,7 +274,7 @@ export default function RecetteCuisine() {
         </button>
         {isLast ? (
           <Link
-            to={`/livre-recettes/${recette.id}`}
+            to={exitTo}
             className="btn-primary flex items-center gap-2 px-8 py-3"
           >
             Terminer
@@ -166,9 +295,24 @@ export default function RecetteCuisine() {
   );
 }
 
-function FullscreenWrapper({ children }: { children: React.ReactNode }) {
+function FullscreenWrapper({
+  children,
+  role,
+  "aria-modal": ariaModal,
+  "aria-label": ariaLabel,
+}: {
+  children: React.ReactNode;
+  role?: string;
+  "aria-modal"?: boolean | "true" | "false";
+  "aria-label"?: string;
+}) {
   return (
-    <div className="fixed inset-0 bg-fond-principal text-text-principal flex flex-col p-6 md:p-10 overflow-auto z-50">
+    <div
+      role={role}
+      aria-modal={ariaModal}
+      aria-label={ariaLabel}
+      className="fixed inset-0 bg-fond-principal text-text-principal flex flex-col p-6 md:p-10 z-50"
+    >
       {children}
     </div>
   );
@@ -177,13 +321,28 @@ function FullscreenWrapper({ children }: { children: React.ReactNode }) {
 /**
  * Minuteur visuel + sonore (beep simple via Web Audio API à la fin).
  * Compte à rebours en MM:SS, gros affichage.
+ *
+ * L'état (secondsLeft / running) est détenu par la page parente afin de
+ * persister entre les changements d'étape. On reçoit l'état + un setter.
  */
-function Minuteur({ initialMinutes }: { initialMinutes: number }) {
+function Minuteur({
+  initialMinutes,
+  state,
+  onChange,
+}: {
+  initialMinutes: number;
+  state: TimerState;
+  onChange: (updater: (prev: TimerState) => TimerState) => void;
+}) {
   const initialSec = initialMinutes * 60;
-  const [secondsLeft, setSecondsLeft] = useState(initialSec);
-  const [running, setRunning] = useState(false);
+  const { secondsLeft, running } = state;
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const beepedRef = useRef(false);
+
+  // Le beep ne doit retentir qu'une fois ; on réarme dès qu'on quitte zéro.
+  useEffect(() => {
+    if (secondsLeft > 0) beepedRef.current = false;
+  }, [secondsLeft]);
 
   useEffect(() => {
     if (!running) {
@@ -191,26 +350,25 @@ function Minuteur({ initialMinutes }: { initialMinutes: number }) {
       return;
     }
     intervalRef.current = setInterval(() => {
-      setSecondsLeft((s) => {
-        if (s <= 1) {
+      onChange((prev) => {
+        if (prev.secondsLeft <= 1) {
           if (!beepedRef.current) {
             beep();
             beepedRef.current = true;
           }
-          return 0;
+          return { secondsLeft: 0, running: false };
         }
-        return s - 1;
+        return { ...prev, secondsLeft: prev.secondsLeft - 1 };
       });
     }, 1000);
     return () => {
       if (intervalRef.current) clearInterval(intervalRef.current);
     };
-  }, [running]);
+  }, [running, onChange]);
 
   function reset() {
-    setSecondsLeft(initialSec);
-    setRunning(false);
     beepedRef.current = false;
+    onChange(() => ({ secondsLeft: initialSec, running: false }));
   }
 
   const mm = Math.floor(secondsLeft / 60);
@@ -232,8 +390,12 @@ function Minuteur({ initialMinutes }: { initialMinutes: number }) {
           <button
             type="button"
             onClick={() => {
-              if (isDone) reset();
-              setRunning(true);
+              if (isDone) {
+                beepedRef.current = false;
+                onChange(() => ({ secondsLeft: initialSec, running: true }));
+              } else {
+                onChange((prev) => ({ ...prev, running: true }));
+              }
             }}
             className="btn-primary flex items-center gap-2 px-6 py-3"
           >
@@ -243,7 +405,7 @@ function Minuteur({ initialMinutes }: { initialMinutes: number }) {
         ) : (
           <button
             type="button"
-            onClick={() => setRunning(false)}
+            onClick={() => onChange((prev) => ({ ...prev, running: false }))}
             className="btn-secondary flex items-center gap-2 px-6 py-3"
           >
             <Pause size={18} />
