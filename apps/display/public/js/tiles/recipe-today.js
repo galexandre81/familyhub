@@ -324,8 +324,11 @@
 
     var state = {
       idx: 0,
-      portionsTarget: recettes[0].portions || 4,
-      stepIdx: -1   /* -1 = aperçu complet ; 0..N = mode cuisine étape par étape */
+      portionsTarget: recettes[0].portions || 4
+      /* NOTE: pas de stepIdx — le mode "étape par étape" n'est pas implémenté.
+         L'aperçu complet (toutes les étapes listées) est le seul mode. Champ
+         retiré car jamais lu (état mort). Le timer par étape utilise un
+         data-step-idx local, sans rapport avec un curseur d'étape global. */
     };
 
     /* ---- Header : title + tabs si plusieurs recettes + portion picker ---- */
@@ -392,7 +395,10 @@
     /* Tabs si plusieurs recettes */
     if (recettes.length > 1) {
       var tabs = document.createElement('div');
-      tabs.style.cssText = 'display:-webkit-flex; display:flex; gap:6px; margin-top:12px;';
+      /* overflow-x:auto + nowrap : 3+ noms longs scrollent horizontalement au
+         lieu de casser/déborder le header sur iPad mini. */
+      tabs.style.cssText = 'display:-webkit-flex; display:flex; gap:6px; margin-top:12px; ' +
+        'overflow-x:auto; -webkit-overflow-scrolling:touch; white-space:nowrap;';
       header.appendChild(tabs);
       for (var ti = 0; ti < recettes.length; ti++) {
         (function (ix) {
@@ -401,7 +407,8 @@
           btn.setAttribute('data-tab-idx', ix);
           btn.style.cssText =
             'padding:8px 14px; font-size:13px; border:1px solid rgba(217,160,91,0.3); ' +
-            'background:transparent; color:#FAFAF7; border-radius:4px; cursor:pointer;';
+            'background:transparent; color:#FAFAF7; border-radius:4px; cursor:pointer; ' +
+            '-webkit-flex-shrink:0; flex-shrink:0; white-space:nowrap;';
           btn.innerHTML = escapeHtml(recettes[ix].nom || '(sans nom)');
           btn.addEventListener('click', function () {
             state.idx = ix;

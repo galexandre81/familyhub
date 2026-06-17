@@ -638,6 +638,9 @@
     var pickedType  = {};
     var pickedFrigo = []; /* Liste libre d'ingrédients tapés par l'utilisateur (chips) */
     var allRecettes = [];
+    /* Scroll de la liste de résultats mémorisé avant d'ouvrir un détail, pour
+       restaurer la position au retour (container = conteneur scrollable de l'overlay). */
+    var savedListScrollTop = 0;
 
     fetchRecettes().then(function (list) {
       allRecettes = applyConfigFilter(list, config);
@@ -1164,6 +1167,8 @@
     /* ===== Détail recette ===== */
 
     function showDetail(r) {
+      /* Mémorise la position de scroll de la liste pour la restaurer au retour. */
+      savedListScrollTop = container.scrollTop || 0;
       var ingHtml = '';
       for (var i = 0; i < r.ingredients.length; i++) {
         var ing = r.ingredients[i];
@@ -1197,7 +1202,11 @@
         '<h3 class="livre-detail-h3">Étapes</h3>' +
         '<ol class="livre-detail-steps">' + stepHtml + '</ol>';
 
-      wrap.querySelector('[data-act="back-detail"]').addEventListener('click', goStep2);
+      wrap.querySelector('[data-act="back-detail"]').addEventListener('click', function () {
+        goStep2();
+        /* Restaure la position de scroll de la liste après le re-render. */
+        container.scrollTop = savedListScrollTop;
+      });
       container.scrollTop = 0;
     }
   }
