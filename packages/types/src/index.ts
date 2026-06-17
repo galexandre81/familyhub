@@ -15,6 +15,8 @@ export * from "./tiles/shoppingList";
 export * from "./tiles/livreRecettes";
 export * from "./tiles/cuisineQuoi";
 export * from "./profil";
+export * from "./absence";
+export * from "./reglesNutrition";
 export * from "./recette";
 export * from "./mealPlan";
 export * from "./courseItem";
