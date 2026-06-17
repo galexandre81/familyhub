@@ -61,10 +61,11 @@ export default function Layout() {
               </span>
               <button
                 onClick={() => void signOut()}
-                className="text-cream-mute hover:text-brass transition"
+                className="text-cream-mute hover:text-brass transition flex items-center justify-center min-h-11 min-w-11 -mr-2.5"
+                aria-label="Déconnexion"
                 title="Déconnexion"
               >
-                <LogOut size={14} />
+                <LogOut size={14} aria-hidden="true" />
               </button>
             </div>
           </div>

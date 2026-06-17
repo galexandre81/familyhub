@@ -148,7 +148,8 @@ export default function ProfilForm({
               key={c}
               type="button"
               onClick={() => setCouleur(c)}
-              className={`w-9 h-9 rounded-full border-2 transition ${
+              aria-pressed={couleur === c}
+              className={`w-11 h-11 rounded-full border-2 transition ${
                 couleur === c ? "border-text-principal scale-110" : "border-transparent"
               }`}
               style={{ backgroundColor: c }}
@@ -159,7 +160,7 @@ export default function ProfilForm({
             type="color"
             value={couleur}
             onChange={(e) => setCouleur(e.target.value)}
-            className="w-9 h-9 rounded-full cursor-pointer border-0 bg-transparent"
+            className="w-11 h-11 rounded-full cursor-pointer border-0 bg-transparent"
             aria-label="Couleur personnalisée"
           />
         </div>
@@ -170,19 +171,23 @@ export default function ProfilForm({
           <button
             type="button"
             onClick={() => setEmoji(undefined)}
-            className={`w-9 h-9 rounded-md border flex items-center justify-center text-text-secondaire ${
+            aria-pressed={!emoji}
+            aria-label="Aucun emoji"
+            className={`w-11 h-11 rounded-md border flex items-center justify-center text-text-secondaire ${
               !emoji ? "border-accent-chaud" : "border-bordure"
             }`}
             title="Aucun"
           >
-            <X size={14} />
+            <X size={14} aria-hidden="true" />
           </button>
           {EMOJIS_PRESET.map((e) => (
             <button
               key={e}
               type="button"
               onClick={() => setEmoji(e)}
-              className={`w-9 h-9 rounded-md border flex items-center justify-center text-xl transition ${
+              aria-pressed={emoji === e}
+              aria-label={`Emoji ${e}`}
+              className={`w-11 h-11 rounded-md border flex items-center justify-center text-xl transition ${
                 emoji === e ? "border-accent-chaud bg-bordure" : "border-bordure hover:bg-bordure"
               }`}
             >
@@ -288,7 +293,7 @@ function ChipsField({
                   className="text-text-secondaire hover:text-accent-chaud"
                   aria-label={`Retirer ${c}`}
                 >
-                  <X size={12} />
+                  <X size={12} aria-hidden="true" />
                 </button>
               </span>
             ))}
@@ -314,7 +319,7 @@ function ChipsField({
             disabled={!draft.trim()}
             className="btn-secondary text-sm flex items-center gap-1"
           >
-            <Plus size={14} />
+            <Plus size={14} aria-hidden="true" />
             Ajouter
           </button>
         </div>

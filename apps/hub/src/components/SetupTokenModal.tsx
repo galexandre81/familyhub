@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useId, useRef, useState } from "react";
 import QRCode from "react-qr-code";
 import { Copy, Check, ExternalLink, X } from "lucide-react";
 import { useCreateDisplayToken } from "../lib/mutations";
@@ -22,6 +22,9 @@ export default function SetupTokenModal({
   const [shortId, setShortId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [copied, setCopied] = useState<"short" | "long" | "code" | null>(null);
+  const titleId = useId();
+  const dialogRef = useRef<HTMLDivElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
 
   useEffect(() => {
     create
@@ -35,6 +38,41 @@ export default function SetupTokenModal({
       .catch((err) => setError(err instanceof Error ? err.message : "Erreur"));
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [householdId, displayId]);
+
+  /* Dialog a11y : focus initial sur le bouton fermer + restauration au démontage. */
+  useEffect(() => {
+    const previouslyFocused = document.activeElement as HTMLElement | null;
+    closeButtonRef.current?.focus();
+    return () => {
+      previouslyFocused?.focus();
+    };
+  }, []);
+
+  /* Escape ferme + piège le focus à l'intérieur du dialog (Tab cyclique). */
+  function handleKeyDown(e: React.KeyboardEvent<HTMLDivElement>) {
+    if (e.key === "Escape") {
+      e.stopPropagation();
+      onClose();
+      return;
+    }
+    if (e.key !== "Tab") return;
+    const root = dialogRef.current;
+    if (!root) return;
+    const focusable = root.querySelectorAll<HTMLElement>(
+      'a[href], button:not([disabled]), textarea, input, select, summary, [tabindex]:not([tabindex="-1"])',
+    );
+    if (focusable.length === 0) return;
+    const first = focusable[0];
+    const last = focusable[focusable.length - 1];
+    const active = document.activeElement;
+    if (e.shiftKey && active === first) {
+      e.preventDefault();
+      last.focus();
+    } else if (!e.shiftKey && active === last) {
+      e.preventDefault();
+      first.focus();
+    }
+  }
 
   async function copy(text: string, kind: "short" | "long" | "code") {
     try {
@@ -52,21 +90,27 @@ export default function SetupTokenModal({
     <div
       className="fixed inset-0 bg-bg-sombre/50 flex items-center justify-center p-6 z-50 overflow-auto"
       onClick={onClose}
+      onKeyDown={handleKeyDown}
     >
       <div
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby={titleId}
         className="tile-card max-w-2xl w-full space-y-5 relative my-auto"
         onClick={(e) => e.stopPropagation()}
       >
         <button
+          ref={closeButtonRef}
           onClick={onClose}
-          className="absolute top-4 right-4 text-text-secondaire hover:text-accent-chaud"
+          className="absolute top-4 right-4 text-text-secondaire hover:text-accent-chaud flex items-center justify-center min-h-11 min-w-11"
           aria-label="Fermer"
         >
-          <X size={20} />
+          <X size={20} aria-hidden="true" />
         </button>
 
         <div>
-          <h2 className="text-xl">Configurer « {displayNom} »</h2>
+          <h2 id={titleId} className="text-xl">Configurer « {displayNom} »</h2>
           <p className="text-text-secondaire text-sm mt-1">
             Trois façons de transférer la config sur ton iPad. Le code est valide 30 minutes.
           </p>
@@ -92,7 +136,7 @@ export default function SetupTokenModal({
                   onClick={() => copy(shortId, "code")}
                   className="mt-2 text-xs text-text-secondaire hover:text-accent-chaud flex items-center gap-1 mx-auto"
                 >
-                  {copied === "code" ? <Check size={12} /> : <Copy size={12} />}
+                  {copied === "code" ? <Check size={12} aria-hidden="true" /> : <Copy size={12} aria-hidden="true" />}
                   {copied === "code" ? "Copié" : "Copier le code"}
                 </button>
               </div>
@@ -104,7 +148,7 @@ export default function SetupTokenModal({
                 </div>
                 <div className="flex gap-2 mt-2">
                   <button onClick={() => copy(shortUrl, "short")} className="btn-secondary text-xs flex items-center gap-1">
-                    {copied === "short" ? <Check size={12} /> : <Copy size={12} />}
+                    {copied === "short" ? <Check size={12} aria-hidden="true" /> : <Copy size={12} aria-hidden="true" />}
                     {copied === "short" ? "Copié" : "Copier"}
                   </button>
                   <a
@@ -113,7 +157,7 @@ export default function SetupTokenModal({
                     rel="noreferrer"
                     className="btn-primary text-xs flex items-center gap-1"
                   >
-                    <ExternalLink size={12} />
+                    <ExternalLink size={12} aria-hidden="true" />
                     Tester
                   </a>
                 </div>
@@ -145,7 +189,7 @@ export default function SetupTokenModal({
               onClick={() => copy(longUrl, "long")}
               className="mt-2 btn-secondary text-xs flex items-center gap-1"
             >
-              {copied === "long" ? <Check size={12} /> : <Copy size={12} />}
+              {copied === "long" ? <Check size={12} aria-hidden="true" /> : <Copy size={12} aria-hidden="true" />}
               {copied === "long" ? "Copié" : "Copier"}
             </button>
           </details>

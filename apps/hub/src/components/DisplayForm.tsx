@@ -95,6 +95,7 @@ export default function DisplayForm({ householdId, onCreated, onCancel }: Displa
       </Field>
 
       <fieldset className="grid grid-cols-2 gap-3">
+        <legend className="sr-only">Résolution de l'écran</legend>
         <Field label="Largeur (px)">
           <input
             type="number"
@@ -114,6 +115,7 @@ export default function DisplayForm({ householdId, onCreated, onCancel }: Displa
       </fieldset>
 
       <fieldset className="grid grid-cols-3 gap-3">
+        <legend className="sr-only">Disposition de la grille</legend>
         <Field label="Colonnes">
           <input
             type="number"

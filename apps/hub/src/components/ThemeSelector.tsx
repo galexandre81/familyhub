@@ -48,7 +48,7 @@ export default function ThemeSelector({
   return (
     <section className="space-y-3">
       <h2 className="text-xl flex items-center gap-2">
-        <Palette size={20} className="text-brass" />
+        <Palette size={20} className="text-brass" aria-hidden="true" />
         Thème de l'interface
       </h2>
       <p className="text-cream-mute text-sm">
@@ -65,6 +65,9 @@ export default function ThemeSelector({
               type="button"
               onClick={() => pick(t.id)}
               disabled={isPending || update.isPending}
+              aria-pressed={active}
+              aria-current={active ? "true" : undefined}
+              aria-label={`Thème ${t.nom}`}
               className={`relative tile-card !p-3 text-left transition disabled:opacity-60 ${
                 active
                   ? "ring-2 ring-brass"
@@ -99,7 +102,7 @@ export default function ThemeSelector({
                 {t.description}
               </div>
               {(active || isPending) && (
-                <span className="absolute top-2 right-2 text-brass">
+                <span className="absolute top-2 right-2 text-brass" aria-hidden="true">
                   {isPending ? (
                     <Loader2 size={14} className="animate-spin" />
                   ) : (

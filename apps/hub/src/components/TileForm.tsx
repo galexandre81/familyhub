@@ -321,7 +321,7 @@ function LivreRecettesFields({
             onClick={addTag}
             className="btn-secondary text-sm flex items-center gap-1"
           >
-            <Plus size={14} />
+            <Plus size={14} aria-hidden="true" />
             Ajouter
           </button>
         </div>
@@ -332,10 +332,11 @@ function LivreRecettesFields({
                 key={t}
                 type="button"
                 onClick={() => removeTag(t)}
+                aria-label={`Retirer le tag ${t}`}
                 className="text-xs px-2 py-1 rounded-full border border-bordure hover:border-accent-chaud flex items-center gap-1"
               >
                 {t}
-                <Trash2 size={12} />
+                <Trash2 size={12} aria-hidden="true" />
               </button>
             ))}
           </div>
@@ -473,10 +474,10 @@ function TimerFields({
               <button
                 type="button"
                 onClick={() => removePreset(idx)}
-                className="text-text-secondaire hover:text-accent-chaud p-2"
+                className="text-text-secondaire hover:text-accent-chaud p-2.5 min-h-11 min-w-11 flex items-center justify-center"
                 aria-label="Supprimer ce preset"
               >
-                <Trash2 size={16} />
+                <Trash2 size={16} aria-hidden="true" />
               </button>
             </div>
           );
@@ -488,7 +489,7 @@ function TimerFields({
         onClick={addPreset}
         className="btn-secondary text-sm flex items-center gap-1"
       >
-        <Plus size={14} />
+        <Plus size={14} aria-hidden="true" />
         Ajouter un preset
       </button>
     </div>
@@ -504,6 +505,7 @@ function ClockFields({
 }) {
   return (
     <fieldset className="grid grid-cols-2 gap-3">
+      <legend className="sr-only">Options de l'horloge</legend>
       <Field label="Format">
         <select
           value={config.format}
@@ -598,7 +600,7 @@ function WeatherFields({
         onClick={addLocation}
         className="btn-secondary text-sm flex items-center gap-1"
       >
-        <Plus size={14} />
+        <Plus size={14} aria-hidden="true" />
         Ajouter une ville
       </button>
 
@@ -671,10 +673,14 @@ function LocationRow({
         <button
           type="button"
           onClick={onSelect}
-          className={isSelected ? "text-accent-chaud" : "text-text-secondaire hover:text-accent-chaud"}
+          aria-pressed={isSelected}
+          aria-label={isSelected ? "Affichée dans la tuile" : "Choisir comme affichage principal"}
+          className={`flex items-center justify-center min-h-11 min-w-11 ${
+            isSelected ? "text-accent-chaud" : "text-text-secondaire hover:text-accent-chaud"
+          }`}
           title={isSelected ? "Affichée dans la tuile" : "Choisir comme affichage principal"}
         >
-          <Star size={18} fill={isSelected ? "currentColor" : "none"} />
+          <Star size={18} fill={isSelected ? "currentColor" : "none"} aria-hidden="true" />
         </button>
         <div className="flex-1 grid grid-cols-3 gap-2 items-end">
           <div className="col-span-3 flex gap-2">
@@ -691,7 +697,7 @@ function LocationRow({
               disabled={searching || !location.ville.trim()}
               className="btn-secondary text-xs flex items-center gap-1 whitespace-nowrap"
             >
-              <Search size={12} />
+              <Search size={12} aria-hidden="true" />
               {searching ? "…" : "GPS"}
             </button>
           </div>
@@ -729,10 +735,10 @@ function LocationRow({
           <button
             type="button"
             onClick={onRemove}
-            className="text-text-secondaire hover:text-accent-chaud p-1"
+            className="text-text-secondaire hover:text-accent-chaud p-2.5 min-h-11 min-w-11 flex items-center justify-center"
             aria-label="Supprimer cette ville"
           >
-            <Trash2 size={16} />
+            <Trash2 size={16} aria-hidden="true" />
           </button>
         )}
       </div>
@@ -809,16 +815,16 @@ function RadioFields({
             <button
               type="button"
               onClick={() => removeStation(idx)}
-              className="text-text-secondaire hover:text-accent-chaud p-2"
+              className="text-text-secondaire hover:text-accent-chaud p-2.5 min-h-11 min-w-11 flex items-center justify-center"
               aria-label="Supprimer cette station"
             >
-              <Trash2 size={16} />
+              <Trash2 size={16} aria-hidden="true" />
             </button>
           </div>
         ))}
       </div>
       <button type="button" onClick={addStation} className="btn-secondary text-sm flex items-center gap-1">
-        <Plus size={14} />
+        <Plus size={14} aria-hidden="true" />
         Ajouter une station
       </button>
 

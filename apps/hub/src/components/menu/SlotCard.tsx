@@ -171,11 +171,12 @@ export default function SlotCard({
               )}
               <Link
                 to={`/livre-recettes/${r.id}/cuisine?portions=${targetPortions}`}
-                className="text-cream-mute hover:text-brass transition shrink-0"
+                className="text-cream-mute hover:text-brass transition shrink-0 flex items-center justify-center min-h-11 min-w-11"
+                aria-label="Mode cuisine plein écran"
                 title="Mode cuisine plein écran"
                 onClick={(e) => e.stopPropagation()}
               >
-                <ChefHat size={14} />
+                <ChefHat size={14} aria-hidden="true" />
               </Link>
             </div>
           );
@@ -271,7 +272,7 @@ export default function SlotCard({
                 onClick={submitRegen}
                 className="text-brass hover:text-brass-deep text-xs px-2 py-0.5 flex items-center gap-1"
               >
-                <Sparkles size={11} />
+                <Sparkles size={11} aria-hidden="true" />
                 Régénérer
               </button>
             </div>
@@ -289,59 +290,68 @@ export default function SlotCard({
                 setNotesDraft(slot.notes ?? "");
                 setNotesOpen(true);
               }}
-              className={`p-1.5 transition ${
+              className={`p-2.5 min-h-11 min-w-11 flex items-center justify-center transition ${
                 slot.notes
                   ? "text-brass hover:text-brass-deep"
                   : "text-cream-mute hover:text-brass"
               }`}
+              aria-label={slot.notes ? "Éditer la note" : "Ajouter une note"}
               title={slot.notes ? "Éditer la note" : "Ajouter une note"}
             >
-              <MessageSquare size={14} />
+              <MessageSquare size={14} aria-hidden="true" />
             </button>
           )}
           {/* Toggle annulé : icône Ban, dispo si plan actif */}
           {!busy && editable && !isEmpty && (
             <button
               onClick={toggleAnnule}
-              className={`p-1.5 transition ${
+              className={`p-2.5 min-h-11 min-w-11 flex items-center justify-center transition ${
                 isCancelled
                   ? "text-copper hover:text-cream"
                   : "text-cream-mute hover:text-copper"
               }`}
+              aria-label={
+                isCancelled
+                  ? "Réactiver ce repas"
+                  : "Marquer ce repas comme annulé"
+              }
               title={
                 isCancelled
                   ? "Réactiver ce repas"
                   : "Marquer ce repas comme annulé (pizzas commandées, restau…)"
               }
             >
-              <Ban size={14} />
+              <Ban size={14} aria-hidden="true" />
             </button>
           )}
           {!busy && onRegenerate && (
             <button
               onClick={() => setFeedbackOpen(true)}
-              className="p-1.5 text-cream-mute hover:text-brass transition"
+              className="p-2.5 min-h-11 min-w-11 flex items-center justify-center text-cream-mute hover:text-brass transition"
+              aria-label="Régénérer (avec feedback optionnel)"
               title="Régénérer (avec feedback optionnel)"
             >
-              <RefreshCw size={14} />
+              <RefreshCw size={14} aria-hidden="true" />
             </button>
           )}
           {!busy && onRefuse && slot.statut !== "vide" && (
             <button
               onClick={onRefuse}
-              className="p-1.5 text-cream-mute hover:text-copper transition"
+              className="p-2.5 min-h-11 min-w-11 flex items-center justify-center text-cream-mute hover:text-copper transition"
+              aria-label="Refuser"
               title="Refuser"
             >
-              <X size={14} />
+              <X size={14} aria-hidden="true" />
             </button>
           )}
           {!busy && onAccept && slot.statut === "propose" && (
             <button
               onClick={onAccept}
-              className="p-1.5 text-cream-mute hover:text-sage transition"
+              className="p-2.5 min-h-11 min-w-11 flex items-center justify-center text-cream-mute hover:text-sage transition"
+              aria-label="Accepter"
               title="Accepter"
             >
-              <Check size={14} />
+              <Check size={14} aria-hidden="true" />
             </button>
           )}
         </div>
