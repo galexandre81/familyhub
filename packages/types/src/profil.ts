@@ -1,4 +1,5 @@
 import type { Timestamp } from "./common";
+import type { Absence } from "./absence";
 
 /**
  * Profil d'un membre du foyer (Marie, Léo, Alex…).
@@ -24,6 +25,14 @@ export interface Profil {
   prefsCuisson: string[];
   /** Texte libre, ex: "ne mange pas de légumineuses entières — ballonnements". */
   notes?: string;
+  /** Tier 1 — bloquant médical/strict: adapter la recette ou signaler infaisable, jamais rétrograder en aversion. */
+  contraintesMedicales?: { terme: string; type?: "medical" | "strict"; adaptation?: string }[];
+  /** Tier 3 — tolérance digestive conditionnelle: coder la nuance (ex: légumineuses entières interdites, mixées autorisées). */
+  tolerances?: { terme: string; formesInterdites: string[]; formesAutorisees: string[] }[];
+  /** Règles ménage structurées (sortir tout prompt/instruction du champ notes). */
+  reglesMenage?: string[];
+  /** Absences récurrentes propres au profil (les ponctuelles vivent dans l'état du wizard). */
+  absences?: Absence[];
   createdAt: Timestamp;
   updatedAt: Timestamp;
 }
@@ -40,4 +49,10 @@ export interface ProfilSnapshot {
   objectifsNutrition: string[];
   prefsCuisson: string[];
   notes?: string;
+  /** Tier 1 — bloquant médical/strict (figé pour cohérence historique du plan). */
+  contraintesMedicales?: { terme: string; type?: "medical" | "strict"; adaptation?: string }[];
+  /** Tier 3 — tolérance digestive conditionnelle (figé pour cohérence historique du plan). */
+  tolerances?: { terme: string; formesInterdites: string[]; formesAutorisees: string[] }[];
+  /** Règles ménage structurées (figé pour cohérence historique du plan). */
+  reglesMenage?: string[];
 }
