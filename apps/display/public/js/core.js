@@ -22,6 +22,19 @@
      et n'est reset qu'à la résolution finale. */
   var refreshInFlight = false;
 
+  /* Devient true dès que loadDisplayAndTiles() a réussi AU MOINS une fois.
+     Sert à éviter le "reload spiral" : si l'iPad perd le réseau après un
+     boot réussi, on garde le dernier grid affiché et on ne fait PAS de
+     hard reload sur échec d'auth — on retente silencieusement. Le hard
+     reload n'est conservé que pour le cas "le tout premier load n'a
+     jamais abouti" (boot offline pur). */
+  var hasLoadedOnce = false;
+
+  /* Guard pour ne démarrer la boucle de refresh token qu'une seule fois.
+     startTokenRefreshLoop() peut être appelé depuis 2 chemins (succès du
+     1er signin, ET le fallback dans le catch) → sans guard, 2 setInterval. */
+  var tokenRefreshLoopStarted = false;
+
   var state = {
     db: null,
     functions: null,
@@ -161,14 +174,29 @@
             refreshCustomToken(attemptIdx + 1);
           }, REFRESH_RETRY_DELAYS_MS[attemptIdx]);
         } else {
-          /* Tous les retries ont échoué. Reload de la page dans 30s pour
-             re-bootstrap propre. Le reload reset le module state donc
-             refreshInFlight sera réinitialisé. */
-          setAuthBadge('error', detail + ' · reload 30s');
-          setTimeout(function () {
-            var url = window.location.pathname + '?reload=' + Date.now();
-            window.location.replace(url);
-          }, 30 * 1000);
+          /* Tous les retries ont échoué. */
+          if (hasLoadedOnce) {
+            /* On a déjà un grid valide affiché : NE PAS hard-reload (ça
+               viderait l'écran et, hors-ligne, repartirait dans un cycle de
+               reloads). On garde le dernier bon grid, on met le badge en
+               "reconnexion…" et on relance des tentatives silencieuses
+               espacées. refreshInFlight est remis à false pour autoriser un
+               nouveau cycle. */
+            setAuthBadge('error', detail + ' · reconnexion…');
+            refreshInFlight = false;
+            setTimeout(function () {
+              refreshCustomToken(0);
+            }, 60 * 1000);
+          } else {
+            /* Le tout premier load n'a jamais abouti (boot offline pur) :
+               reload de la page dans 30s pour re-bootstrap propre. Le reload
+               reset le module state donc refreshInFlight sera réinitialisé. */
+            setAuthBadge('error', detail + ' · reload 30s');
+            setTimeout(function () {
+              var url = window.location.pathname + '?reload=' + Date.now();
+              window.location.replace(url);
+            }, 30 * 1000);
+          }
         }
       });
   }
@@ -201,6 +229,10 @@
   }
 
   function startTokenRefreshLoop() {
+    /* Guard : ne démarrer qu'une fois (appelé depuis le succès du 1er
+       signin ET depuis le fallback du catch). */
+    if (tokenRefreshLoopStarted) return;
+    tokenRefreshLoopStarted = true;
     setInterval(function () { refreshCustomToken(0); }, CUSTOM_TOKEN_REFRESH_MS);
   }
 
@@ -394,6 +426,9 @@
       if (window.FamilyHubTimers) {
         window.FamilyHubTimers.init(state.db, hid);
       }
+      /* Marque qu'on a au moins un grid valide affiché — désactive le
+         hard-reload sur échec d'auth ultérieur (anti reload-spiral). */
+      hasLoadedOnce = true;
     });
   }
 
@@ -436,13 +471,45 @@
         if (window.console && window.console.log) {
           window.console.log('[display] layout changed, reloading…');
         }
-        /* Cache buster sur le reload pour forcer iOS 9 à re-fetch index.html */
-        var url = window.location.pathname + '?reload=' + Date.now();
-        window.location.replace(url);
+        reloadForLayoutChange();
       }
     }, function (err) {
       if (window.console && window.console.error) window.console.error('display listener', err);
     });
+  }
+
+  /* Hard reload pour re-fetch index.html après un changement de layout.
+     Si l'overlay plein écran est ouvert (ex: une recette lue en grand),
+     on diffère le reload pour ne pas l'arracher sous les yeux : on poll
+     jusqu'à fermeture de l'overlay puis on reload. Idempotent via un flag. */
+  var layoutReloadPending = false;
+  function reloadForLayoutChange() {
+    function doReload() {
+      /* Cache buster sur le reload pour forcer iOS 9 à re-fetch index.html */
+      var url = window.location.pathname + '?reload=' + Date.now();
+      window.location.replace(url);
+    }
+    var overlayOpen = window.FamilyHubOverlay
+      && window.FamilyHubOverlay.isOpen
+      && window.FamilyHubOverlay.isOpen();
+    if (!overlayOpen) {
+      doReload();
+      return;
+    }
+    if (layoutReloadPending) return;
+    layoutReloadPending = true;
+    if (window.console && window.console.log) {
+      window.console.log('[display] overlay open, deferring reload until close');
+    }
+    var poll = setInterval(function () {
+      var stillOpen = window.FamilyHubOverlay
+        && window.FamilyHubOverlay.isOpen
+        && window.FamilyHubOverlay.isOpen();
+      if (!stillOpen) {
+        clearInterval(poll);
+        doReload();
+      }
+    }, 1000);
   }
 
   function layoutKey(layout) {

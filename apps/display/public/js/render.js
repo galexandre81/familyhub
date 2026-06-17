@@ -130,8 +130,22 @@
       }
       return;
     }
+    /* Cleanup de la tuile précédemment rendue dans cette cell AVANT de
+       re-render. Sur un device 24/7, renderTile() est rappelé à chaque
+       snapshot ; sans ça les listeners radio/timer et les setInterval
+       (clock, shopping-list) s'accumulent indéfiniment et fuient. On
+       mémorise le type rendu dans un attribut sur la cell, on le relit
+       au début du re-render, et si son module expose cleanup(container)
+       on l'appelle. cleanupTile() est défensif (vérifie typeof === 'function'
+       et try/catch). */
+    var prevType = cell.getAttribute('data-prev-tile-type');
+    if (prevType) {
+      cleanupTile(prevType, cell);
+    }
+
     try {
       module.render(cell, data || {}, config || {});
+      cell.setAttribute('data-prev-tile-type', type);
     } catch (e) {
       cell.innerHTML = '<div class="tile-title">Erreur rendu ' + type + '</div>';
       if (window.console && window.console.error) {

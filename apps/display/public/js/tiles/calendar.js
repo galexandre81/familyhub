@@ -471,14 +471,18 @@
 
     /* Init */
     updateDots();
-    /* Recalc transform au resize éventuel (orientation) */
-    window.addEventListener('resize', function () { goTo(currentIdx); });
+    /* Recalc transform au resize éventuel (orientation). On retourne le
+       handler pour que expand()/collapse() puissent le removeEventListener
+       — sinon il fuite à chaque ouverture de l'overlay calendrier. */
+    var resizeHandler = function () { goTo(currentIdx); };
+    window.addEventListener('resize', resizeHandler);
 
     return {
       viewport: viewport,
       nav: nav,
       goTo: goTo,
-      pageCount: pageCount
+      pageCount: pageCount,
+      resizeHandler: resizeHandler
     };
   }
 
@@ -514,11 +518,17 @@
     container.appendChild(pager.viewport);
     container.appendChild(pager.nav);
 
-    /* Stocke la ref pager pour cleanup éventuel */
+    /* Stocke la ref pager pour cleanup éventuel + le handler resize pour
+       pouvoir le retirer dans collapse(). */
     container._calPager = pager;
+    container._calResizeHandler = pager.resizeHandler;
   }
 
   function collapse(container) {
+    if (container && container._calResizeHandler) {
+      window.removeEventListener('resize', container._calResizeHandler);
+      container._calResizeHandler = null;
+    }
     if (container && container._calPager) container._calPager = null;
     if (container) container.innerHTML = '';
   }
