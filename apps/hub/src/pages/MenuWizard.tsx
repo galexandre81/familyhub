@@ -143,11 +143,15 @@ export default function MenuWizard() {
   return (
     <div className="space-y-6">
       <div className="flex items-center gap-3">
-        <Link to="/menu" className="text-cream-mute hover:text-cream">
-          <ArrowLeft size={20} />
+        <Link
+          to="/menu"
+          aria-label="Retour au menu"
+          className="text-cream-mute hover:text-cream"
+        >
+          <ArrowLeft size={20} aria-hidden="true" />
         </Link>
         <h1 className="text-3xl flex items-center gap-3">
-          <ChefHat size={26} className="text-brass" />
+          <ChefHat size={26} className="text-brass" aria-hidden="true" />
           Nouveau plan
         </h1>
       </div>
@@ -230,7 +234,11 @@ function Stepper({ current, hasDraft }: { current: WizardStep; hasDraft: boolean
         const done = i < currentIdx || (hasDraft && s.key !== "review" && current === "review");
         const active = s.key === current;
         return (
-          <div key={s.key} className="flex items-center gap-2">
+          <div
+            key={s.key}
+            className="flex items-center gap-2"
+            aria-current={active ? "step" : undefined}
+          >
             <span
               className={`w-6 h-6 rounded-full flex items-center justify-center text-[10px] font-semibold ${
                 active
@@ -282,7 +290,7 @@ function StepDate({
       />
       <div className="flex justify-end">
         <button onClick={onNext} className="btn-primary flex items-center gap-2">
-          Suivant <ArrowRight size={14} />
+          Suivant <ArrowRight size={14} aria-hidden="true" />
         </button>
       </div>
     </div>
@@ -318,7 +326,7 @@ function StepAttendance({
     <div className="space-y-4">
       <div className="tile-card space-y-3">
         <div className="flex items-start gap-3">
-          <Users size={20} className="text-brass shrink-0 mt-1" />
+          <Users size={20} className="text-brass shrink-0 mt-1" aria-hidden="true" />
           <div>
             <h2 className="text-xl mb-1">Qui est là cette semaine ?</h2>
             <p className="text-cream-mute text-sm">
@@ -339,6 +347,7 @@ function StepAttendance({
                 key={p.id}
                 type="button"
                 onClick={() => toggle(p.id)}
+                aria-pressed={on}
                 className={`flex flex-col items-center gap-1.5 p-3 rounded-lg border transition ${
                   on
                     ? "border-brass/40 bg-brass/5"
@@ -376,7 +385,7 @@ function StepAttendance({
           </button>
         </div>
         {noneSelected && (
-          <p className="text-copper text-xs text-center mt-3">
+          <p role="alert" className="text-copper text-xs text-center mt-3">
             Coche au moins une personne pour continuer.
           </p>
         )}
@@ -384,14 +393,14 @@ function StepAttendance({
 
       <div className="flex justify-between">
         <button onClick={onPrev} className="btn-secondary flex items-center gap-2">
-          <ArrowLeft size={14} /> Précédent
+          <ArrowLeft size={14} aria-hidden="true" /> Précédent
         </button>
         <button
           onClick={onNext}
           disabled={noneSelected}
           className="btn-primary flex items-center gap-2 disabled:opacity-40 disabled:cursor-not-allowed"
         >
-          Suivant <ArrowRight size={14} />
+          Suivant <ArrowRight size={14} aria-hidden="true" />
         </button>
       </div>
     </div>
@@ -436,10 +445,10 @@ function StepPresence({
       />
       <div className="flex justify-between">
         <button onClick={onPrev} className="btn-secondary flex items-center gap-2">
-          <ArrowLeft size={14} /> Précédent
+          <ArrowLeft size={14} aria-hidden="true" /> Précédent
         </button>
         <button onClick={onNext} className="btn-primary flex items-center gap-2">
-          Suivant <ArrowRight size={14} />
+          Suivant <ArrowRight size={14} aria-hidden="true" />
         </button>
       </div>
     </div>
@@ -546,20 +555,20 @@ function StepContexte({
         </p>
       </div>
 
-      {error && <p className="text-copper text-sm">{error}</p>}
+      {error && <p role="alert" className="text-copper text-sm">{error}</p>}
 
       <div className="flex justify-between">
         <button onClick={onPrev} className="btn-secondary flex items-center gap-2" disabled={loading}>
-          <ArrowLeft size={14} /> Précédent
+          <ArrowLeft size={14} aria-hidden="true" /> Précédent
         </button>
         <button onClick={onNext} className="btn-primary flex items-center gap-2" disabled={loading}>
           {loading ? (
             <>
-              <Loader2 size={14} className="animate-spin" /> Création…
+              <Loader2 size={14} className="animate-spin" aria-hidden="true" /> Création…
             </>
           ) : (
             <>
-              Créer le brouillon <ArrowRight size={14} />
+              Créer le brouillon <ArrowRight size={14} aria-hidden="true" />
             </>
           )}
         </button>
@@ -693,11 +702,11 @@ function StepReview({
         >
           {copiedPrompt ? (
             <>
-              <Check size={14} className="text-sage" /> Copié
+              <Check size={14} className="text-sage" aria-hidden="true" /> Copié
             </>
           ) : (
             <>
-              <Copy size={14} /> Copier le prompt
+              <Copy size={14} aria-hidden="true" /> Copier le prompt
             </>
           )}
         </button>
@@ -725,11 +734,11 @@ function StepReview({
         >
           {downloadedMd ? (
             <>
-              <Check size={14} className="text-sage" /> Téléchargé
+              <Check size={14} className="text-sage" aria-hidden="true" /> Téléchargé
             </>
           ) : (
             <>
-              <Download size={14} /> Télécharger plan-{dateDebutISO}.md
+              <Download size={14} aria-hidden="true" /> Télécharger plan-{dateDebutISO}.md
             </>
           )}
         </button>
@@ -791,7 +800,7 @@ function StepReview({
               to={`/menu/import?planId=${planId}`}
               className="btn-primary text-sm flex items-center gap-2 w-fit"
             >
-              <Upload size={14} /> J'ai le JSON, importer le plan →
+              <Upload size={14} aria-hidden="true" /> J'ai le JSON, importer le plan →
             </Link>
           </div>
         </div>

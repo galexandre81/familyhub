@@ -14,6 +14,7 @@ import {
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useActiveHouseholdId, useRecettes, type RecetteWithId } from "../lib/queries";
+import { ErrorState } from "../components/states";
 import {
   useDeleteRecette,
   useDownvoteRecette,
@@ -71,7 +72,7 @@ function ssSet(key: string, value: string): void {
 export default function LivreRecettes() {
   const { user } = useAuth();
   const householdId = useActiveHouseholdId(user?.uid);
-  const { data: recettes, isLoading } = useRecettes(householdId);
+  const { data: recettes, isLoading, isError, refetch } = useRecettes(householdId);
   const upvote = useUpvoteRecette();
   const downvote = useDownvoteRecette();
   const restore = useRestoreRecette();
@@ -343,16 +344,21 @@ export default function LivreRecettes() {
 
       {isLoading && <p className="text-cream-mute">Chargement…</p>}
 
-      {!isLoading && filtered.length === 0 && (
+      {isError && (
+        <ErrorState
+          message="Impossible de charger le livre de recettes."
+          onRetry={() => void refetch()}
+        />
+      )}
+
+      {!isLoading && !isError && filtered.length === 0 && (
         <div className="tile-card text-center py-10 text-cream-mute">
           {recettes && recettes.length === 0 ? (
             <>
-              <p className="mb-2">Aucune recette dans le livre.</p>
+              <p className="mb-2">Aucune recette dans le livre pour l'instant.</p>
               <p className="text-sm">
-                Lance le script de seed depuis ton PC :
-                <code className="block mt-2 px-2 py-1 bg-ebony-ridge rounded text-xs text-brass">
-                  cd scripts/seedRecipes && npm run seed -- --household {householdId}
-                </code>
+                Les recettes apparaîtront ici dès que tu auras généré et importé
+                un plan de repas.
               </p>
             </>
           ) : (

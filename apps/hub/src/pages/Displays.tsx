@@ -6,11 +6,17 @@ import { useActiveHouseholdId, useDisplays } from "../lib/queries";
 import { useDeleteDisplay } from "../lib/mutations";
 import DisplayForm from "../components/DisplayForm";
 import SetupTokenModal from "../components/SetupTokenModal";
+import { ErrorState } from "../components/states";
 
 export default function Displays() {
   const { user } = useAuth();
   const householdId = useActiveHouseholdId(user?.uid);
-  const { data: displays, isLoading } = useDisplays(householdId);
+  const {
+    data: displays,
+    isLoading,
+    isError,
+    refetch,
+  } = useDisplays(householdId);
   const deleteDisplay = useDeleteDisplay();
 
   const [showForm, setShowForm] = useState(false);
@@ -47,7 +53,14 @@ export default function Displays() {
 
       {isLoading && <p className="text-text-secondaire">Chargement…</p>}
 
-      {!isLoading && (showForm || !displays || displays.length === 0) && (
+      {isError && (
+        <ErrorState
+          message="Impossible de charger les écrans."
+          onRetry={() => void refetch()}
+        />
+      )}
+
+      {!isLoading && !isError && (showForm || !displays || displays.length === 0) && (
         <DisplayForm
           householdId={householdId}
           onCreated={() => setShowForm(false)}
@@ -62,7 +75,7 @@ export default function Displays() {
               <div className="flex items-start justify-between">
                 <div>
                   <h2 className="text-xl flex items-center gap-2">
-                    <Smartphone size={18} className="text-accent-chaud" />
+                    <Smartphone size={18} className="text-accent-chaud" aria-hidden="true" />
                     {d.nom}
                   </h2>
                   <p className="text-text-secondaire text-sm mt-1">
@@ -79,10 +92,11 @@ export default function Displays() {
                       void deleteDisplay.mutate({ householdId, displayId: d.id });
                     }
                   }}
-                  className="text-text-secondaire hover:text-accent-chaud"
-                  aria-label="Supprimer"
+                  className="text-text-secondaire hover:text-accent-chaud p-2.5 -m-2.5 min-h-11 min-w-11 flex items-center justify-center"
+                  aria-label={`Supprimer l'écran ${d.nom}`}
+                  title={`Supprimer l'écran ${d.nom}`}
                 >
-                  <Trash2 size={18} />
+                  <Trash2 size={18} aria-hidden="true" />
                 </button>
               </div>
               <div className="flex gap-2 pt-2 border-t border-bordure">

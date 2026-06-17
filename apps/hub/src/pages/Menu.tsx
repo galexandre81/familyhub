@@ -45,12 +45,18 @@ import {
 } from "../lib/mutations";
 import MealPlanGrid from "../components/menu/MealPlanGrid";
 import RecetteDetailModal from "../components/menu/RecetteDetailModal";
+import { ErrorState } from "../components/states";
 
 export default function Menu() {
   const { user } = useAuth();
   const householdId = useActiveHouseholdId(user?.uid);
   const { data: profils } = useProfils(householdId);
-  const { data: allPlans, isLoading: loadingPlans } = useAllPlans(householdId);
+  const {
+    data: allPlans,
+    isLoading: loadingPlans,
+    isError: plansError,
+    refetch: refetchPlans,
+  } = useAllPlans(householdId);
   const { data: draftPlan } = useDraftPlan(householdId);
 
   /**
@@ -89,7 +95,7 @@ export default function Menu() {
     <div className="space-y-6">
       <div className="flex items-center justify-between">
         <h1 className="text-3xl flex items-center gap-3">
-          <ChefHat size={26} className="text-brass" />
+          <ChefHat size={26} className="text-brass" aria-hidden="true" />
           Menu de la semaine
         </h1>
         <div className="flex items-center gap-2">
@@ -110,7 +116,14 @@ export default function Menu() {
 
       {loadingPlans && <p className="text-cream-mute">Chargement…</p>}
 
-      {!loadingPlans && (!allPlans || allPlans.length === 0) && !draftPlan && (
+      {plansError && (
+        <ErrorState
+          message="Impossible de charger tes plans de repas."
+          onRetry={() => void refetchPlans()}
+        />
+      )}
+
+      {!loadingPlans && !plansError && (!allPlans || allPlans.length === 0) && !draftPlan && (
         <div className="tile-card text-center py-10">
           <p className="text-lg mb-2">Aucun plan actif.</p>
           <p className="text-cream-mute text-sm mb-4">
@@ -135,18 +148,20 @@ export default function Menu() {
                   onClick={() => canPrev && setSelectedIdx((i) => i + 1)}
                   disabled={!canPrev}
                   title="Semaine précédente (archivée)"
-                  className="p-1.5 rounded border border-bordure text-cream-mute hover:text-brass hover:border-brass disabled:opacity-30 disabled:cursor-not-allowed transition"
+                  aria-label="Semaine précédente (archivée)"
+                  className="p-2.5 min-h-11 min-w-11 flex items-center justify-center rounded border border-bordure text-cream-mute hover:text-brass hover:border-brass disabled:opacity-30 disabled:cursor-not-allowed transition"
                 >
-                  <ChevronLeft size={16} />
+                  <ChevronLeft size={16} aria-hidden="true" />
                 </button>
                 <button
                   type="button"
                   onClick={() => canNext && setSelectedIdx((i) => i - 1)}
                   disabled={!canNext}
                   title="Semaine suivante"
-                  className="p-1.5 rounded border border-bordure text-cream-mute hover:text-brass hover:border-brass disabled:opacity-30 disabled:cursor-not-allowed transition"
+                  aria-label="Semaine suivante"
+                  className="p-2.5 min-h-11 min-w-11 flex items-center justify-center rounded border border-bordure text-cream-mute hover:text-brass hover:border-brass disabled:opacity-30 disabled:cursor-not-allowed transition"
                 >
-                  <ChevronRight size={16} />
+                  <ChevronRight size={16} aria-hidden="true" />
                 </button>
               </div>
               <div className="min-w-0">
@@ -188,12 +203,19 @@ export default function Menu() {
             {!isArchived && (
               <button
                 onClick={async () => {
-                  if (!confirm("Archiver ce plan actif ? (suppression complète)")) return;
+                  if (
+                    !confirm(
+                      "Supprimer définitivement ce plan ? Cette action est irréversible.",
+                    )
+                  )
+                    return;
                   await deletePlan.mutateAsync({ householdId, planId: currentPlan.id });
                 }}
+                title="Supprimer le plan"
+                aria-label="Supprimer le plan"
                 className="text-cream-mute hover:text-copper text-sm flex items-center gap-1"
               >
-                <Trash2 size={14} />
+                <Trash2 size={14} aria-hidden="true" />
                 Supprimer
               </button>
             )}
@@ -280,7 +302,7 @@ function BatchSessionsSection({
   return (
     <section className="space-y-3">
       <h2 className="text-xl flex items-center gap-2">
-        <Clock size={20} className="text-brass" />
+        <Clock size={20} className="text-brass" aria-hidden="true" />
         Batch cooking de la semaine
       </h2>
       <div className="grid gap-3 md:grid-cols-2">
@@ -310,13 +332,15 @@ function BatchSessionsSection({
                       currentDone: s.done,
                     })
                   }
-                  className="shrink-0"
+                  className="shrink-0 p-2.5 -m-2.5 min-h-11 min-w-11 flex items-center justify-center"
                   title={s.done ? "Marquer non terminée" : "Marquer terminée"}
+                  aria-label={s.done ? "Marquer non terminée" : "Marquer terminée"}
+                  aria-pressed={s.done}
                 >
                   {s.done ? (
-                    <CheckCircle2 size={22} className="text-sage" />
+                    <CheckCircle2 size={22} className="text-sage" aria-hidden="true" />
                   ) : (
-                    <Circle size={22} className="text-cream-mute hover:text-brass transition" />
+                    <Circle size={22} className="text-cream-mute hover:text-brass transition" aria-hidden="true" />
                   )}
                 </button>
               </div>
@@ -498,7 +522,7 @@ function ShoppingListSection({
     <section className="space-y-3">
       <div className="flex items-center justify-between flex-wrap gap-2">
         <h2 className="text-xl flex items-center gap-2">
-          <ShoppingCart size={20} className="text-brass" />
+          <ShoppingCart size={20} className="text-brass" aria-hidden="true" />
           Liste de courses
           <span className="text-sm text-cream-mute font-normal">
             ({checkedCount} / {list.items.length})
@@ -752,17 +776,20 @@ function RayonGroup({
 }) {
   const [open, setOpen] = useState(true);
   const label = RAYON_LABELS[rayon] ?? rayon;
+  const panelId = `rayon-panel-${rayon}`;
 
   return (
     <div className="tile-card space-y-2">
       <button
         onClick={() => setOpen((v) => !v)}
+        aria-expanded={open}
+        aria-controls={panelId}
         className="flex items-center gap-2 w-full text-left"
       >
         {open ? (
-          <ChevronDown size={14} className="text-cream-mute" />
+          <ChevronDown size={14} className="text-cream-mute" aria-hidden="true" />
         ) : (
-          <ChevronRight size={14} className="text-cream-mute" />
+          <ChevronRight size={14} className="text-cream-mute" aria-hidden="true" />
         )}
         <span className="eyebrow">{label}</span>
         <span className="text-xs text-cream-mute ml-auto">
@@ -770,7 +797,7 @@ function RayonGroup({
         </span>
       </button>
       {open && (
-        <ul className="space-y-1 pl-4">
+        <ul id={panelId} className="space-y-1 pl-4">
           {items.map((it) => (
             <li key={it.id} className="flex items-start gap-1 group">
               <button
@@ -779,9 +806,9 @@ function RayonGroup({
               >
                 <span className="shrink-0 mt-1 sm:mt-0.5">
                   {it.checked ? (
-                    <CheckCircle2 size={20} className="text-sage sm:w-4 sm:h-4" />
+                    <CheckCircle2 size={20} className="text-sage sm:w-4 sm:h-4" aria-hidden="true" />
                   ) : (
-                    <Circle size={20} className="text-cream-mute hover:text-brass transition sm:w-4 sm:h-4" />
+                    <Circle size={20} className="text-cream-mute hover:text-brass transition sm:w-4 sm:h-4" aria-hidden="true" />
                   )}
                 </span>
                 <span
@@ -801,10 +828,11 @@ function RayonGroup({
               {it.ajoutManuel && (
                 <button
                   onClick={() => onRemove(it.id)}
-                  className="text-cream-mute hover:text-copper opacity-0 group-hover:opacity-100 transition shrink-0 p-1"
-                  title="Retirer cet item"
+                  className="text-cream-mute hover:text-copper focus-visible:text-copper transition shrink-0 p-2.5 min-h-11 min-w-11 flex items-center justify-center"
+                  title={`Retirer ${it.nom}`}
+                  aria-label={`Retirer ${it.nom}`}
                 >
-                  <X size={14} />
+                  <X size={14} aria-hidden="true" />
                 </button>
               )}
             </li>
