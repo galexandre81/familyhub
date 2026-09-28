@@ -26,10 +26,8 @@
   "devDependencies": {
     "@typescript-eslint/eslint-plugin": "^7.0.0",
     "@typescript-eslint/parser": "^7.0.0",
-    "@vitest/ui": "^4.1.5",
     "eslint": "^8.57.0",
     "eslint-config-google": "^0.14.0",
-    "typescript": "^5.4.0",
-    "vitest": "^4.1.5"
+    "typescript": "^5.4.0"
   }
 }
