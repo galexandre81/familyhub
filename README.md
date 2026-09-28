@@ -82,7 +82,7 @@
 
 - **`apps/hub/`** : interface React/Vite/TS pour PC + mobile responsive (édition, wizard, gestion)
 - **`apps/display/`** : site vanilla JS ES5 pour iPad mini 1 (iOS 9.3.6) et autres écrans d'affichage uniquement
-- **`functions/`** : Cloud Functions Node 20 (snapshot builders, calendrier iCal, refresh météo, etc.)
+- **`functions/`** : Cloud Functions Node 22 (snapshot builders, calendrier iCal, refresh météo, etc.)
 - **`packages/types/`** : interfaces TypeScript Firestore partagées Hub / Functions
 
 L'iPad mini 1 est **read-only** (custom token), il consomme les snapshots pré-calculés par les Cloud Functions toutes les 30 minutes.
@@ -95,7 +95,7 @@ L'iPad mini 1 est **read-only** (custom token), il consomme les snapshots pré-c
 |---|---|
 | Frontend hub | React 18 + Vite + TypeScript + Tailwind CSS |
 | Frontend display | HTML + JS ES5 + Firebase SDK v8 compat (iOS 9.3.6 OK) |
-| Backend | Firebase Cloud Functions (Node 20, 2nd gen) |
+| Backend | Firebase Cloud Functions (Node 22, 2nd gen) |
 | Base de données | Cloud Firestore |
 | Auth | Firebase Auth — Google OAuth |
 | Hosting | Firebase Hosting (CDN global) |
@@ -109,7 +109,7 @@ L'iPad mini 1 est **read-only** (custom token), il consomme les snapshots pré-c
 
 > Pour l'installation utilisateur final : voir [ONBOARDING.md](./ONBOARDING.md).
 
-**Prérequis** : Node.js ≥ 20, Firebase CLI (`npm i -g firebase-tools`), un projet Firebase à toi avec plan Blaze.
+**Prérequis** : Node.js ≥ 22, Firebase CLI (`npm i -g firebase-tools`), un projet Firebase à toi avec plan Blaze.
 
 ```bash
 # Cloner

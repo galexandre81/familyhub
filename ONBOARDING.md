@@ -221,7 +221,7 @@ Node.js est requis pour compiler le projet et utiliser Firebase CLI.
 ### Sur Windows ET Mac (méthode simple)
 
 1. Va sur [https://nodejs.org/fr](https://nodejs.org/fr)
-2. Clique sur le bouton **LTS** (Long Term Support, version stable) — il devrait afficher quelque chose comme "20.X.X LTS"
+2. Clique sur le bouton **LTS** (Long Term Support, version stable) — il devrait afficher quelque chose comme "22.X.X LTS" ou plus récent
 3. Le téléchargement démarre. Une fois fini, ouvre le fichier téléchargé.
 4. Suis l'installateur en cliquant **Suivant** / **Next** plusieurs fois (laisse tous les choix par défaut). Sur Windows, accepte la case "Automatically install the necessary tools" si elle apparaît.
 5. À la fin, clique **Terminer** / **Finish**.
@@ -234,7 +234,7 @@ Ouvre un **nouveau** terminal (important : un nouveau, pas un déjà ouvert avan
 node --version
 ```
 
-Tu devrais voir s'afficher quelque chose comme `v20.11.0`. Si oui, parfait.
+Tu devrais voir s'afficher quelque chose comme `v22.x.x` (ou plus récent). Si oui, parfait.
 
 Tape ensuite :
 
@@ -365,9 +365,11 @@ Tu arrives sur le tableau de bord de ton projet Firebase. Bravo !
 >
 > Comme ça, si jamais tu reçois un mail "tu as dépassé 0,50€", tu sauras qu'il y a un truc anormal et tu pourras me contacter (ou Claude.ai 😄). En usage normal famille, **tu ne recevras jamais ce mail**.
 
+> 🧭 **La console Firebase change régulièrement de menus.** L'ancienne rubrique **Build / Créer** n'existe plus : les produits sont maintenant rangés par catégories dans le menu de gauche (selon la version, **Bases de données et stockage**, **Hébergement et sans serveur**, **Sécurité**…), ou accessibles via **Toutes les catégories / Tous les produits**. Si tu ne trouves pas un produit, le plus simple est de taper son nom (« Authentication », « Firestore », « Storage »…) dans la **barre de recherche** en haut de la console.
+
 ## 5.4 Activer Authentication
 
-1. Dans le menu de gauche, sous **Build / Créer**, clique **Authentication**.
+1. Dans le menu de gauche, ouvre **Authentication** (catégorie **Sécurité**, ou via la recherche).
 2. Clique **Commencer**.
 3. Onglet **Méthode de connexion** (sign-in method).
 4. Clique sur **Google** dans la liste des providers.
@@ -377,33 +379,35 @@ Tu arrives sur le tableau de bord de ton projet Firebase. Bravo !
 
 ## 5.5 Activer Firestore Database
 
-1. Dans le menu de gauche, sous **Build**, clique **Firestore Database**.
+1. Dans le menu de gauche, ouvre **Firestore Database** (catégorie **Bases de données et stockage**, ou via la recherche).
 2. Clique **Créer une base de données**.
 3. Sélectionne le mode **Production** (pas le mode test). On configurera les règles de sécurité plus tard via le code.
-4. **Emplacement** : choisis **eur3 (europe-west)** ou **europe-west1** (Belgique). C'est le plus proche pour la France.
+4. **Emplacement** : choisis **eur3 (europe-west)** ou **europe-west1** (Belgique). C'est le plus proche pour la France. **Note l'emplacement choisi** : tu devras choisir le même pour Storage en 5.8.
 5. Clique **Activer**.
 6. Attends 30 secondes — 1 minute.
 
 ## 5.6 Activer Cloud Functions
 
-1. Dans le menu de gauche, sous **Build**, clique **Functions**.
+1. Dans le menu de gauche, ouvre **Functions** (catégorie **Hébergement et sans serveur**, ou via la recherche).
 2. Si tu vois un bouton **Mettre à niveau** ici, c'est que le plan Blaze n'est pas pris. Retourne à 5.3.
 3. Si le plan est bon, clique **Commencer** ou laisse vide — il n'y a pas de fonction à activer manuellement, on les déploie via le code en section 7.
 
 ## 5.7 Activer Hosting
 
-1. Dans le menu de gauche, sous **Build**, clique **Hosting**.
+1. Dans le menu de gauche, ouvre **Hosting** (catégorie **Hébergement et sans serveur**, ou via la recherche).
 2. Clique **Commencer**.
 3. Suis les étapes mais **NE PAS exécuter les commandes qu'il te montre** — on a déjà tout dans le code, on s'en occupera en section 7.
 4. Clique **Suivant** plusieurs fois jusqu'à finir.
 
 ## 5.8 Activer Storage
 
-1. Dans le menu de gauche, sous **Build**, clique **Storage**.
+1. Dans le menu de gauche, ouvre **Storage** (catégorie **Bases de données et stockage**, ou via la recherche).
 2. Clique **Commencer**.
-3. Choisis **mode production**.
-4. Emplacement : laisse celui par défaut (déjà aligné sur Firestore).
-5. Clique **Terminer**.
+3. **Emplacement** : la console ne reprend **plus** automatiquement celui de Firestore. Choisis-le toi-même, **dans la même zone que Firestore** (notée en 5.5) : par exemple **EUROPE-WEST1** (Belgique) si Firestore est en `europe-west1` ou `eur3`. Si la console propose une option « sans frais » limitée à des régions américaines, préfère quand même une région européenne proche de ton Firestore.
+4. Choisis **mode production**.
+5. Clique **Terminer** / **Créer**.
+
+> ⚠️ L'emplacement d'un bucket Storage **ne peut plus être changé** ensuite. Prends une seconde pour vérifier avant de valider.
 
 ## 5.9 Récupérer la "config web" du projet
 
@@ -582,7 +586,7 @@ Le site iPad (display) utilise une config légèrement différente (vieille synt
 3. Remplace son contenu par :
 
 ```javascript
-window.firebaseConfig = {
+window.__FIREBASE_CONFIG__ = {
   apiKey: "AIza...XYZ",
   authDomain: "family-hub-TONNOM.firebaseapp.com",
   projectId: "family-hub-TONNOM",
@@ -594,6 +598,8 @@ window.firebaseConfig = {
 
 Avec **tes** valeurs Firebase, comme dans le `.env.local`.
 
+> ⚠️ Le nom `window.__FIREBASE_CONFIG__` doit rester **exactement** celui-ci (deux soulignés de chaque côté) : c'est ce que lit le code de l'iPad. Avec un autre nom, l'écran reste bloqué sur l'erreur de configuration.
+>
 > ⚠️ Garde **les guillemets**, **les virgules**, **les accolades**. Si tu doutes, copie-colle l'exemple ci-dessus et remplace seulement les valeurs après les `:`.
 
 Sauvegarde.
@@ -690,6 +696,22 @@ Si c'est OK, tu verras `+ Deploy complete!`.
 
 ## 7.4 Déployer les Cloud Functions
 
+### Avant tout : créer le secret du calendrier
+
+Le déploiement des fonctions **échoue** si le secret `CALENDAR_ICAL_URL` n'existe pas, **même si tu n'utilises pas le calendrier**. Crée-le maintenant :
+
+```powershell
+firebase functions:secrets:set CALENDAR_ICAL_URL
+```
+
+Le terminal te demande la valeur :
+- **Tu veux la tuile Calendrier tout de suite** : colle ton URL iCal privée (voir section 10.1 pour la récupérer).
+- **Sinon** : tape simplement `aucun` et appuie Entrée. Toute valeur qui n'est pas une adresse `https://` est traitée comme « pas de calendrier » : rien ne plante, la tuile Calendrier ne se remplit juste pas. Tu mettras la vraie URL plus tard (section 10).
+
+> Si la CLI te demande d'activer l'API Secret Manager, réponds **Y**.
+
+### Déployer
+
 ```powershell
 firebase deploy --only functions
 ```
@@ -700,6 +722,7 @@ firebase deploy --only functions
 > - "Billing account is required" : ton plan Blaze n'est pas activé. Retourne section 5.3.
 > - "Cloud Build API has not been used" : Firebase essaie d'activer automatiquement, attends et relance.
 > - "Permission denied" : ton compte Google n'a pas le bon accès au projet. Refais `firebase login` avec le compte qui a créé le projet en 5.2.
+> - "Failed to validate secret" / "secret CALENDAR_ICAL_URL … not found" : le secret du calendrier n'a pas été créé. Fais l'étape « Avant tout » juste au-dessus, puis relance.
 
 À la fin, tu devrais voir un truc comme :
 
@@ -964,6 +987,8 @@ Il te répond en générant un **artefact** (un encadré spécial) contenant un 
 # 10. Optionnel : calendrier Google iCal
 
 > 🟡 **Cette section est optionnelle**. Tu peux l'ignorer pour l'instant et y revenir plus tard quand tu maîtrises le reste.
+>
+> Le secret `CALENDAR_ICAL_URL` existe déjà depuis la section 7.4 (avec `aucun` si tu n'avais pas encore d'URL). Ici, on remplace simplement sa valeur par la vraie URL.
 
 Si tu veux que la **tuile Calendrier** affiche les événements de ton agenda Google familial, voici comment :
 
@@ -976,7 +1001,7 @@ Si tu veux que la **tuile Calendrier** affiche les événements de ton agenda Go
 
 > ⚠️ Cette URL est secrète : qui l'a peut voir tous tes événements. Ne la partage pas, ne la commit pas dans Git.
 
-## 10.2 La stocker comme secret Firebase
+## 10.2 Mettre l'URL dans le secret Firebase
 
 Dans le terminal, dans le dossier `family-hub` :
 
@@ -984,7 +1009,7 @@ Dans le terminal, dans le dossier `family-hub` :
 firebase functions:secrets:set CALENDAR_ICAL_URL
 ```
 
-Le terminal te demande la valeur du secret. **Colle ton URL iCal**, appuie Entrée.
+Le terminal te demande la valeur du secret. **Colle ton URL iCal**, appuie Entrée. (Ça crée une nouvelle version du secret ; l'ancienne valeur `aucun` n'est plus utilisée.)
 
 ## 10.3 Redéployer les fonctions
 

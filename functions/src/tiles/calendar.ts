@@ -12,8 +12,17 @@ import { rebuildSnapshotForTile } from "../snapshot/builder";
  * URL iCal privée du calendrier Google familial.
  * Stockée dans Google Secret Manager. Set via :
  *   firebase functions:secrets:set CALENDAR_ICAL_URL
+ *
+ * Le secret doit exister pour que `firebase deploy --only functions` passe,
+ * même sans calendrier : on le crée alors avec une valeur bidon (ex. "aucun").
+ * Toute valeur qui n'est pas une URL http(s) vaut "calendrier non configuré".
  */
 const CALENDAR_ICAL_URL = defineSecret("CALENDAR_ICAL_URL");
+
+export function icalUrlConfiguree(valeur: string | undefined): string | null {
+  const url = (valeur ?? "").trim();
+  return /^https?:\/\//i.test(url) ? url : null;
+}
 
 function normalizeCalendarConfig(raw: Record<string, unknown>): CalendarConfig {
   const cfg = raw as Partial<CalendarConfig>;
@@ -184,7 +193,7 @@ export const syncCalendarTile = onCall(
     }
 
     const config = normalizeCalendarConfig(tile.config as Record<string, unknown>);
-    const url = CALENDAR_ICAL_URL.value();
+    const url = icalUrlConfiguree(CALENDAR_ICAL_URL.value());
     if (!url) {
       throw new HttpsError("failed-precondition", "Secret CALENDAR_ICAL_URL non configuré");
     }
@@ -208,9 +217,11 @@ export const scheduledCalendarRefresh = onSchedule(
     const tilesSnap = await db.collectionGroup("tiles").where("type", "==", "calendar").get();
     logger.info(`scheduledCalendarRefresh: ${tilesSnap.size} tile(s)`);
 
-    const url = CALENDAR_ICAL_URL.value();
+    if (tilesSnap.empty) return;
+
+    const url = icalUrlConfiguree(CALENDAR_ICAL_URL.value());
     if (!url) {
-      logger.error("CALENDAR_ICAL_URL non configuré, skip refresh");
+      logger.warn("CALENDAR_ICAL_URL non configuré, skip refresh");
       return;
     }
 
