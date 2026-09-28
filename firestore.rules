@@ -48,7 +48,7 @@ service cloud.firestore {
       // Sans cette garde, n'importe qui pouvait créer un foyer en y inscrivant
       // l'uid d'un autre dans `membres` : le foyer apparaissait chez la victime.
       allow create: if request.auth != null
-                    && request.auth.token.isDisplay != true
+                    && request.auth.token.get('isDisplay', false) != true
                     && request.resource.data.ownerUid == request.auth.uid
                     && request.resource.data.membres == [request.auth.uid]
                     && request.resource.data.keys().hasOnly(
