@@ -26,6 +26,7 @@
     "node": ">=22.0.0"
   },
   "devDependencies": {
-    "acorn": "^8.18.0"
+    "acorn": "^8.18.0",
+    "vitest": "^4.1.11"
   }
 }
