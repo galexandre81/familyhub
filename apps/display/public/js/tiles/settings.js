@@ -64,13 +64,14 @@
     container.innerHTML = '';
 
     var titleEl = document.createElement('div');
-    titleEl.className = 'tile-title';
-    titleEl.style.cssText = 'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; gap:10px;';
+    titleEl.className = 'tile-title fh-gap-r10'; /* ex-gap 10px (Safari 9 ignore gap en flex) */
+    titleEl.style.cssText = 'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center;';
     titleEl.innerHTML = GEAR_SVG + '<span>Réglages</span>';
     container.appendChild(titleEl);
 
     var body = document.createElement('div');
-    body.style.cssText = 'padding:8px 0; display:-webkit-flex; display:flex; -webkit-flex-direction:column; flex-direction:column; gap:14px;';
+    body.style.cssText = 'padding:8px 0; display:-webkit-flex; display:flex; -webkit-flex-direction:column; flex-direction:column;';
+    body.className = 'fh-gap-c14'; /* ex-gap 14px (Safari 9) */
     container.appendChild(body);
 
     /* Thème actif */
@@ -78,8 +79,8 @@
     var themeBlock = document.createElement('div');
     themeBlock.innerHTML =
       '<div style="font-size:10px; letter-spacing:0.18em; text-transform:uppercase; opacity:0.7; margin-bottom:6px">Thème</div>' +
-      '<div style="display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; gap:8px;">' +
-        '<span style="display:-webkit-flex; display:flex; gap:2px;">' +
+      '<div class="fh-gap-r8" style="display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center;">' +
+        '<span class="fh-gap-r2" style="display:-webkit-flex; display:flex;">' +
           '<span style="width:14px;height:14px;background:' + theme.preview.bg + ';border:1px solid ' + theme.preview.card + ';border-radius:2px"></span>' +
           '<span style="width:14px;height:14px;background:' + theme.preview.card + ';border-radius:2px"></span>' +
           '<span style="width:14px;height:14px;background:' + theme.preview.accent + ';border-radius:2px"></span>' +
@@ -151,7 +152,10 @@
       '<h3 style="font-size:13px; letter-spacing:0.2em; text-transform:uppercase; opacity:0.7; margin:0 0 12px 0;">Thème de l\'interface</h3>';
     var grid = document.createElement('div');
     grid.style.cssText =
-      'display:-webkit-flex; display:flex; -webkit-flex-wrap:wrap; flex-wrap:wrap; gap:10px;';
+      'display:-webkit-flex; display:flex; -webkit-flex-wrap:wrap; flex-wrap:wrap;';
+    /* ex-gap 10px (Safari 9) : demi-marges 5px par carte, d'où la base des
+       cartes recalculée à 33.33% - 11px pour tenir toujours 3 par rangée. */
+    grid.className = 'fh-gap-w10';
     var currentId = getCurrentThemeId();
     for (var i = 0; i < THEMES.length; i++) {
       grid.appendChild(makeThemeCard(THEMES[i], currentId === THEMES[i].id));
@@ -234,10 +238,10 @@
     card.style.cssText =
       'background:transparent; border:' + (isActive ? '2px solid #D9A05B' : '1px solid rgba(217,160,91,0.30)') + '; ' +
       'border-radius:6px; padding:14px; cursor:pointer; text-align:left; ' +
-      'min-height:44px; min-width:140px; -webkit-flex:0 1 calc(33.33% - 8px); flex:0 1 calc(33.33% - 8px); ' +
+      'min-height:44px; min-width:140px; -webkit-flex:0 1 calc(33.33% - 11px); flex:0 1 calc(33.33% - 11px); ' +
       'color:inherit;';
     card.innerHTML =
-      '<div style="display:-webkit-flex; display:flex; gap:3px; margin-bottom:8px;">' +
+      '<div class="fh-gap-r3" style="display:-webkit-flex; display:flex; margin-bottom:8px;">' +
         '<span style="width:22px; height:22px; background:' + theme.preview.bg + '; border:1px solid ' + theme.preview.card + '; border-radius:3px"></span>' +
         '<span style="width:22px; height:22px; background:' + theme.preview.card + '; border-radius:3px"></span>' +
         '<span style="width:22px; height:22px; background:' + theme.preview.accent + '; border-radius:3px"></span>' +

@@ -1,10 +1,26 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { Link, useNavigate, useSearchParams } from "react-router-dom";
+import { useQueryClient } from "@tanstack/react-query";
 import { AlertTriangle, ArrowLeft, CheckCircle2, Loader2, Upload, XCircle } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useActiveHouseholdId, usePlan, useProfils } from "../lib/queries";
 import { parsePlanImport, type PlanImport } from "../lib/planImportSchema";
 import { importPlanFromJson, type ImportPlanResult } from "../lib/planImporter";
+
+/** Clés React Query (préfixe `[clé, householdId]`) touchées par un import. */
+const IMPORT_INVALIDATED_KEYS = [
+  "activePlan",
+  "draftPlan",
+  "allPlans",
+  "plan",
+  "planSlots",
+  "planCourses",
+  "planBatchSessions",
+  "planShoppingList",
+  "planRecettes",
+  "recettes",
+  "recette",
+] as const;
 
 export default function MenuImport() {
   const { user } = useAuth();
@@ -22,6 +38,17 @@ export default function MenuImport() {
   const [importing, setImporting] = useState(false);
   const [result, setResult] = useState<ImportPlanResult | null>(null);
   const [importError, setImportError] = useState<string | null>(null);
+  const qc = useQueryClient();
+
+  const hasWarnings = !!result && result.unresolvedProfilNoms.length > 0;
+
+  // Sans avertissement : petit délai pour voir le récap, puis retour au menu.
+  // Avec avertissements : on reste ici, l'utilisateur clique « Continuer ».
+  useEffect(() => {
+    if (!result || hasWarnings) return;
+    const t = setTimeout(() => navigate("/menu"), 2500);
+    return () => clearTimeout(t);
+  }, [result, hasWarnings, navigate]);
 
   function handleValidate() {
     setErrors(null);
@@ -45,9 +72,12 @@ export default function MenuImport() {
         data: validated,
         profils,
       });
+      // L'import écrit directement dans Firestore (plans, slots, recettes,
+      // batch, courses) : tout ce qui est en cache pour ce foyer est périmé.
+      for (const key of IMPORT_INVALIDATED_KEYS) {
+        void qc.invalidateQueries({ queryKey: [key, householdId] });
+      }
       setResult(res);
-      // Petit délai pour que l'utilisateur voie le récap, puis redirige.
-      setTimeout(() => navigate("/menu"), 2500);
     } catch (e) {
       setImportError(e instanceof Error ? e.message : String(e));
     } finally {
@@ -248,7 +278,19 @@ export default function MenuImport() {
               </p>
             </div>
           )}
-          <p className="text-cream-mute text-xs">Redirection vers le menu…</p>
+          {hasWarnings ? (
+            <div className="pt-1">
+              <button
+                type="button"
+                onClick={() => navigate("/menu")}
+                className="btn-primary text-sm"
+              >
+                Continuer
+              </button>
+            </div>
+          ) : (
+            <p className="text-cream-mute text-xs">Redirection vers le menu…</p>
+          )}
         </div>
       )}
     </div>

@@ -4,6 +4,7 @@ import {
   collection,
   deleteDoc,
   doc,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
@@ -11,6 +12,7 @@ import {
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { db, functions } from "./firebase";
+import { isValidIcalUrl } from "./calendarUrl";
 import type {
   DisplayDeviceType,
   DisplayLayoutEntry,
@@ -141,14 +143,87 @@ interface DeleteDisplayInput {
   displayId: string;
 }
 
+/**
+ * Supprime un écran côté serveur (callable `deleteDisplay`) : révoque la
+ * session de l'iPad, supprime son compte Auth, ses codes d'appairage, le doc
+ * display et son snapshot. Un simple deleteDoc laissait l'iPad connecté.
+ */
 export function useDeleteDisplay() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async ({ householdId, displayId }: DeleteDisplayInput) => {
-      await deleteDoc(doc(db, `households/${householdId}/displays/${displayId}`));
+      const fn = httpsCallable<DeleteDisplayInput, { success: true }>(
+        functions,
+        "deleteDisplay",
+      );
+      const res = await fn({ householdId, displayId });
+      return res.data;
     },
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["displays", vars.householdId] });
+      void qc.invalidateQueries({ queryKey: ["display", vars.householdId, vars.displayId] });
+    },
+  });
+}
+
+interface RefreshHouseholdDisplaysResponse {
+  success: true;
+  weeklyMenuTiles: number;
+  recipeTodayTiles: number;
+}
+
+/**
+ * Recalcule tout de suite toutes les tuiles « Menu de la semaine » et
+ * « Recette du jour » du foyer (sinon : une fois par nuit côté serveur).
+ */
+export function useRefreshHouseholdDisplays() {
+  return useMutation({
+    mutationFn: async ({
+      householdId,
+    }: {
+      householdId: string;
+    }): Promise<RefreshHouseholdDisplaysResponse> => {
+      const fn = httpsCallable<{ householdId: string }, RefreshHouseholdDisplaysResponse>(
+        functions,
+        "refreshHouseholdDisplays",
+      );
+      const res = await fn({ householdId });
+      return res.data;
+    },
+  });
+}
+
+/**
+ * Enregistre (ou retire) l'adresse secrète iCal du foyer dans
+ * `households/{hid}/private/calendar`. Lisible par les membres du foyer,
+ * jamais par les iPads. `icalUrl: null` supprime le document.
+ */
+export function useSaveCalendarUrl() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      householdId,
+      icalUrl,
+    }: {
+      householdId: string;
+      icalUrl: string | null;
+    }) => {
+      const ref = doc(db, `households/${householdId}/private/calendar`);
+      if (icalUrl === null) {
+        await deleteDoc(ref);
+        return;
+      }
+      if (!isValidIcalUrl(icalUrl)) {
+        throw new Error("L'adresse iCal doit commencer par https://");
+      }
+      await setDoc(
+        ref,
+        { icalUrl: icalUrl.trim(), updatedAt: serverTimestamp() },
+        { merge: true },
+      );
+    },
+    onSuccess: (_data, vars) => {
+      void qc.invalidateQueries({ queryKey: ["calendarPrivate", vars.householdId] });
     },
   });
 }
@@ -639,83 +714,178 @@ export function useCreateTimer() {
 /* --- Liste de courses (Phase 3.4 — UI minimale, full mobile en 3.4 dédiée) --- */
 
 /**
+ * Clé partagée par toutes les mutations qui touchent `items` : permet de
+ * savoir si une autre écriture est encore en vol avant de refetch (sinon le
+ * refetch écraserait la mise à jour optimiste d'un clic plus récent).
+ */
+export const SHOPPING_ITEMS_MUTATION_KEY = ["shoppingItems"] as const;
+
+/**
+ * Applique UNE modification au tableau `items` d'une liste de courses, dans
+ * une transaction Firestore : on relit le document côté serveur, on applique
+ * le changement (ciblé par id d'item) sur l'état le plus récent, on écrit.
+ * Deux clics rapides ou deux téléphones ne s'annulent donc plus : chaque
+ * écriture part de la version réelle, pas du cache local.
+ */
+async function updateShoppingItems(
+  householdId: string,
+  listId: string,
+  apply: (items: ShoppingListItem[]) => ShoppingListItem[],
+  extra: Record<string, unknown> = {},
+): Promise<void> {
+  const ref = doc(db, `households/${householdId}/shoppingLists/${listId}`);
+  await runTransaction(db, async (tx) => {
+    const snap = await tx.get(ref);
+    if (!snap.exists()) throw new Error("Liste de courses introuvable.");
+    const current = ((snap.data() as { items?: ShoppingListItem[] }).items ?? []).slice();
+    tx.update(ref, {
+      items: apply(current),
+      ...extra,
+      updatedAt: serverTimestamp(),
+    });
+  });
+}
+
+function applyAddItem(items: ShoppingListItem[], item: ShoppingListItem): ShoppingListItem[] {
+  if (items.some((it) => it.id === item.id)) return items;
+  return [...items, item];
+}
+
+function applyRemoveItem(items: ShoppingListItem[], itemId: string): ShoppingListItem[] {
+  return items.filter((it) => it.id !== itemId);
+}
+
+/**
+ * Pose l'état coché demandé (et non un « inverse ») : si deux personnes
+ * cochent le même article, le résultat reste coché au lieu de s'annuler.
+ */
+function applySetChecked(
+  items: ShoppingListItem[],
+  itemId: string,
+  checked: boolean,
+  uid: string,
+): ShoppingListItem[] {
+  return items.map((it) => {
+    if (it.id !== itemId || it.checked === checked) return it;
+    return checked
+      ? ({ ...it, checked: true, checkedAt: new Date(), checkedBy: uid } as unknown as ShoppingListItem)
+      : { ...it, checked: false };
+  });
+}
+
+type ShoppingListCache = { items: ShoppingListItem[] } | null | undefined;
+
+/**
+ * Callbacks communs : mise à jour optimiste du cache `planShoppingList`,
+ * rollback en cas d'erreur, refetch une fois la dernière écriture en vol
+ * terminée.
+ */
+function useShoppingItemsCallbacks<V extends { householdId: string; planId: string }>(
+  applyLocal: (items: ShoppingListItem[], vars: V) => ShoppingListItem[],
+) {
+  const qc = useQueryClient();
+  return {
+    mutationKey: SHOPPING_ITEMS_MUTATION_KEY,
+    onMutate: async (vars: V) => {
+      const key = ["planShoppingList", vars.householdId, vars.planId];
+      await qc.cancelQueries({ queryKey: key });
+      const previous = qc.getQueryData<ShoppingListCache>(key);
+      if (previous) {
+        qc.setQueryData(key, { ...previous, items: applyLocal(previous.items, vars) });
+      }
+      return { previous };
+    },
+    onError: (_err: unknown, vars: V, ctx: { previous: ShoppingListCache } | undefined) => {
+      if (ctx?.previous) {
+        qc.setQueryData(["planShoppingList", vars.householdId, vars.planId], ctx.previous);
+      }
+    },
+    onSettled: (_data: unknown, _err: unknown, vars: V) => {
+      // isMutating compte encore la mutation courante : on ne refetch qu'à la dernière.
+      if (qc.isMutating({ mutationKey: SHOPPING_ITEMS_MUTATION_KEY }) <= 1) {
+        void qc.invalidateQueries({
+          queryKey: ["planShoppingList", vars.householdId, vars.planId],
+        });
+      }
+    },
+  };
+}
+
+interface AddShoppingItemInput {
+  householdId: string;
+  listId: string;
+  planId: string;
+  item: Omit<ShoppingListItem, "id" | "checked" | "ajoutManuel" | "recetteIds">;
+}
+
+type AddShoppingItemVars = AddShoppingItemInput & { itemId: string };
+
+function newManualItem(vars: AddShoppingItemVars): ShoppingListItem {
+  return {
+    ...vars.item,
+    id: vars.itemId,
+    checked: false,
+    ajoutManuel: true,
+    recetteIds: [],
+  };
+}
+
+/**
  * Ajoute un item à la liste de courses (saisie manuelle).
  * Reset `lastSharedAt` à null pour signaler à l'UI qu'une mise à jour
  * existe depuis le dernier partage Keep.
  */
 export function useAddShoppingItem() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({
-      householdId,
-      listId,
-      currentItems,
-      item,
-    }: {
-      householdId: string;
-      listId: string;
-      planId: string;
-      currentItems: ShoppingListItem[];
-      item: Omit<ShoppingListItem, "id" | "checked" | "ajoutManuel" | "recetteIds">;
-    }) => {
-      const newItem: ShoppingListItem = {
-        ...item,
-        id: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-        checked: false,
-        ajoutManuel: true,
-        recetteIds: [],
-      };
-      const newItems = [...currentItems, newItem];
-      await updateDoc(
-        doc(db, `households/${householdId}/shoppingLists/${listId}`),
-        {
-          items: newItems,
-          // Reset shared status : la liste a changé depuis le dernier envoi.
-          lastSharedAt: null,
-          updatedAt: serverTimestamp(),
-        },
+  const callbacks = useShoppingItemsCallbacks<AddShoppingItemVars>((items, vars) =>
+    applyAddItem(items, newManualItem(vars)),
+  );
+  const mutation = useMutation({
+    ...callbacks,
+    mutationFn: async (vars: AddShoppingItemVars) => {
+      await updateShoppingItems(
+        vars.householdId,
+        vars.listId,
+        (items) => applyAddItem(items, newManualItem(vars)),
+        // Reset shared status : la liste a changé depuis le dernier envoi.
+        { lastSharedAt: null },
       );
     },
-    onSuccess: (_data, vars) => {
-      void qc.invalidateQueries({
-        queryKey: ["planShoppingList", vars.householdId, vars.planId],
-      });
-    },
   });
+  // L'id est généré ici pour que le cache optimiste et le serveur aient le même.
+  const withId = (input: AddShoppingItemInput): AddShoppingItemVars => ({
+    ...input,
+    itemId: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
+  });
+  return {
+    ...mutation,
+    mutate: (input: AddShoppingItemInput) => mutation.mutate(withId(input)),
+    mutateAsync: (input: AddShoppingItemInput) => mutation.mutateAsync(withId(input)),
+  };
+}
+
+interface RemoveShoppingItemInput {
+  householdId: string;
+  listId: string;
+  planId: string;
+  itemId: string;
 }
 
 /**
  * Supprime un item de la liste. Reset `lastSharedAt` à null.
  */
 export function useRemoveShoppingItem() {
-  const qc = useQueryClient();
+  const callbacks = useShoppingItemsCallbacks<RemoveShoppingItemInput>((items, vars) =>
+    applyRemoveItem(items, vars.itemId),
+  );
   return useMutation({
-    mutationFn: async ({
-      householdId,
-      listId,
-      itemId,
-      currentItems,
-    }: {
-      householdId: string;
-      listId: string;
-      planId: string;
-      itemId: string;
-      currentItems: ShoppingListItem[];
-    }) => {
-      const newItems = currentItems.filter((it) => it.id !== itemId);
-      await updateDoc(
-        doc(db, `households/${householdId}/shoppingLists/${listId}`),
-        {
-          items: newItems,
-          lastSharedAt: null,
-          updatedAt: serverTimestamp(),
-        },
+    ...callbacks,
+    mutationFn: async ({ householdId, listId, itemId }: RemoveShoppingItemInput) => {
+      await updateShoppingItems(
+        householdId,
+        listId,
+        (items) => applyRemoveItem(items, itemId),
+        { lastSharedAt: null },
       );
-    },
-    onSuccess: (_data, vars) => {
-      void qc.invalidateQueries({
-        queryKey: ["planShoppingList", vars.householdId, vars.planId],
-      });
     },
   });
 }
@@ -753,55 +923,33 @@ export function useMarkShoppingShared() {
   });
 }
 
+interface ToggleShoppingItemInput {
+  householdId: string;
+  listId: string;
+  planId: string;
+  itemId: string;
+  /** État voulu après le clic (= inverse de ce que l'utilisateur voyait). */
+  checked: boolean;
+  uid: string;
+}
+
 /**
- * Toggle l'état coché d'un item de la liste de courses.
- * Stratégie : on relit le doc en client, on remplace l'item dans
- * l'array, on écrit l'array entier. Acceptable pour un foyer (1-2
- * utilisateurs concurrents max).
+ * Coche / décoche un item de la liste de courses, en transaction (cf.
+ * `updateShoppingItems`) : seul l'item ciblé change, sur l'état serveur.
  *
  * Note : le cochage NE reset PAS lastSharedAt (le brief §7.3 précise
  * que seuls les ajouts/retraits le font, pas les cochages).
  */
 export function useToggleShoppingItem() {
-  const qc = useQueryClient();
+  const callbacks = useShoppingItemsCallbacks<ToggleShoppingItemInput>((items, vars) =>
+    applySetChecked(items, vars.itemId, vars.checked, vars.uid),
+  );
   return useMutation({
-    mutationFn: async ({
-      householdId,
-      listId,
-      itemId,
-      items,
-      uid,
-    }: {
-      householdId: string;
-      listId: string;
-      planId: string;
-      itemId: string;
-      items: ShoppingListItem[];
-      uid: string;
-    }) => {
-      const newItems = items.map((it) =>
-        it.id === itemId
-          ? {
-              ...it,
-              checked: !it.checked,
-              ...(it.checked
-                ? {}
-                : { checkedAt: new Date(), checkedBy: uid }),
-            }
-          : it,
+    ...callbacks,
+    mutationFn: async ({ householdId, listId, itemId, checked, uid }: ToggleShoppingItemInput) => {
+      await updateShoppingItems(householdId, listId, (items) =>
+        applySetChecked(items, itemId, checked, uid),
       );
-      await updateDoc(
-        doc(db, `households/${householdId}/shoppingLists/${listId}`),
-        {
-          items: newItems,
-          updatedAt: serverTimestamp(),
-        },
-      );
-    },
-    onSuccess: (_data, vars) => {
-      void qc.invalidateQueries({
-        queryKey: ["planShoppingList", vars.householdId, vars.planId],
-      });
     },
   });
 }

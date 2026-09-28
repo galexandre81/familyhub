@@ -108,6 +108,26 @@
 
   /* ---------- Listener ---------- */
 
+  /* En SDK v8 un onSnapshot en erreur est terminé. On remet state.unsub à
+     null (sinon ensureListener croit écouter encore et ne se ré-abonne
+     jamais) et on retente avec backoff : 5s, 15s, 1min puis plafond 5min. */
+  var LISTEN_RETRY_DELAYS_MS = [5 * 1000, 15 * 1000, 60 * 1000, 5 * 60 * 1000];
+  var listenRetryIdx = 0;
+  var listenRetryTimer = null;
+
+  function scheduleListenRetry() {
+    if (listenRetryTimer) return;
+    var delay = LISTEN_RETRY_DELAYS_MS[Math.min(listenRetryIdx, LISTEN_RETRY_DELAYS_MS.length - 1)];
+    listenRetryIdx++;
+    listenRetryTimer = setTimeout(function () {
+      listenRetryTimer = null;
+      /* Plus aucune cellule affichée : inutile de se ré-abonner, le
+         prochain render() appellera ensureListener() lui-même. */
+      if (state.cells.length === 0) return;
+      ensureListener();
+    }, delay);
+  }
+
   function ensureListener(onUpdate) {
     if (state.unsub) {
       /* Already listening — appelle callback avec la dernière liste connue */
@@ -126,6 +146,7 @@
        par updatedAt desc garantit qu'on prend toujours la dernière. */
     state.unsub = db.collection('households').doc(hid).collection('shoppingLists')
       .onSnapshot(function (snap) {
+        listenRetryIdx = 0;
         if (snap.empty) {
           state.list = null;
           state.listId = null;
@@ -155,6 +176,8 @@
         if (typeof onUpdate === 'function') onUpdate(state.list, state.listId);
       }, function (err) {
         if (window.console && window.console.error) console.error('[shopping-list]', err);
+        state.unsub = null;
+        scheduleListenRetry();
       });
   }
 
@@ -247,7 +270,8 @@
     var hRow = document.createElement('div');
     hRow.style.cssText =
       'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; ' +
-      '-webkit-justify-content:space-between; justify-content:space-between; gap:12px; -webkit-flex-wrap:wrap; flex-wrap:wrap;';
+      '-webkit-justify-content:space-between; justify-content:space-between; -webkit-flex-wrap:wrap; flex-wrap:wrap;';
+    hRow.className = 'fh-gap-w12'; /* ex-gap 12px (Safari 9 ignore gap en flex) */
     header.appendChild(hRow);
 
     var titleBlock = document.createElement('div');
@@ -262,7 +286,8 @@
     sendBtn.style.cssText =
       'background:rgba(217,160,91,0.15); border:1px solid rgba(217,160,91,0.40); ' +
       'border-radius:6px; padding:10px 16px; color:' + BRASS + '; cursor:pointer; font-weight:600; font-size:14px; ' +
-      'display:-webkit-inline-flex; display:inline-flex; -webkit-align-items:center; align-items:center; gap:8px;';
+      'display:-webkit-inline-flex; display:inline-flex; -webkit-align-items:center; align-items:center;';
+    sendBtn.className = 'fh-gap-r8'; /* ex-gap 8px (Safari 9) */
     sendBtn.innerHTML = svgSend(18) + '<span>Envoyer aux courses</span>';
     sendBtn.addEventListener('click', function () {
       handleShare(sendBtn);
@@ -374,9 +399,9 @@
         var qty = formatQuantite(it2.quantite, it2.unite);
         var prefix = it2.checked ? svgCheck(18) : svgCircle(18);
         var lineStyle = 'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; ' +
-                        'gap:10px; padding:8px 0; font-size:14px;' +
+                        'padding:8px 0; font-size:14px;' +
                         (it2.checked ? 'opacity:0.55; text-decoration:line-through;' : '');
-        html += '<li style="' + lineStyle + '">' +
+        html += '<li class="fh-gap-r10" style="' + lineStyle + '">' + /* ex-gap 10px (Safari 9) */
                   '<span style="-webkit-flex-shrink:0; flex-shrink:0; line-height:0">' + prefix + '</span>' +
                   '<span style="-webkit-flex:1; flex:1">' +
                     (qty ? '<span style="font-weight:600; min-width:70px; display:inline-block">' + escapeHtml(qty) + '</span> · ' : '') +

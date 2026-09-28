@@ -35,6 +35,22 @@
      1er signin, ET le fallback dans le catch) → sans guard, 2 setInterval. */
   var tokenRefreshLoopStarted = false;
 
+  /* Chargement initial piloté par l'état d'auth (cf. ensureLoaded) :
+     loadInFlight évite deux loadDisplayAndTiles() concurrents,
+     loadRetryTimer évite d'empiler les re-tentatives programmées. */
+  var loadInFlight = false;
+  var loadRetryTimer = null;
+  var loadRetryIdx = 0;
+  var LOAD_RETRY_DELAYS_MS = [5 * 1000, 15 * 1000, 60 * 1000, 5 * 60 * 1000]; /* 5s, 15s, 1min, plafond 5min */
+
+  /* Re-attache des listeners Firestore après erreur. En SDK v8, un
+     onSnapshot qui reçoit une erreur est TERMINÉ : sans ré-abonnement,
+     l'écran reste figé jusqu'au prochain reload. Backoff par listener,
+     remis à zéro dès qu'un snapshot arrive. */
+  var LISTENER_RETRY_DELAYS_MS = [5 * 1000, 15 * 1000, 60 * 1000, 5 * 60 * 1000];
+  var listenerRetryIdx = {};
+  var listenerRetryTimers = {};
+
   var state = {
     db: null,
     functions: null,
@@ -571,11 +587,33 @@
     });
   }
 
+  /* Programme la ré-attache d'un listener mort (name = clé de backoff).
+     Idempotent : une seule re-tentative en attente par listener. */
+  function scheduleListenerReattach(name, reattach) {
+    if (listenerRetryTimers[name]) return;
+    var idx = listenerRetryIdx[name] || 0;
+    var delay = LISTENER_RETRY_DELAYS_MS[Math.min(idx, LISTENER_RETRY_DELAYS_MS.length - 1)];
+    listenerRetryIdx[name] = idx + 1;
+    if (window.console && window.console.warn) {
+      window.console.warn('[listener] ' + name + ' mort, ré-attache dans ' + Math.round(delay / 1000) + 's');
+    }
+    listenerRetryTimers[name] = setTimeout(function () {
+      listenerRetryTimers[name] = null;
+      reattach();
+    }, delay);
+  }
+
+  /* Un snapshot reçu = listener sain : on repart du plus petit délai. */
+  function listenerHealthy(name) {
+    listenerRetryIdx[name] = 0;
+  }
+
   /* Listener live sur le doc household — détecte changement de thème
      pushé depuis le hub web. Re-applique sans reload. */
   function attachHouseholdListener(householdRef) {
     if (state.householdUnsub) state.householdUnsub();
     state.householdUnsub = householdRef.onSnapshot(function (snap) {
+      listenerHealthy('household');
       if (!snap.exists) return;
       var data = snap.data() || {};
       state.householdConfig = data;
@@ -585,6 +623,11 @@
       }
     }, function (err) {
       if (window.console && window.console.error) window.console.error('household listener', err);
+      /* Listener terminé par le SDK : on l'oublie et on le ré-attache. */
+      state.householdUnsub = null;
+      scheduleListenerReattach('household', function () {
+        attachHouseholdListener(householdRef);
+      });
     });
   }
 
@@ -596,11 +639,14 @@
    * coincé avec les anciens script tags et affiche "Type inconnu" sur
    * les nouvelles tuiles.
    */
-  function attachDisplayConfigListener(displayRef) {
+  function attachDisplayConfigListener(displayRef, isReattach) {
     if (state.displayConfigUnsub) { state.displayConfigUnsub(); }
-    /* Skip le 1er appel (data déjà chargée par loadDisplayAndTiles). */
-    var firstCallback = true;
+    /* Skip le 1er appel (data déjà chargée par loadDisplayAndTiles).
+       Sauf en ré-attache après erreur : le layout a pu changer pendant
+       la coupure, le 1er snapshot doit alors être comparé. */
+    var firstCallback = !isReattach;
     state.displayConfigUnsub = displayRef.onSnapshot(function (snap) {
+      listenerHealthy('display');
       if (firstCallback) { firstCallback = false; return; }
       if (!snap.exists) return;
       var newCfg = snap.data() || {};
@@ -614,6 +660,10 @@
       }
     }, function (err) {
       if (window.console && window.console.error) window.console.error('display listener', err);
+      state.displayConfigUnsub = null;
+      scheduleListenerReattach('display', function () {
+        attachDisplayConfigListener(displayRef, true);
+      });
     });
   }
 
@@ -684,6 +734,7 @@
     if (state.snapshotUnsub) { state.snapshotUnsub(); }
     var snapshotDoc = displayRef.collection('snapshot').doc('current');
     state.snapshotUnsub = snapshotDoc.onSnapshot(function (snap) {
+      listenerHealthy('snapshot');
       if (!snap.exists) return;
       var data = snap.data() || {};
       var tiles = data.tiles || {};
@@ -717,6 +768,10 @@
       }
     }, function (err) {
       if (window.console && window.console.error) window.console.error('snapshot listener', err);
+      state.snapshotUnsub = null;
+      scheduleListenerReattach('snapshot', function () {
+        attachSnapshotListener(displayRef);
+      });
     });
   }
 
@@ -764,6 +819,49 @@
       if (window.console && window.console.error) window.console.error('updateTileConfig failed', err);
     });
   };
+
+  /**
+   * Charge display + tuiles dès qu'un utilisateur Firebase est présent, une
+   * seule fois. Appelé depuis onAuthStateChanged(user) ET depuis la chaîne
+   * de boot : le chargement ne dépend plus d'un setTimeout unique de 3 s
+   * (un refreshDisplayToken plus lent — cold start — laissait l'écran figé
+   * sur « Authentification… » pour toujours). Échec → re-tentative avec
+   * backoff 5 s, 15 s, 1 min, puis toutes les 5 min.
+   */
+  function ensureLoaded() {
+    if (hasLoadedOnce || loadInFlight) return;
+    if (loadRetryTimer) { clearTimeout(loadRetryTimer); loadRetryTimer = null; }
+    if (!state.auth || !state.auth.currentUser) {
+      /* Pas encore d'utilisateur : onAuthStateChanged(user) nous rappellera.
+         Filet de sécurité si l'évènement ne vient jamais (même uid re-signé,
+         pas de changement d'état notifié) : on re-vérifie plus tard. */
+      scheduleLoadRetry();
+      return;
+    }
+    loadInFlight = true;
+    loadDisplayAndTiles().then(function () {
+      loadInFlight = false;
+      loadRetryIdx = 0;
+      startTokenRefreshLoop();
+    }, function (err) {
+      loadInFlight = false;
+      if (window.console && window.console.warn) {
+        window.console.warn('[boot] chargement échoué', err);
+      }
+      scheduleLoadRetry();
+    });
+  }
+
+  function scheduleLoadRetry() {
+    if (hasLoadedOnce || loadRetryTimer) return;
+    var delay = LOAD_RETRY_DELAYS_MS[Math.min(loadRetryIdx, LOAD_RETRY_DELAYS_MS.length - 1)];
+    loadRetryIdx++;
+    setStatus('Connexion… nouvel essai dans ' + Math.round(delay / 1000) + ' s');
+    loadRetryTimer = setTimeout(function () {
+      loadRetryTimer = null;
+      ensureLoaded();
+    }, delay);
+  }
 
   function boot() {
     /* 1. Nettoie l'URL des query params parasites (?reload=, ?token=, etc.).
@@ -823,7 +921,13 @@
        token révoqué…), on déclenche un refresh au lieu d'attendre la
        prochaine opération qui échouerait. */
     state.auth.onAuthStateChanged(function (user) {
-      if (!user && state.householdId && state.displayId) {
+      if (user) {
+        /* Utilisateur présent (signin initial, refresh réussi, session
+           persistée) : c'est ce signal qui déclenche le 1er chargement. */
+        ensureLoaded();
+        return;
+      }
+      if (state.householdId && state.displayId) {
         if (window.console && window.console.warn) {
           window.console.warn('[auth] session lost, attempting refresh');
         }
@@ -843,27 +947,22 @@
       })
       .then(function () {
         setAuthBadge('ok');
-        return loadDisplayAndTiles();
+        /* Idempotent avec l'appel depuis onAuthStateChanged(user). */
+        ensureLoaded();
       })
-      .then(function () { startTokenRefreshLoop(); })
       .catch(function (err) {
         /* Custom token expiré ou invalide → tente refresh complet avec
-           authToken local. Le nouveau retry-x3 + reload-final intégré dans
-           refreshCustomToken garantit qu'on ne reste pas bloqué. */
+           authToken local. Le retry-x3 + reload-final intégré dans
+           refreshCustomToken garantit qu'on ne reste pas bloqué. Dès que
+           le refresh aboutit, onAuthStateChanged(user) → ensureLoaded(),
+           quelle que soit sa durée. ensureLoaded() ici couvre le cas où
+           l'utilisateur est déjà là (pas de changement d'état notifié). */
         if (window.console && window.console.warn) {
           window.console.warn('[auth] initial signin failed, refreshing', err);
         }
         setAuthBadge('refreshing');
         refreshCustomToken(0);
-        /* Tente loadDisplayAndTiles dans 3s — si le refresh a marché entre
-           temps, currentUser sera rempli et on pourra continuer. */
-        setTimeout(function () {
-          if (state.auth.currentUser) {
-            loadDisplayAndTiles().then(function () { startTokenRefreshLoop(); });
-          }
-          /* Sinon : refreshCustomToken poursuit ses retries en arrière-plan
-             et finira par reload la page si tout échoue. */
-        }, 3000);
+        ensureLoaded();
       });
   }
 

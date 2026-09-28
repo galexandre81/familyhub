@@ -102,6 +102,49 @@ describe("parsePlanImport", () => {
     }
   });
 
+  it("accepte une session de batch dans la fenêtre du plan", () => {
+    const plan = minimalPlan();
+    plan.batchSessions.push({
+      tempId: "b1",
+      date: "2026-06-14", // dimanche avant le premier créneau
+      dureeEstimeeMinutes: 90,
+      recetteTempIds: ["r1"],
+    });
+    expect(parse(plan).ok).toBe(true);
+  });
+
+  it("rejette une date de session de batch impossible (2026-02-30)", () => {
+    const plan = minimalPlan();
+    plan.batchSessions.push({
+      tempId: "b1",
+      date: "2026-02-30",
+      dureeEstimeeMinutes: 90,
+      recetteTempIds: ["r1"],
+    });
+    const res = parse(plan);
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(res.errors.some((e) => /batchSessions\.0\.date.*impossible/i.test(e))).toBe(true);
+    }
+  });
+
+  it("rejette une session de batch hors de la fenêtre du plan", () => {
+    const plan = minimalPlan();
+    plan.batchSessions.push({
+      tempId: "b1",
+      date: "2026-04-01", // ~11 semaines avant le créneau du 2026-06-17
+      dureeEstimeeMinutes: 90,
+      recetteTempIds: ["r1"],
+    });
+    const res = parse(plan);
+    expect(res.ok).toBe(false);
+    if (!res.ok) {
+      expect(
+        res.errors.some((e) => /batchSessions\[0\]\.date.*fenêtre du plan/i.test(e)),
+      ).toBe(true);
+    }
+  });
+
   it("rejette un JSON syntaxiquement invalide", () => {
     const res = parsePlanImport("{ pas du json");
     expect(res.ok).toBe(false);

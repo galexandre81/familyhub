@@ -6,7 +6,7 @@
  * - tempId uniques dans recettes et batchSessions
  * - recetteTempIds référencent un tempId existant
  * - batchSessionTempId référence un batchSession.tempId existant
- * - dates dans la fenêtre du plan
+ * - dates dans la fenêtre du plan (créneaux ET sessions de batch)
  */
 
 import { z } from "zod";
@@ -28,6 +28,19 @@ function isRealCalendarDate(iso: string): boolean {
     dt.getMonth() === mo - 1 &&
     dt.getDate() === d
   );
+}
+
+/** Fenêtre maximale d'un plan (créneaux + sessions de batch), en jours. */
+const MAX_PLAN_WINDOW_DAYS = 31;
+
+/** Nombre de jours calendaires entre deux dates `YYYY-MM-DD`, bornes incluses. */
+function spanDaysInclusive(fromIso: string, toIso: string): number {
+  const toLocal = (iso: string) => {
+    const [y, mo, d] = iso.split("-").map(Number);
+    return new Date(y, mo - 1, d);
+  };
+  const ms = toLocal(toIso).getTime() - toLocal(fromIso).getTime();
+  return Math.round(ms / (1000 * 60 * 60 * 24)) + 1;
 }
 
 const RAYON_VALUES = [
@@ -84,7 +97,12 @@ export const RecetteImportSchema = z.object({
 
 export const BatchSessionImportSchema = z.object({
   tempId: z.string().min(1),
-  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "date doit être au format YYYY-MM-DD"),
+  date: z
+    .string()
+    .regex(/^\d{4}-\d{2}-\d{2}$/, "date doit être au format YYYY-MM-DD")
+    .refine(isRealCalendarDate, {
+      message: "date impossible (jour/mois inexistant dans le calendrier)",
+    }),
   dureeEstimeeMinutes: z.number().int().positive(),
   recetteTempIds: z.array(z.string()).min(1),
   notes: z.string().optional(),
@@ -217,18 +235,26 @@ export function parsePlanImport(raw: string): {
     .map((s) => s.date)
     .sort();
   if (slotDatesSorted.length > 0) {
-    const toLocal = (iso: string) => {
-      const [y, mo, d] = iso.split("-").map(Number);
-      return new Date(y, mo - 1, d);
-    };
-    const minDt = toLocal(slotDatesSorted[0]);
-    const maxDt = toLocal(slotDatesSorted[slotDatesSorted.length - 1]);
-    const spanDays =
-      Math.round((maxDt.getTime() - minDt.getTime()) / (1000 * 60 * 60 * 24)) + 1;
-    if (spanDays > 31) {
+    const minIso = slotDatesSorted[0];
+    const maxIso = slotDatesSorted[slotDatesSorted.length - 1];
+    const slotSpan = spanDaysInclusive(minIso, maxIso);
+    if (slotSpan > MAX_PLAN_WINDOW_DAYS) {
       errors.push(
-        `slots : la fenêtre du plan s'étend sur ${spanDays} jours (max 31). Vérifie les dates des créneaux.`,
+        `slots : la fenêtre du plan s'étend sur ${slotSpan} jours (max ${MAX_PLAN_WINDOW_DAYS}). Vérifie les dates des créneaux.`,
       );
+    } else {
+      // Même garde pour les sessions de batch : ajoutée aux créneaux, leur
+      // date ne doit pas étirer la fenêtre du plan au-delà de 31 jours.
+      for (const [i, b] of result.data.batchSessions.entries()) {
+        const lo = b.date < minIso ? b.date : minIso;
+        const hi = b.date > maxIso ? b.date : maxIso;
+        const span = spanDaysInclusive(lo, hi);
+        if (span > MAX_PLAN_WINDOW_DAYS) {
+          errors.push(
+            `batchSessions[${i}].date "${b.date}" sort de la fenêtre du plan (${minIso} → ${maxIso}) : la fenêtre s'étendrait sur ${span} jours (max ${MAX_PLAN_WINDOW_DAYS}).`,
+          );
+        }
+      }
     }
   }
 

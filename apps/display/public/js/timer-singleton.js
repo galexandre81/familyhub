@@ -342,15 +342,31 @@
 
   /* --- Initialisation après auth Firebase --- */
 
-  function init(db, householdId) {
-    if (state.listenerUnsub) state.listenerUnsub();
-    state.db = db;
-    state.householdId = householdId;
+  /* Backoff de ré-abonnement : en SDK v8 un onSnapshot en erreur est
+     terminé. Sans ré-attache, l'alarme ne sonnerait plus jamais pour un
+     minuteur lancé depuis le hub. 5s, 15s, 1min puis plafond 5min. */
+  var LISTEN_RETRY_DELAYS_MS = [5 * 1000, 15 * 1000, 60 * 1000, 5 * 60 * 1000];
+  var listenRetryIdx = 0;
+  var listenRetryTimer = null;
+
+  function scheduleListenRetry() {
+    if (listenRetryTimer) return;
+    var delay = LISTEN_RETRY_DELAYS_MS[Math.min(listenRetryIdx, LISTEN_RETRY_DELAYS_MS.length - 1)];
+    listenRetryIdx++;
+    listenRetryTimer = setTimeout(function () {
+      listenRetryTimer = null;
+      attachListener();
+    }, delay);
+  }
+
+  function attachListener() {
+    if (state.listenerUnsub) { state.listenerUnsub(); state.listenerUnsub = null; }
     var col = colRef(); if (!col) return;
 
     state.listenerUnsub = col
       .orderBy('endsAt', 'asc')
       .onSnapshot(function (snap) {
+        listenRetryIdx = 0;
         var arr = [];
         snap.forEach(function (d) {
           arr.push(Object.assign({ id: d.id }, d.data()));
@@ -360,7 +376,21 @@
            coupe la boucle d'alarme immédiatement (sans attendre tick). */
         if (alarmLoopInterval && !alarmLoopActive()) stopAlarmLoop();
         notify();
+      }, function (err) {
+        if (window.console && window.console.error) window.console.error('[timers] listener', err);
+        /* Listener terminé : on l'oublie et on se ré-abonne plus tard. Les
+           timers déjà connus continuent de décompter via tick(). */
+        state.listenerUnsub = null;
+        scheduleListenRetry();
       });
+  }
+
+  function init(db, householdId) {
+    if (listenRetryTimer) { clearTimeout(listenRetryTimer); listenRetryTimer = null; }
+    listenRetryIdx = 0;
+    state.db = db;
+    state.householdId = householdId;
+    attachListener();
 
     if (rerenderInterval) clearInterval(rerenderInterval);
     rerenderInterval = setInterval(tick, 1000);

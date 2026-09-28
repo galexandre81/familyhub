@@ -46,3 +46,11 @@ Thumbs.db
 
 # Claude / agent artifacts
 .claude/
+
+# Config Firebase de l'iPad : générée au build depuis apps/hub/.env.local
+# (scripts/copy-display-into-hub-dist.mjs), jamais versionnée.
+apps/display/public/js/firebase-config.js
+
+# Tests / émulateurs
+coverage/
+firebase-export-*/

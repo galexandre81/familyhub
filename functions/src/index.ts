@@ -18,6 +18,7 @@ export {
 export {
   refreshWeeklyMenuTile,
   scheduledWeeklyMenuRefresh,
+  refreshHouseholdDisplays,
 } from "./tiles/weeklyMenu";
 
 // Meal planner (Phase 3)
@@ -37,5 +38,5 @@ export {
   createDisplayToken,
   exchangeSetupToken,
   refreshDisplayToken,
-  resolveSetupShortId,
+  deleteDisplay,
 } from "./auth/displayToken";
