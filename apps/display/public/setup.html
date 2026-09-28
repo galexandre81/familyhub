@@ -22,7 +22,8 @@
           Entre le code à 6 caractères affiché dans le hub web<br>
           (Hub → Écrans → cet écran → <em>Configurer cet écran</em>) :
         </p>
-        <div style="display:-webkit-flex; display:flex; gap:8px; -webkit-justify-content:center; justify-content:center;">
+        <!-- Pas de `gap` flex : ignoré par Safari 9 → marge sur le bouton. -->
+        <div style="display:-webkit-flex; display:flex; -webkit-justify-content:center; justify-content:center;">
           <input
             id="setup-code-input"
             type="text"
@@ -37,7 +38,7 @@
           <button
             id="setup-code-btn"
             type="button"
-            style="padding:12px 20px; background:#D9A05B; color:#1F1A14; border:none; border-radius:6px; font-weight:600; font-size:14px; cursor:pointer;"
+            style="margin-left:8px; padding:12px 20px; background:#D9A05B; color:#1F1A14; border:none; border-radius:6px; font-weight:600; font-size:14px; cursor:pointer;"
           >Configurer</button>
         </div>
         <p style="font-size:11px; opacity:0.6; margin-top:12px; line-height:1.5;">
@@ -45,6 +46,21 @@
           stockage séparé de Safari, c'est pour ça qu'il faut re-pairer ici.
           Une fois fait, c'est définitif pour cette icône.
         </p>
+      </div>
+
+      <!-- Confirmation avant échange : le lien /d/CODE (ou ?s=, ?token=) peut
+           être ouvert par erreur sur un téléphone — l'échange consommerait le
+           code sur le mauvais appareil. On n'échange donc qu'au tap. -->
+      <div id="setup-confirm" style="display:none; margin-top:24px; max-width:360px; margin-left:auto; margin-right:auto;">
+        <div id="setup-confirm-code" style="font-family:monospace; font-size:32px; letter-spacing:0.3em; margin-bottom:12px;"></div>
+        <p style="font-size:13px; opacity:0.85; line-height:1.5; margin-bottom:16px;">
+          Ouvre ce lien uniquement sur l'iPad qui servira d'écran.
+        </p>
+        <button
+          id="setup-confirm-btn"
+          type="button"
+          style="padding:16px 24px; background:#D9A05B; color:#1F1A14; border:none; border-radius:6px; font-weight:600; font-size:16px; cursor:pointer;"
+        >Associer cet appareil comme écran</button>
       </div>
 
       <button id="setup-reset-btn" class="error-link" style="display:none; margin-top:24px; border:0; cursor:pointer;">Effacer la configuration de cet appareil</button>
@@ -62,8 +78,8 @@
   window.addEventListener('error', function (e) {
     var s = document.getElementById('setup-status');
     var d = document.getElementById('setup-detail');
-    if (s) s.innerHTML = 'Erreur JS';
-    if (d) d.innerHTML = String((e && e.message) || e) + ' @ ' + ((e && e.filename) || '?') + ':' + ((e && e.lineno) || '?');
+    if (s) s.textContent = 'Erreur JS';
+    if (d) d.textContent = String((e && e.message) || e) + ' @ ' + ((e && e.filename) || '?') + ':' + ((e && e.lineno) || '?');
   });
   </script>
   <script>
@@ -75,9 +91,11 @@
       var pairs = search.split('&');
       for (var i = 0; i < pairs.length; i++) {
         var kv = pairs[i].split('=');
-        if (decodeURIComponent(kv[0]) === name) {
-          return decodeURIComponent(kv[1] || '');
-        }
+        try {
+          if (decodeURIComponent(kv[0]) === name) {
+            return decodeURIComponent(kv[1] || '');
+          }
+        } catch (e) { /* %xx mal formé : URIError, on ignore ce paramètre */ }
       }
       return '';
     }
@@ -85,9 +103,16 @@
     function show(status, detail) {
       var s = document.getElementById('setup-status');
       var d = document.getElementById('setup-detail');
-      if (s && status !== undefined) s.innerHTML = status;
-      if (d && detail !== undefined) d.innerHTML = detail || '';
+      /* textContent et non innerHTML : le détail peut contenir un message
+         serveur ou un code venu de l'URL — jamais interprété comme du HTML. */
+      if (s && status !== undefined) s.textContent = status;
+      if (d && detail !== undefined) d.textContent = detail || '';
     }
+
+    /* Même contrainte pour /d/CODE et ?s=CODE : alphanumérique uniquement.
+       Tout le reste est rejeté avant d'atteindre le DOM ou le serveur. */
+    var SHORT_ID_RE = /^[A-Z0-9]+$/i;
+    var invalidShortIdParam = false;
 
     function detectShortId() {
       // Path-based : /d/ABCXYZ
@@ -96,8 +121,32 @@
       if (m) return m[1].toUpperCase();
       // Query-based : ?s=ABCXYZ
       var s = getQueryParam('s');
-      if (s) return s.toUpperCase();
+      if (s) {
+        if (!SHORT_ID_RE.test(s)) {
+          invalidShortIdParam = true;
+          return null;
+        }
+        return s.toUpperCase();
+      }
       return null;
+    }
+
+    /* Bouton en cours d'échange : désactivé + libellé d'attente, restauré
+       si l'échange échoue (sinon l'utilisateur reste bloqué sans recours). */
+    var busyBtn = null;
+    var busyBtnLabel = '';
+    function lockButton(btn, busyLabel) {
+      if (!btn) return;
+      busyBtn = btn;
+      busyBtnLabel = btn.textContent;
+      btn.disabled = true;
+      btn.textContent = busyLabel;
+    }
+    function unlockButton() {
+      if (!busyBtn) return;
+      busyBtn.disabled = false;
+      busyBtn.textContent = busyBtnLabel;
+      busyBtn = null;
     }
 
     /* --- Bouton reset : efface la config locale et force un re-setup --- */
@@ -188,6 +237,8 @@
         .catch(function (err) {
           var msg = (err && err.message) ? err.message : 'Erreur inconnue';
           show('Échec de la configuration', msg);
+          /* Rend la main : bouton réactivé, libellé d'origine restauré. */
+          unlockButton();
         });
     }
 
@@ -195,7 +246,7 @@
       doExchange(
         { householdId: householdId, displayId: displayId, setupToken: setupToken },
         householdId,
-        displayId,
+        displayId
       );
     }
 
@@ -206,9 +257,33 @@
       doExchange({ shortId: shortId });
     }
 
+    /* Affiche le bloc de confirmation : l'échange ne part qu'au tap sur
+       « Associer cet appareil comme écran », jamais au chargement. Un lien
+       ouvert par erreur sur un téléphone ne consomme donc plus le code. */
+    function showConfirm(codeText, onConfirm) {
+      var box = document.getElementById('setup-confirm');
+      var codeEl = document.getElementById('setup-confirm-code');
+      var confirmBtn = document.getElementById('setup-confirm-btn');
+      if (!box || !confirmBtn) {
+        show('Page de configuration incomplète', 'Recharge la page.');
+        return;
+      }
+      if (codeEl) {
+        codeEl.textContent = codeText || '';
+        codeEl.style.display = codeText ? 'block' : 'none';
+      }
+      box.style.display = 'block';
+      confirmBtn.addEventListener('click', function () {
+        if (busyBtn) return; /* double tap pendant l'échange */
+        lockButton(confirmBtn, 'Association…');
+        onConfirm();
+      });
+    }
+
     var shortId = detectShortId();
     if (shortId) {
-      exchangeByShortId(shortId);
+      show('Associer cet écran', '');
+      showConfirm(shortId, function () { exchangeByShortId(shortId); });
       return;
     }
 
@@ -217,7 +292,8 @@
     var displayId = getQueryParam('display');
 
     if (token && householdId && displayId) {
-      exchange(householdId, displayId, token);
+      show('Associer cet écran', '');
+      showConfirm('', function () { exchange(householdId, displayId, token); });
       return;
     }
 
@@ -226,7 +302,9 @@
        fois (localStorage standalone séparé de Safari). */
     show(
       'Configuration requise',
-      'Cet appareil n\'est pas encore associé à un écran Family Hub.'
+      invalidShortIdParam
+        ? 'Le code du lien est invalide. Saisis-le ci-dessous.'
+        : 'Cet appareil n\'est pas encore associé à un écran Family Hub.'
     );
     var form = document.getElementById('setup-manual-form');
     if (form) form.style.display = 'block';
@@ -240,8 +318,8 @@
         show('Code trop court', 'Le code fait 6 caractères, ex : ABC234.');
         return;
       }
-      btn.disabled = true;
-      btn.innerHTML = 'Configuration…';
+      if (busyBtn) return; /* échange déjà en cours */
+      lockButton(btn, 'Configuration…');
       exchangeByShortId(raw);
     }
     if (btn) btn.addEventListener('click', submitCode);

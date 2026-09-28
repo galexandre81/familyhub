@@ -23,6 +23,8 @@ const MEMBER_UID = "member-1";
 const OUTSIDER_UID = "outsider-1";
 const DISPLAY_ID = "disp-1";
 const DISPLAY_UID = `display:${DISPLAY_ID}`;
+const OTHER_DISPLAY_ID = "disp-2";
+const HID_B = "h2";
 
 // Custom claims carried by a kiosk/display custom token (cf. functions exchangeSetupToken).
 const DISPLAY_CLAIMS = {
@@ -120,6 +122,30 @@ beforeEach(async () => {
       doc(db, "households", HID, "displays", DISPLAY_ID, "snapshot", "current"),
       { generatedAt: 1, ttlSeconds: 3600, tiles: {} },
     );
+    // Un second écran du même foyer : son doc porte ses propres jetons.
+    await setDoc(doc(db, "households", HID, "displays", OTHER_DISPLAY_ID), {
+      nom: "Salon",
+      layout: [],
+      authToken: "secret-de-l-autre-ecran",
+      updatedAt: 1,
+    });
+    await setDoc(
+      doc(db, "households", HID, "displays", OTHER_DISPLAY_ID, "snapshot", "current"),
+      { generatedAt: 1, ttlSeconds: 3600, tiles: {} },
+    );
+    await setDoc(doc(db, "households", HID, "private", "calendar"), {
+      icalUrl: "https://calendar.google.com/calendar/ical/x/private-y/basic.ics",
+    });
+    // Un autre foyer, avec son timer.
+    await setDoc(doc(db, "households", HID_B), {
+      nom: "Foyer B",
+      ownerUid: OUTSIDER_UID,
+      membres: [OUTSIDER_UID],
+      parametres: {},
+      createdAt: 1,
+      updatedAt: 1,
+    });
+    await setDoc(doc(db, "households", HID_B, "timers", "tmB"), { label: "Riz" });
   });
 });
 
@@ -262,5 +288,92 @@ describe("non-member access", () => {
   });
   it("cannot read profils", async () => {
     await assertFails(getDoc(doc(outsiderDb(), "households", HID, "profils", "p1")));
+  });
+});
+
+describe("création de foyer", () => {
+  const base = {
+    nom: "Mon foyer",
+    parametres: {},
+    createdAt: 1,
+    updatedAt: 1,
+  };
+
+  it("un compte crée un foyer dont il est le seul membre", async () => {
+    await assertSucceeds(
+      setDoc(doc(outsiderDb(), "households", "neuf"), {
+        ...base,
+        ownerUid: OUTSIDER_UID,
+        membres: [OUTSIDER_UID],
+      }),
+    );
+  });
+
+  it("REFUSE d'inscrire l'uid d'un autre dans membres", async () => {
+    await assertFails(
+      setDoc(doc(outsiderDb(), "households", "piege"), {
+        ...base,
+        ownerUid: OUTSIDER_UID,
+        membres: [OUTSIDER_UID, MEMBER_UID],
+      }),
+    );
+  });
+
+  it("REFUSE les champs inconnus", async () => {
+    await assertFails(
+      setDoc(doc(outsiderDb(), "households", "piege2"), {
+        ...base,
+        ownerUid: OUTSIDER_UID,
+        membres: [OUTSIDER_UID],
+        admin: true,
+      }),
+    );
+  });
+
+  it("REFUSE la création par un écran", async () => {
+    await assertFails(
+      setDoc(doc(displayDb(), "households", "piege3"), {
+        ...base,
+        ownerUid: DISPLAY_UID,
+        membres: [DISPLAY_UID],
+      }),
+    );
+  });
+});
+
+describe("cloisonnement des écrans", () => {
+  it("un écran NE lit PAS le doc d'un autre écran du foyer", async () => {
+    await assertFails(getDoc(doc(displayDb(), "households", HID, "displays", OTHER_DISPLAY_ID)));
+  });
+
+  it("un écran NE lit PAS le snapshot d'un autre écran", async () => {
+    await assertFails(
+      getDoc(doc(displayDb(), "households", HID, "displays", OTHER_DISPLAY_ID, "snapshot", "current")),
+    );
+  });
+
+  it("un écran NE lit PAS un autre foyer", async () => {
+    await assertFails(getDoc(doc(displayDb(), "households", HID_B)));
+    await assertFails(getDoc(doc(displayDb(), "households", HID_B, "timers", "tmB")));
+  });
+
+  it("un membre lit tous les écrans de son foyer", async () => {
+    await assertSucceeds(getDoc(doc(memberDb(), "households", HID, "displays", OTHER_DISPLAY_ID)));
+  });
+});
+
+describe("adresse iCal privée du foyer", () => {
+  it("un membre la lit et l'écrit", async () => {
+    const ref = doc(memberDb(), "households", HID, "private", "calendar");
+    await assertSucceeds(getDoc(ref));
+    await assertSucceeds(setDoc(ref, { icalUrl: "https://exemple.org/a.ics" }));
+  });
+
+  it("un écran NE la lit PAS", async () => {
+    await assertFails(getDoc(doc(displayDb(), "households", HID, "private", "calendar")));
+  });
+
+  it("un non-membre NE la lit PAS", async () => {
+    await assertFails(getDoc(doc(outsiderDb(), "households", HID, "private", "calendar")));
   });
 });

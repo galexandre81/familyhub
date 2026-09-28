@@ -219,7 +219,8 @@
     eyebrow.style.cssText =
       'font-size:10px; letter-spacing:0.18em; text-transform:uppercase; ' +
       'opacity:0.85; margin-bottom:6px; display:-webkit-flex; display:flex; ' +
-      '-webkit-align-items:center; align-items:center; gap:6px;';
+      '-webkit-align-items:center; align-items:center;';
+    eyebrow.className = 'fh-gap-r6'; /* ex-gap 6px (Safari 9 ignore gap en flex) */
     eyebrow.innerHTML =
       repasSvg(d.repasActif, 18) +
       '<span>' + escapeHtml(d.repasLabel || '') + '</span>' +
@@ -227,7 +228,7 @@
         ? ' <span style="opacity:0.6;font-style:italic;text-transform:none;letter-spacing:0">(prochain)</span>'
         : '') +
       (d.source === 'batch'
-        ? ' <span style="font-size:9px; padding:1px 5px; background:rgba(217,160,91,0.15); border-radius:3px; margin-left:4px">BATCH</span>'
+        ? ' <span style="font-size:9px; padding:1px 5px; background:rgba(217,160,91,0.15); border-radius:3px; margin-left:10px">BATCH</span>'
         : '');
     body.appendChild(eyebrow);
 
@@ -258,7 +259,8 @@
     /* Pastilles profils */
     if (d.profilsPresents && d.profilsPresents.length > 0) {
       var profilsEl = document.createElement('div');
-      profilsEl.style.cssText = 'display:-webkit-flex; display:flex; gap:4px; flex-wrap:wrap; margin-top:8px;';
+      profilsEl.style.cssText = 'display:-webkit-flex; display:flex; -webkit-flex-wrap:wrap; flex-wrap:wrap; margin-top:8px;';
+      profilsEl.className = 'fh-gap-w4'; /* ex-gap 4px (Safari 9) */
       for (var p = 0; p < d.profilsPresents.length; p++) {
         var prof = d.profilsPresents[p];
         var pill = document.createElement('span');
@@ -340,7 +342,8 @@
     container.appendChild(header);
 
     var headerTop = document.createElement('div');
-    headerTop.style.cssText = 'display:-webkit-flex; display:flex; -webkit-align-items:flex-start; align-items:flex-start; gap:16px; -webkit-flex-wrap:wrap; flex-wrap:wrap;';
+    headerTop.style.cssText = 'display:-webkit-flex; display:flex; -webkit-align-items:flex-start; align-items:flex-start; -webkit-flex-wrap:wrap; flex-wrap:wrap;';
+    headerTop.className = 'fh-gap-w16'; /* ex-gap 16px (Safari 9) */
     header.appendChild(headerTop);
 
     var titleBlock = document.createElement('div');
@@ -353,7 +356,8 @@
       eyebrow.style.cssText =
         'font-size:11px; letter-spacing:0.2em; text-transform:uppercase; opacity:0.85; ' +
         'margin-bottom:4px; display:-webkit-flex; display:flex; ' +
-        '-webkit-align-items:center; align-items:center; gap:8px;';
+        '-webkit-align-items:center; align-items:center;';
+      eyebrow.className = 'fh-gap-r8'; /* ex-gap 8px (Safari 9) */
       eyebrow.innerHTML = repasSvg(d.repasActif, 22) + '<span>' + escapeHtml(d.repasLabel) + '</span>';
       titleBlock.appendChild(eyebrow);
     }
@@ -371,20 +375,24 @@
     /* Boutons vote (favori / exclu) en haut, à droite des profils */
     var voteBlock = document.createElement('div');
     voteBlock.style.cssText =
-      'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; gap:8px;';
+      'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center;';
+    voteBlock.className = 'fh-gap-r8'; /* ex-gap 8px (Safari 9) */
     voteBlock.setAttribute('data-role', 'vote-block');
     headerTop.appendChild(voteBlock);
 
     /* Pastilles profils */
     if (d.profilsPresents && d.profilsPresents.length > 0) {
       var profilsBlock = document.createElement('div');
-      profilsBlock.style.cssText = 'display:-webkit-flex; display:flex; gap:6px; -webkit-flex-wrap:wrap; flex-wrap:wrap;';
+      /* ex-gap 6px (Safari 9). profilsBlock est lui-même un enfant de
+         headerTop (fh-gap-w16) : ses deux marges se combinent, donc elles
+         sont posées inline (8-3 / 16-6), comme celles des pastilles. */
+      profilsBlock.style.cssText = 'display:-webkit-flex; display:flex; -webkit-flex-wrap:wrap; flex-wrap:wrap; margin:0 5px 10px;';
       for (var p = 0; p < d.profilsPresents.length; p++) {
         var prof = d.profilsPresents[p];
         var pill = document.createElement('span');
         pill.style.cssText =
           'display:inline-block; width:32px; height:32px; line-height:32px; text-align:center; ' +
-          'border-radius:50%; font-size:14px; font-weight:600; ' +
+          'border-radius:50%; font-size:14px; font-weight:600; margin:0 3px 6px; ' +
           'background:' + (prof.couleur || '#888') + '; color:#fff;';
         if (prof.nom) pill.setAttribute('aria-label', prof.nom);
         pill.innerHTML = escapeHtml(prof.initiale || (prof.nom ? prof.nom.charAt(0).toUpperCase() : '?'));
@@ -398,8 +406,9 @@
       var tabs = document.createElement('div');
       /* overflow-x:auto + nowrap : 3+ noms longs scrollent horizontalement au
          lieu de casser/déborder le header sur iPad mini. */
-      tabs.style.cssText = 'display:-webkit-flex; display:flex; gap:6px; margin-top:12px; ' +
+      tabs.style.cssText = 'display:-webkit-flex; display:flex; margin-top:12px; ' +
         'overflow-x:auto; -webkit-overflow-scrolling:touch; white-space:nowrap;';
+      tabs.className = 'fh-gap-r6'; /* ex-gap 6px (Safari 9) */
       tabs.setAttribute('role', 'tablist');
       tabs.setAttribute('aria-label', 'Recettes du repas');
       header.appendChild(tabs);
@@ -429,13 +438,14 @@
     var portionRow = document.createElement('div');
     portionRow.style.cssText =
       'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; ' +
-      'gap:10px; margin-top:14px; font-size:13px;';
+      'margin-top:14px; font-size:13px;';
+    portionRow.className = 'fh-gap-r10'; /* ex-gap 10px (Safari 9) */
     portionRow.innerHTML =
       '<span style="opacity:0.7">Portions :</span>' +
       '<button type="button" data-act="minus" aria-label="Une portion de moins" style="width:36px; height:36px; border:1px solid rgba(217,160,91,0.3); background:transparent; color:#FAFAF7; border-radius:4px; font-size:18px;">−</button>' +
       '<span data-role="portions-display" aria-live="polite" style="font-size:20px; font-weight:600; min-width:34px; text-align:center;">' + state.portionsTarget + '</span>' +
       '<button type="button" data-act="plus" aria-label="Une portion de plus" style="width:36px; height:36px; border:1px solid rgba(217,160,91,0.3); background:transparent; color:#FAFAF7; border-radius:4px; font-size:18px;">+</button>' +
-      '<button type="button" data-act="reset" aria-label="Réinitialiser les portions" style="margin-left:8px; padding:4px 10px; background:transparent; color:#D9A05B; border:none; font-size:12px; text-decoration:underline;">réinit.</button>';
+      '<button type="button" data-act="reset" aria-label="Réinitialiser les portions" style="margin-left:18px; padding:4px 10px; background:transparent; color:#D9A05B; border:none; font-size:12px; text-decoration:underline;">réinit.</button>';
     header.appendChild(portionRow);
 
     portionRow.querySelector('[data-act="minus"]').addEventListener('click', function () {
@@ -544,16 +554,16 @@
         var timerBtn = '';
         if (e.dureeMinutes && e.dureeMinutes > 0) {
           timerBtn =
-            '<button type="button" class="rt-timer-btn" data-step-idx="' + s + '" ' +
+            '<button type="button" class="rt-timer-btn fh-gap-r6" data-step-idx="' + s + '" ' +
               'data-duration="' + e.dureeMinutes + '" data-recette-nom="' + escapeHtml(r.nom || '') + '" ' +
               'style="margin-top:8px; padding:8px 14px; background:#D9A05B; color:#1F1A14; ' +
               'border:none; border-radius:4px; font-size:13px; font-weight:600; ' +
-              'display:-webkit-inline-flex; display:inline-flex; -webkit-align-items:center; align-items:center; gap:6px;">' +
+              'display:-webkit-inline-flex; display:inline-flex; -webkit-align-items:center; align-items:center;">' +
               svgHourglass(16).replace('#D9A05B', '#1F1A14') +
               '<span>Timer ' + e.dureeMinutes + ' min</span>' +
             '</button>';
         }
-        html += '<li style="display:-webkit-flex; display:flex; gap:12px; padding:14px 0; border-bottom:1px solid rgba(217,160,91,0.08);">' +
+        html += '<li class="fh-gap-r12" style="display:-webkit-flex; display:flex; padding:14px 0; border-bottom:1px solid rgba(217,160,91,0.08);">' +
                   '<div style="flex-shrink:0; width:32px; height:32px; border-radius:50%; background:rgba(217,160,91,0.15); ' +
                           'color:#D9A05B; line-height:32px; text-align:center; font-weight:600; font-size:14px;">' + stepNum + '</div>' +
                   '<div style="-webkit-flex:1; flex:1;">' +

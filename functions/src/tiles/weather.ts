@@ -9,11 +9,14 @@ import type {
   WeatherSingleLocationData,
   WeatherWeeklyDay,
 } from "../types";
-import { admin, db } from "../lib/admin";
+import { db } from "../lib/admin";
 import { assertHouseholdMember } from "../lib/household";
+import { requireId } from "../lib/validate";
 import { rebuildSnapshotForTile } from "../snapshot/builder";
 
 const OPEN_METEO_BASE = "https://api.open-meteo.com/v1/forecast";
+/** Délai réseau maximal par appel Open-Meteo. */
+const OPEN_METEO_TIMEOUT_MS = 10_000;
 
 interface OpenMeteoResponse {
   current_weather?: {
@@ -160,7 +163,7 @@ async function fetchOpenMeteo(loc: WeatherLocation): Promise<OpenMeteoResponse> 
     timezone: loc.timezone || "auto",
   });
   const url = `${OPEN_METEO_BASE}?${params.toString()}`;
-  const res = await fetch(url);
+  const res = await fetch(url, { signal: AbortSignal.timeout(OPEN_METEO_TIMEOUT_MS) });
   if (!res.ok) {
     throw new HttpsError("internal", `Open-Meteo a répondu ${res.status} pour ${loc.ville}`);
   }
@@ -217,10 +220,9 @@ export const refreshWeatherTile = onCall(
     const uid = req.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Auth requise");
 
-    const { householdId, tileId } = req.data as { householdId: string; tileId: string };
-    if (!householdId || !tileId) {
-      throw new HttpsError("invalid-argument", "householdId et tileId requis");
-    }
+    const input = (req.data ?? {}) as { householdId?: unknown; tileId?: unknown };
+    const householdId = requireId(input.householdId, "householdId");
+    const tileId = requireId(input.tileId, "tileId");
 
     await assertHouseholdMember(uid, householdId);
     logger.info("Membership OK", { uid, householdId });

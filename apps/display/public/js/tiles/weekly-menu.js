@@ -107,6 +107,25 @@
     return JOURS_SHORT[idx];
   }
 
+  /* « lundi 3 mars » à partir d'une date ISO AAAA-MM-JJ, sans Intl :
+     Safari 9 (iPad mini 1) n'a pas Intl, toLocaleDateString y ignore les
+     options et rend un format anglais/numérique. Même ancrage à midi local
+     que dayLabelFromDate (pas de glissement de jour autour du DST). */
+  var JOURS_LONG_DIM = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+  var MOIS_LONG = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
+    'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+  function dateLongFr(dateStr) {
+    if (!dateStr) return '';
+    var parts = String(dateStr).split('-');
+    if (parts.length !== 3) return '';
+    var y = parseInt(parts[0], 10);
+    var m = parseInt(parts[1], 10) - 1;
+    var dd = parseInt(parts[2], 10);
+    if (isNaN(y) || isNaN(m) || isNaN(dd)) return '';
+    var d = new Date(y, m, dd, 12, 0, 0);
+    return JOURS_LONG_DIM[d.getDay()] + ' ' + d.getDate() + ' ' + MOIS_LONG[d.getMonth()];
+  }
+
   /* ---------- COMPACT ---------- */
 
   function render(container, data, _config) {
@@ -150,7 +169,7 @@
         if (s.recetteNoms.length === 0 && s.profilsCount === 0) continue;
         var noms = (s.recetteNoms || []).join(', ');
         if (!noms) continue;
-        html += '<div style="display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; gap:6px; font-size:12px; padding:1px 0;">' +
+        html += '<div class="fh-gap-r6" style="display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; font-size:12px; padding:1px 0;">' +
                   repasIconSvg(s.repas, 12) +
                   '<span style="opacity:0.85">' + escapeHtml(noms) + '</span>' +
                 '</div>';
@@ -162,7 +181,8 @@
     /* Mini-aperçu 7 jours en pastilles */
     var weekRow = document.createElement('div');
     weekRow.style.cssText =
-      'display:-webkit-flex; display:flex; gap:3px; -webkit-justify-content:space-between; justify-content:space-between;';
+      'display:-webkit-flex; display:flex; -webkit-justify-content:space-between; justify-content:space-between;';
+    weekRow.className = 'fh-gap-r3'; /* ex-gap 3px (Safari 9 ignore gap en flex) */
     for (var j = 0; j < 7; j++) {
       var dayInfo = byJour[j] || { slots: {} };
       var filledCount = 0;
@@ -397,18 +417,14 @@
 
       for (var s = 0; s < sessions.length; s++) {
         (function (session) {
-          var dateLabel = session.date
-            ? new Date(session.date + 'T12:00:00Z').toLocaleDateString('fr-FR', {
-                weekday: 'long', day: 'numeric', month: 'long'
-              })
-            : '';
+          var dateLabel = dateLongFr(session.date);
           var card = document.createElement('div');
           card.style.cssText =
             'background:rgba(217,160,91,0.05); border:1px solid rgba(217,160,91,0.20); ' +
             'border-radius:6px; padding:16px; margin-bottom:14px;' +
             (session.done ? 'opacity:0.55;' : '');
           var html =
-            '<div style="display:-webkit-flex; display:flex; -webkit-justify-content:space-between; justify-content:space-between; -webkit-align-items:flex-start; align-items:flex-start; gap:12px; -webkit-flex-wrap:wrap; flex-wrap:wrap; margin-bottom:10px">' +
+            '<div style="display:-webkit-flex; display:flex; -webkit-justify-content:space-between; justify-content:space-between; -webkit-align-items:flex-start; align-items:flex-start; -webkit-flex-wrap:wrap; flex-wrap:wrap; margin-bottom:10px">' + /* un seul enfant : gap sans effet, retiré */
               '<div>' +
                 '<div style="font-family:Georgia,serif; font-size:18px; line-height:1.2">' +
                   escapeHtml(dateLabel) + (session.done ? ' <span style="font-size:11px; color:#7D9F76; font-family:inherit; font-weight:600; letter-spacing:0.05em">· TERMINÉ</span>' : '') +
@@ -426,7 +442,7 @@
               '« ' + escapeHtml(session.notes) + ' »</div>';
           }
           html += '<div style="font-size:11px; letter-spacing:0.15em; text-transform:uppercase; opacity:0.6; margin-bottom:6px">Recettes à préparer</div>';
-          html += '<div data-role="recettes" style="display:-webkit-flex; display:flex; -webkit-flex-direction:column; flex-direction:column; gap:6px"></div>';
+          html += '<div data-role="recettes" class="fh-gap-c6" style="display:-webkit-flex; display:flex; -webkit-flex-direction:column; flex-direction:column"></div>';
           card.innerHTML = html;
           var recettesWrap = card.querySelector('[data-role="recettes"]');
           for (var ri = 0; ri < session.recetteIds.length; ri++) {
@@ -494,7 +510,7 @@
         var fakeData = {
           repasActif: slot.repas,
           repasLabel: repasLabelLong(slot.repas) + ' · ' +
-            (slot.date ? new Date(slot.date + 'T12:00:00Z').toLocaleDateString('fr-FR', { weekday: 'long', day: 'numeric', month: 'long' }) : ''),
+            dateLongFr(slot.date),
           date: slot.date,
           slotId: '',
           recettes: recettes,
@@ -565,7 +581,8 @@
     var topRow = document.createElement('div');
     topRow.style.cssText =
       'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; ' +
-      '-webkit-justify-content:space-between; justify-content:space-between; gap:8px;';
+      '-webkit-justify-content:space-between; justify-content:space-between;';
+    topRow.className = 'fh-gap-r8'; /* ex-gap 8px (Safari 9) */
     var eyebrow = document.createElement('div');
     eyebrow.style.cssText =
       'font-size:11px; letter-spacing:0.2em; text-transform:uppercase; opacity:0.7;';
@@ -575,7 +592,8 @@
     if (nav && nav.total > 1) {
       var navWrap = document.createElement('div');
       navWrap.style.cssText =
-        'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; gap:6px;';
+        'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center;';
+      navWrap.className = 'fh-gap-r6'; /* ex-gap 6px (Safari 9) */
       var prevBtn = makeNavBtn('◀', 'Semaine précédente', nav.canPrev, nav.onPrev);
       var counter = document.createElement('span');
       counter.style.cssText =
@@ -592,7 +610,8 @@
     /* ─ Deuxième ligne : range de dates + badge archivé ─ */
     var titleRow = document.createElement('div');
     titleRow.style.cssText =
-      'display:-webkit-flex; display:flex; -webkit-align-items:baseline; align-items:baseline; gap:10px; margin-top:2px;';
+      'display:-webkit-flex; display:flex; -webkit-align-items:baseline; align-items:baseline; margin-top:2px;';
+    titleRow.className = 'fh-gap-r10'; /* ex-gap 10px (Safari 9) */
     var title = document.createElement('div');
     title.style.cssText = 'font-family:Georgia,serif; font-size:24px;';
     title.innerHTML = escapeHtml(dateRange);
@@ -622,7 +641,8 @@
         'margin-top:10px; padding:10px 14px; background:rgba(217,160,91,0.12); ' +
         'border:1px solid rgba(217,160,91,0.40); color:#D9A05B; border-radius:4px; ' +
         'font-size:13px; font-weight:600; cursor:pointer; ' +
-        'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; gap:8px;';
+        'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center;';
+      batchBtn.className = 'fh-gap-r8'; /* ex-gap 8px (Safari 9) */
       batchBtn.innerHTML =
         '<svg viewBox="0 0 50 50" width="18" height="18" aria-hidden="true">' +
           '<path d="M10 22 L40 22 L38 38 Q38 42, 34 42 L16 42 Q12 42, 12 38 Z" ' +
@@ -632,7 +652,9 @@
         '</svg>' +
         '<span>Batch cooking de la semaine · ' + batchCount + ' session' + (batchCount > 1 ? 's' : '') +
         ' · ' + batchTotalMin + ' min</span>' +
-        '<span style="margin-left:auto; opacity:0.7">→</span>';
+        /* margin-left:auto inline écrase la marge fh-gap-r8 : le padding
+           garde les 8px minimum que le gap assurait. */
+        '<span style="margin-left:auto; padding-left:8px; opacity:0.7">→</span>';
       batchBtn.addEventListener('click', function (ev) {
         ev.stopPropagation();
         onBatchTap();

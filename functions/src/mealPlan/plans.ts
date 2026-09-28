@@ -14,9 +14,16 @@ import { logger } from "firebase-functions";
 import { FieldValue } from "firebase-admin/firestore";
 import { db } from "../lib/admin";
 import { assertHouseholdMember } from "../lib/household";
+import { requireId, requireIdArray, requireObject } from "../lib/validate";
 import type { Repas, ProfilSnapshot, SlotStatut } from "../types";
 
 const REPAS_LIST: Repas[] = ["petitDej", "dej", "diner"];
+/** 7 jours × 3 repas = 21 slots : au-delà, l'entrée est forcément malformée. */
+const MAX_PRESENCE = 50;
+/** Borne du nombre de profils présents à un repas. */
+const MAX_PROFILS_PAR_SLOT = 50;
+/** Taille d'un batch Firestore (limite dure à 500 écritures). */
+const TAILLE_BATCH = 500;
 
 interface CreateMealPlanInput {
   householdId: string;
@@ -56,13 +63,40 @@ export const createMealPlan = onCall<CreateMealPlanInput, Promise<CreateMealPlan
     const uid = req.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Auth requise");
 
-    const { householdId, dateDebutISO, contexte, presence } = req.data;
-    if (!householdId || !dateDebutISO) {
+    const input = (req.data ?? {}) as Partial<Record<keyof CreateMealPlanInput, unknown>>;
+    const householdId = requireId(input.householdId, "householdId");
+    const dateDebutISO = input.dateDebutISO;
+    if (typeof dateDebutISO !== "string" || !dateDebutISO) {
       throw new HttpsError("invalid-argument", "householdId et dateDebutISO requis");
     }
-    if (contexte?.frigoTexte && contexte.frigoTexte.length > 2000) {
+    const contexteBrut = requireObject(input.contexte, "contexte");
+    if (contexteBrut.frigoTexte != null && typeof contexteBrut.frigoTexte !== "string") {
+      throw new HttpsError("invalid-argument", "frigoTexte doit être une chaîne");
+    }
+    if (typeof contexteBrut.frigoTexte === "string" && contexteBrut.frigoTexte.length > 2000) {
       throw new HttpsError("invalid-argument", "frigoTexte limité à 2000 caractères");
     }
+    const contexte = contexteBrut as Partial<CreateMealPlanInput["contexte"]>;
+    if (!Array.isArray(input.presence)) {
+      throw new HttpsError("invalid-argument", "presence doit être un tableau");
+    }
+    if (input.presence.length > MAX_PRESENCE) {
+      throw new HttpsError("invalid-argument", `presence limité à ${MAX_PRESENCE} éléments`);
+    }
+    const presence = input.presence.map((brut, i) => {
+      const p = requireObject(brut, `presence[${i}]`);
+      if (!Number.isInteger(p.jour) || (p.jour as number) < 0 || (p.jour as number) > 6) {
+        throw new HttpsError("invalid-argument", `presence[${i}].jour invalide`);
+      }
+      if (!REPAS_LIST.includes(p.repas as Repas)) {
+        throw new HttpsError("invalid-argument", `presence[${i}].repas invalide`);
+      }
+      return {
+        jour: p.jour as number,
+        repas: p.repas as Repas,
+        profilIds: requireIdArray(p.profilIds, `presence[${i}].profilIds`, MAX_PROFILS_PAR_SLOT),
+      };
+    });
 
     await assertHouseholdMember(uid, householdId);
 
@@ -93,9 +127,11 @@ export const createMealPlan = onCall<CreateMealPlanInput, Promise<CreateMealPlan
     if (isNaN(dateDebut.getTime())) {
       throw new HttpsError("invalid-argument", "dateDebutISO invalide");
     }
-    const dateFin = new Date(dateDebut.getTime());
-    dateFin.setDate(dateFin.getDate() + 6);
-    dateFin.setHours(23, 59, 59, 999);
+    // dateFin = dateDebut + 6 jours, à la même heure. Surtout pas 23:59:59 UTC
+    // (l'ancien setHours sur un serveur en UTC) : à Paris c'est déjà le
+    // lendemain, et la tuile weekly-menu (qui lit les dates à Paris) ajoutait
+    // un 8ᵉ jour vide.
+    const dateFin = new Date(dateDebut.getTime() + 6 * 86_400_000);
 
     // Création du plan
     const planRef = db.collection(`households/${householdId}/mealPlans`).doc();
@@ -158,7 +194,9 @@ export const validateMealPlan = onCall<ValidateMealPlanInput, Promise<{ success:
     const uid = req.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Auth requise");
 
-    const { householdId, planId } = req.data;
+    const input = (req.data ?? {}) as Partial<ValidateMealPlanInput>;
+    const householdId = requireId(input.householdId, "householdId");
+    const planId = requireId(input.planId, "planId");
     await assertHouseholdMember(uid, householdId);
 
     const planRef = db.doc(`households/${householdId}/mealPlans/${planId}`);
@@ -207,7 +245,8 @@ interface DeleteMealPlanInput {
 }
 
 /**
- * Supprime un plan + toutes ses sous-collections (slots, courses, chatMessages).
+ * Supprime un plan + toutes ses sous-collections (slots, courses, chatMessages),
+ * ainsi que ses listes de courses (`households/{h}/shoppingLists`, planId == plan).
  * Les recettes générées par le plan ne sont PAS supprimées (elles ont leur vie propre
  * dans la bibliothèque, et restent référencées par les plans archivés).
  */
@@ -217,19 +256,38 @@ export const deleteMealPlan = onCall<DeleteMealPlanInput, Promise<{ success: tru
     const uid = req.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Auth requise");
 
-    const { householdId, planId } = req.data;
+    const input = (req.data ?? {}) as Partial<DeleteMealPlanInput>;
+    const householdId = requireId(input.householdId, "householdId");
+    // planId vide : l'ancien code répondait « succès » sans rien supprimer.
+    const planId = requireId(input.planId, "planId");
     await assertHouseholdMember(uid, householdId);
+
+    // Listes de courses du plan : collection du FOYER, hors du doc plan, donc
+    // non couvertes par le recursiveDelete. Supprimées même si le plan n'existe
+    // plus (orphelines d'une suppression antérieure).
+    const listesSnap = await db
+      .collection(`households/${householdId}/shoppingLists`)
+      .where("planId", "==", planId)
+      .get();
+    for (let i = 0; i < listesSnap.docs.length; i += TAILLE_BATCH) {
+      const batch = db.batch();
+      listesSnap.docs.slice(i, i + TAILLE_BATCH).forEach((d) => batch.delete(d.ref));
+      await batch.commit();
+    }
 
     const planRef = db.doc(`households/${householdId}/mealPlans/${planId}`);
     const planSnap = await planRef.get();
-    if (!planSnap.exists) return { success: true };
+    if (!planSnap.exists) {
+      logger.info("MealPlan déjà absent", { householdId, planId, listesSupprimees: listesSnap.size });
+      return { success: true };
+    }
 
     // Suppression récursive du doc + TOUTES ses sous-collections
     // (slots, courses, batchSessions, chatMessages, shoppingLists, ...).
     // recursiveDelete gère le batching interne (>500 writes) sans risque.
     await db.recursiveDelete(planRef);
 
-    logger.info("MealPlan supprimé", { householdId, planId });
+    logger.info("MealPlan supprimé", { householdId, planId, listesSupprimees: listesSnap.size });
     return { success: true };
   },
 );

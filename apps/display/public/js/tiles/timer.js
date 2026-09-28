@@ -46,6 +46,13 @@
       '<path d="M10 18 Q12 21, 14 18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/>' +
     '</svg>';
 
+  /* Échappe un texte libre (label saisi dans le hub) avant insertion HTML. */
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
   /* Détermine la couleur en fonction du % restant */
   function timeColor(progress) {
     if (progress >= 0.9) return '#C8553D';      /* terracotta urgent */
@@ -66,6 +73,16 @@
     var bodyEl = document.createElement('div');
     bodyEl.className = 'tile-timer-compact';
     container.appendChild(bodyEl);
+
+    /* tick() notifie chaque seconde, même sans minuteur actif. On mémorise
+       le dernier HTML écrit et on saute les écritures identiques : sinon le
+       SVG du sablier est reconstruit 86 400 fois par jour sur l'iPad mini. */
+    var lastHtml = null;
+    function writeBody(html) {
+      if (html === lastHtml) return;
+      lastHtml = html;
+      bodyEl.innerHTML = html;
+    }
 
     function renderState(state) {
       var active = (state.timers || []).filter(function (t) {
@@ -89,10 +106,10 @@
           /* Sable inférieur (petit tas) */
           '<path d="M28 84 H52 L46 76 H34 Z" fill="#D9A05B" opacity="0.85"/>' +
           '</svg>';
-        bodyEl.innerHTML = ''
+        writeBody(''
           + '<div class="timer-compact-empty">'
           + '<div class="timer-compact-empty-icon">' + hourglassSvg + '</div>'
-          + '</div>';
+          + '</div>');
         return;
       }
 
@@ -117,13 +134,13 @@
       html += '</svg>';
       html += '<div class="timer-hero-inner">';
       html += '<div class="timer-hero-time" style="color:' + topColor + '">' + (top.status === 'ended' ? '<span aria-label="Minuteur terminé">' + ICON_BELL_SM.replace('width="20" height="20"', 'width="40" height="40"').replace('margin-right:6px', 'margin:0') + '</span>' : fmt(topRemaining)) + '</div>';
-      html += '<div class="timer-hero-label">' + (top.label || '?') + '</div>';
+      html += '<div class="timer-hero-label">' + escapeHtml(top.label || '?') + '</div>';
       html += '</div></div>';
 
       if (active.length > 1) {
         html += '<div class="timer-compact-others">+ ' + (active.length - 1) + ' autre' + (active.length > 2 ? 's' : '') + '</div>';
       }
-      bodyEl.innerHTML = html;
+      writeBody(html);
     }
 
     var unsub = global.FamilyHubTimers.subscribe(renderState);
@@ -223,7 +240,7 @@
         (function (p) {
           var btn = document.createElement('button');
           btn.className = 'tile-timer-preset-btn';
-          btn.innerHTML = '<span class="preset-label">' + p.label + '</span>'
+          btn.innerHTML = '<span class="preset-label">' + escapeHtml(p.label) + '</span>'
             + '<span class="preset-duration">' + fmtDuration(p.seconds) + '</span>';
           btn.addEventListener('click', function () {
             global.FamilyHubTimers.startTimer(p.label, p.seconds);
@@ -255,15 +272,31 @@
       customForm.querySelector('#custom-secs').value = '0';
     });
 
-    /* Subscribe pour mise à jour des timers actifs */
+    /* Subscribe pour mise à jour des timers actifs. Même mémo que la vue
+       compacte : on ne reconstruit la liste que si son rendu change (un
+       minuteur en pause ou terminé ne bouge plus d'une seconde à l'autre,
+       et reconstruire ferait sauter un tap en cours sur ses boutons). */
+    var lastActiveKey = null;
     function renderActive(state) {
       var active = (state.timers || []).filter(function (t) {
         return t.status === 'running' || t.status === 'paused' || t.status === 'ended';
       });
       if (active.length === 0) {
+        if (lastActiveKey === 'empty') return;
+        lastActiveKey = 'empty';
         activeListEl.innerHTML = '<p class="timer-active-empty">Aucun minuteur en cours.</p>';
         return;
       }
+      var keyParts = [];
+      for (var k = 0; k < active.length; k++) {
+        var tk = active[k];
+        keyParts.push(tk.id + '|' + tk.status + '|' + (tk.label || '') + '|'
+          + fmt(global.FamilyHubTimers.timerRemainingMs(tk)) + '|'
+          + Math.round(global.FamilyHubTimers.timerProgress(tk) * 100));
+      }
+      var activeKey = keyParts.join('#');
+      if (activeKey === lastActiveKey) return;
+      lastActiveKey = activeKey;
       activeListEl.innerHTML = '';
       for (var i = 0; i < active.length; i++) {
         (function (t) {
@@ -273,7 +306,7 @@
           row.className = 'timer-active-row ' + t.status;
 
           var html = '<div class="timer-active-info">';
-          html += '<div class="timer-active-label">' + (t.label || '?') + '</div>';
+          html += '<div class="timer-active-label">' + escapeHtml(t.label || '?') + '</div>';
           html += '<div class="timer-active-time">' + (t.status === 'ended' ? ICON_BELL_SM + 'Terminé !' : fmt(remaining)) + '</div>';
           html += '<div class="timer-active-progress"><div class="timer-active-progress-fill" style="width:' + Math.round(progress * 100) + '%"></div></div>';
           html += '</div>';

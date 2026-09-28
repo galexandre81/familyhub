@@ -577,34 +577,9 @@ VITE_FIREBASE_APP_ID=1:1234567890:web:abcdef...
 
 Sauvegarde.
 
-### Étape 3 : créer `apps/display/public/js/firebase-config.js`
+> 💡 **Et l'iPad ?** Il n'y a rien d'autre à configurer : au moment du build (section 6.5), la config de l'iPad est **générée automatiquement** à partir de ce même `.env.local`. Une seule source, impossible de se tromper de projet.
 
-Le site iPad (display) utilise une config légèrement différente (vieille syntaxe pour iPad mini 1 sous iOS 9).
-
-1. Va dans `apps/display/public/js/`
-2. Le fichier `firebase-config.js` existe peut-être déjà avec mes valeurs. Ouvre-le.
-3. Remplace son contenu par :
-
-```javascript
-window.__FIREBASE_CONFIG__ = {
-  apiKey: "AIza...XYZ",
-  authDomain: "family-hub-TONNOM.firebaseapp.com",
-  projectId: "family-hub-TONNOM",
-  storageBucket: "family-hub-TONNOM.firebasestorage.app",
-  messagingSenderId: "1234567890",
-  appId: "1:1234567890:web:abcdef..."
-};
-```
-
-Avec **tes** valeurs Firebase, comme dans le `.env.local`.
-
-> ⚠️ Le nom `window.__FIREBASE_CONFIG__` doit rester **exactement** celui-ci (deux soulignés de chaque côté) : c'est ce que lit le code de l'iPad. Avec un autre nom, l'écran reste bloqué sur l'erreur de configuration.
->
-> ⚠️ Garde **les guillemets**, **les virgules**, **les accolades**. Si tu doutes, copie-colle l'exemple ci-dessus et remplace seulement les valeurs après les `:`.
-
-Sauvegarde.
-
-### Étape 4 (optionnelle) : adapter la région et la timezone si tu n'es pas en Europe
+### Étape 3 (optionnelle) : adapter la région et la timezone si tu n'es pas en Europe
 
 Par défaut, le code déploie les Cloud Functions en **`europe-west1`** (Belgique) et calcule "aujourd'hui" en **`Europe/Paris`**. Pour un foyer en France/Belgique/Suisse, **rien à faire**, saute cette étape.
 
@@ -632,11 +607,13 @@ Si tout va bien, à la fin tu verras :
 
 ```
 ✓ built in 5.34s
-[copy-display] copied ...
+[copy-display] copied ... (+ js/firebase-config.js pour family-hub-TONNOM)
 ```
 
+Vérifie que c'est bien **ton** identifiant de projet qui apparaît à la fin de cette ligne.
+
 > 🚨 **Si tu vois des erreurs rouges** :
-> - Vérifie que `apps/hub/.env.local` contient bien les 6 lignes avec les vraies valeurs.
+> - Vérifie que `apps/hub/.env.local` contient bien les 6 lignes avec les vraies valeurs. Si l'une manque, le build s'arrête sur « config Firebase incomplète pour l'iPad » en nommant la ligne en cause.
 > - Vérifie que `.firebaserc` contient bien ton projectId.
 > - Si erreur "Cannot find module" : refais `npm install`.
 > - Section 12 a la liste des erreurs fréquentes.
@@ -647,7 +624,6 @@ Si tout va bien, à la fin tu verras :
 - ✅ Dépendances installées (`npm install` réussi)
 - ✅ `.firebaserc` pointe vers ton projet
 - ✅ `apps/hub/.env.local` créé avec ta config web
-- ✅ `apps/display/public/js/firebase-config.js` mis à jour
 - ✅ Compilation réussie (`npm run build`)
 
 ---
@@ -696,21 +672,6 @@ Si c'est OK, tu verras `+ Deploy complete!`.
 
 ## 7.4 Déployer les Cloud Functions
 
-### Avant tout : créer le secret du calendrier
-
-Le déploiement des fonctions **échoue** si le secret `CALENDAR_ICAL_URL` n'existe pas, **même si tu n'utilises pas le calendrier**. Crée-le maintenant :
-
-```powershell
-firebase functions:secrets:set CALENDAR_ICAL_URL
-```
-
-Le terminal te demande la valeur :
-- **Tu veux la tuile Calendrier tout de suite** : colle ton URL iCal privée (voir section 10.1 pour la récupérer).
-- **Sinon** : tape simplement `aucun` et appuie Entrée. Toute valeur qui n'est pas une adresse `https://` est traitée comme « pas de calendrier » : rien ne plante, la tuile Calendrier ne se remplit juste pas. Tu mettras la vraie URL plus tard (section 10).
-
-> Si la CLI te demande d'activer l'API Secret Manager, réponds **Y**.
-
-### Déployer
 
 ```powershell
 firebase deploy --only functions
@@ -722,7 +683,6 @@ firebase deploy --only functions
 > - "Billing account is required" : ton plan Blaze n'est pas activé. Retourne section 5.3.
 > - "Cloud Build API has not been used" : Firebase essaie d'activer automatiquement, attends et relance.
 > - "Permission denied" : ton compte Google n'a pas le bon accès au projet. Refais `firebase login` avec le compte qui a créé le projet en 5.2.
-> - "Failed to validate secret" / "secret CALENDAR_ICAL_URL … not found" : le secret du calendrier n'a pas été créé. Fais l'étape « Avant tout » juste au-dessus, puis relance.
 
 À la fin, tu devrais voir un truc comme :
 
@@ -882,13 +842,12 @@ Le display est créé côté serveur, mais l'iPad ne sait pas encore qu'il est c
 
 1. Dans **Écrans**, clique sur ton display.
 2. Clique **Configurer cet écran** (en haut).
-3. Une fenêtre s'ouvre avec un **QR code** + un **lien court** + un **token temporaire**.
-4. Sur l'iPad cuisine (ou autre device cible) :
-   - Ouvre Safari (ou Chrome)
-   - Va sur l'URL `https://family-hub-TONNOM.web.app/display/`
-   - On te demande "Configurer ce display ?" — clique **Setup**.
-   - Tape ou colle le **token** affiché dans le QR code.
-5. L'iPad se charge, et hop, il affiche maintenant les tuiles configurées.
+3. Une fenêtre s'ouvre avec un **QR code** et un **lien court** (`https://family-hub-TONNOM.web.app/d/XXXXXX`), valables 30 minutes et **utilisables une seule fois**.
+4. **Sur l'iPad lui-même** (pas sur ton téléphone ni ton ordinateur) : scanne le QR code avec l'appareil photo, ou tape le lien court dans Safari.
+5. La page affiche le code et un bouton **Associer cet appareil comme écran** : appuie dessus.
+6. L'iPad se charge, et hop, il affiche maintenant les tuiles configurées.
+
+> ⚠️ **Le code s'utilise une seule fois.** L'appareil qui appuie sur « Associer » devient l'écran. Si tu te trompes d'appareil, supprime l'écran dans **Écrans** (ça déconnecte l'appareil immédiatement), recrée-le et recommence.
 
 > 💡 **Astuce iPad** : sur l'iPad cuisine, ajoute le site à l'**écran d'accueil** (Safari → Partager → Sur l'écran d'accueil). Ça donne une icône comme une vraie app, sans la barre d'adresse.
 
@@ -969,6 +928,7 @@ Il te répond en générant un **artefact** (un encadré spécial) contenant un 
    - ❌ Si invalide : tu vois la liste des erreurs. Le plus souvent c'est que Claude a oublié un champ. Retourne lui demander "tu as oublié X, regénère le JSON".
 5. Clique **Importer et activer le plan**.
 6. Quelques secondes plus tard, tu es redirigée sur `/menu` avec ton **plan actif**.
+7. Clique **Mettre à jour les écrans** sur la page Menu : l'iPad affiche tout de suite le nouveau menu de la semaine. (Sans ça, il se met à jour tout seul chaque nuit peu après minuit.)
 
 ## 9.5 Profiter du résultat
 
@@ -986,9 +946,7 @@ Il te répond en générant un **artefact** (un encadré spécial) contenant un 
 
 # 10. Optionnel : calendrier Google iCal
 
-> 🟡 **Cette section est optionnelle**. Tu peux l'ignorer pour l'instant et y revenir plus tard quand tu maîtrises le reste.
->
-> Le secret `CALENDAR_ICAL_URL` existe déjà depuis la section 7.4 (avec `aucun` si tu n'avais pas encore d'URL). Ici, on remplace simplement sa valeur par la vraie URL.
+> 🟡 **Cette section est optionnelle**. Tu peux l'ignorer pour l'instant et y revenir plus tard quand tu maîtrises le reste. Aucun déploiement n'est nécessaire : tout se fait depuis le hub.
 
 Si tu veux que la **tuile Calendrier** affiche les événements de ton agenda Google familial, voici comment :
 
@@ -999,33 +957,20 @@ Si tu veux que la **tuile Calendrier** affiche les événements de ton agenda Go
 3. Descends jusqu'à **Adresse secrète au format iCal**.
 4. Copie l'URL (commence par `https://calendar.google.com/calendar/ical/...`).
 
-> ⚠️ Cette URL est secrète : qui l'a peut voir tous tes événements. Ne la partage pas, ne la commit pas dans Git.
+> ⚠️ Cette URL est secrète : qui l'a peut voir tous tes événements. Ne la partage pas, ne la commit pas dans Git. Family Hub la range dans ton foyer, lisible par les membres du foyer seulement : les iPads ne la voient jamais, ils ne reçoivent que les événements.
 
-## 10.2 Mettre l'URL dans le secret Firebase
+## 10.2 Configurer la tuile Calendrier
 
-Dans le terminal, dans le dossier `family-hub` :
-
-```powershell
-firebase functions:secrets:set CALENDAR_ICAL_URL
-```
-
-Le terminal te demande la valeur du secret. **Colle ton URL iCal**, appuie Entrée. (Ça crée une nouvelle version du secret ; l'ancienne valeur `aucun` n'est plus utilisée.)
-
-## 10.3 Redéployer les fonctions
-
-```powershell
-firebase deploy --only functions
-```
-
-## 10.4 Configurer la tuile Calendrier
-
-Si pas déjà fait, dans **Tuiles** sur ton hub :
-1. **+ Nouvelle tuile** → type **Calendrier**.
-2. Configure (nb de jours à afficher, max events).
-3. Crée. Une synchronisation initiale se fait à la création.
-4. Place la tuile dans le layout d'un display.
+Dans **Tuiles** sur ton hub :
+1. **+ Nouvelle tuile** → type **Calendrier** (ou ouvre ta tuile Calendrier existante).
+2. Colle l'URL dans **Adresse secrète iCal de ton agenda Google**.
+3. Configure le nombre de jours à afficher et le nombre max d'événements.
+4. Enregistre. Une synchronisation se fait tout de suite.
+5. Place la tuile dans le layout d'un display.
 
 > Le scheduler Firebase rafraîchit l'agenda toutes les 15 minutes automatiquement.
+
+> ℹ️ **Tu avais installé une version plus ancienne ?** L'agenda était alors réglé par un secret `CALENDAR_ICAL_URL`. Ce secret n'est plus utilisé : recolle simplement ton URL dans la tuile Calendrier comme ci-dessus. Tu peux ensuite supprimer l'ancien secret avec `firebase functions:secrets:destroy CALENDAR_ICAL_URL`.
 
 ---
 
@@ -1047,6 +992,8 @@ npm install
 npm run build
 firebase deploy
 ```
+
+`firebase deploy` sans option redéploie tout : le site, les fonctions **et les règles de sécurité Firestore**. Ne te contente pas de `--only hosting` après une mise à jour : les règles et les fonctions changent souvent ensemble.
 
 > ⏳ Compte 5-10 minutes total. Le `firebase deploy` est rapide les fois suivantes (les Cloud Functions ne sont mises à jour que si elles ont changé).
 
