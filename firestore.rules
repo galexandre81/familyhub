@@ -3,7 +3,7 @@ service cloud.firestore {
   match /databases/{database}/documents {
 
     // setupShortIds : lookup table accédée uniquement via Admin SDK (Cloud Functions).
-    // Les clients web/display passent par les Functions (resolveSetupShortId) qui bypassent ces rules.
+    // Les clients web/display passent par les Functions (exchangeSetupToken) qui bypassent ces rules.
     match /setupShortIds/{shortId} {
       allow read, write: if false;
     }
@@ -44,8 +44,16 @@ service cloud.firestore {
                         && request.resource.data.parametres.diff(resource.data.parametres).affectedKeys().hasOnly(['themeId'])
                       )
                     );
+      // Création : un vrai compte (jamais un écran), seul membre de son foyer.
+      // Sans cette garde, n'importe qui pouvait créer un foyer en y inscrivant
+      // l'uid d'un autre dans `membres` : le foyer apparaissait chez la victime.
       allow create: if request.auth != null
-                    && request.auth.uid == request.resource.data.ownerUid;
+                    && request.auth.token.get('isDisplay', false) != true
+                    && request.resource.data.ownerUid == request.auth.uid
+                    && request.resource.data.membres == [request.auth.uid]
+                    && request.resource.data.keys().hasOnly(
+                         ['nom', 'ownerUid', 'membres', 'parametres', 'createdAt', 'updatedAt'])
+                    && request.resource.data.nom is string;
       allow delete: if request.auth != null
                     && request.auth.uid == resource.data.ownerUid;
 
@@ -98,13 +106,21 @@ service cloud.firestore {
         allow read: if isDisplayOfHousehold(hid);
       }
 
-      // Displays : un écran lit son propre doc de config ET son snapshot
-      // pré-calculé (sous-collection snapshot/current). {doc=**} couvre le doc
-      // display lui-même + la sous-collection snapshot imbriquée.
+      // Displays : un écran lit SON propre doc de config ET son snapshot
+      // pré-calculé (sous-collection snapshot/current), jamais ceux des autres
+      // écrans du foyer : le doc display porte l'authToken et le setupToken.
       // Membres = read/write (via catch-all). Displays = read seul (ici).
-      match /displays/{doc=**} {
-        allow read: if isDisplayOfHousehold(hid);
+      match /displays/{displayId} {
+        allow read: if isDisplayOfHousehold(hid)
+                    && request.auth.token.displayId == displayId;
       }
+      match /displays/{displayId}/{rest=**} {
+        allow read: if isDisplayOfHousehold(hid)
+                    && request.auth.token.displayId == displayId;
+      }
+
+      // private/calendar : l'adresse iCal secrète du foyer. Membres seulement
+      // (via le catch-all) — aucune règle ne l'ouvre aux écrans, c'est voulu.
     }
   }
 }

@@ -1,0 +1,16 @@
+# Mises à jour de dépendances regroupées, une fois par semaine : une seule PR par
+# écosystème plutôt qu'une par paquet. Les montées de version majeure restent des
+# PR séparées, à relire (firebase-admin, react, vite… ont des ruptures).
+version: 2
+updates:
+  - package-ecosystem: npm
+    directory: /
+    schedule:
+      interval: weekly
+    groups:
+      mineures:
+        update-types: [minor, patch]
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly

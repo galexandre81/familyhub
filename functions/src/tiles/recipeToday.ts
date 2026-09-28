@@ -25,6 +25,7 @@ import { onSchedule } from "firebase-functions/v2/scheduler";
 import { logger } from "firebase-functions";
 import { db } from "../lib/admin";
 import { assertHouseholdMember } from "../lib/household";
+import { requireId } from "../lib/validate";
 import { rebuildSnapshotForTile } from "../snapshot/builder";
 import type {
   Repas,
@@ -236,7 +237,7 @@ async function fetchProfils(
  * Retourne `repasActif: "aucun"` si pas de plan actif ou pas de slot
  * non vide dans la fenêtre 2 jours.
  */
-async function buildRecipeTodayData(
+export async function buildRecipeTodayData(
   householdId: string,
 ): Promise<RecipeTodayData> {
   const generatedAtISO = new Date().toISOString();
@@ -314,10 +315,9 @@ export const refreshRecipeTodayTile = onCall<RefreshInput, Promise<{ success: tr
     const uid = req.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Auth requise");
 
-    const { householdId, tileId } = req.data;
-    if (!householdId || !tileId) {
-      throw new HttpsError("invalid-argument", "householdId et tileId requis");
-    }
+    const input = (req.data ?? {}) as Partial<RefreshInput>;
+    const householdId = requireId(input.householdId, "householdId");
+    const tileId = requireId(input.tileId, "tileId");
 
     await assertHouseholdMember(uid, householdId);
 

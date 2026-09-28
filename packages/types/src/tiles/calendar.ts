@@ -2,8 +2,9 @@
  * Tuile calendar (Google Calendar via flux iCal privé).
  *
  * L'URL ICS secrète n'apparaît jamais dans la config — elle est stockée
- * dans Firebase Secret Manager (secret `CALENDAR_ICAL_URL`) et lue
- * uniquement par la Cloud Function `syncCalendarTile`.
+ * par foyer dans `households/{hid}/private/calendar` (champ `icalUrl`,
+ * lisible par les membres seulement, jamais par les écrans) et lue par les
+ * Cloud Functions du calendrier.
  */
 
 export interface CalendarConfig {

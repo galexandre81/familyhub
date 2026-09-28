@@ -1,7 +1,9 @@
 import { onCall, HttpsError } from "firebase-functions/v2/https";
+import { logger } from "firebase-functions";
 import { randomBytes } from "node:crypto";
 import { admin, auth, db } from "../lib/admin";
 import { assertHouseholdMember } from "../lib/household";
+import { requireId } from "../lib/validate";
 
 const SETUP_TOKEN_TTL_SECONDS = 30 * 60; // 30 min
 const AUTH_TOKEN_TTL_SECONDS = 90 * 24 * 60 * 60; // 90 jours
@@ -21,6 +23,21 @@ function generateShortId(): string {
     out += SHORT_ID_ALPHABET[bytes[i] % SHORT_ID_ALPHABET.length];
   }
   return out;
+}
+
+/**
+ * Valide un shortId saisi sur l'iPad (casse libre) et le rend en majuscules.
+ * Ne plante pas sur une valeur qui n'est pas une chaîne.
+ */
+function requireShortId(value: unknown): string {
+  const sid = typeof value === "string" ? value.trim().toUpperCase() : "";
+  const valide =
+    sid.length === SHORT_ID_LENGTH &&
+    Array.from(sid).every((c) => SHORT_ID_ALPHABET.includes(c));
+  if (!valide) {
+    throw new HttpsError("invalid-argument", "shortId invalide");
+  }
+  return sid;
 }
 
 /** Trouve un shortId unique via lookup direct sur la collection racine `setupShortIds`. */
@@ -43,10 +60,9 @@ export const createDisplayToken = onCall(
     const uid = req.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Auth requise");
 
-    const { householdId, displayId } = req.data as { householdId: string; displayId: string };
-    if (!householdId || !displayId) {
-      throw new HttpsError("invalid-argument", "householdId et displayId requis");
-    }
+    const input = (req.data ?? {}) as { householdId?: unknown; displayId?: unknown };
+    const householdId = requireId(input.householdId, "householdId");
+    const displayId = requireId(input.displayId, "displayId");
 
     await assertHouseholdMember(uid, householdId);
 
@@ -95,38 +111,6 @@ export const createDisplayToken = onCall(
 );
 
 /**
- * Résout un setupShortId court → renvoie SEULEMENT householdId/displayId (jamais
- * le setupToken : un endpoint public ne doit pas être un oracle à token).
- * L'échange réel se fait via `exchangeSetupToken({ shortId })` qui résout et
- * consomme le token côté serveur dans une transaction.
- */
-export const resolveSetupShortId = onCall(
-  { region: "europe-west1", invoker: "public" },
-  async (req) => {
-    const { shortId } = req.data as { shortId: string };
-    if (!shortId) {
-      throw new HttpsError("invalid-argument", "shortId requis");
-    }
-
-    const snap = await db.doc(`setupShortIds/${shortId.toUpperCase()}`).get();
-    if (!snap.exists) {
-      throw new HttpsError("not-found", "Code introuvable ou expiré");
-    }
-
-    const data = snap.data()!;
-    const expiresAt = data.expiresAt as FirebaseFirestore.Timestamp | undefined;
-    if (!expiresAt || expiresAt.toMillis() < Date.now()) {
-      throw new HttpsError("deadline-exceeded", "Code expiré");
-    }
-
-    return {
-      householdId: data.householdId as string,
-      displayId: data.displayId as string,
-    };
-  },
-);
-
-/**
  * Appelé depuis le display vanilla au boot :
  *  - chemin court : `{ shortId }` → le token est résolu ET consommé côté serveur ;
  *  - chemin long  : `{ householdId, displayId, setupToken }` (URL/QR avec ?token=).
@@ -140,23 +124,30 @@ export const resolveSetupShortId = onCall(
 export const exchangeSetupToken = onCall(
   { region: "europe-west1", invoker: "public" },
   async (req) => {
-    const {
-      householdId: bodyHouseholdId,
-      displayId: bodyDisplayId,
-      setupToken: bodySetupToken,
-      shortId,
-    } = req.data as {
-      householdId?: string;
-      displayId?: string;
-      setupToken?: string;
-      shortId?: string;
+    const input = (req.data ?? {}) as {
+      householdId?: unknown;
+      displayId?: unknown;
+      setupToken?: unknown;
+      shortId?: unknown;
     };
 
-    if (!shortId && (!bodyHouseholdId || !bodyDisplayId || !bodySetupToken)) {
-      throw new HttpsError(
-        "invalid-argument",
-        "Fournir shortId, ou householdId+displayId+setupToken",
-      );
+    // Deux chemins exclusifs : shortId seul, ou le triplet complet.
+    let shortId: string | undefined;
+    let bodyHouseholdId: string | undefined;
+    let bodyDisplayId: string | undefined;
+    let bodySetupToken: string | undefined;
+    if (input.shortId != null && input.shortId !== "") {
+      shortId = requireShortId(input.shortId);
+    } else {
+      if (!input.householdId || !input.displayId || !input.setupToken) {
+        throw new HttpsError(
+          "invalid-argument",
+          "Fournir shortId, ou householdId+displayId+setupToken",
+        );
+      }
+      bodyHouseholdId = requireId(input.householdId, "householdId");
+      bodyDisplayId = requireId(input.displayId, "displayId");
+      bodySetupToken = requireId(input.setupToken, "setupToken");
     }
 
     const authToken = generateToken();
@@ -174,7 +165,7 @@ export const exchangeSetupToken = onCall(
 
       // ----- Lectures (toutes avant les écritures, contrainte Firestore) -----
       if (shortId) {
-        shortIdRef = db.doc(`setupShortIds/${String(shortId).toUpperCase()}`);
+        shortIdRef = db.doc(`setupShortIds/${shortId}`);
         const sidSnap = await tx.get(shortIdRef);
         if (!sidSnap.exists) {
           throw new HttpsError("not-found", "Code introuvable ou expiré");
@@ -235,10 +226,21 @@ export const exchangeSetupToken = onCall(
 
     // Hors transaction : provisionne le compte service + custom token.
     const displayUid = `display:${result.displayId}`;
+    let existant: Awaited<ReturnType<typeof auth.getUser>> | null = null;
     try {
-      await auth.getUser(displayUid);
+      existant = await auth.getUser(displayUid);
     } catch {
       await auth.createUser({ uid: displayUid, displayName: `Display ${result.nom}` });
+    }
+    // L'uid ne dépend que du displayId : un membre qui créerait chez lui un doc
+    // display portant l'id d'un écran d'un AUTRE foyer réécrirait ses claims
+    // (détournement / déni de service). Un compte déjà rattaché ailleurs est refusé.
+    const foyerExistant = existant?.customClaims?.householdId;
+    if (foyerExistant !== undefined && foyerExistant !== result.householdId) {
+      logger.warn("exchangeSetupToken : displayId déjà rattaché à un autre foyer", {
+        displayId: result.displayId,
+      });
+      throw new HttpsError("already-exists", "Cet identifiant d'écran est déjà utilisé");
     }
     await auth.setCustomUserClaims(displayUid, {
       isDisplay: true,
@@ -270,15 +272,17 @@ export const exchangeSetupToken = onCall(
 export const refreshDisplayToken = onCall(
   { region: "europe-west1", invoker: "public" },
   async (req) => {
-    const { householdId, displayId, authToken } = req.data as {
-      householdId: string;
-      displayId: string;
-      authToken: string;
+    const input = (req.data ?? {}) as {
+      householdId?: unknown;
+      displayId?: unknown;
+      authToken?: unknown;
     };
-
-    if (!householdId || !displayId || !authToken) {
+    if (!input.householdId || !input.displayId || !input.authToken) {
       throw new HttpsError("invalid-argument", "Paramètres manquants");
     }
+    const householdId = requireId(input.householdId, "householdId");
+    const displayId = requireId(input.displayId, "displayId");
+    const authToken = requireId(input.authToken, "authToken");
 
     const displaySnap = await db.doc(`households/${householdId}/displays/${displayId}`).get();
     if (!displaySnap.exists) {
@@ -306,5 +310,91 @@ export const refreshDisplayToken = onCall(
     });
 
     return { customToken };
+  },
+);
+
+/**
+ * Appelé depuis le hub pour supprimer un écran. Supprimer le seul doc Firestore
+ * ne suffisait pas : le compte Auth `display:<id>` gardait ses custom claims et
+ * un refresh token sans expiration — un iPad perdu continuait de lire le foyer.
+ *
+ * Ordre voulu : (a) `revoked` d'abord (coupe `refreshDisplayToken` et
+ * l'échange de setup même si la suite échoue), (b) révocation + suppression du
+ * compte Auth, (c) codes courts en attente, (d) doc + sous-collections
+ * (snapshot inclus).
+ */
+export const deleteDisplay = onCall(
+  { region: "europe-west1", invoker: "public" },
+  async (req) => {
+    const uid = req.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Auth requise");
+    // Un écran ne supprime pas d'écran (ni lui-même, ni un autre).
+    if (req.auth?.token?.isDisplay === true) {
+      throw new HttpsError("permission-denied", "Action réservée aux membres du foyer");
+    }
+
+    const input = (req.data ?? {}) as { householdId?: unknown; displayId?: unknown };
+    const householdId = requireId(input.householdId, "householdId");
+    const displayId = requireId(input.displayId, "displayId");
+
+    await assertHouseholdMember(uid, householdId);
+
+    const displayRef = db.doc(`households/${householdId}/displays/${displayId}`);
+    const displaySnap = await displayRef.get();
+
+    // (a) Kill switch avant tout le reste.
+    if (displaySnap.exists) {
+      await displayRef.update({
+        revoked: true,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
+    }
+
+    // (b) Compte Auth. On vérifie qu'il appartient bien à CE foyer : l'uid ne
+    // dépend que du displayId, et un membre ne doit pas pouvoir couper l'écran
+    // d'un autre foyer en réutilisant son id.
+    const displayUid = `display:${displayId}`;
+    try {
+      const user = await auth.getUser(displayUid);
+      const claimFoyer = user.customClaims?.householdId;
+      if (claimFoyer === undefined || claimFoyer === householdId) {
+        await auth.revokeRefreshTokens(displayUid);
+        await auth.deleteUser(displayUid);
+      } else {
+        logger.warn("deleteDisplay : compte Auth d'un autre foyer, laissé intact", {
+          householdId,
+          displayId,
+        });
+      }
+    } catch (err) {
+      if ((err as { code?: string }).code !== "auth/user-not-found") throw err;
+    }
+
+    // (c) Codes courts en attente pour cet écran (lookup racine `setupShortIds`).
+    const shortIdsSnap = await db
+      .collection("setupShortIds")
+      .where("householdId", "==", householdId)
+      .where("displayId", "==", displayId)
+      .get();
+    const refsShortIds = new Map(shortIdsSnap.docs.map((d) => [d.ref.path, d.ref]));
+    const shortIdCourant = displaySnap.data()?.setupShortId;
+    if (typeof shortIdCourant === "string" && /^[A-Z0-9]{1,32}$/.test(shortIdCourant)) {
+      const ref = db.doc(`setupShortIds/${shortIdCourant}`);
+      const snap = await ref.get();
+      if (snap.exists && snap.data()?.displayId === displayId) {
+        refsShortIds.set(ref.path, ref);
+      }
+    }
+    if (refsShortIds.size > 0) {
+      const batch = db.batch();
+      refsShortIds.forEach((ref) => batch.delete(ref));
+      await batch.commit();
+    }
+
+    // (d) Doc + sous-collections (snapshot/current…).
+    await db.recursiveDelete(displayRef);
+
+    logger.info("Display supprimé", { householdId, displayId, shortIds: refsShortIds.size });
+    return { success: true };
   },
 );

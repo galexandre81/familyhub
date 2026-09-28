@@ -14,7 +14,9 @@ import { onSchedule } from "firebase-functions/v2/scheduler";
 import { logger } from "firebase-functions";
 import { db } from "../lib/admin";
 import { assertHouseholdMember } from "../lib/household";
+import { requireId } from "../lib/validate";
 import { rebuildSnapshotForTile } from "../snapshot/builder";
+import { buildRecipeTodayData } from "./recipeToday";
 import type {
   Repas,
   WeeklyMenuBatchSnapshot,
@@ -28,30 +30,41 @@ const MAX_ARCHIVED_PLANS = 12;
 /** Garde-fou : un plan ne peut pas excéder 31 jours dans le snapshot. */
 const MAX_PLAN_DAYS = 31;
 
+/** Formateur du jour civil à Paris (en-CA produit YYYY-MM-DD natif). */
+const FORMAT_JOUR_PARIS = new Intl.DateTimeFormat("en-CA", {
+  timeZone: "Europe/Paris",
+  year: "numeric",
+  month: "2-digit",
+  day: "2-digit",
+});
+
 function getNowParisDateISO(): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: "Europe/Paris",
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-  }).format(new Date());
+  return FORMAT_JOUR_PARIS.format(new Date());
 }
 
-function dateISOFromTimestamp(ts: unknown): string | null {
+/**
+ * Jour civil (YYYY-MM-DD) à Paris d'un Timestamp / Date Firestore.
+ *
+ * Pas `toISOString()` : l'importeur du hub écrit `dateDebut` à MINUIT LOCAL
+ * (28.09 00:00+02:00 = 27.09 22:00Z), que l'UTC renvoyait au 27 — le plan
+ * s'ouvrait sur un jour fantôme vide. `createMealPlan` écrit minuit UTC, qui
+ * tombe le même jour à Paris. Une chaîne est prise telle quelle.
+ */
+export function dateISOFromTimestamp(ts: unknown): string | null {
   if (!ts) return null;
   if (typeof ts === "string") return ts.slice(0, 10);
-  if (typeof ts === "object" && ts !== null) {
+  let d: Date | null = null;
+  if (ts instanceof Date) {
+    d = ts;
+  } else if (typeof ts === "object") {
     if ("toDate" in ts && typeof (ts as { toDate: () => Date }).toDate === "function") {
-      return (ts as { toDate: () => Date }).toDate().toISOString().slice(0, 10);
-    }
-    if ("seconds" in ts) {
-      return new Date((ts as { seconds: number }).seconds * 1000)
-        .toISOString()
-        .slice(0, 10);
+      d = (ts as { toDate: () => Date }).toDate();
+    } else if ("seconds" in ts && typeof (ts as { seconds: unknown }).seconds === "number") {
+      d = new Date((ts as { seconds: number }).seconds * 1000);
     }
   }
-  if (ts instanceof Date) return ts.toISOString().slice(0, 10);
-  return null;
+  if (!d || isNaN(d.getTime())) return null;
+  return FORMAT_JOUR_PARIS.format(d);
 }
 
 function addDaysISO(dateISO: string, days: number): string {
@@ -179,7 +192,7 @@ async function buildPlanSnapshot(
   };
 }
 
-async function buildWeeklyMenuData(householdId: string): Promise<WeeklyMenuData> {
+export async function buildWeeklyMenuData(householdId: string): Promise<WeeklyMenuData> {
   const generatedAtISO = new Date().toISOString();
   const todayISO = getNowParisDateISO();
 
@@ -285,10 +298,9 @@ export const refreshWeeklyMenuTile = onCall<RefreshInput, Promise<{ success: tru
     const uid = req.auth?.uid;
     if (!uid) throw new HttpsError("unauthenticated", "Auth requise");
 
-    const { householdId, tileId } = req.data;
-    if (!householdId || !tileId) {
-      throw new HttpsError("invalid-argument", "householdId et tileId requis");
-    }
+    const input = (req.data ?? {}) as Partial<RefreshInput>;
+    const householdId = requireId(input.householdId, "householdId");
+    const tileId = requireId(input.tileId, "tileId");
 
     await assertHouseholdMember(uid, householdId);
 
@@ -316,9 +328,14 @@ export const refreshWeeklyMenuTile = onCall<RefreshInput, Promise<{ success: tru
   },
 );
 
+/**
+ * Rafraîchissement quotidien (décision du propriétaire) : une fois par jour à
+ * 00:05 Paris, pour faire avancer « aujourd'hui » / les jours passés. Le reste
+ * du temps, le hub déclenche `refreshHouseholdDisplays` après une modification.
+ */
 export const scheduledWeeklyMenuRefresh = onSchedule(
   {
-    schedule: "every 15 minutes",
+    schedule: "5 0 * * *",
     region: "europe-west1",
     timeZone: "Europe/Paris",
   },
@@ -351,5 +368,71 @@ export const scheduledWeeklyMenuRefresh = onSchedule(
         logger.error(`[weekly-menu] échec refresh foyer ${householdId}`, err);
       }
     }
+  },
+);
+
+interface RefreshHouseholdInput {
+  householdId: string;
+}
+
+interface RefreshHouseholdResponse {
+  success: true;
+  weeklyMenuTiles: number;
+  recipeTodayTiles: number;
+}
+
+/**
+ * Bouton « Mettre à jour les écrans » du hub : reconstruit TOUTES les tuiles
+ * `weekly-menu` et `recipe-today` du foyer (le cron du menu ne passe plus
+ * qu'une fois par jour). Chaque donnée est calculée une seule fois par foyer.
+ */
+export const refreshHouseholdDisplays = onCall<
+  RefreshHouseholdInput,
+  Promise<RefreshHouseholdResponse>
+>(
+  { region: "europe-west1" },
+  async (req) => {
+    const uid = req.auth?.uid;
+    if (!uid) throw new HttpsError("unauthenticated", "Auth requise");
+
+    const input = (req.data ?? {}) as Partial<RefreshHouseholdInput>;
+    const householdId = requireId(input.householdId, "householdId");
+
+    await assertHouseholdMember(uid, householdId);
+
+    const tilesSnap = await db
+      .collection(`households/${householdId}/tiles`)
+      .where("type", "in", ["weekly-menu", "recipe-today"])
+      .get();
+    const weeklyMenuIds = tilesSnap.docs
+      .filter((d) => d.data().type === "weekly-menu")
+      .map((d) => d.id);
+    const recipeTodayIds = tilesSnap.docs
+      .filter((d) => d.data().type === "recipe-today")
+      .map((d) => d.id);
+
+    if (weeklyMenuIds.length > 0) {
+      const data = await buildWeeklyMenuData(householdId);
+      for (const tileId of weeklyMenuIds) {
+        await rebuildSnapshotForTile(householdId, tileId, "weekly-menu", data);
+      }
+    }
+    if (recipeTodayIds.length > 0) {
+      const data = await buildRecipeTodayData(householdId);
+      for (const tileId of recipeTodayIds) {
+        await rebuildSnapshotForTile(householdId, tileId, "recipe-today", data);
+      }
+    }
+
+    logger.info("refreshHouseholdDisplays DONE", {
+      householdId,
+      weeklyMenuTiles: weeklyMenuIds.length,
+      recipeTodayTiles: recipeTodayIds.length,
+    });
+    return {
+      success: true,
+      weeklyMenuTiles: weeklyMenuIds.length,
+      recipeTodayTiles: recipeTodayIds.length,
+    };
   },
 );

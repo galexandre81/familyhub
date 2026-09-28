@@ -8,6 +8,16 @@ on:
 jobs:
   build:
     runs-on: ubuntu-latest
+    # Config Firebase factice : le build la grave dans le hub et dans la config de
+    # l'iPad (scripts/copy-display-into-hub-dist.mjs échoue si elle manque). Ce
+    # workflow ne déploie rien — chacun déploie son propre projet (ONBOARDING.md § 7).
+    env:
+      VITE_FIREBASE_API_KEY: ci-factice
+      VITE_FIREBASE_AUTH_DOMAIN: demo-fh.firebaseapp.com
+      VITE_FIREBASE_PROJECT_ID: demo-fh
+      VITE_FIREBASE_STORAGE_BUCKET: demo-fh.firebasestorage.app
+      VITE_FIREBASE_MESSAGING_SENDER_ID: "0"
+      VITE_FIREBASE_APP_ID: "1:0:web:ci"
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
@@ -16,6 +26,10 @@ jobs:
           cache: npm
       - name: Install
         run: npm ci
+      - name: iPad — syntaxe ES5 (Safari 9)
+        run: npm run check:display
+      - name: Lint (functions)
+        run: npm run lint --workspace=functions
       - name: Build (types -> functions -> hub)
         run: npm run build
       - name: Test (functions)
@@ -36,5 +50,7 @@ jobs:
           java-version: 21
       - name: Install rules-test deps
         run: npm install --prefix firestore-tests
+      # Version figée : une nouvelle version de firebase-tools a déjà cassé ce job
+      # (JDK 21 exigé à partir de 15.20). On la monte volontairement, pas par surprise.
       - name: Run Firestore rules tests (emulator)
-        run: npx firebase-tools emulators:exec --only firestore --project demo-fh "npm test --prefix firestore-tests"
+        run: npx --yes firebase-tools@15.31.0 emulators:exec --only firestore --project demo-fh "npm test --prefix firestore-tests"

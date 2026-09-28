@@ -243,8 +243,10 @@ body {
   align-items: center;
   -webkit-justify-content: center;
   justify-content: center;
-  gap: 12px;
+  /* Pas de `gap` : ignoré par Safari 9 (iPad mini 1). Espacement porté
+     par les marges des enfants, cf. règle suivante. */
 }
+.tile-weather-row > * + * { margin-left: 12px; }
 .tile-weather-icon {
   width: 72px;
   height: 72px;
@@ -676,8 +678,13 @@ body {
   flex-direction: row;
   -webkit-align-items: center;
   align-items: center;
-  gap: 20px;
+  /* Pas de `gap` : ignoré par Safari 9 (iPad mini 1). Espacement porté
+     par les marges des enfants, cf. règle suivante. */
 }
+.weather-hero-row > * + * { margin-left: 20px; }
+/* .weather-hero-meta porte déjà margin-left:8px (déclarée plus bas, elle
+   écraserait la règle ci-dessus) : 20 (ex-gap) + 8 = 28, spécificité plus forte. */
+.weather-hero-row > * + .weather-hero-meta { margin-left: 28px; }
 .weather-hero-icon { width: 110px; height: 110px; -webkit-flex-shrink: 0; flex-shrink: 0; }
 .weather-hero-icon svg { width: 100%; height: 100%; display: block; }
 .weather-hero-temp {
@@ -745,8 +752,10 @@ body {
   border: 1px solid #3A2E22;
   border-radius: 10px;
   padding: 20px 12px;
-  gap: 6px;
+  /* Pas de `gap` : ignoré par Safari 9 (iPad mini 1). Espacement porté
+     par les marges des enfants, cf. règle suivante. */
 }
+.weather-card-week > * + * { margin-left: 6px; }
 .weather-day {
   -webkit-flex: 1;
   flex: 1;
@@ -804,8 +813,11 @@ body {
   flex-direction: row;
   -webkit-flex-wrap: wrap;
   flex-wrap: wrap;
-  gap: 10px;
+  /* Pas de `gap` (Safari 9) : liste qui passe à la ligne → demi-marge
+     horizontale + marge basse sur chaque puce, compensées en négatif ici. */
+  margin: 0 -5px -10px;
 }
+.weather-chips > * { margin: 0 5px 10px; }
 .weather-chip {
   display: -webkit-flex;
   display: flex;
@@ -820,10 +832,12 @@ body {
   cursor: pointer;
   -webkit-appearance: none;
   text-align: left;
-  gap: 10px;
+  /* Pas de `gap` : ignoré par Safari 9 (iPad mini 1). Espacement porté
+     par les marges des enfants, cf. règle suivante. */
   -webkit-transition: all 0.15s ease;
   transition: all 0.15s ease;
 }
+.weather-chip > * + * { margin-left: 10px; }
 .weather-chip:active {
   -webkit-transform: scale(0.97);
   transform: scale(0.97);
@@ -1173,8 +1187,10 @@ body {
   display: flex;
   -webkit-flex-direction: column;
   flex-direction: column;
-  gap: 4px;
+  /* Pas de `gap` : ignoré par Safari 9 (iPad mini 1). Espacement porté
+     par les marges des enfants, cf. règle suivante. */
 }
+.cal-compact-next-list > * + * { margin-top: 4px; }
 .cal-compact-next {
   font-size: 13px;
   line-height: 1.25;
@@ -2152,9 +2168,11 @@ body {
 .wiz-frigo-input-row {
   display: -webkit-flex;
   display: flex;
-  gap: 8px;
+  /* Pas de `gap` : ignoré par Safari 9 (iPad mini 1). Espacement porté
+     par les marges des enfants, cf. règle suivante. */
   margin-bottom: 10px;
 }
+.wiz-frigo-input-row > * + * { margin-left: 8px; }
 .wiz-frigo-input {
   -webkit-flex: 1;
   flex: 1;
@@ -2187,14 +2205,17 @@ body {
   display: flex;
   -webkit-flex-wrap: wrap;
   flex-wrap: wrap;
-  gap: 6px;
+  /* Pas de `gap` (Safari 9) : demi-marges sur les puces, compensées ici. */
+  margin: 0 -3px -6px;
 }
+.wiz-frigo-chips > * { margin: 0 3px 6px; }
 .wiz-frigo-chip {
   display: -webkit-inline-flex;
   display: inline-flex;
   -webkit-align-items: center;
   align-items: center;
-  gap: 6px;
+  /* Pas de `gap` : ignoré par Safari 9 (iPad mini 1). Espacement porté
+     par les marges des enfants, cf. règle suivante. */
   padding: 5px 4px 5px 10px;
   background: rgba(217, 160, 91, 0.15);
   color: #D9A05B;
@@ -2202,6 +2223,9 @@ body {
   border-radius: 4px;
   font-size: 13px;
 }
+/* Le libellé de la puce est un nœud texte (pas un élément) : `> * + *` ne
+   le verrait pas, la marge va donc directement sur la croix. */
+.wiz-frigo-chip > .wiz-frigo-chip-x { margin-left: 6px; }
 .wiz-frigo-chip-x {
   background: transparent;
   border: 0;
@@ -2246,8 +2270,11 @@ body {
   display: flex;
   -webkit-flex-wrap: wrap;
   flex-wrap: wrap;
-  gap: 8px;
+  /* Pas de `gap` (Safari 9) : demi-marges sur les boutons, compensées ici
+     pour que la rangée reste alignée sur les bords de la section. */
+  margin: 0 -4px -8px;
 }
+.tile-settings-lum-row > * { margin: 0 4px 8px; }
 .tile-settings-lum-btn {
   -webkit-flex: 1;
   flex: 1;
@@ -2525,3 +2552,32 @@ html.theme-lin .timer-compact-others { background:#F0E5CA; }
     transition: none !important;
   }
 }
+
+/* ===========================================================================
+   Remplaçants de `gap` pour les conteneurs flex construits en JS (styles
+   inline des tuiles). Safari 9 (iPad mini 1) ignore `gap` en flexbox : les
+   éléments se collaient. Même espacement, porté par les marges des enfants.
+   - fh-gap-rN : rangée sans retour à la ligne → margin-left entre enfants.
+   - fh-gap-cN : colonne → margin-top entre enfants.
+   - fh-gap-wN : rangée qui passe à la ligne → demi-marge horizontale et
+     marge basse sur chaque enfant, compensées en négatif sur le conteneur.
+   Attention : une marge INLINE sur un enfant l'emporte sur ces classes.
+   =========================================================================== */
+.fh-gap-r2 > * + * { margin-left: 2px; }
+.fh-gap-r3 > * + * { margin-left: 3px; }
+.fh-gap-r6 > * + * { margin-left: 6px; }
+.fh-gap-r8 > * + * { margin-left: 8px; }
+.fh-gap-r10 > * + * { margin-left: 10px; }
+.fh-gap-r12 > * + * { margin-left: 12px; }
+.fh-gap-c6 > * + * { margin-top: 6px; }
+.fh-gap-c14 > * + * { margin-top: 14px; }
+.fh-gap-w4 { margin-left: -2px; margin-right: -2px; margin-bottom: -4px; }
+.fh-gap-w4 > * { margin: 0 2px 4px; }
+.fh-gap-w6 { margin-left: -3px; margin-right: -3px; margin-bottom: -6px; }
+.fh-gap-w6 > * { margin: 0 3px 6px; }
+.fh-gap-w10 { margin-left: -5px; margin-right: -5px; margin-bottom: -10px; }
+.fh-gap-w10 > * { margin: 0 5px 10px; }
+.fh-gap-w12 { margin-left: -6px; margin-right: -6px; margin-bottom: -12px; }
+.fh-gap-w12 > * { margin: 0 6px 12px; }
+.fh-gap-w16 { margin-left: -8px; margin-right: -8px; margin-bottom: -16px; }
+.fh-gap-w16 > * { margin: 0 8px 16px; }
