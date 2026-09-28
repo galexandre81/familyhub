@@ -88,11 +88,16 @@ export default function Displays() {
                 </div>
                 <button
                   onClick={() => {
-                    if (window.confirm(`Supprimer l'écran « ${d.nom} » ?`)) {
+                    if (
+                      window.confirm(
+                        `Supprimer l'écran « ${d.nom} » ?\n\nL'iPad sera déconnecté immédiatement et devra être appairé à nouveau pour réafficher le hub.`,
+                      )
+                    ) {
                       void deleteDisplay.mutate({ householdId, displayId: d.id });
                     }
                   }}
-                  className="text-text-secondaire hover:text-accent-chaud p-2.5 -m-2.5 min-h-11 min-w-11 flex items-center justify-center"
+                  disabled={deleteDisplay.isPending && deleteDisplay.variables?.displayId === d.id}
+                  className="text-text-secondaire hover:text-accent-chaud p-2.5 -m-2.5 min-h-11 min-w-11 flex items-center justify-center disabled:opacity-40"
                   aria-label={`Supprimer l'écran ${d.nom}`}
                   title={`Supprimer l'écran ${d.nom}`}
                 >

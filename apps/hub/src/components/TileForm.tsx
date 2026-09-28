@@ -24,8 +24,14 @@ import {
   useCreateTile,
   useRefreshRecipeTodayTile,
   useRefreshWeeklyMenuTile,
+  useSaveCalendarUrl,
   useSyncCalendarTile,
 } from "../lib/mutations";
+import { useCalendarConfigured } from "../lib/queries";
+import CalendarUrlField, {
+  resolveCalendarUrlDraft,
+  type CalendarUrlDraft,
+} from "./CalendarUrlField";
 import { searchCity, formatCityLabel, type GeocodingResult } from "../lib/geocoding";
 import { Trash2, Plus, Search, Star } from "lucide-react";
 
@@ -114,6 +120,10 @@ export default function TileForm({
   // Pas d'UI fields exposés pour recipe-today : on prend les défauts.
   const recipeTodayCfg: RecipeTodayConfig = defaultRecipeTodayConfig;
 
+  const [calendarUrlDraft, setCalendarUrlDraft] = useState<CalendarUrlDraft>({ mode: "keep" });
+  const { data: calendarPrivate } = useCalendarConfigured(householdId);
+  const saveCalendarUrl = useSaveCalendarUrl();
+
   const syncCalendar = useSyncCalendarTile();
   const refreshRecipeToday = useRefreshRecipeTodayTile();
   const refreshWeeklyMenu = useRefreshWeeklyMenuTile();
@@ -151,7 +161,23 @@ export default function TileForm({
       setError("Le nom de la tuile est requis");
       return;
     }
+    const calendarAction =
+      type === "calendar"
+        ? resolveCalendarUrlDraft(calendarUrlDraft, calendarPrivate?.configured)
+        : ({ action: "none" } as const);
+    if (calendarAction.action === "error") {
+      setError(calendarAction.message);
+      return;
+    }
     try {
+      // Adresse iCal enregistrée AVANT la création de la tuile et la sync
+      // initiale : la fonction syncCalendarTile la lit dans private/calendar.
+      if (calendarAction.action === "set") {
+        await saveCalendarUrl.mutateAsync({ householdId, icalUrl: calendarAction.url });
+      } else if (calendarAction.action === "clear") {
+        await saveCalendarUrl.mutateAsync({ householdId, icalUrl: null });
+      }
+      setCalendarUrlDraft({ mode: "keep" });
       const id = await create.mutateAsync({
         householdId,
         type,
@@ -234,7 +260,13 @@ export default function TileForm({
         <TimerFields config={timerCfg} onChange={setTimerCfg} />
       )}
       {type === "calendar" && (
-        <CalendarFields config={calendarCfg} onChange={setCalendarCfg} />
+        <CalendarFields
+          householdId={householdId}
+          config={calendarCfg}
+          onChange={setCalendarCfg}
+          urlDraft={calendarUrlDraft}
+          onUrlDraftChange={setCalendarUrlDraft}
+        />
       )}
       {type === "livre-recettes" && (
         <LivreRecettesFields config={livreCfg} onChange={setLivreCfg} />
@@ -248,8 +280,12 @@ export default function TileForm({
             Annuler
           </button>
         )}
-        <button type="submit" className="btn-primary" disabled={create.isPending}>
-          {create.isPending ? "Création…" : "Créer la tuile"}
+        <button
+          type="submit"
+          className="btn-primary"
+          disabled={create.isPending || saveCalendarUrl.isPending}
+        >
+          {create.isPending || saveCalendarUrl.isPending ? "Création…" : "Créer la tuile"}
         </button>
       </div>
     </form>
@@ -361,18 +397,28 @@ function LivreRecettesFields({
 }
 
 function CalendarFields({
+  householdId,
   config,
   onChange,
+  urlDraft,
+  onUrlDraftChange,
 }: {
+  householdId: string;
   config: CalendarConfig;
   onChange: (c: CalendarConfig) => void;
+  urlDraft: CalendarUrlDraft;
+  onUrlDraftChange: (d: CalendarUrlDraft) => void;
 }) {
   return (
     <div className="space-y-3">
-      <p className="text-sm text-text-secondaire">
-        Le flux iCal du calendrier Google familial est stocké côté serveur (Secret Manager).
-        Pour ajouter ou changer le calendrier source, il faut redéployer le secret
-        <code className="mx-1 px-1 bg-bordure rounded">CALENDAR_ICAL_URL</code>.
+      <CalendarUrlField
+        householdId={householdId}
+        draft={urlDraft}
+        onChange={onUrlDraftChange}
+      />
+      <p className="text-xs text-text-secondaire">
+        L'adresse est propre à ton foyer et n'est jamais envoyée aux iPads : seul le serveur
+        la lit pour récupérer les événements.
       </p>
       <div className="grid grid-cols-2 gap-3">
         <Field label="Horizon (jours)">

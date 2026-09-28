@@ -98,6 +98,24 @@ export function useTile(householdId: string | undefined, tileId: string | undefi
 }
 
 /**
+ * Indique si l'adresse secrète iCal du foyer est configurée
+ * (`households/{hid}/private/calendar`). Ne renvoie volontairement PAS
+ * l'adresse elle-même : elle n'a pas à rester dans le cache ni à s'afficher.
+ */
+export function useCalendarConfigured(householdId: string | undefined) {
+  return useQuery({
+    enabled: !!householdId,
+    queryKey: ["calendarPrivate", householdId],
+    queryFn: async (): Promise<{ configured: boolean }> => {
+      if (!householdId) return { configured: false };
+      const snap = await getDoc(doc(db, `households/${householdId}/private/calendar`));
+      const url = snap.exists() ? (snap.data() as { icalUrl?: unknown }).icalUrl : undefined;
+      return { configured: typeof url === "string" && url.length > 0 };
+    },
+  });
+}
+
+/**
  * Convenience hook for "the current household" — Phase 1, on prend le premier
  * (chaque user en a typiquement un seul). À étendre plus tard avec un sélecteur.
  */

@@ -123,7 +123,7 @@ npm install
 cp .env.example apps/hub/.env.local
 # → édite apps/hub/.env.local avec tes clés Firebase
 # → édite .firebaserc avec ton projectId
-# → édite apps/display/public/js/firebase-config.js avec tes clés
+# (la config de l'iPad est générée au build depuis ce même .env.local)
 
 # Connexion
 firebase login

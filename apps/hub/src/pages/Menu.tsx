@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
+import { useMutationState } from "@tanstack/react-query";
 import {
   Archive,
   Check,
@@ -16,6 +17,7 @@ import {
   Filter,
   Loader2,
   Plus,
+  RefreshCw,
   Send,
   ShoppingCart,
   Trash2,
@@ -39,9 +41,11 @@ import {
   useAddShoppingItem,
   useDeleteMealPlan,
   useMarkShoppingShared,
+  useRefreshHouseholdDisplays,
   useRemoveShoppingItem,
   useToggleBatchSessionDone,
   useToggleShoppingItem,
+  SHOPPING_ITEMS_MUTATION_KEY,
 } from "../lib/mutations";
 import MealPlanGrid from "../components/menu/MealPlanGrid";
 import RecetteDetailModal from "../components/menu/RecetteDetailModal";
@@ -221,6 +225,8 @@ export default function Menu() {
             )}
           </div>
 
+          {!isArchived && <RefreshDisplaysBar householdId={householdId} />}
+
           <MealPlanGrid
             slots={slots}
             recettesById={recettesById ?? {}}
@@ -268,6 +274,75 @@ export default function Menu() {
           onClose={() => setOpenRecette(null)}
         />
       )}
+    </div>
+  );
+}
+
+// ───── Mise à jour manuelle des écrans ─────────────────────────────────
+
+/**
+ * Le serveur ne recalcule plus les tuiles « Menu de la semaine » / « Recette
+ * du jour » qu'une fois par nuit : ce bouton force la mise à jour tout de
+ * suite, après la création ou la modification d'un menu.
+ */
+function RefreshDisplaysBar({ householdId }: { householdId: string }) {
+  const refresh = useRefreshHouseholdDisplays();
+  const [status, setStatus] = useState<
+    { kind: "success"; message: string } | { kind: "error"; message: string } | null
+  >(null);
+
+  async function handleClick() {
+    setStatus(null);
+    try {
+      const res = await refresh.mutateAsync({ householdId });
+      const n = res.weeklyMenuTiles + res.recipeTodayTiles;
+      setStatus({
+        kind: "success",
+        message:
+          n === 0
+            ? "Écrans mis à jour (aucune tuile menu ou recette du jour à rafraîchir)."
+            : `Écrans mis à jour · ${n} tuile${n > 1 ? "s" : ""} rafraîchie${n > 1 ? "s" : ""}.`,
+      });
+    } catch (err) {
+      setStatus({
+        kind: "error",
+        message:
+          "La mise à jour des écrans a échoué" +
+          (err instanceof Error && err.message ? ` : ${err.message}` : "."),
+      });
+    }
+  }
+
+  return (
+    <div className="tile-card !p-3 flex flex-wrap items-center gap-3">
+      <button
+        type="button"
+        onClick={() => void handleClick()}
+        disabled={refresh.isPending}
+        className="btn-secondary text-sm flex items-center gap-2 shrink-0"
+      >
+        {refresh.isPending ? (
+          <Loader2 size={14} className="animate-spin" aria-hidden="true" />
+        ) : (
+          <RefreshCw size={14} aria-hidden="true" />
+        )}
+        {refresh.isPending ? "Mise à jour…" : "Mettre à jour les écrans"}
+      </button>
+      <div className="flex-1 min-w-[200px]">
+        <p className="text-cream-mute text-xs">
+          Les écrans se mettent à jour automatiquement chaque nuit ; utilise ce bouton après
+          avoir créé ou modifié un menu.
+        </p>
+        {status && (
+          <p
+            role="status"
+            className={`text-sm mt-1 ${status.kind === "success" ? "text-sage" : "text-copper"}`}
+          >
+            {status.kind === "success" && <Check size={14} className="inline mr-1" aria-hidden="true" />}
+            {status.message}
+          </p>
+        )}
+      </div>
     </div>
   );
 }
@@ -439,6 +514,16 @@ function ShoppingListSection({
   const remove = useRemoveShoppingItem();
   const add = useAddShoppingItem();
   const markShared = useMarkShoppingShared();
+  // Items dont une écriture (cochage / retrait) est en vol : bouton désactivé
+  // le temps de la transaction, pour éviter les doubles taps.
+  const pendingItemIds = useMutationState({
+    filters: { mutationKey: SHOPPING_ITEMS_MUTATION_KEY, status: "pending" },
+    select: (m) => (m.state.variables as { itemId?: string } | undefined)?.itemId,
+  });
+  const pendingIds = useMemo(
+    () => new Set(pendingItemIds.filter((id): id is string => !!id)),
+    [pendingItemIds],
+  );
   const [hideChecked, setHideChecked] = useState(false);
   const [addOpen, setAddOpen] = useState(false);
   const [shareState, setShareState] = useState<"idle" | "sharing" | "copied">("idle");
@@ -593,7 +678,6 @@ function ShoppingListSection({
               householdId,
               listId: list.id,
               planId,
-              currentItems: list.items,
               item,
             });
             setAddOpen(false);
@@ -611,13 +695,14 @@ function ShoppingListSection({
             key={rayon}
             rayon={rayon}
             items={items}
-            onToggle={(itemId) =>
+            pendingIds={pendingIds}
+            onToggle={(itemId, checked) =>
               toggle.mutate({
                 householdId,
                 listId: list.id,
                 planId,
                 itemId,
-                items: list.items,
+                checked,
                 uid,
               })
             }
@@ -627,7 +712,6 @@ function ShoppingListSection({
                 listId: list.id,
                 planId,
                 itemId,
-                currentItems: list.items,
               })
             }
           />
@@ -766,12 +850,14 @@ function AddItemForm({
 function RayonGroup({
   rayon,
   items,
+  pendingIds,
   onToggle,
   onRemove,
 }: {
   rayon: string;
   items: ShoppingListWithId["items"];
-  onToggle: (itemId: string) => void;
+  pendingIds: Set<string>;
+  onToggle: (itemId: string, checked: boolean) => void;
   onRemove: (itemId: string) => void;
 }) {
   const [open, setOpen] = useState(true);
@@ -801,8 +887,11 @@ function RayonGroup({
           {items.map((it) => (
             <li key={it.id} className="flex items-start gap-1 group">
               <button
-                onClick={() => onToggle(it.id)}
-                className="flex items-start gap-2 flex-1 text-left text-sm py-1 -my-1 hover:bg-bordure/20 rounded transition"
+                onClick={() => onToggle(it.id, !it.checked)}
+                aria-pressed={it.checked}
+                disabled={pendingIds.has(it.id)}
+                aria-busy={pendingIds.has(it.id)}
+                className="flex items-start gap-2 flex-1 text-left text-sm py-1 -my-1 hover:bg-bordure/20 rounded transition disabled:opacity-60 disabled:cursor-wait"
               >
                 <span className="shrink-0 mt-1 sm:mt-0.5">
                   {it.checked ? (
@@ -828,7 +917,8 @@ function RayonGroup({
               {it.ajoutManuel && (
                 <button
                   onClick={() => onRemove(it.id)}
-                  className="text-cream-mute hover:text-copper focus-visible:text-copper transition shrink-0 p-2.5 min-h-11 min-w-11 flex items-center justify-center"
+                  disabled={pendingIds.has(it.id)}
+                  className="disabled:opacity-40 text-cream-mute hover:text-copper focus-visible:text-copper transition shrink-0 p-2.5 min-h-11 min-w-11 flex items-center justify-center"
                   title={`Retirer ${it.nom}`}
                   aria-label={`Retirer ${it.nom}`}
                 >

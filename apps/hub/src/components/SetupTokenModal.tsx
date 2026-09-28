@@ -1,6 +1,6 @@
 import { useEffect, useId, useRef, useState } from "react";
 import QRCode from "react-qr-code";
-import { Copy, Check, ExternalLink, X } from "lucide-react";
+import { Copy, Check, X } from "lucide-react";
 import { useCreateDisplayToken } from "../lib/mutations";
 
 interface SetupTokenModalProps {
@@ -114,6 +114,11 @@ export default function SetupTokenModal({
           <p className="text-text-secondaire text-sm mt-1">
             Trois façons de transférer la config sur ton iPad. Le code est valide 30 minutes.
           </p>
+          <p className="text-sm mt-3 p-3 rounded-md border border-accent-chaud bg-accent-chaud/10">
+            <strong className="text-accent-chaud">À ouvrir uniquement sur l'iPad.</strong>{" "}
+            Le code ne sert qu'une fois : l'appareil qui ouvre le lien devient l'écran. N'ouvre
+            jamais ce lien sur ton téléphone ou ton ordinateur.
+          </p>
         </div>
 
         {create.isPending && <p className="text-text-secondaire">Génération du lien…</p>}
@@ -151,24 +156,21 @@ export default function SetupTokenModal({
                     {copied === "short" ? <Check size={12} aria-hidden="true" /> : <Copy size={12} aria-hidden="true" />}
                     {copied === "short" ? "Copié" : "Copier"}
                   </button>
-                  <a
-                    href={shortUrl}
-                    target="_blank"
-                    rel="noreferrer"
-                    className="btn-primary text-xs flex items-center gap-1"
-                  >
-                    <ExternalLink size={12} aria-hidden="true" />
-                    Tester
-                  </a>
                 </div>
+                <p className="text-text-secondaire text-xs mt-2">
+                  À taper ou coller dans Safari <strong>sur l'iPad</strong>. Tu peux l'envoyer à
+                  l'iPad par AirDrop / iMessage, mais ne l'ouvre nulle part ailleurs.
+                </p>
               </div>
             </div>
 
             <div className="space-y-2">
               <p className="text-sm font-semibold">Option 3 — QR code</p>
               <p className="text-text-secondaire text-xs">
-                Scan avec un téléphone moderne (l'iPad mini 1 en iOS 9 ne scanne pas nativement).
-                Une fois ouvert sur le téléphone, partage l'URL vers l'iPad par AirDrop / iMessage.
+                Scanne-le <strong>directement avec l'appareil photo de l'iPad</strong> (iOS 11 ou
+                plus). Un vieil iPad qui ne scanne pas : utilise plutôt le code ou le lien court.
+                Ne le scanne jamais avec ton téléphone : le lien s'ouvrirait sur le téléphone et
+                c'est lui qui deviendrait l'écran.
               </p>
               <div className="bg-white p-4 rounded-md flex items-center justify-center">
                 <QRCode value={shortUrl} size={200} />
