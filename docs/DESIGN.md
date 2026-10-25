@@ -53,12 +53,14 @@ Effet de bord sans conséquence : `scripts/copy-display-into-hub-dist.mjs` recop
 
 Avant la fusion : le job CI `rules-tests` (règles Firestore sur l'émulateur) doit être vert, en plus du job `build`.
 
-Ordre recommandé, une commande après l'autre :
+Ordre obligatoire, une commande après l'autre — **règles et fonctions avant l'hébergement** :
 
-1. `npm run deploy:functions` — les fonctions d'abord ;
-2. `npm run deploy:hosting` — le hub et les fichiers de l'iPad ;
-3. `npm run deploy:rules` — les règles Firestore en dernier.
+1. `npm run deploy:functions` — les fonctions d'abord (`acceptInvitation` et `createInvitation` lisent et écrivent la carte `roles`, et `createInvitation` est réservée aux parents) ;
+2. `npm run deploy:rules` — les règles Firestore ensuite ;
+3. `npm run deploy:hosting` — le hub et les fichiers de l'iPad en dernier.
+
+Pourquoi : sur cette branche, le hub écrit `roles: { [uid]: "parent" }` en créant un foyer. Les anciennes règles n'acceptent pas ce champ : si le nouveau hub était publié avant les règles, la création d'un foyer serait refusée. Les nouvelles règles, elles, acceptent aussi l'ancien hub (le champ `roles` y est facultatif) : les publier avant ne casse rien. Même raisonnement pour les fonctions : le nouveau hub appelle les nouvelles fonctions, l'ancien hub fonctionne avec elles.
 
 Puis **recharger l'iPad une fois à la main** : l'ancien `core.js` ne surveille pas `version.json`, il ne se rechargera donc pas tout seul pour ce déploiement-ci. Les déploiements suivants le rechargeront automatiquement (vérification toutes les 10 minutes).
 
-`npm run deploy` (un seul `firebase deploy`) publie les règles avant l'hébergement. C'est acceptable pour ce lot : un ancien iPad qui tenterait encore d'écrire un thème est simplement refusé par les règles, sans casser l'écran. Mais la séquence ci-dessus reste celle à suivre.
+`npm run deploy` (un seul `firebase deploy`) publie aussi les règles avant l'hébergement ; il convient donc, mais la séquence ci-dessus (fonctions → règles → hébergement) reste celle à suivre. Entre l'étape 2 et l'étape 3, un ancien iPad qui tenterait encore d'écrire un thème est simplement refusé par les règles, sans casser l'écran.
