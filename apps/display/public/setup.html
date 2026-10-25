@@ -167,14 +167,19 @@
     }
 
     /* --- Court-circuit : si l'iPad est déjà configuré, on saute l'exchange --- */
-    /* Cas typique : bookmark /d/ABCXYZ ré-ouvert après une config réussie,
-       OU restauration d'onglet Safari après reboot. */
+    /* Cas typique : restauration d'onglet Safari après reboot. Jamais quand un
+       code est fourni (lien /d/CODE, ?s=, ?token=) ni depuis le lien « à
+       reconfigurer » (?reconfigurer=1) : l'iPad gardait sinon les identifiants
+       d'un écran supprimé et ignorait le nouveau code, sans fin. */
+    var codeFourni = !!detectShortId() || !!getQueryParam('token') || invalidShortIdParam;
+    var reconfigurer = getQueryParam('reconfigurer') === '1';
     try {
       var storedHouseholdId = localStorage.getItem('familyHub.householdId');
       var storedDisplayId = localStorage.getItem('familyHub.displayId');
       var storedCustomToken = localStorage.getItem('familyHub.customToken');
       var storedAuthToken = localStorage.getItem('familyHub.authToken');
-      if (storedHouseholdId && storedDisplayId && storedCustomToken && storedAuthToken) {
+      if (!codeFourni && !reconfigurer &&
+          storedHouseholdId && storedDisplayId && storedCustomToken && storedAuthToken) {
         if (resetBtn) resetBtn.style.display = 'inline-block';
         show('Cet appareil est déjà configuré.', 'Redirection vers l\'écran…');
         setTimeout(function () { window.location.href = '/display/'; }, 1500);
