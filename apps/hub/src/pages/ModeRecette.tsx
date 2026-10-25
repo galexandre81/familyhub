@@ -39,23 +39,7 @@ import { useMinuteurs } from "../lib/useMinuteurs";
 import { estEnAlarme } from "../lib/minuteurs";
 import { MinuteurPanneau } from "../components/MinuteurPanneau";
 import { toast } from "../components/Toast";
-
-const REQUETE_TELEPHONE = "(max-width: 767px)";
-
-function useEstTelephone(): boolean {
-  const [tel, setTel] = useState(
-    () => typeof window !== "undefined" && window.matchMedia?.(REQUETE_TELEPHONE).matches === true,
-  );
-  useEffect(() => {
-    if (typeof window.matchMedia !== "function") return;
-    const mq = window.matchMedia(REQUETE_TELEPHONE);
-    const maj = () => setTel(mq.matches);
-    maj();
-    mq.addEventListener("change", maj);
-    return () => mq.removeEventListener("change", maj);
-  }, []);
-  return tel;
-}
+import { useEstTelephone } from "../lib/useEstTelephone";
 
 interface WakeLockSentinelLike {
   release(): Promise<void>;

@@ -4,6 +4,8 @@ import { useAuth } from "../lib/auth";
 import { useActiveHouseholdId, useHouseholds } from "../lib/queries";
 import { useAmbiance } from "../lib/ambiance";
 import clsx from "clsx";
+import { useEstTelephone } from "../lib/useEstTelephone";
+import TelephoneLayout from "./TelephoneLayout";
 
 const navItems = [
   { to: "/", icon: Home, label: "Accueil", end: true },
@@ -22,6 +24,10 @@ export default function Layout() {
 
   /* Ambiance jour/nuit selon le lever/coucher du soleil du foyer. */
   useAmbiance(household?.parametres?.localisation);
+
+  /* Téléphone (< 768 px) : onglets en bas au lieu de l'en-tête PC. */
+  const telephone = useEstTelephone();
+  if (telephone) return <TelephoneLayout />;
 
   const today = new Date().toLocaleDateString("fr-FR", {
     weekday: "long",

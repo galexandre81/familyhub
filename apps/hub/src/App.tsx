@@ -6,6 +6,8 @@ import NotFound from "./components/NotFound";
 import { LoadingState } from "./components/states";
 import { useAmbiance } from "./lib/ambiance";
 import { InvitationEnAttenteProvider } from "./lib/invitationContext";
+import { useEstTelephone } from "./lib/useEstTelephone";
+import DisponibleSurOrdinateur from "./components/DisponibleSurOrdinateur";
 
 const Login = lazy(() => import("./pages/Login"));
 const Rejoindre = lazy(() => import("./pages/Rejoindre"));
@@ -22,6 +24,19 @@ const MenuImport = lazy(() => import("./pages/MenuImport"));
 const LivreRecettes = lazy(() => import("./pages/LivreRecettes"));
 const RecetteDetail = lazy(() => import("./pages/RecetteDetail"));
 const ModeRecette = lazy(() => import("./pages/ModeRecette"));
+const Aujourdhui = lazy(() => import("./pages/Aujourdhui"));
+const Semaine = lazy(() => import("./pages/Semaine"));
+const Courses = lazy(() => import("./pages/Courses"));
+
+/** `/` : Aujourd'hui sur téléphone, tableau de bord sur PC. */
+function Accueil() {
+  return useEstTelephone() ? <Aujourdhui /> : <Dashboard />;
+}
+
+/** Pages réservées au PC : sur téléphone, « disponible sur ordinateur ». */
+function PcSeulement({ children }: { children: React.ReactNode }) {
+  return useEstTelephone() ? <DisponibleSurOrdinateur /> : <>{children}</>;
+}
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -63,16 +78,18 @@ export default function App() {
             </RequireAuth>
           }
         >
-          <Route index element={<Dashboard />} />
-          <Route path="displays" element={<Displays />} />
-          <Route path="displays/:displayId" element={<DisplayEditor />} />
-          <Route path="tiles" element={<Tiles />} />
-          <Route path="tiles/:tileId" element={<TileEditor />} />
-          <Route path="parametres" element={<Parametres />} />
-          <Route path="parametres/profils" element={<Profils />} />
-          <Route path="menu" element={<Menu />} />
-          <Route path="menu/nouveau" element={<MenuWizard />} />
-          <Route path="menu/import" element={<MenuImport />} />
+          <Route index element={<Accueil />} />
+          <Route path="semaine" element={<Semaine />} />
+          <Route path="courses" element={<Courses />} />
+          <Route path="displays" element={<PcSeulement><Displays /></PcSeulement>} />
+          <Route path="displays/:displayId" element={<PcSeulement><DisplayEditor /></PcSeulement>} />
+          <Route path="tiles" element={<PcSeulement><Tiles /></PcSeulement>} />
+          <Route path="tiles/:tileId" element={<PcSeulement><TileEditor /></PcSeulement>} />
+          <Route path="parametres" element={<PcSeulement><Parametres /></PcSeulement>} />
+          <Route path="parametres/profils" element={<PcSeulement><Profils /></PcSeulement>} />
+          <Route path="menu" element={<PcSeulement><Menu /></PcSeulement>} />
+          <Route path="menu/nouveau" element={<PcSeulement><MenuWizard /></PcSeulement>} />
+          <Route path="menu/import" element={<PcSeulement><MenuImport /></PcSeulement>} />
           <Route path="menu/:planId/:slotId/cuisine" element={<ModeRecette />} />
           <Route path="livre-recettes" element={<LivreRecettes />} />
           <Route path="livre-recettes/:recetteId" element={<RecetteDetail />} />
