@@ -24,20 +24,20 @@
      données (la session Firebase peut rester valide) et affiche un badge
      « à reconfigurer ». */
   var authPermanentlyFailed = false;
-  var PERMANENT_AUTH_ERRORS = [
-    'functions/permission-denied', 'permission-denied',
-    'functions/deadline-exceeded', 'deadline-exceeded',
-    'functions/not-found', 'not-found'
-  ];
+  /* Raisons définitives posées par le serveur dans err.details.reason.
+     Liste identique à RAISONS_APPAIRAGE (functions/src/auth/pairingErrors.ts). */
+  var PAIRING_REASONS = ['deleted', 'revoked', 'token-mismatch', 'expired'];
 
   /* Erreur de refreshDisplayToken qui ne se résoudra pas en retentant :
-     authToken remplacé (appairage ailleurs) ou écran révoqué
-     (permission-denied), authToken expiré (deadline-exceeded), écran
-     supprimé (not-found). Accepte le code préfixé (SDK v8) ou nu. */
-  function isPermanentAuthError(code) {
-    var c = code ? String(code) : '';
-    for (var i = 0; i < PERMANENT_AUTH_ERRORS.length; i++) {
-      if (PERMANENT_AUTH_ERRORS[i] === c) return true;
+     écran supprimé, révoqué, authToken remplacé (appairé ailleurs) ou
+     expiré. On se fie UNIQUEMENT au marqueur serveur details.reason, jamais
+     au code seul : le SDK v8 fabrique lui-même deadline-exceeded (timeout
+     70 s), permission-denied (403) et not-found (404) sur une coupure Wi-Fi
+     ou un incident de déploiement — ces cas suivent les retries normaux. */
+  function isPermanentAuthError(err) {
+    if (!err || !err.details || typeof err.details.reason !== 'string') return false;
+    for (var i = 0; i < PAIRING_REASONS.length; i++) {
+      if (PAIRING_REASONS[i] === err.details.reason) return true;
     }
     return false;
   }
@@ -223,7 +223,7 @@
         if (window.console && window.console.warn) {
           window.console.warn('[auth] refresh attempt ' + (attemptIdx + 1) + ' failed', err);
         }
-        if (isPermanentAuthError(code)) {
+        if (isPermanentAuthError(err)) {
           /* Écran appairé ailleurs / révoqué / supprimé / expiré : retenter
              ne sert à rien. On arrête tout, on garde le grid et ses données,
              et on invite à reconfigurer. Pas de reload (il relancerait la
@@ -298,6 +298,22 @@
     if (tokenRefreshLoopStarted) return;
     tokenRefreshLoopStarted = true;
     setInterval(function () { refreshCustomToken(0); }, CUSTOM_TOKEN_REFRESH_MS);
+    /* Rattrapage au boot : l'interval repart de zéro à chaque rechargement
+       de page, donc des reloads fréquents (déploiements, changement de
+       layout) empêcheraient l'expiration de glisser. Si le dernier refresh
+       réussi date de plus de 24 h (ou n'est pas connu), un seul refresh
+       60 s après le chargement. Âge re-vérifié au déclenchement : si un
+       refresh a eu lieu entre-temps (signin initial échoué), on ne refait rien. */
+    setTimeout(function () {
+      if (!state.auth || !state.auth.currentUser) return;
+      var issuedAtRaw = getStored(STORAGE.customTokenIssuedAt);
+      var issuedAt = issuedAtRaw ? parseInt(issuedAtRaw, 10) : 0;
+      if (issuedAt && Date.now() - issuedAt < CUSTOM_TOKEN_REFRESH_MS) return;
+      if (window.console && window.console.log) {
+        window.console.log('[auth] boot : dernier refresh > 24 h, prolongation de l\'appairage');
+      }
+      refreshCustomToken(0);
+    }, 60 * 1000);
   }
 
   /**

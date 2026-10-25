@@ -5,6 +5,12 @@ import { admin, auth, db } from "../lib/admin";
 import { assertHouseholdMember } from "../lib/household";
 import { requireId } from "../lib/validate";
 import { prochaineExpiration } from "./tokenExpiry";
+import { erreurAppairage, type RaisonAppairage } from "./pairingErrors";
+
+function httpsErreurAppairage(reason: RaisonAppairage): HttpsError {
+  const e = erreurAppairage(reason);
+  return new HttpsError(e.code, e.message, { reason: e.reason });
+}
 
 const SETUP_TOKEN_TTL_SECONDS = 30 * 60; // 30 min
 
@@ -285,21 +291,24 @@ export const refreshDisplayToken = onCall(
     const authToken = requireId(input.authToken, "authToken");
 
     const displaySnap = await db.doc(`households/${householdId}/displays/${displayId}`).get();
+    // Erreurs définitives : marquées `details.reason`, seul signal que l'iPad
+    // interprète comme « à reconfigurer » (cf. pairingErrors.ts).
     if (!displaySnap.exists) {
-      throw new HttpsError("not-found", "Display introuvable");
+      throw httpsErreurAppairage("deleted");
     }
     const data = displaySnap.data()!;
 
     // Kill switch : un écran marqué `revoked` ne peut plus se ré-authentifier.
     if (data.revoked === true) {
-      throw new HttpsError("permission-denied", "Cet écran a été révoqué");
+      throw httpsErreurAppairage("revoked");
     }
+    // authToken remplacé : l'écran a été appairé sur un autre appareil.
     if (data.authToken !== authToken) {
-      throw new HttpsError("permission-denied", "Token invalide");
+      throw httpsErreurAppairage("token-mismatch");
     }
     const expiresAt = data.authTokenExpiresAt as FirebaseFirestore.Timestamp | undefined;
     if (!expiresAt || expiresAt.toMillis() < Date.now()) {
-      throw new HttpsError("deadline-exceeded", "Token expiré, reconfigurez le display");
+      throw httpsErreurAppairage("expired");
     }
 
     // Expiration glissante : chaque rafraîchissement réussi repousse l'échéance
