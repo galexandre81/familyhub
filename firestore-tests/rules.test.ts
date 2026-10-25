@@ -13,7 +13,7 @@ import {
   setDoc,
   updateDoc,
 } from "firebase/firestore";
-import { afterAll, beforeAll, beforeEach, describe, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RULES_PATH = resolve(__dirname, "..", "firestore.rules");
@@ -72,9 +72,17 @@ beforeEach(async () => {
       nom: "Foyer Test",
       ownerUid: MEMBER_UID,
       membres: [MEMBER_UID],
-      parametres: { localisation: {}, langue: "fr", systemeUnites: "metric", themeId: "caractere" },
+      roles: { [MEMBER_UID]: "parent" },
+      parametres: { localisation: {}, langue: "fr", systemeUnites: "metric" },
       createdAt: 1,
       updatedAt: 1,
+    });
+    await setDoc(doc(db, "invitations", "ABCDEFGHJK"), {
+      householdId: HID,
+      createdBy: MEMBER_UID,
+      createdAt: 1,
+      expiresAt: 9_999_999_999_999,
+      role: "parent",
     });
     await setDoc(doc(db, "households", HID, "profils", "p1"), {
       nom: "Léo",
@@ -102,6 +110,7 @@ beforeEach(async () => {
     });
     await setDoc(doc(db, "households", HID, "tiles", "t1"), {
       type: "weather",
+      config: { selectedLocationId: "loc1" },
       createdAt: 1,
     });
     await setDoc(doc(db, "households", HID, "shoppingLists", "sl1"), {
@@ -146,6 +155,11 @@ beforeEach(async () => {
       updatedAt: 1,
     });
     await setDoc(doc(db, "households", HID_B, "timers", "tmB"), { label: "Riz" });
+    await setDoc(doc(db, "households", HID_B, "tiles", "tB"), {
+      type: "weather",
+      config: { selectedLocationId: "loc1" },
+      createdAt: 1,
+    });
   });
 });
 
@@ -194,6 +208,48 @@ describe("member access", () => {
   it("cannot change membres via update", async () => {
     const db = memberDb();
     await assertFails(updateDoc(doc(db, "households", HID), { membres: [MEMBER_UID, OUTSIDER_UID] }));
+  });
+
+  it("can update nom on a household without roles (foyer ancien)", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "households", "ancien"), {
+        nom: "Foyer ancien",
+        ownerUid: MEMBER_UID,
+        membres: [MEMBER_UID],
+        parametres: {},
+        createdAt: 1,
+        updatedAt: 1,
+      });
+    });
+    await assertSucceeds(updateDoc(doc(memberDb(), "households", "ancien"), { nom: "Renommé" }));
+  });
+
+  it("cannot change roles via update (ajout d'un parent)", async () => {
+    const db = memberDb();
+    await assertFails(
+      updateDoc(doc(db, "households", HID), {
+        roles: { [MEMBER_UID]: "parent", [OUTSIDER_UID]: "parent" },
+      }),
+    );
+  });
+
+  it("cannot change roles via update (chemin pointé)", async () => {
+    const db = memberDb();
+    await assertFails(updateDoc(doc(db, "households", HID), { [`roles.${MEMBER_UID}`]: "enfant" }));
+  });
+
+  it("can update one réglage via a dotted path (parametres.placard), the others stay", async () => {
+    const db = memberDb();
+    await assertSucceeds(
+      updateDoc(doc(db, "households", HID), { "parametres.placard": ["sel"], updatedAt: 2 }),
+    );
+    const snap = await getDoc(doc(db, "households", HID));
+    expect(snap.data()?.parametres).toEqual({
+      localisation: {},
+      langue: "fr",
+      systemeUnites: "metric",
+      placard: ["sel"],
+    });
   });
 });
 
@@ -255,17 +311,54 @@ describe("display (kiosk) writes", () => {
     );
   });
 
-  it("can update household parametres.themeId", async () => {
-    await assertSucceeds(
+  it("CANNOT update household parametres", async () => {
+    await assertFails(
       updateDoc(doc(displayDb(), "households", HID), {
-        parametres: {
-          localisation: {},
-          langue: "fr",
-          systemeUnites: "metric",
-          themeId: "ocean",
-        },
+        parametres: { localisation: {}, langue: "en", systemeUnites: "metric" },
         updatedAt: 2,
       }),
+    );
+  });
+
+  it("can update tile config.selectedLocationId", async () => {
+    await assertSucceeds(
+      updateDoc(doc(displayDb(), "households", HID, "tiles", "t1"), {
+        "config.selectedLocationId": "loc2",
+        updatedAt: 2,
+      }),
+    );
+  });
+
+  it("CANNOT update tile config.url", async () => {
+    await assertFails(
+      updateDoc(doc(displayDb(), "households", HID, "tiles", "t1"), {
+        "config.url": "https://evil.example",
+        updatedAt: 2,
+      }),
+    );
+  });
+
+  it("CANNOT update tile config.selectedLocationId with a non-string value", async () => {
+    await assertFails(
+      updateDoc(doc(displayDb(), "households", HID, "tiles", "t1"), {
+        "config.selectedLocationId": 42,
+        updatedAt: 2,
+      }),
+    );
+  });
+
+  it("CANNOT update tile from another household's display", async () => {
+    await assertFails(
+      updateDoc(doc(displayDb(), "households", HID_B, "tiles", "tB"), {
+        "config.selectedLocationId": "loc2",
+        updatedAt: 2,
+      }),
+    );
+  });
+
+  it("CANNOT update tile type", async () => {
+    await assertFails(
+      updateDoc(doc(displayDb(), "households", HID, "tiles", "t1"), { type: "clock" }),
     );
   });
 
@@ -330,6 +423,50 @@ describe("création de foyer", () => {
     );
   });
 
+  it("accepte roles = { moi: parent }", async () => {
+    await assertSucceeds(
+      setDoc(doc(outsiderDb(), "households", "avecRoles"), {
+        ...base,
+        ownerUid: OUTSIDER_UID,
+        membres: [OUTSIDER_UID],
+        roles: { [OUTSIDER_UID]: "parent" },
+      }),
+    );
+  });
+
+  it("REFUSE roles = { autre: parent }", async () => {
+    await assertFails(
+      setDoc(doc(outsiderDb(), "households", "piegeRoles"), {
+        ...base,
+        ownerUid: OUTSIDER_UID,
+        membres: [OUTSIDER_UID],
+        roles: { [MEMBER_UID]: "parent" },
+      }),
+    );
+  });
+
+  it("REFUSE roles = { moi: parent, autre: parent }", async () => {
+    await assertFails(
+      setDoc(doc(outsiderDb(), "households", "piegeRoles2"), {
+        ...base,
+        ownerUid: OUTSIDER_UID,
+        membres: [OUTSIDER_UID],
+        roles: { [OUTSIDER_UID]: "parent", [MEMBER_UID]: "parent" },
+      }),
+    );
+  });
+
+  it("REFUSE roles = { moi: enfant }", async () => {
+    await assertFails(
+      setDoc(doc(outsiderDb(), "households", "piegeRoles3"), {
+        ...base,
+        ownerUid: OUTSIDER_UID,
+        membres: [OUTSIDER_UID],
+        roles: { [OUTSIDER_UID]: "enfant" },
+      }),
+    );
+  });
+
   it("REFUSE la création par un écran", async () => {
     await assertFails(
       setDoc(doc(displayDb(), "households", "piege3"), {
@@ -375,5 +512,32 @@ describe("adresse iCal privée du foyer", () => {
 
   it("un non-membre NE la lit PAS", async () => {
     await assertFails(getDoc(doc(outsiderDb(), "households", HID, "private", "calendar")));
+  });
+});
+
+describe("invitations (Functions uniquement)", () => {
+  it("un membre NE lit PAS une invitation", async () => {
+    await assertFails(getDoc(doc(memberDb(), "invitations", "ABCDEFGHJK")));
+  });
+
+  it("un non-membre NE lit PAS une invitation", async () => {
+    await assertFails(getDoc(doc(outsiderDb(), "invitations", "ABCDEFGHJK")));
+  });
+
+  it("personne N'écrit une invitation (ni création, ni marquage utilisé)", async () => {
+    await assertFails(
+      setDoc(doc(outsiderDb(), "invitations", "NOUVEAU234"), {
+        householdId: HID,
+        createdBy: OUTSIDER_UID,
+        role: "parent",
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(memberDb(), "invitations", "ABCDEFGHJK"), { usedBy: OUTSIDER_UID }),
+    );
+  });
+
+  it("un écran NE lit PAS une invitation", async () => {
+    await assertFails(getDoc(doc(displayDb(), "invitations", "ABCDEFGHJK")));
   });
 });

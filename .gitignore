@@ -54,3 +54,10 @@ apps/display/public/js/firebase-config.js
 # Tests / émulateurs
 coverage/
 firebase-export-*/
+
+# Projet Firebase propre à chaque foyer (copier .firebaserc.example)
+.firebaserc
+
+# Données personnelles locales, jamais versionnées
+Claude outputs/
+scripts/seedRecipes/recettes-*.json

@@ -91,12 +91,12 @@ Génère les 60 recettes en JSON. Pas de texte autour.
 
 1. **Colle le prompt** dans Claude.ai → tu obtiens un gros bloc JSON
 2. **Sauvegarde** dans un fichier local, ex `recettes-claude.json` :
-   - Sur Windows : ouvre Notepad, colle, enregistre dans `C:\Users\guill\Desktop\family hub\scripts\seedRecipes\recettes-claude.json`
+   - Sur Windows : ouvre Notepad, colle, enregistre dans `<chemin-du-depot>\scripts\seedRecipes\recettes-claude.json` (ce fichier n\'est pas versionné : `.gitignore` exclut `scripts/seedRecipes/recettes-*.json`)
    - **Important** : pas de markdown ` ```json ` autour, juste le JSON brut
 3. **Importe** :
    ```powershell
-   cd "C:\Users\guill\Desktop\family hub\scripts\seedRecipes"
-   npm run import -- --household <ID> --file recettes-claude.json --source "Claude.ai web - Sonnet 4.5"
+   cd "<chemin-du-depot>\scripts\seedRecipes"
+   npm run import -- --household <HOUSEHOLD_ID> --file recettes-claude.json --source "Claude.ai web - Sonnet 4.5"
    ```
 4. **Va sur `/kitchen-buddy/livre`** pour voir le résultat
 

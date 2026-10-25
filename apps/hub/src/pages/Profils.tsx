@@ -65,9 +65,8 @@ export default function Profils() {
                   <ProfilBadge
                     initiale={p.initiale}
                     couleur={p.couleur}
-                    emoji={p.emoji}
+                    couleurPersonne={p.couleurPersonne}
                     size="lg"
-                    showEmojiBeside
                   />
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-lg">{p.nom}</p>

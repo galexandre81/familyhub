@@ -8,6 +8,13 @@ service cloud.firestore {
       allow read, write: if false;
     }
 
+    // Invitations dans un foyer : créées et consommées uniquement par les
+    // Functions (createInvitation / acceptInvitation). Un client ne lit pas un
+    // code (il donnerait accès au foyer) et ne le marque pas utilisé.
+    match /invitations/{code} {
+      allow read, write: if false;
+    }
+
     // Users : chacun lit/écrit son propre doc
     match /users/{uid} {
       allow read, write: if request.auth != null && request.auth.uid == uid;
@@ -18,32 +25,31 @@ service cloud.firestore {
       return request.auth != null
         && request.auth.uid in get(/databases/$(database)/documents/households/$(hid)).data.membres;
     }
+    // Rôles à la création d'un foyer : seulement { <moi>: 'parent' }. Les rôles
+    // des autres membres ne s'ajoutent que par acceptInvitation (Function).
+    function rolesDuFondateur(roles) {
+      return roles is map
+        && roles.size() == 1
+        && roles.keys().hasOnly([request.auth.uid])
+        && roles[request.auth.uid] == 'parent';
+    }
     function isDisplayOfHousehold(hid) {
       return request.auth != null
         && request.auth.token.isDisplay == true
         && request.auth.token.householdId == hid;
     }
 
-    // Households : membres lisent/écrivent. Displays peuvent lire et changer
-    // uniquement parametres.themeId (tuile Réglages iPad) — toute autre
-    // modification depuis un display est refusée.
+    // Households : membres lisent/écrivent. Displays peuvent lire, jamais
+    // modifier (le thème n'existe plus : ambiance jour/nuit automatique).
     match /households/{hid} {
       allow read: if request.auth != null
                   && (request.auth.uid in resource.data.membres
                       || isDisplayOfHousehold(hid));
       allow update: if request.auth != null
-                    && (
-                      (
-                        request.auth.uid in resource.data.membres
-                        && request.resource.data.ownerUid == resource.data.ownerUid
-                        && request.resource.data.membres == resource.data.membres
-                      ) ||
-                      (
-                        isDisplayOfHousehold(hid)
-                        && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['parametres', 'updatedAt'])
-                        && request.resource.data.parametres.diff(resource.data.parametres).affectedKeys().hasOnly(['themeId'])
-                      )
-                    );
+                    && request.auth.uid in resource.data.membres
+                    && request.resource.data.ownerUid == resource.data.ownerUid
+                    && request.resource.data.membres == resource.data.membres
+                    && request.resource.data.get('roles', null) == resource.data.get('roles', null);
       // Création : un vrai compte (jamais un écran), seul membre de son foyer.
       // Sans cette garde, n'importe qui pouvait créer un foyer en y inscrivant
       // l'uid d'un autre dans `membres` : le foyer apparaissait chez la victime.
@@ -52,8 +58,9 @@ service cloud.firestore {
                     && request.resource.data.ownerUid == request.auth.uid
                     && request.resource.data.membres == [request.auth.uid]
                     && request.resource.data.keys().hasOnly(
-                         ['nom', 'ownerUid', 'membres', 'parametres', 'createdAt', 'updatedAt'])
-                    && request.resource.data.nom is string;
+                         ['nom', 'ownerUid', 'membres', 'roles', 'parametres', 'createdAt', 'updatedAt'])
+                    && request.resource.data.nom is string
+                    && (!('roles' in request.resource.data) || rolesDuFondateur(request.resource.data.roles));
       allow delete: if request.auth != null
                     && request.auth.uid == resource.data.ownerUid;
 
@@ -95,9 +102,16 @@ service cloud.firestore {
       }
 
       // Tiles : configuration/données des tuiles affichées sur l'iPad.
-      // Membres = read/write (via catch-all). Displays = read seul (ici).
+      // Membres = read/write (via catch-all). Displays = read (ici) + changement
+      // de la ville météo : seulement config.selectedLocationId (+ updatedAt),
+      // tel qu'écrit par l'iPad (update avec chemin pointé 'config.selectedLocationId').
       match /tiles/{tileId=**} {
         allow read: if isDisplayOfHousehold(hid);
+        allow update: if isDisplayOfHousehold(hid)
+                      && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['config', 'updatedAt'])
+                      && request.resource.data.config.diff(resource.data.config).affectedKeys().hasOnly(['selectedLocationId'])
+                      && request.resource.data.config.selectedLocationId is string
+                      && request.resource.data.config.selectedLocationId.size() <= 100;
       }
 
       // Shopping lists : le display affiche la liste de courses (lecture seule).

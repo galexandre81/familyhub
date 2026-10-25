@@ -26,12 +26,17 @@ jobs:
           cache: npm
       - name: Install
         run: npm ci
-      - name: iPad — syntaxe ES5 (Safari 9)
+      - name: iPad — ES5, CSS et fichiers référencés (Safari 9)
         run: npm run check:display
       - name: Lint (functions)
         run: npm run lint --workspace=functions
       - name: Build (types -> functions -> hub)
         run: npm run build
+      # Inclut displayAmbiance.test.ts : fonctions pures de l'iPad (apps/display/public/js/ambiance.js).
+      - name: Test (design)
+        run: npm test --workspace=@family-hub/design
+      - name: Test (types)
+        run: npm test --workspace=@family-hub/types
       - name: Test (functions)
         run: npm test --workspace=functions --if-present
       - name: Test (hub)

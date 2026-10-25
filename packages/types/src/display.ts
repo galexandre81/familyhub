@@ -1,4 +1,4 @@
-import type { DisplayDeviceType, Theme, Timestamp } from "./common";
+import type { DisplayDeviceType, Timestamp } from "./common";
 
 export interface TilePosition {
   col: number;
@@ -27,7 +27,6 @@ export interface Display {
   nom: string;
   type: DisplayDeviceType;
   resolution: Resolution;
-  theme: Theme;
   gridConfig: GridConfig;
   layout: DisplayLayoutEntry[];
   authToken: string;

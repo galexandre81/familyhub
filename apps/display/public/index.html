@@ -8,10 +8,17 @@
   <meta name="apple-mobile-web-app-title" content="Family Hub">
   <meta name="format-detection" content="telephone=no">
   <title>Family Hub</title>
-  <!-- Cache buster ?v=DEPLOY_VERSION : on bumpe TOUS les assets ensemble à
-       chaque déploiement display pour éviter le skew (vieux core.js qui
-       cause un new settings.js, etc.). Convention : YYYYMMDD + lettre. -->
-  <link rel="stylesheet" href="css/styles.css?v=20260928a">
+  <!-- Cache buster ?v=__DISPLAY_VERSION__ : remplacé à CHAQUE build par
+       scripts/copy-display-into-hub-dist.mjs (horodatage UTC YYYYMMDDHHmmss),
+       pour TOUS les assets à la fois (pas de skew vieux core.js / nouveau
+       settings.js). Ne rien bumper à la main. -->
+  <link rel="stylesheet" href="css/styles.css?v=__DISPLAY_VERSION__">
+  <!-- fonts.css puis ambiance.css APRÈS styles.css : à spécificité égale la dernière règle gagne, donc les jetons du design system l'emportent sur les anciennes couleurs en dur. -->
+  <link rel="stylesheet" href="css/fonts.css?v=__DISPLAY_VERSION__">
+  <link rel="stylesheet" href="css/ambiance.css?v=__DISPLAY_VERSION__">
+  <link rel="stylesheet" href="css/minuteurs.css?v=__DISPLAY_VERSION__">
+  <link rel="stylesheet" href="css/mode-recette.css?v=__DISPLAY_VERSION__">
+  <link rel="stylesheet" href="css/tableau.css?v=__DISPLAY_VERSION__">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="manifest" href="manifest.json">
 </head>
@@ -21,13 +28,18 @@
       <div class="boot-title">Family Hub</div>
       <div class="boot-status" id="boot-status">Initialisation…</div>
     </div>
-    <div id="grid" class="grid" style="display:none"></div>
+    <!-- Hôte du tableau de cuisine (js/tableau.js) ; id historique « grid ». -->
+    <div id="grid" class="tab-hote" style="display:none"></div>
     <div id="error-overlay" class="error-overlay" style="display:none">
       <div class="error-title">Erreur</div>
       <div class="error-text" id="error-text"></div>
       <a class="error-link" href="setup.html">Reconfigurer ce display</a>
     </div>
   </div>
+
+  <!-- Version de ce déploiement (même valeur que version.json) : core.js la
+       compare périodiquement à version.json et recharge la page si elle a changé. -->
+  <script>window.FH_DISPLAY_VERSION = '__DISPLAY_VERSION__';</script>
 
   <!-- Polyfill fetch pour Safari 9 (iPad mini 1) — chargée AVANT Firebase. -->
   <script src="lib/fetch.umd.js"></script>
@@ -38,7 +50,7 @@
   <script src="lib/firebase-functions.js"></script>
 
   <!-- Config injectée au build (cf. core.js — pour l'instant valeurs en dur) -->
-  <script src="js/firebase-config.js?v=20260928a"></script>
+  <script src="js/firebase-config.js?v=__DISPLAY_VERSION__"></script>
 
   <!-- Audio player statique. preload=auto pour les flux live (iOS 9 suspend sinon) -->
   <audio id="family-hub-audio-player" preload="auto"></audio>
@@ -47,25 +59,36 @@
   <audio id="family-hub-timer-alarm" preload="auto" src="lib/beep.wav"></audio>
 
   <!-- Singletons partagés (audio persistant + overlay plein écran + timers Firestore + brightness) -->
-  <script src="js/audio-singleton.js?v=20260928a"></script>
-  <script src="js/timer-singleton.js?v=20260928a"></script>
-  <script src="js/overlay.js?v=20260928a"></script>
-  <script src="js/brightness.js?v=20260928a"></script>
+  <script src="js/audio-singleton.js?v=__DISPLAY_VERSION__"></script>
+  <!-- minuteurs.js (pur : libellé auto, +1 min) AVANT timer-singleton.js qui l'utilise ;
+       alarme.js (bandeau « c'est prêt » par-dessus tout) et le panneau APRÈS. -->
+  <script src="js/minuteurs.js?v=__DISPLAY_VERSION__"></script>
+  <script src="js/timer-singleton.js?v=__DISPLAY_VERSION__"></script>
+  <script src="js/overlay.js?v=__DISPLAY_VERSION__"></script>
+  <script src="js/alarme.js?v=__DISPLAY_VERSION__"></script>
+  <script src="js/minuteurs-panneau.js?v=__DISPLAY_VERSION__"></script>
+  <!-- Mode recette (plein écran, tout le repas + minuteur) : APRÈS le panneau qu'il monte. -->
+  <script src="js/mode-recette.js?v=__DISPLAY_VERSION__"></script>
+  <script src="js/brightness.js?v=__DISPLAY_VERSION__"></script>
 
-  <!-- Tile modules (chacun pose son module sur window.Tiles[type]) -->
-  <script src="js/tiles/clock.js?v=20260928a"></script>
-  <script src="js/tiles/weather.js?v=20260928a"></script>
-  <script src="js/tiles/radio.js?v=20260928a"></script>
-  <script src="js/tiles/timer.js?v=20260928a"></script>
-  <script src="js/tiles/calendar.js?v=20260928a"></script>
-  <script src="js/tiles/livreRecettes.js?v=20260928a"></script>
-  <script src="js/tiles/recipe-today.js?v=20260928a"></script>
-  <script src="js/tiles/weekly-menu.js?v=20260928a"></script>
-  <script src="js/tiles/shopping-list.js?v=20260928a"></script>
-  <script src="js/tiles/settings.js?v=20260928a"></script>
+  <!-- Tile modules (chacun pose son module sur window.Tiles[type]) : ils ne
+       servent plus qu'aux vues plein écran ouvertes depuis le tableau. Horloge
+       et liste de courses retirées (jamais sur l'iPad). -->
+  <script src="js/tiles/weather.js?v=__DISPLAY_VERSION__"></script>
+  <script src="js/tiles/radio.js?v=__DISPLAY_VERSION__"></script>
+  <script src="js/tiles/timer.js?v=__DISPLAY_VERSION__"></script>
+  <script src="js/tiles/calendar.js?v=__DISPLAY_VERSION__"></script>
+  <script src="js/tiles/livreRecettes.js?v=__DISPLAY_VERSION__"></script>
+  <script src="js/tiles/recipe-today.js?v=__DISPLAY_VERSION__"></script>
+  <script src="js/tiles/weekly-menu.js?v=__DISPLAY_VERSION__"></script>
+  <script src="js/tiles/settings.js?v=__DISPLAY_VERSION__"></script>
 
   <!-- Core -->
-  <script src="js/render.js?v=20260928a"></script>
-  <script src="js/core.js?v=20260928a"></script>
+  <script src="js/render.js?v=__DISPLAY_VERSION__"></script>
+  <script src="js/ambiance.js?v=__DISPLAY_VERSION__"></script>
+  <script src="js/repas.js?v=__DISPLAY_VERSION__"></script>
+  <!-- Tableau de cuisine (écran principal) : APRÈS repas.js, le panneau des minuteurs et le mode recette qu'il utilise. -->
+  <script src="js/tableau.js?v=__DISPLAY_VERSION__"></script>
+  <script src="js/core.js?v=__DISPLAY_VERSION__"></script>
 </body>
 </html>

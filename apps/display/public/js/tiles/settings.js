@@ -1,49 +1,17 @@
-/* tiles/settings.js — Réglages display (thème + luminosité).
-   Compact : aperçu thème actif + niveau lumino + CTA.
-   Expand : sélecteur thème (6 cards) + slider lumino + infos.
+/* tiles/settings.js — Réglages display (luminosité).
+   Compact : niveau lumino + CTA.
+   Expand : boutons lumino + infos. Le thème suit le jour/nuit (core.js).
    ES5 vanilla, iOS 9.3.6 OK. */
 (function (global) {
   'use strict';
 
-  var DISPLAY_VERSION = '20260511a';
-
-  /* Synchro avec apps/hub/src/lib/themes.ts. Duplication acceptable
-     (6 entrées peu volatiles, pas de transpile sur le display). */
-  var THEMES = [
-    { id:'caractere', nom:'Caractère',
-      preview:{ bg:'#0F0D0A', card:'#1C1815', accent:'#D9A05B', text:'#F2E8D5' } },
-    { id:'foret', nom:'Forêt',
-      preview:{ bg:'#0E1A16', card:'#162621', accent:'#D4AF5F', text:'#F0EAD7' } },
-    { id:'marine', nom:'Marine',
-      preview:{ bg:'#0B1220', card:'#131E32', accent:'#E09160', text:'#EAE0C7' } },
-    { id:'bordeaux', nom:'Bordeaux',
-      preview:{ bg:'#1A0C0E', card:'#2C161A', accent:'#D6A07C', text:'#F4E8DB' } },
-    { id:'glacier', nom:'Glacier',
-      preview:{ bg:'#101620', card:'#1E2836', accent:'#AEBCD2', text:'#E8F0F8' } },
-    { id:'lin', nom:'Lin',
-      preview:{ bg:'#F8F0DE', card:'#FFFAF0', accent:'#B26E38', text:'#3C2A1A' } }
-  ];
+  /* Posée par index.html, horodatée au build (copy-display-into-hub-dist.mjs). */
+  var DISPLAY_VERSION = global.FH_DISPLAY_VERSION || '—';
 
   function escapeHtml(s) {
     if (s == null) return '';
     return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
       .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
-  }
-
-  function getCurrentThemeId() {
-    var html = document.documentElement;
-    var classes = (html.className || '').split(/\s+/);
-    for (var i = 0; i < classes.length; i++) {
-      if (classes[i].indexOf('theme-') === 0) return classes[i].slice(6);
-    }
-    return 'caractere';
-  }
-
-  function getThemeById(id) {
-    for (var i = 0; i < THEMES.length; i++) {
-      if (THEMES[i].id === id) return THEMES[i];
-    }
-    return THEMES[0];
   }
 
   function brightnessLevel() {
@@ -73,22 +41,6 @@
     body.style.cssText = 'padding:8px 0; display:-webkit-flex; display:flex; -webkit-flex-direction:column; flex-direction:column;';
     body.className = 'fh-gap-c14'; /* ex-gap 14px (Safari 9) */
     container.appendChild(body);
-
-    /* Thème actif */
-    var theme = getThemeById(getCurrentThemeId());
-    var themeBlock = document.createElement('div');
-    themeBlock.innerHTML =
-      '<div style="font-size:10px; letter-spacing:0.18em; text-transform:uppercase; opacity:0.7; margin-bottom:6px">Thème</div>' +
-      '<div class="fh-gap-r8" style="display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center;">' +
-        '<span class="fh-gap-r2" style="display:-webkit-flex; display:flex;">' +
-          '<span style="width:14px;height:14px;background:' + theme.preview.bg + ';border:1px solid ' + theme.preview.card + ';border-radius:2px"></span>' +
-          '<span style="width:14px;height:14px;background:' + theme.preview.card + ';border-radius:2px"></span>' +
-          '<span style="width:14px;height:14px;background:' + theme.preview.accent + ';border-radius:2px"></span>' +
-          '<span style="width:14px;height:14px;background:' + theme.preview.text + ';border-radius:2px"></span>' +
-        '</span>' +
-        '<span style="font-size:13px">' + escapeHtml(theme.nom) + '</span>' +
-      '</div>';
-    body.appendChild(themeBlock);
 
     /* Luminosité */
     var lvl = brightnessLevel();
@@ -144,24 +96,6 @@
       'padding:24px 32px; overflow-y:auto; -webkit-overflow-scrolling:touch; ' +
       '-webkit-flex:1 1 auto; flex:1 1 auto; min-height:0;';
     container.appendChild(body);
-
-    /* Section thème */
-    var themeSection = document.createElement('section');
-    themeSection.style.cssText = 'margin-bottom:36px;';
-    themeSection.innerHTML =
-      '<h3 style="font-size:13px; letter-spacing:0.2em; text-transform:uppercase; opacity:0.7; margin:0 0 12px 0;">Thème de l\'interface</h3>';
-    var grid = document.createElement('div');
-    grid.style.cssText =
-      'display:-webkit-flex; display:flex; -webkit-flex-wrap:wrap; flex-wrap:wrap;';
-    /* ex-gap 10px (Safari 9) : demi-marges 5px par carte, d'où la base des
-       cartes recalculée à 33.33% - 11px pour tenir toujours 3 par rangée. */
-    grid.className = 'fh-gap-w10';
-    var currentId = getCurrentThemeId();
-    for (var i = 0; i < THEMES.length; i++) {
-      grid.appendChild(makeThemeCard(THEMES[i], currentId === THEMES[i].id));
-    }
-    themeSection.appendChild(grid);
-    body.appendChild(themeSection);
 
     /* Section luminosité — boutons discrets (5 niveaux) plutôt qu'un
        <input type="range"> qui est fragile sur Safari 9 PWA standalone.
@@ -229,72 +163,6 @@
         'Household ID : <code style="font-family:Menlo,monospace">' + escapeHtml(hid) + '</code>' +
       '</div>';
     body.appendChild(infoSection);
-  }
-
-  function makeThemeCard(theme, isActive) {
-    var card = document.createElement('button');
-    card.type = 'button';
-    card.setAttribute('data-theme-id', theme.id);
-    card.style.cssText =
-      'background:transparent; border:' + (isActive ? '2px solid #D9A05B' : '1px solid rgba(217,160,91,0.30)') + '; ' +
-      'border-radius:6px; padding:14px; cursor:pointer; text-align:left; ' +
-      'min-height:44px; min-width:140px; -webkit-flex:0 1 calc(33.33% - 11px); flex:0 1 calc(33.33% - 11px); ' +
-      'color:inherit;';
-    card.innerHTML =
-      '<div class="fh-gap-r3" style="display:-webkit-flex; display:flex; margin-bottom:8px;">' +
-        '<span style="width:22px; height:22px; background:' + theme.preview.bg + '; border:1px solid ' + theme.preview.card + '; border-radius:3px"></span>' +
-        '<span style="width:22px; height:22px; background:' + theme.preview.card + '; border-radius:3px"></span>' +
-        '<span style="width:22px; height:22px; background:' + theme.preview.accent + '; border-radius:3px"></span>' +
-        '<span style="width:22px; height:22px; background:' + theme.preview.text + '; border-radius:3px"></span>' +
-      '</div>' +
-      '<div style="font-weight:600; font-size:14px;">' + escapeHtml(theme.nom) + '</div>';
-    card.addEventListener('click', function () {
-      pickTheme(theme.id, card);
-    });
-    return card;
-  }
-
-  function setActiveCardBorder(themeId) {
-    var allCards = document.querySelectorAll('[data-theme-id]');
-    for (var i = 0; i < allCards.length; i++) {
-      var isActive = allCards[i].getAttribute('data-theme-id') === themeId;
-      allCards[i].style.border = isActive
-        ? '2px solid #D9A05B'
-        : '1px solid rgba(217,160,91,0.30)';
-    }
-  }
-
-  function pickTheme(themeId, _cardEl) {
-    /* Capture le thème actuel AVANT l'apply optimistic — sinon le rollback
-       sur échec Firestore ne saurait pas où revenir (le listener household
-       de core.js ne re-applique que si newThemeId !== state.appliedThemeId,
-       or applyDisplayTheme a déjà mis state.appliedThemeId = themeId, donc
-       sans capture explicite l'iPad reste sur le thème optimistic à vie). */
-    var previousThemeId = getCurrentThemeId();
-    if (previousThemeId === themeId) return;
-
-    /* Apply local immédiat (optimistic) + UI cards */
-    if (global.FamilyHubApplyTheme) global.FamilyHubApplyTheme(themeId);
-    setActiveCardBorder(themeId);
-
-    /* Persist Firestore (households/{hid}.parametres.themeId) */
-    var db = global.FamilyHubGetDb && global.FamilyHubGetDb();
-    var hid = global.FamilyHubGetHouseholdId && global.FamilyHubGetHouseholdId();
-    if (!db || !hid) return;
-
-    var FieldValue = global.firebase && global.firebase.firestore && global.firebase.firestore.FieldValue;
-    var serverTs = FieldValue ? FieldValue.serverTimestamp() : new Date();
-
-    db.collection('households').doc(hid).update({
-      'parametres.themeId': themeId,
-      'updatedAt': serverTs
-    }).catch(function (err) {
-      if (window.console && window.console.error) console.error('[settings] persist theme', err);
-      /* Rollback explicite — restaure le thème précédent et la card active.
-         Sans ça, l'optimistic apply resterait à vie (cf. Code Review C1). */
-      if (global.FamilyHubApplyTheme) global.FamilyHubApplyTheme(previousThemeId);
-      setActiveCardBorder(previousThemeId);
-    });
   }
 
   function collapse(_container) { /* noop */ }

@@ -542,7 +542,7 @@ body {
   width: 100%;
 }
 /* Modifier opt-in : pour les expand qui posent leur propre layout
-   (recipe-today, weekly-menu, livre-recettes). Retire le max-width
+   (weekly-menu, livre-recettes). Retire le max-width
    et le padding du container parent — le module gère son propre header
    et son propre body scrollable interne. */
 .tile-overlay-content--full {
@@ -892,76 +892,6 @@ body {
   letter-spacing: 0.22em;
   font-weight: 400;
 }
-.tile-timer-active-list {
-  display: -webkit-flex;
-  display: flex;
-  -webkit-flex-direction: column;
-  flex-direction: column;
-}
-.timer-active-empty {
-  font-family: Georgia, serif;
-  font-style: italic;
-  font-size: 14px;
-  color: #B0A084;
-  margin: 0;
-  padding: 8px 0;
-}
-.timer-active-row {
-  display: -webkit-flex;
-  display: flex;
-  -webkit-align-items: center;
-  align-items: center;
-  padding: 16px 20px;
-  margin-bottom: 8px;
-  background: #1C1815;
-  border: 1px solid #3A2E22;
-  border-radius: 4px;
-}
-.timer-active-row.ended {
-  background: #2A1F15;
-  border-color: #C9712E;
-  border-width: 1.5px;
-}
-.timer-active-info { -webkit-flex: 1; flex: 1; }
-.timer-active-label {
-  font-family: Georgia, serif;
-  font-size: 16px;
-  color: #F2E8D5;
-  margin-bottom: 4px;
-  font-style: italic;
-}
-.timer-active-time {
-  font-family: Georgia, serif;
-  font-size: 32px;
-  color: #F2E8D5;
-  line-height: 1;
-  font-feature-settings: "tnum";
-  -webkit-font-feature-settings: "tnum";
-}
-.timer-active-row.ended .timer-active-time { color: #C9712E; }
-.timer-active-row.paused .timer-active-time { color: #B0A084; }
-.timer-active-progress {
-  height: 2px;
-  background: #3A2E22;
-  margin-top: 10px;
-  overflow: hidden;
-}
-.timer-active-progress-fill {
-  height: 100%;
-  background: #D9A05B;
-  -webkit-transition: width 0.3s linear;
-  transition: width 0.3s linear;
-}
-.timer-active-row.paused .timer-active-progress-fill { background: #9C8A6E; }
-.timer-active-actions {
-  display: -webkit-flex;
-  display: flex;
-  margin-left: 14px;
-  -webkit-flex-shrink: 0;
-  flex-shrink: 0;
-}
-.timer-active-actions button { margin-left: 6px; }
-
 .tile-timer-preset-grid {
   display: -webkit-flex;
   display: flex;
@@ -982,15 +912,20 @@ body {
   border-radius: 4px;
   cursor: pointer;
   -webkit-appearance: none;
+  display: block;
+  text-align: center;
+  -webkit-transition: all 0.15s ease;
+  transition: all 0.15s ease;
+  min-width: 0;
+}
+/* iOS 9 : un <button> ne peut pas être conteneur flex — span intérieur. */
+.tile-timer-preset-in {
   display: -webkit-flex;
   display: flex;
   -webkit-flex-direction: column;
   flex-direction: column;
   -webkit-align-items: center;
   align-items: center;
-  -webkit-transition: all 0.15s ease;
-  transition: all 0.15s ease;
-  min-width: 0;
 }
 .preset-label {
   font-family: Georgia, serif;
@@ -1012,94 +947,6 @@ body {
   border-color: #D9A05B;
   -webkit-transform: scale(0.98);
   transform: scale(0.98);
-}
-
-.tile-timer-custom {
-  display: -webkit-flex;
-  display: flex;
-  -webkit-flex-direction: column;
-  flex-direction: column;
-}
-.input-tile {
-  padding: 14px 16px;
-  font-size: 15px;
-  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-  border: 1px solid #3A2E22;
-  border-radius: 4px;
-  background: #1C1815;
-  margin-bottom: 8px;
-  -webkit-appearance: none;
-  color: #F2E8D5;
-}
-.input-tile-label {
-  font-family: Georgia, serif;
-  font-style: italic;
-  font-size: 12px;
-  color: #B0A084;
-  margin-bottom: 6px;
-  margin-top: 6px;
-}
-
-/* Picker minutes / secondes */
-.timer-picker {
-  display: -webkit-flex;
-  display: flex;
-  -webkit-justify-content: center;
-  justify-content: center;
-  -webkit-align-items: center;
-  align-items: center;
-  background: #1C1815;
-  border: 1px solid #3A2E22;
-  border-radius: 4px;
-  padding: 18px 12px;
-  margin-bottom: 14px;
-}
-.timer-picker-col {
-  display: -webkit-flex;
-  display: flex;
-  -webkit-flex-direction: column;
-  flex-direction: column;
-  -webkit-align-items: center;
-  align-items: center;
-  -webkit-flex: 1;
-  flex: 1;
-  max-width: 140px;
-}
-.timer-picker-select {
-  font-family: Georgia, serif;
-  font-size: 44px;
-  color: #F2E8D5;
-  background: transparent;
-  border: 0;
-  text-align: center;
-  -webkit-appearance: none;
-  appearance: none;
-  padding: 4px 8px;
-  letter-spacing: 0.02em;
-  font-feature-settings: "tnum";
-  -webkit-font-feature-settings: "tnum";
-  cursor: pointer;
-  width: 100%;
-  text-align-last: center;
-}
-.timer-picker-unit {
-  font-family: Georgia, serif;
-  font-style: italic;
-  font-size: 11px;
-  color: #B0A084;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  margin-top: 4px;
-}
-.timer-picker-sep {
-  font-family: Georgia, serif;
-  font-size: 44px;
-  color: #D9A05B;
-  margin: 0 6px;
-  line-height: 1;
-  -webkit-align-self: flex-start;
-  align-self: flex-start;
-  margin-top: 8px;
 }
 
 .btn-tile-primary {
@@ -2319,16 +2166,16 @@ html.theme-foret .error-title { color:#D4AF5F; }
 html.theme-foret .error-link { background:#D4AF5F; color:#0E1A16; }
 
 /* ----- Marine ----- */
-html.theme-marine,
-html.theme-marine body { background:#0B1220; color:#EAE0C7; }
-html.theme-marine .grid-cell { background:#131E32; border-color:#2A3850; }
-html.theme-marine .tile-title { color:#E09160; }
-html.theme-marine .tile-overlay { background:#0B1220; }
-html.theme-marine .tile-overlay-bar { background:#0C1426; border-bottom-color:#2A3850; }
-html.theme-marine .tile-overlay-back { color:#E09160; }
-html.theme-marine .boot-title,
-html.theme-marine .error-title { color:#E09160; }
-html.theme-marine .error-link { background:#E09160; color:#0B1220; }
+html.amb-nuit,
+html.amb-nuit body { background:#0B1220; color:#EAE0C7; }
+html.amb-nuit .grid-cell { background:#131E32; border-color:#2A3850; }
+html.amb-nuit .tile-title { color:#E09160; }
+html.amb-nuit .tile-overlay { background:#0B1220; }
+html.amb-nuit .tile-overlay-bar { background:#0C1426; border-bottom-color:#2A3850; }
+html.amb-nuit .tile-overlay-back { color:#E09160; }
+html.amb-nuit .boot-title,
+html.amb-nuit .error-title { color:#E09160; }
+html.amb-nuit .error-link { background:#E09160; color:#0B1220; }
 
 /* ----- Bordeaux ----- */
 html.theme-bordeaux,
@@ -2361,158 +2208,147 @@ html.theme-glacier .error-link { background:#AEBCD2; color:#101620; }
      #C49B6B (warm secondary) → #6B5238 (medium brown)
      #9C8A6E (gris brown)     → #8C7456 (muted)
      #D9A05B (laiton accent)  → #B26E38 (caramel) */
-html.theme-lin,
-html.theme-lin body { background:#F8F0DE; color:#3C2A1A; }
-html.theme-lin .grid-cell { background:#FFFAF0; border-color:#D4C7AC; }
-html.theme-lin .tile-overlay { background:#F8F0DE; }
-html.theme-lin .tile-overlay-bar { background:#FCF6E6; border-bottom-color:#D4C7AC; }
-html.theme-lin .error-link { background:#B26E38; color:#F8F0DE; }
+html.amb-jour,
+html.amb-jour body { background:#F8F0DE; color:#3C2A1A; }
+html.amb-jour .grid-cell { background:#FFFAF0; border-color:#D4C7AC; }
+html.amb-jour .tile-overlay { background:#F8F0DE; }
+html.amb-jour .tile-overlay-bar { background:#FCF6E6; border-bottom-color:#D4C7AC; }
+html.amb-jour .error-link { background:#B26E38; color:#F8F0DE; }
 
 /* === #F2E8D5 (primary text) → #3C2A1A === */
-html.theme-lin .btn-tile-secondary,
-html.theme-lin .cal-compact-next,
-html.theme-lin .cal-compact-next-summary,
-html.theme-lin .cal-compact-summary,
-html.theme-lin .cal-day-pill-name,
-html.theme-lin .cal-event-summary,
-html.theme-lin .cal-pager-label-range,
-html.theme-lin .input-tile,
-html.theme-lin .livre-card,
-html.theme-lin .livre-card-name,
-html.theme-lin .livre-detail-ing li,
-html.theme-lin .livre-detail-name,
-html.theme-lin .livre-detail-steps,
-html.theme-lin .livre-search-input,
-html.theme-lin .preset-label,
-html.theme-lin .tile-clock-time,
-html.theme-lin .tile-livre-count,
-html.theme-lin .tile-overlay-h1,
-html.theme-lin .tile-radio-compact-station,
-html.theme-lin .tile-radio-expand-btn,
-html.theme-lin .tile-radio-expand-nowplaying,
-html.theme-lin .tile-radio-expand-stop,
-html.theme-lin .tile-settings-lum-btn.is-active,
-html.theme-lin .tile-weather-label,
-html.theme-lin .tile-weather-temp,
-html.theme-lin .timer-active-label,
-html.theme-lin .timer-active-time,
-html.theme-lin .timer-picker-select,
-html.theme-lin .weather-chip-ville,
-html.theme-lin .weather-day-max,
-html.theme-lin .weather-hero-label,
-html.theme-lin .weather-hero-temp,
-html.theme-lin .weather-hero-ville,
-html.theme-lin .wiz-frigo-input,
-html.theme-lin .wiz-icon-label,
-html.theme-lin .wiz-question,
-html.theme-lin .wiz-surprise,
-html.theme-lin .cal-pager-arrow:active,
-html.theme-lin .wiz-back:active,
-html.theme-lin .wiz-frigo-chip-x:active,
-html.theme-lin .wiz-frigo-clear:active { color:#3C2A1A; }
+html.amb-jour .btn-tile-secondary,
+html.amb-jour .cal-compact-next,
+html.amb-jour .cal-compact-next-summary,
+html.amb-jour .cal-compact-summary,
+html.amb-jour .cal-day-pill-name,
+html.amb-jour .cal-event-summary,
+html.amb-jour .cal-pager-label-range,
+html.amb-jour .livre-card,
+html.amb-jour .livre-card-name,
+html.amb-jour .livre-detail-ing li,
+html.amb-jour .livre-detail-name,
+html.amb-jour .livre-detail-steps,
+html.amb-jour .livre-search-input,
+html.amb-jour .preset-label,
+html.amb-jour .tile-clock-time,
+html.amb-jour .tile-livre-count,
+html.amb-jour .tile-overlay-h1,
+html.amb-jour .tile-radio-compact-station,
+html.amb-jour .tile-radio-expand-btn,
+html.amb-jour .tile-radio-expand-nowplaying,
+html.amb-jour .tile-radio-expand-stop,
+html.amb-jour .tile-settings-lum-btn.is-active,
+html.amb-jour .tile-weather-label,
+html.amb-jour .tile-weather-temp,
+html.amb-jour .weather-chip-ville,
+html.amb-jour .weather-day-max,
+html.amb-jour .weather-hero-label,
+html.amb-jour .weather-hero-temp,
+html.amb-jour .weather-hero-ville,
+html.amb-jour .wiz-frigo-input,
+html.amb-jour .wiz-icon-label,
+html.amb-jour .wiz-question,
+html.amb-jour .wiz-surprise,
+html.amb-jour .cal-pager-arrow:active,
+html.amb-jour .wiz-back:active,
+html.amb-jour .wiz-frigo-chip-x:active,
+html.amb-jour .wiz-frigo-clear:active { color:#3C2A1A; }
 
 /* === #C49B6B (secondary text) → #6B5238 === */
-html.theme-lin .cal-compact-loc,
-html.theme-lin .cal-compact-next-when,
-html.theme-lin .cal-event-allday .cal-event-time,
-html.theme-lin .livre-card-meta,
-html.theme-lin .livre-detail-desc,
-html.theme-lin .livre-detail-meta,
-html.theme-lin .livre-step-time,
-html.theme-lin .livre-tag-btn,
-html.theme-lin .tile-clock-date,
-html.theme-lin .tile-livre-label,
-html.theme-lin .tile-radio-compact-status,
-html.theme-lin .tile-settings-lum-btn,
-html.theme-lin .tile-weather-range,
-html.theme-lin .timer-compact-others,
-html.theme-lin .timer-hero-label,
-html.theme-lin .weather-chip-temp,
-html.theme-lin .weather-day-name,
-html.theme-lin .weather-hero-range,
-html.theme-lin .weather-section-title,
-html.theme-lin .wiz-secondary,
-html.theme-lin .wiz-summary { color:#6B5238; }
+html.amb-jour .cal-compact-loc,
+html.amb-jour .cal-compact-next-when,
+html.amb-jour .cal-event-allday .cal-event-time,
+html.amb-jour .livre-card-meta,
+html.amb-jour .livre-detail-desc,
+html.amb-jour .livre-detail-meta,
+html.amb-jour .livre-step-time,
+html.amb-jour .livre-tag-btn,
+html.amb-jour .tile-clock-date,
+html.amb-jour .tile-livre-label,
+html.amb-jour .tile-radio-compact-status,
+html.amb-jour .tile-settings-lum-btn,
+html.amb-jour .tile-weather-range,
+html.amb-jour .timer-compact-others,
+html.amb-jour .timer-hero-label,
+html.amb-jour .weather-chip-temp,
+html.amb-jour .weather-day-name,
+html.amb-jour .weather-hero-range,
+html.amb-jour .weather-section-title,
+html.amb-jour .wiz-secondary,
+html.amb-jour .wiz-summary { color:#6B5238; }
 
 /* === #9C8A6E (muted) → #8C7456 === */
-html.theme-lin .boot-status,
-html.theme-lin .cal-compact-empty,
-html.theme-lin .cal-compact-more,
-html.theme-lin .cal-day-pill-date,
-html.theme-lin .cal-empty-global,
-html.theme-lin .cal-event-loc,
-html.theme-lin .cal-head-meta,
-html.theme-lin .cal-pager-label-step,
-html.theme-lin .error-text,
-html.theme-lin .input-tile-label,
-html.theme-lin .livre-status,
-html.theme-lin .livre-tag,
-html.theme-lin .preset-duration,
-html.theme-lin .setup-detail,
-html.theme-lin .tile-livre-cta,
-html.theme-lin .tile-radio-compact-btn.loading,
-html.theme-lin .tile-weather-hint,
-html.theme-lin .timer-active-empty,
-html.theme-lin .timer-compact-empty,
-html.theme-lin .timer-picker-unit,
-html.theme-lin .weather-day-min,
-html.theme-lin .weather-hero-sun,
-html.theme-lin .wiz-empty,
-html.theme-lin .wiz-frigo-clear,
-html.theme-lin .wiz-frigo-hint,
-html.theme-lin .wiz-hint,
-html.theme-lin .wiz-results-more,
-html.theme-lin .wiz-step { color:#8C7456; }
+html.amb-jour .boot-status,
+html.amb-jour .cal-compact-empty,
+html.amb-jour .cal-compact-more,
+html.amb-jour .cal-day-pill-date,
+html.amb-jour .cal-empty-global,
+html.amb-jour .cal-event-loc,
+html.amb-jour .cal-head-meta,
+html.amb-jour .cal-pager-label-step,
+html.amb-jour .error-text,
+html.amb-jour .livre-status,
+html.amb-jour .livre-tag,
+html.amb-jour .preset-duration,
+html.amb-jour .setup-detail,
+html.amb-jour .tile-livre-cta,
+html.amb-jour .tile-radio-compact-btn.loading,
+html.amb-jour .tile-weather-hint,
+html.amb-jour .timer-compact-empty,
+html.amb-jour .weather-day-min,
+html.amb-jour .weather-hero-sun,
+html.amb-jour .wiz-empty,
+html.amb-jour .wiz-frigo-clear,
+html.amb-jour .wiz-frigo-hint,
+html.amb-jour .wiz-hint,
+html.amb-jour .wiz-results-more,
+html.amb-jour .wiz-step { color:#8C7456; }
 
 /* === #D9A05B (accent laiton) → #B26E38 === */
-html.theme-lin .boot-title,
-html.theme-lin .cal-compact-when,
-html.theme-lin .cal-event-time,
-html.theme-lin .cal-day-row-today .cal-day-pill-name,
-html.theme-lin .cal-pager-arrow,
-html.theme-lin .error-title,
-html.theme-lin .livre-back-btn,
-html.theme-lin .livre-card-stars,
-html.theme-lin .livre-detail-h3,
-html.theme-lin .livre-detail-ing strong,
-html.theme-lin .livre-tag-btn.is-active,
-html.theme-lin .tile-overlay-back,
-html.theme-lin .tile-radio-compact-btn,
-html.theme-lin .tile-radio-expand-btn.active,
-html.theme-lin .tile-timer-section-h2,
-html.theme-lin .tile-title,
-html.theme-lin .timer-picker-sep,
-html.theme-lin .wiz-back,
-html.theme-lin .wiz-frigo-chip,
-html.theme-lin .wiz-frigo-chip-x,
-html.theme-lin .wiz-frigo-title,
-html.theme-lin .wiz-results-count,
-html.theme-lin .wiz-section-title,
-html.theme-lin .wiz-toggle-all { color:#B26E38; }
+html.amb-jour .boot-title,
+html.amb-jour .cal-compact-when,
+html.amb-jour .cal-event-time,
+html.amb-jour .cal-day-row-today .cal-day-pill-name,
+html.amb-jour .cal-pager-arrow,
+html.amb-jour .error-title,
+html.amb-jour .livre-back-btn,
+html.amb-jour .livre-card-stars,
+html.amb-jour .livre-detail-h3,
+html.amb-jour .livre-detail-ing strong,
+html.amb-jour .livre-tag-btn.is-active,
+html.amb-jour .tile-overlay-back,
+html.amb-jour .tile-radio-compact-btn,
+html.amb-jour .tile-radio-expand-btn.active,
+html.amb-jour .tile-timer-section-h2,
+html.amb-jour .tile-title,
+html.amb-jour .wiz-back,
+html.amb-jour .wiz-frigo-chip,
+html.amb-jour .wiz-frigo-chip-x,
+html.amb-jour .wiz-frigo-title,
+html.amb-jour .wiz-results-count,
+html.amb-jour .wiz-section-title,
+html.amb-jour .wiz-toggle-all { color:#B26E38; }
 
 /* === BACKGROUNDS — dark theme card (#1C1815) → Lin card (#FFFAF0) === */
-html.theme-lin .btn-tile-secondary,
-html.theme-lin .input-tile,
-html.theme-lin .livre-card,
-html.theme-lin .livre-search-input,
-html.theme-lin .tile-radio-expand-btn,
-html.theme-lin .tile-radio-expand-nowplaying,
-html.theme-lin .tile-timer-preset-btn,
-html.theme-lin .timer-active-row,
-html.theme-lin .timer-picker,
-html.theme-lin .weather-card-week,
-html.theme-lin .weather-chip,
-html.theme-lin .weather-hero,
-html.theme-lin .wiz-frigo-input,
-html.theme-lin .wiz-icon-btn { background:#FFFAF0; border-color:#D4C7AC; }
+html.amb-jour .btn-tile-secondary,
+html.amb-jour .livre-card,
+html.amb-jour .livre-search-input,
+html.amb-jour .tile-radio-expand-btn,
+html.amb-jour .tile-radio-expand-nowplaying,
+html.amb-jour .tile-timer-preset-btn,
+html.amb-jour .weather-card-week,
+html.amb-jour .weather-chip,
+html.amb-jour .weather-hero,
+html.amb-jour .wiz-frigo-input,
+html.amb-jour .wiz-icon-btn { background:#FFFAF0; border-color:#D4C7AC; }
 
 /* Active states (darker dark) → slightly tinted Lin */
-html.theme-lin .livre-card:active,
-html.theme-lin .wiz-icon-btn:active,
-html.theme-lin .wiz-secondary:active { background:#F0E5CA; }
+html.amb-jour .livre-card:active,
+html.amb-jour .wiz-icon-btn:active,
+html.amb-jour .wiz-secondary:active { background:#F0E5CA; }
 
 /* Very dark backgrounds (#15110D, #0F0D0A) on timer-compact-others etc. */
-html.theme-lin .timer-compact-others { background:#F0E5CA; }
+html.amb-jour .timer-compact-others { background:#F0E5CA; }
 
 /* ----- Indicateur de fraîcheur / hors-ligne (kiosk) -----
    Badge discret en bas à gauche. Pendant le fonctionnement normal il est

@@ -1,10 +1,13 @@
-import { useEffect } from "react";
 import { Link, NavLink, Outlet } from "react-router-dom";
 import { BookOpen, ChefHat, Home, MonitorSmartphone, LayoutGrid, Settings, LogOut } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useActiveHouseholdId, useHouseholds } from "../lib/queries";
-import { applyTheme, DEFAULT_THEME_ID } from "../lib/themes";
+import { useAmbiance } from "../lib/ambiance";
 import clsx from "clsx";
+import { useEstTelephone } from "../lib/useEstTelephone";
+import TelephoneLayout from "./TelephoneLayout";
+import VeilleurMinuteurs from "./VeilleurMinuteurs";
+import { MinuteursProvider } from "../lib/MinuteursContext";
 
 const navItems = [
   { to: "/", icon: Home, label: "Accueil", end: true },
@@ -16,17 +19,28 @@ const navItems = [
 ];
 
 export default function Layout() {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const householdId = useActiveHouseholdId(user?.uid);
   const { data: households } = useHouseholds(user?.uid);
   const household = households?.find((h) => h.id === householdId);
-  const themeId = household?.parametres?.themeId ?? DEFAULT_THEME_ID;
 
-  /* Applique le thème UI (CSS vars) à chaque changement. */
-  useEffect(() => {
-    applyTheme(themeId);
-  }, [themeId]);
+  /* Ambiance jour/nuit selon le lever/coucher du soleil du foyer. */
+  useAmbiance(household?.parametres?.localisation);
 
+  /* Téléphone (< 768 px) : onglets en bas au lieu de l'en-tête PC.
+     Minuteurs : un seul abonnement pour la page, et le veilleur fait sonner
+     un minuteur terminé quelle que soit la page ouverte. */
+  const telephone = useEstTelephone();
+  return (
+    <MinuteursProvider householdId={householdId}>
+      {telephone ? <TelephoneLayout /> : <PcLayout />}
+      <VeilleurMinuteurs />
+    </MinuteursProvider>
+  );
+}
+
+function PcLayout() {
+  const { user, signOut } = useAuth();
   const today = new Date().toLocaleDateString("fr-FR", {
     weekday: "long",
     day: "numeric",
@@ -36,11 +50,7 @@ export default function Layout() {
   return (
     <div className="min-h-screen flex flex-col">
       <header
-        className="bg-ebony-panel/90 backdrop-blur-md sticky top-0 z-20"
-        style={{
-          borderBottom: "1px solid #3A2E22",
-          boxShadow: "0 1px 0 rgba(217,160,91,0.08)",
-        }}
+        className="bg-ebony-panel/90 backdrop-blur-md sticky top-0 z-20 border-b border-hairline"
       >
         <div className="max-w-6xl mx-auto px-8 py-5">
           <div className="flex items-center justify-between text-xs tracking-widest uppercase text-cream-mute mb-4">
@@ -52,8 +62,7 @@ export default function Layout() {
                 <img
                   src={user.photoURL}
                   alt=""
-                  className="w-7 h-7 rounded-full"
-                  style={{ border: "1px solid #3A2E22" }}
+                  className="w-7 h-7 rounded-full border border-hairline"
                 />
               )}
               <span className="text-[10px] tracking-widest text-cream-mute">

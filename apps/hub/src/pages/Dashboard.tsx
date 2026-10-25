@@ -1,7 +1,9 @@
 import { Link } from "react-router-dom";
 import { useAuth } from "../lib/auth";
+import { useInvitationEnAttente } from "../lib/invitationContext";
 import { useDisplays, useHouseholds, useTiles } from "../lib/queries";
 import { ErrorState } from "../components/states";
+import ResultatInvitation from "../components/ResultatInvitation";
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -12,6 +14,7 @@ export default function Dashboard() {
     refetch,
   } = useHouseholds(user?.uid);
   const household = households?.[0];
+  const invitation = useInvitationEnAttente();
   const { data: displays } = useDisplays(household?.id);
   const { data: tiles } = useTiles(household?.id);
 
@@ -35,8 +38,12 @@ export default function Dashboard() {
         </p>
       </header>
 
-      {isLoading && (
-        <p className="text-ink-mute italic font-serif">Chargement…</p>
+      <ResultatInvitation />
+
+      {(isLoading || invitation.enCours) && (
+        <p className="text-ink-mute italic font-serif">
+          {invitation.enCours ? "Arrivée dans le foyer…" : "Chargement…"}
+        </p>
       )}
 
       {isError && (
@@ -46,7 +53,7 @@ export default function Dashboard() {
         />
       )}
 
-      {!isLoading && !isError && households?.length === 0 && (
+      {!isLoading && !invitation.enCours && !isError && households?.length === 0 && (
         <div className="tile-card text-center py-12 max-w-xl mx-auto">
           <p className="font-serif italic text-2xl text-ink mb-2">
             Première étape

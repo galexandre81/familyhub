@@ -1,0 +1,57 @@
+/* GÉNÉRÉ par packages/design/scripts/gen-hub-css.mjs — ne pas modifier à la main. */
+:root {
+  --c-ebony: 238 244 234;
+  --c-ebony-panel: 255 255 255;
+  --c-ebony-card: 255 255 255;
+  --c-ebony-ridge: 201 214 198;
+  --c-brass: 45 86 200;
+  --c-cream: 30 43 34;
+  --c-cream-mute: 85 102 90;
+  --c-wood-dark: 201 214 198;
+  --c-maintenant: 245 194 66;
+  --c-bordure: 30 43 34;
+  --c-p-texte: 255 255 255;
+  --c-p-sapin: 43 122 75;
+  --c-p-toleRouge: 200 70 43;
+  --c-p-lilas: 138 85 208;
+  --c-p-miel: 183 121 31;
+  --c-p-ardoise: 62 106 138;
+}
+
+html.amb-jour {
+  --c-ebony: 238 244 234;
+  --c-ebony-panel: 255 255 255;
+  --c-ebony-card: 255 255 255;
+  --c-ebony-ridge: 201 214 198;
+  --c-brass: 45 86 200;
+  --c-cream: 30 43 34;
+  --c-cream-mute: 85 102 90;
+  --c-wood-dark: 201 214 198;
+  --c-maintenant: 245 194 66;
+  --c-bordure: 30 43 34;
+  --c-p-texte: 255 255 255;
+  --c-p-sapin: 43 122 75;
+  --c-p-toleRouge: 200 70 43;
+  --c-p-lilas: 138 85 208;
+  --c-p-miel: 183 121 31;
+  --c-p-ardoise: 62 106 138;
+}
+
+html.amb-nuit {
+  --c-ebony: 15 27 45;
+  --c-ebony-panel: 24 40 65;
+  --c-ebony-card: 24 40 65;
+  --c-ebony-ridge: 44 63 92;
+  --c-brass: 255 181 71;
+  --c-cream: 242 245 248;
+  --c-cream-mute: 168 182 200;
+  --c-wood-dark: 44 63 92;
+  --c-maintenant: 255 181 71;
+  --c-bordure: 44 63 92;
+  --c-p-texte: 15 27 45;
+  --c-p-sapin: 91 192 138;
+  --c-p-toleRouge: 242 131 106;
+  --c-p-lilas: 185 148 242;
+  --c-p-miel: 240 185 90;
+  --c-p-ardoise: 141 184 216;
+}

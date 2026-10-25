@@ -10,11 +10,48 @@
     customTokenIssuedAt: 'familyHub.customTokenIssuedAt'
   };
 
-  var CUSTOM_TOKEN_REFRESH_MS = 50 * 60 * 1000; /* 50 min — Firebase custom tokens valent 1h */
+  /* 24 h. La session Firebase est persistante (LOCAL) et le SDK renouvelle
+     seul ses ID tokens : ce rafraîchissement ne sert plus qu'à faire glisser
+     l'expiration de l'authToken (90 jours, prolongée côté serveur à chaque
+     refreshDisplayToken réussi). */
+  var CUSTOM_TOKEN_REFRESH_MS = 24 * 60 * 60 * 1000;
   var REFRESH_RETRY_DELAYS_MS = [5 * 1000, 30 * 1000, 2 * 60 * 1000]; /* 5s, 30s, 2min */
 
+  /* Devient true quand refreshDisplayToken répond par une erreur définitive
+     (écran appairé sur un autre appareil, révoqué, supprimé ou expiré).
+     Plus AUCUN appel à refreshDisplayToken ensuite pendant la vie de la page :
+     retenter ne changerait rien et bouclait à l'infini. L'écran garde ses
+     données (la session Firebase peut rester valide) et affiche un badge
+     « à reconfigurer ». */
+  var authPermanentlyFailed = false;
+  /* Raisons définitives posées par le serveur dans err.details.reason.
+     Liste identique à RAISONS_APPAIRAGE (functions/src/auth/pairingErrors.ts). */
+  var PAIRING_REASONS = ['deleted', 'revoked', 'token-mismatch', 'expired'];
+
+  /* Erreur de refreshDisplayToken qui ne se résoudra pas en retentant :
+     écran supprimé, révoqué, authToken remplacé (appairé ailleurs) ou
+     expiré. On se fie UNIQUEMENT au marqueur serveur details.reason, jamais
+     au code seul : le SDK v8 fabrique lui-même deadline-exceeded (timeout
+     70 s), permission-denied (403) et not-found (404) sur une coupure Wi-Fi
+     ou un incident de déploiement — ces cas suivent les retries normaux. */
+  function isPermanentAuthError(err) {
+    if (!err || !err.details || typeof err.details.reason !== 'string') return false;
+    for (var i = 0; i < PAIRING_REASONS.length; i++) {
+      if (PAIRING_REASONS[i] === err.details.reason) return true;
+    }
+    return false;
+  }
+
+  /* Texte affiché (badge + statut) pour une raison définitive. Textes fixes,
+     jamais err.message. Le lien « à reconfigurer » est ajouté par l'appelant. */
+  function pairingReasonLabel(reason) {
+    if (reason === 'revoked' || reason === 'deleted') return 'Écran retiré du foyer';
+    if (reason === 'expired') return 'Appairage expiré';
+    return 'Écran appairé ailleurs'; /* token-mismatch, et défaut */
+  }
+
   /* Guard contre les refresh concurrents. Trois sources peuvent firer
-     refreshCustomToken(0) en parallèle : setInterval 50min,
+     refreshCustomToken(0) en parallèle : setInterval 24 h,
      visibilitychange, onAuthStateChanged(null). Sans guard, deux
      signInWithCustomToken concurrents → la 2e invalide la 1ère →
      onAuthStateChanged(null) → encore un refresh = cascade. Le flag
@@ -57,13 +94,13 @@
     auth: null,
     householdId: null,
     displayId: null,
-    cellsByTileId: {},
     tilesById: {},
+    tableau: null,               /* instance FamilyHubTableau (écran principal) */
     snapshotUnsub: null,
     displayConfig: null,
     householdConfig: null,
     householdUnsub: null,
-    appliedThemeId: null,
+    tilesUnsub: null,
     /* Indicateur fraîcheur / hors-ligne (kiosk 24/7) */
     snapshotGeneratedAtMs: 0,    /* age de référence du dernier snapshot reçu (ms epoch) */
     snapshotTtlSeconds: 0,       /* ttlSeconds top-level du snapshot, sert au seuil */
@@ -138,6 +175,9 @@
    */
   function refreshCustomToken(attemptIdx) {
     attemptIdx = attemptIdx || 0;
+    /* Erreur définitive déjà reçue : on ne rappelle plus jamais le serveur
+       (couvre l'interval 24 h, visibilitychange et onAuthStateChanged). */
+    if (authPermanentlyFailed) return;
     /* Guard concurrent refreshes — uniquement au premier appel (attempt 0).
        Les retries internes (attempt >= 1) sont chaînés depuis le catch
        du précédent, le flag est déjà à true. */
@@ -192,6 +232,18 @@
         if (window.console && window.console.warn) {
           window.console.warn('[auth] refresh attempt ' + (attemptIdx + 1) + ' failed', err);
         }
+        if (isPermanentAuthError(err)) {
+          /* Écran appairé ailleurs / révoqué / supprimé / expiré : retenter
+             ne sert à rien. On arrête tout, on garde le grid et ses données,
+             et on invite à reconfigurer. Pas de reload (il relancerait la
+             boucle). */
+          authPermanentlyFailed = true;
+          refreshInFlight = false;
+          var reasonLabel = pairingReasonLabel(err.details.reason);
+          setAuthBadge('paired-elsewhere', err.details.reason);
+          setStatus(reasonLabel + ' — <a href="setup.html">à reconfigurer</a>');
+          return;
+        }
         if (attemptIdx < REFRESH_RETRY_DELAYS_MS.length) {
           /* Retry programmé — on garde refreshInFlight = true pendant la
              chaîne pour que les triggers concurrents (visibilitychange,
@@ -230,28 +282,23 @@
 
   /**
    * iPad PWA standalone : quand l'iPad sort de veille (visibilitychange →
-   * visible), si le customToken stocké approche de l'expiration, force un
-   * refresh immédiat plutôt que d'attendre le tick setInterval. Ça évite
-   * le scénario "timer fire pendant que le WiFi iPad n'est pas encore
-   * réveillé après le sleep" qui causait des cycles de retry à répétition.
+   * visible), si la session Firebase a été perdue, force un refresh
+   * immédiat plutôt que d'attendre le tick setInterval (24 h).
    */
   function setupVisibilityRefresh() {
     if (!document || !document.addEventListener) return;
     document.addEventListener('visibilitychange', function () {
       if (document.hidden) return;
       if (!state.auth || !state.householdId || !state.functions) return;
-      var issuedAtRaw = getStored(STORAGE.customTokenIssuedAt);
-      var issuedAt = issuedAtRaw ? parseInt(issuedAtRaw, 10) : 0;
-      if (!issuedAt) return;
-      var ageMs = Date.now() - issuedAt;
-      /* customToken Firebase = 1h de validité. Si > 40min on refresh
-         proactivement (10min de marge avant expiration). */
-      if (ageMs > 40 * 60 * 1000) {
-        if (window.console && window.console.log) {
-          window.console.log('[auth] visibilitychange wake : token age ' + Math.round(ageMs / 60000) + 'min, refresh');
-        }
-        refreshCustomToken(0);
+      if (authPermanentlyFailed) return;
+      /* Session Firebase persistante : tant qu'un utilisateur est présent,
+         le SDK renouvelle seul ses ID tokens, rien à faire. On ne relance
+         un refresh au réveil que si la session a été perdue. */
+      if (state.auth.currentUser) return;
+      if (window.console && window.console.log) {
+        window.console.log('[auth] visibilitychange wake : pas de session, refresh');
       }
+      refreshCustomToken(0);
     });
   }
 
@@ -261,14 +308,33 @@
     if (tokenRefreshLoopStarted) return;
     tokenRefreshLoopStarted = true;
     setInterval(function () { refreshCustomToken(0); }, CUSTOM_TOKEN_REFRESH_MS);
+    /* Rattrapage au boot : l'interval repart de zéro à chaque rechargement
+       de page, donc des reloads fréquents (déploiements, changement de
+       layout) empêcheraient l'expiration de glisser. Si le dernier refresh
+       réussi date de plus de 24 h (ou n'est pas connu), un seul refresh
+       60 s après le chargement. Âge re-vérifié au déclenchement : si un
+       refresh a eu lieu entre-temps (signin initial échoué), on ne refait rien. */
+    setTimeout(function () {
+      if (!state.auth || !state.auth.currentUser) return;
+      var issuedAtRaw = getStored(STORAGE.customTokenIssuedAt);
+      var issuedAt = issuedAtRaw ? parseInt(issuedAtRaw, 10) : 0;
+      if (issuedAt && Date.now() - issuedAt < CUSTOM_TOKEN_REFRESH_MS) return;
+      if (window.console && window.console.log) {
+        window.console.log('[auth] boot : dernier refresh > 24 h, prolongation de l\'appairage');
+      }
+      refreshCustomToken(0);
+    }, 60 * 1000);
   }
 
   /**
    * Affiche un petit badge en haut à droite de l'écran avec l'état auth.
    * Visible uniquement quand pas "ok" — pour ne pas polluer le grid normal.
-   * states: 'ok' | 'refreshing' | 'retrying' | 'error'
+   * states: 'ok' | 'refreshing' | 'retrying' | 'error' | 'paired-elsewhere'
+   * 'paired-elsewhere' est définitif : une fois affiché, plus aucun autre
+   * état ne le remplace (ni le fondu de 'ok').
    */
   function setAuthBadge(stateName, detail) {
+    if (authPermanentlyFailed && stateName !== 'paired-elsewhere') return;
     var el = document.getElementById('fh-auth-badge');
     if (!el) {
       el = document.createElement('div');
@@ -286,9 +352,11 @@
       el.style.background = 'rgba(125,159,118,0.85)';
       el.innerHTML = '✓ connecté';
       setTimeout(function () {
+        if (authPermanentlyFailed) return;
         if (el && el.parentNode) {
           el.style.opacity = '0';
           setTimeout(function () {
+            if (authPermanentlyFailed) return;
             if (el && el.parentNode) el.parentNode.removeChild(el);
           }, 500);
         }
@@ -305,6 +373,12 @@
     } else if (stateName === 'error') {
       el.style.background = 'rgba(200,85,61,0.90)';
       el.innerHTML = '⚠ ' + (detail || 'auth perdue');
+    } else if (stateName === 'paired-elsewhere') {
+      /* Texte fixe par raison serveur (detail = details.reason), jamais
+         err.message : le badge est visible dans la cuisine. */
+      el.style.background = 'rgba(200,85,61,0.90)';
+      el.innerHTML = '⚠ <a href="setup.html" style="color:#fff; text-decoration:underline;">' +
+        pairingReasonLabel(detail) + ' — à reconfigurer</a>';
     }
   }
 
@@ -507,47 +581,34 @@
     }, false);
   }
 
-  /* Applique un thème sur <html>. Retire d'abord toute classe theme-*
-     présente. Vide / 'caractere' = thème par défaut (pas de classe).
-     Re-render aussi les tuiles 'settings' compactes pour mettre à jour
-     leur aperçu thème (swatches + nom) — sans ça la tuile compacte
-     reste figée sur l'ancien thème jusqu'au prochain snapshot. */
-  function applyDisplayTheme(themeId) {
-    var html = document.documentElement;
-    var classes = (html.className || '').split(/\s+/);
-    var kept = [];
-    for (var i = 0; i < classes.length; i++) {
-      var c = classes[i];
-      if (!c) continue;
-      if (c.indexOf('theme-') === 0) continue;
-      kept.push(c);
-    }
-    if (themeId && themeId !== 'caractere') {
-      kept.push('theme-' + themeId);
-    }
-    html.className = kept.join(' ');
-    state.appliedThemeId = themeId || 'caractere';
-
-    /* Force re-render des compact tiles 'settings' qui affichent l'aperçu
-       du thème courant — sans ça l'aperçu reste figé. */
-    if (state.cellsByTileId && state.tilesById && window.FamilyHubRender) {
-      for (var tileId in state.cellsByTileId) {
-        if (!state.cellsByTileId.hasOwnProperty(tileId)) continue;
-        var tile = state.tilesById[tileId];
-        if (!tile || tile.type !== 'settings') continue;
-        var snapshotData = window.FamilyHubGetTileSnapshot
-          ? window.FamilyHubGetTileSnapshot(tileId)
-          : null;
-        window.FamilyHubRender.renderTile(
-          tile.type,
-          state.cellsByTileId[tileId],
-          snapshotData || {},
-          tile.config
-        );
+  /* Ambiance jour/nuit TRANSITOIRE : l'iPad ne choisit ni n'écrit plus de
+     thème. Il réutilise les overrides CSS amb-jour (jour) / amb-nuit
+     (nuit) selon le lever/coucher du soleil de la tuile météo. Règle et
+     lecture des données : js/ambiance.js (fonctions pures, testées par
+     packages/design/src/displayAmbiance.test.ts). */
+  function applyAmbiance() {
+    var amb = window.FamilyHubAmbiance;
+    if (!amb) return;
+    var sun = null;
+    var tiles = state.lastSnapshotTiles;
+    if (tiles && state.tilesById) {
+      for (var tileId in tiles) {
+        if (!tiles.hasOwnProperty(tileId)) continue;
+        var t = state.tilesById[tileId];
+        if (!t || t.type !== 'weather') continue;
+        var entry = tiles[tileId] || {};
+        var selId = (t.config && t.config.selectedLocationId) || null;
+        sun = amb.sunFromWeatherData(entry.data, selId);
+        break;
       }
     }
+    var ambiance = amb.ambianceFromSun(new Date(), sun && sun.sunrise, sun && sun.sunset);
+    var html = document.documentElement;
+    /* Retire theme-* ET amb-* (sinon amb-jour/amb-nuit s'accumulent et la
+       nuit gagne pour toujours) ; n'écrit que si ça change. */
+    var next = amb.classesAvecAmbiance(html.className || '', ambiance);
+    if (html.className !== next) html.className = next;
   }
-  window.FamilyHubApplyTheme = applyDisplayTheme;
 
   function loadDisplayAndTiles() {
     var hid = state.householdId;
@@ -561,8 +622,7 @@
       if (hSnap.exists) {
         var hData = hSnap.data() || {};
         state.householdConfig = hData;
-        var themeId = hData.parametres && hData.parametres.themeId;
-        applyDisplayTheme(themeId);
+        applyAmbiance();
       }
       return displayRef.get();
     }).then(function (snap) {
@@ -573,10 +633,11 @@
       var byId = {};
       tilesSnap.forEach(function (doc) { byId[doc.id] = doc.data(); });
       state.tilesById = byId;
-      renderInitialGrid();
+      monterTableau();
       attachSnapshotListener(displayRef);
       attachDisplayConfigListener(displayRef);
       attachHouseholdListener(householdRef);
+      attachTilesListener(tilesRef);
       /* Démarre le singleton timers une fois auth + db prêts */
       if (window.FamilyHubTimers) {
         window.FamilyHubTimers.init(state.db, hid);
@@ -608,8 +669,8 @@
     listenerRetryIdx[name] = 0;
   }
 
-  /* Listener live sur le doc household — détecte changement de thème
-     pushé depuis le hub web. Re-applique sans reload. */
+  /* Listener live sur le doc household (garde householdConfig à jour).
+     N'applique plus aucun thème. */
   function attachHouseholdListener(householdRef) {
     if (state.householdUnsub) state.householdUnsub();
     state.householdUnsub = householdRef.onSnapshot(function (snap) {
@@ -617,16 +678,34 @@
       if (!snap.exists) return;
       var data = snap.data() || {};
       state.householdConfig = data;
-      var newThemeId = (data.parametres && data.parametres.themeId) || 'caractere';
-      if (newThemeId !== state.appliedThemeId) {
-        applyDisplayTheme(newThemeId);
-      }
     }, function (err) {
       if (window.console && window.console.error) window.console.error('household listener', err);
       /* Listener terminé par le SDK : on l'oublie et on le ré-attache. */
       state.householdUnsub = null;
       scheduleListenerReattach('household', function () {
         attachHouseholdListener(householdRef);
+      });
+    });
+  }
+
+  /* Listener live sur les tuiles du foyer : tilesById (configs : villes de
+     la météo, ville choisie…) suit le hub sans recharger la page. Sans lui,
+     la config restait celle du démarrage : une ville retirée dans le hub
+     laissait la météo du tableau « En attente… » jusqu'au rechargement. */
+  function attachTilesListener(tilesRef) {
+    if (state.tilesUnsub) state.tilesUnsub();
+    state.tilesUnsub = tilesRef.onSnapshot(function (tilesSnap) {
+      listenerHealthy('tiles');
+      var byId = {};
+      tilesSnap.forEach(function (doc) { byId[doc.id] = doc.data(); });
+      state.tilesById = byId;
+      applyAmbiance();
+      if (state.tableau) state.tableau.actualiser();
+    }, function (err) {
+      if (window.console && window.console.error) window.console.error('tiles listener', err);
+      state.tilesUnsub = null;
+      scheduleListenerReattach('tiles', function () {
+        attachTilesListener(tilesRef);
       });
     });
   }
@@ -656,7 +735,7 @@
         if (window.console && window.console.log) {
           window.console.log('[display] layout changed, reloading…');
         }
-        reloadForLayoutChange();
+        reloadDisplay();
       }
     }, function (err) {
       if (window.console && window.console.error) window.console.error('display listener', err);
@@ -667,21 +746,26 @@
     });
   }
 
-  /* Hard reload pour re-fetch index.html après un changement de layout.
+  /* Hard reload pour re-fetch index.html (changement de layout, ou nouvelle
+     version déployée — cf. checkDisplayVersion).
      Si l'overlay plein écran est ouvert (ex: une recette lue en grand),
      on diffère le reload pour ne pas l'arracher sous les yeux : on poll
      jusqu'à fermeture de l'overlay puis on reload. Idempotent via un flag. */
+  /* Plein écran d'une tuile ou mode recette (on cuisine : ne pas l'arracher). */
+  function pleinEcranOuvert() {
+    var overlay = window.FamilyHubOverlay;
+    var recette = window.FamilyHubModeRecette;
+    return !!((overlay && overlay.isOpen && overlay.isOpen())
+      || (recette && recette.estOuvert && recette.estOuvert()));
+  }
   var layoutReloadPending = false;
-  function reloadForLayoutChange() {
+  function reloadDisplay() {
     function doReload() {
       /* Cache buster sur le reload pour forcer iOS 9 à re-fetch index.html */
       var url = window.location.pathname + '?reload=' + Date.now();
       window.location.replace(url);
     }
-    var overlayOpen = window.FamilyHubOverlay
-      && window.FamilyHubOverlay.isOpen
-      && window.FamilyHubOverlay.isOpen();
-    if (!overlayOpen) {
+    if (!pleinEcranOuvert()) {
       doReload();
       return;
     }
@@ -691,14 +775,53 @@
       window.console.log('[display] overlay open, deferring reload until close');
     }
     var poll = setInterval(function () {
-      var stillOpen = window.FamilyHubOverlay
-        && window.FamilyHubOverlay.isOpen
-        && window.FamilyHubOverlay.isOpen();
+      var stillOpen = pleinEcranOuvert();
       if (!stillOpen) {
         clearInterval(poll);
         doReload();
       }
     }, 1000);
+  }
+
+  /* Rechargement automatique après un déploiement. Le build écrit
+     version.json ({"version":"YYYYMMDDHHmmss"}) et la même valeur dans
+     window.FH_DISPLAY_VERSION (index.html). Si elles diffèrent, un nouveau
+     déploiement est en ligne : on recharge (même report si overlay ouvert).
+     Toute erreur (hors ligne, version.json absent → Hosting renvoie
+     index.html, donc JSON invalide) est ignorée : on réessaiera plus tard. */
+  var DISPLAY_VERSION_CHECK_MS = 10 * 60 * 1000;
+  function checkDisplayVersion() {
+    var current = window.FH_DISPLAY_VERSION;
+    /* Page servie sans build (placeholder non remplacé) : rien à comparer. */
+    if (!current || current.indexOf('__') === 0) return;
+    if (!window.fetch) return;
+    window.fetch('version.json?ts=' + Date.now(), { cache: 'no-store' })
+      .then(function (res) {
+        if (!res.ok) return null;
+        return res.text();
+      })
+      .then(function (text) {
+        if (!text) return;
+        var data;
+        try { data = JSON.parse(text); } catch (e) { return; }
+        if (data && typeof data.version === 'string' && data.version
+            && data.version !== current) {
+          if (window.console && window.console.log) {
+            window.console.log('[display] nouvelle version ' + data.version + ' (actuelle ' + current + '), reloading…');
+          }
+          reloadDisplay();
+        }
+      })
+      .catch(function () { /* réseau indisponible : prochain essai */ });
+  }
+
+  function setupVersionWatch() {
+    setInterval(checkDisplayVersion, DISPLAY_VERSION_CHECK_MS);
+    if (document && document.addEventListener) {
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) checkDisplayVersion();
+      });
+    }
   }
 
   function layoutKey(layout) {
@@ -713,21 +836,44 @@
     return parts.join('|');
   }
 
-  function renderInitialGrid() {
-    var grid = document.getElementById('grid');
-    if (!grid || !state.displayConfig) return;
-    var cfg = state.displayConfig;
-    var cells = window.FamilyHubRender.buildGrid(grid, cfg.gridConfig, cfg.layout || [], state.tilesById);
-    state.cellsByTileId = cells;
-    showGrid();
-
-    /* Tuiles client-only (clock notamment) : rendu immédiat sans data du snapshot */
-    for (var tileId in cells) {
-      if (!cells.hasOwnProperty(tileId)) continue;
-      var tile = state.tilesById[tileId];
-      if (!tile) continue;
-      window.FamilyHubRender.renderTile(tile.type, cells[tileId], {}, tile.config);
+  /* Sources du tableau, par TYPE de tuile : la première tuile de chaque type
+     présente dans le layout de l'écran (le serveur n'écrit le snapshot que
+     pour celles-là). { tileId, config, data } — data null tant que le
+     snapshot n'est pas arrivé. Les types inconnus du tableau (horloge, liste
+     de courses d'un ancien layout…) sont simplement ignorés. */
+  function sourcesParType() {
+    var out = {};
+    var layout = (state.displayConfig && state.displayConfig.layout) || [];
+    var tiles = state.lastSnapshotTiles || {};
+    for (var i = 0; i < layout.length; i++) {
+      var tileId = layout[i] && layout[i].tileId;
+      var tile = tileId ? state.tilesById[tileId] : null;
+      if (!tile || !tile.type || out.hasOwnProperty(tile.type)) continue;
+      var entry = tiles.hasOwnProperty(tileId) ? tiles[tileId] : null;
+      out[tile.type] = {
+        tileId: tileId,
+        config: tile.config || {},
+        data: (entry && entry.data) || null
+      };
     }
+    return out;
+  }
+
+  /* Écran principal : le tableau de cuisine (js/tableau.js), pour tout écran.
+     La grille de tuiles (render.js buildGrid) n'est plus affichée : les
+     modules de tuiles ne servent plus qu'aux vues plein écran ouvertes depuis
+     le tableau. */
+  function monterTableau() {
+    var hote = document.getElementById('grid');
+    if (!hote || !state.displayConfig) return;
+    if (state.tableau) { state.tableau.demonter(); state.tableau = null; }
+    hote.innerHTML = '';
+    if (!window.FamilyHubTableau) {
+      showError('Module du tableau manquant : recharge la page.');
+      return;
+    }
+    state.tableau = window.FamilyHubTableau.monter(hote, { sources: sourcesParType });
+    showGrid();
   }
 
   function attachSnapshotListener(displayRef) {
@@ -739,6 +885,7 @@
       var data = snap.data() || {};
       var tiles = data.tiles || {};
       state.lastSnapshotTiles = tiles;
+      applyAmbiance();
 
       /* Fraîcheur : lit le generatedAt top-level (Firestore Timestamp) et le
          ttlSeconds. generatedAt peut être absent ou pas encore résolu (write
@@ -758,14 +905,8 @@
           ? data.ttlSeconds : 0;
         evaluateStaleness();
       }
-      for (var tileId in tiles) {
-        if (!tiles.hasOwnProperty(tileId)) continue;
-        var cell = state.cellsByTileId[tileId];
-        var tile = state.tilesById[tileId];
-        if (!cell || !tile) continue;
-        var entry = tiles[tileId] || {};
-        window.FamilyHubRender.renderTile(tile.type, cell, entry.data || {}, tile.config);
-      }
+      /* Le tableau relit les sources et ne reconstruit que ce qui a changé. */
+      if (state.tableau) state.tableau.actualiser();
     }, function (err) {
       if (window.console && window.console.error) window.console.error('snapshot listener', err);
       state.snapshotUnsub = null;
@@ -780,7 +921,7 @@
   window.FamilyHubGetDb = function () { return state.db; };
   window.FamilyHubGetHouseholdId = function () { return state.householdId; };
 
-  /* Permet à render.js de récupérer la dernière data d'un tile pour l'expand. */
+  /* Dernière data d'une tuile (vues plein écran, ex. weather expand). */
   window.FamilyHubGetTileSnapshot = function (tileId) {
     var entry = state.lastSnapshotTiles && state.lastSnapshotTiles[tileId];
     return entry ? entry.data : null;
@@ -789,6 +930,15 @@
   window.FamilyHubGetTileConfig = function (tileId) {
     var t = state.tilesById[tileId];
     return t ? t.config : null;
+  };
+  /* Config de la première tuile d'un type donné (ex. 'timer' : presets du
+     minuteur, lus par le panneau des minuteurs pour son choix « Autre »). */
+  window.FamilyHubGetTileConfigByType = function (type) {
+    var by = state.tilesById || {};
+    for (var id in by) {
+      if (by.hasOwnProperty(id) && by[id] && by[id].type === type) return by[id].config || null;
+    }
+    return null;
   };
   /* Patch partiel sur tile.config (utilisé par weather expand pour basculer la ville sélectionnée). */
   window.FamilyHubUpdateTileConfig = function (tileId, patch) {
@@ -809,12 +959,8 @@
           if (patch.hasOwnProperty(k2)) t.config[k2] = patch[k2];
         }
       }
-      /* Re-render la cell avec la nouvelle config */
-      var cell = state.cellsByTileId[tileId];
-      if (cell && t) {
-        var snapshotData = window.FamilyHubGetTileSnapshot(tileId);
-        window.FamilyHubRender.renderTile(t.type, cell, snapshotData || {}, t.config);
-      }
+      /* Le tableau suit la nouvelle config (ex. ville de la météo). */
+      if (state.tableau) state.tableau.actualiser();
     }, function (err) {
       if (window.console && window.console.error) window.console.error('updateTileConfig failed', err);
     });
@@ -876,6 +1022,13 @@
     setupVisibilityRefresh();
 
     setupStalenessWatch();
+
+    setupVersionWatch();
+
+    /* Ambiance jour/nuit : au boot (repli 07-19h), puis toutes les 60 s.
+       Un seul interval, durée de vie = celle de la page (kiosque). */
+    applyAmbiance();
+    setInterval(applyAmbiance, 60000);
 
     if (window.FamilyHubBrightness) {
       window.FamilyHubBrightness.init();

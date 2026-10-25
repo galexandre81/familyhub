@@ -115,7 +115,7 @@ export default function SlotCard({
                 key={pid}
                 initiale={p.initiale}
                 couleur={p.couleur}
-                emoji={p.emoji}
+                couleurPersonne={p.couleurPersonne}
                 size="sm"
               />
             );
@@ -170,7 +170,11 @@ export default function SlotCard({
                 </Link>
               )}
               <Link
-                to={`/livre-recettes/${r.id}/cuisine?portions=${targetPortions}`}
+                to={
+                  editablePlanId
+                    ? `/menu/${editablePlanId}/${slot.id}/cuisine`
+                    : `/livre-recettes/${r.id}/cuisine?portions=${targetPortions}`
+                }
                 className="text-cream-mute hover:text-brass transition shrink-0 flex items-center justify-center min-h-11 min-w-11"
                 aria-label="Mode cuisine plein écran"
                 title="Mode cuisine plein écran"

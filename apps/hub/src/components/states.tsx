@@ -32,7 +32,7 @@ export function ErrorState({
     >
       <div className="rule w-full max-w-xs">
         <span className="rule-mark" />
-        <span className="eyebrow" style={{ color: "#C9712E" }}>
+        <span className="eyebrow text-copper">
           Erreur
         </span>
         <span className="rule-mark" />

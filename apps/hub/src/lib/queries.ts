@@ -10,6 +10,7 @@ import {
   where,
 } from "firebase/firestore";
 import { db } from "./firebase";
+import { ordonnerFoyers } from "./foyerActif";
 import type {
   BatchSession,
   CourseItem,
@@ -19,7 +20,6 @@ import type {
   MealPlanSlot,
   Profil,
   Recette,
-  ShoppingList,
   Tile,
   User,
 } from "@family-hub/types";
@@ -43,8 +43,17 @@ export function useHouseholds(uid: string | undefined) {
     queryFn: async (): Promise<Array<Household & { id: string }>> => {
       if (!uid) return [];
       const q = query(collection(db, "households"), where("membres", "array-contains", uid));
-      const snap = await getDocs(q);
-      return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Household) }));
+      // Foyer par défaut (users/{uid}) lu en parallèle ; s'il manque, l'ordre reste celui de Firestore.
+      const [snap, defaut] = await Promise.all([
+        getDocs(q),
+        getDoc(doc(db, `users/${uid}`))
+          .then((u) => (u.data() as Partial<User> | undefined)?.defaultHouseholdId)
+          .catch(() => undefined),
+      ]);
+      return ordonnerFoyers(
+        snap.docs.map((d) => ({ id: d.id, ...(d.data() as Household) })),
+        defaut,
+      );
     },
   });
 }
@@ -116,8 +125,9 @@ export function useCalendarConfigured(householdId: string | undefined) {
 }
 
 /**
- * Convenience hook for "the current household" — Phase 1, on prend le premier
- * (chaque user en a typiquement un seul). À étendre plus tard avec un sélecteur.
+ * Foyer courant : `users/{uid}.defaultHouseholdId` s'il fait partie des foyers
+ * du compte (useHouseholds le place en tête, cf. ordonnerFoyers), sinon le
+ * premier. Après une invitation acceptée, c'est le foyer rejoint.
  */
 export function useActiveHouseholdId(uid: string | undefined): string | undefined {
   const { data } = useHouseholds(uid);
@@ -256,7 +266,6 @@ export function usePlanCourses(householdId: string | undefined, planId: string |
 }
 
 export type BatchSessionWithId = BatchSession & { id: string };
-export type ShoppingListWithId = ShoppingList & { id: string };
 
 /**
  * Sessions de batch cooking d'un plan (Phase 3).
@@ -277,30 +286,6 @@ export function usePlanBatchSessions(
       return snap.docs
         .map((d) => ({ id: d.id, ...(d.data() as BatchSession) }))
         .sort((a, b) => a.date.localeCompare(b.date));
-    },
-  });
-}
-
-/**
- * Liste de courses associée à un plan (1-1 sur planId). Renvoie null si
- * aucune liste pour ce plan.
- */
-export function usePlanShoppingList(
-  householdId: string | undefined,
-  planId: string | undefined,
-) {
-  return useQuery({
-    enabled: !!householdId && !!planId,
-    queryKey: ["planShoppingList", householdId, planId],
-    queryFn: async (): Promise<ShoppingListWithId | null> => {
-      if (!householdId || !planId) return null;
-      const q = query(
-        collection(db, `households/${householdId}/shoppingLists`),
-        where("planId", "==", planId),
-      );
-      const snap = await getDocs(q);
-      if (snap.empty) return null;
-      return { id: snap.docs[0].id, ...(snap.docs[0].data() as ShoppingList) };
     },
   });
 }

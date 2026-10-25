@@ -1,55 +1,46 @@
 import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
-import { useMutationState } from "@tanstack/react-query";
 import {
   Archive,
   Check,
   CheckCircle2,
   ChefHat,
-  ChevronDown,
   ChevronLeft,
   ChevronRight,
   Circle,
   Clock,
-  Copy,
-  Download,
   FileEdit,
-  Filter,
   Loader2,
   Plus,
   RefreshCw,
-  Send,
   ShoppingCart,
   Trash2,
-  X,
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import {
   useActiveHouseholdId,
   useAllPlans,
   useDraftPlan,
+  useHouseholds,
   usePlanBatchSessions,
   usePlanRecettes,
-  usePlanShoppingList,
   usePlanSlots,
   useProfils,
   type BatchSessionWithId,
   type RecetteWithId,
-  type ShoppingListWithId,
 } from "../lib/queries";
 import {
-  useAddShoppingItem,
   useDeleteMealPlan,
-  useMarkShoppingShared,
   useRefreshHouseholdDisplays,
-  useRemoveShoppingItem,
   useToggleBatchSessionDone,
-  useToggleShoppingItem,
-  SHOPPING_ITEMS_MUTATION_KEY,
 } from "../lib/mutations";
+import { useListeCourses } from "../lib/useListeCourses";
+import { useEstTelephone } from "../lib/useEstTelephone";
 import MealPlanGrid from "../components/menu/MealPlanGrid";
+import SectionCoursesPc from "../components/courses/SectionCoursesPc";
 import RecetteDetailModal from "../components/menu/RecetteDetailModal";
 import { ErrorState } from "../components/states";
+import { messageEcransMisAJour } from "../lib/rafraichissementGroupe";
 
 export default function Menu() {
   const { user } = useAuth();
@@ -75,7 +66,10 @@ export default function Menu() {
   const { data: slots } = usePlanSlots(householdId, currentPlan?.id);
   const { data: recettesById } = usePlanRecettes(householdId, slots);
   const { data: batchSessions } = usePlanBatchSessions(householdId, currentPlan?.id);
-  const { data: shoppingList } = usePlanShoppingList(householdId, currentPlan?.id);
+  const { data: households } = useHouseholds(user?.uid);
+  const parametresFoyer = households?.find((h) => h.id === householdId)?.parametres;
+  const courses = useListeCourses(householdId, currentPlan?.id, { placardFoyer: parametresFoyer?.placard });
+  const estTelephone = useEstTelephone();
   const deletePlan = useDeleteMealPlan();
 
   /** Modal in-place pour voir la recette sans naviguer hors de /menu. */
@@ -192,7 +186,7 @@ export default function Menu() {
                       ).toLocaleDateString("fr-FR")}
                 </p>
                 <p className="text-cream-mute text-xs mt-0.5">
-                  {(shoppingList?.items.length ?? 0)} items de courses
+                  {courses.articles.length} article{courses.articles.length > 1 ? "s" : ""} de courses
                   {(batchSessions && batchSessions.length > 0)
                     ? ` · ${batchSessions.length} session${batchSessions.length > 1 ? "s" : ""} batch`
                     : ""}
@@ -252,14 +246,20 @@ export default function Menu() {
             />
           )}
 
-          {/* Liste de courses : cachée sur les plans archivés (sans intérêt). */}
-          {!isArchived && shoppingList && (
-            <ShoppingListSection
-              householdId={householdId}
-              planId={currentPlan.id}
-              list={shoppingList}
-              uid={user?.uid ?? ""}
+          {/* Liste de courses : cachée sur les plans archivés (sans intérêt). Sur
+              le téléphone, elle vit dans l'onglet Courses. */}
+          {!isArchived && courses.liste && !courses.chargement && !estTelephone && (
+            <SectionCoursesPc
+              courses={courses}
+              profils={profils ?? []}
+              modeleDrive={parametresFoyer?.modeleRechercheDrive}
             />
+          )}
+          {!isArchived && courses.liste && estTelephone && (
+            <Link to="/courses" className="tile-card flex items-center gap-2 text-cream">
+              <ShoppingCart size={20} className="text-brass" aria-hidden="true" />
+              La liste de courses est dans l'onglet Courses
+            </Link>
           )}
         </>
       )}
@@ -281,9 +281,9 @@ export default function Menu() {
 // ───── Mise à jour manuelle des écrans ─────────────────────────────────
 
 /**
- * Le serveur ne recalcule plus les tuiles « Menu de la semaine » / « Recette
- * du jour » qu'une fois par nuit : ce bouton force la mise à jour tout de
- * suite, après la création ou la modification d'un menu.
+ * Le serveur ne recalcule le menu et la recette du jour qu'une fois par nuit
+ * (les créneaux modifiés le déclenchent aussi) : ce bouton force la mise à jour
+ * de tous les écrans tout de suite, météo et agenda compris.
  */
 function RefreshDisplaysBar({ householdId }: { householdId: string }) {
   const refresh = useRefreshHouseholdDisplays();
@@ -295,14 +295,7 @@ function RefreshDisplaysBar({ householdId }: { householdId: string }) {
     setStatus(null);
     try {
       const res = await refresh.mutateAsync({ householdId });
-      const n = res.weeklyMenuTiles + res.recipeTodayTiles;
-      setStatus({
-        kind: "success",
-        message:
-          n === 0
-            ? "Écrans mis à jour (aucune tuile menu ou recette du jour à rafraîchir)."
-            : `Écrans mis à jour · ${n} tuile${n > 1 ? "s" : ""} rafraîchie${n > 1 ? "s" : ""}.`,
-      });
+      setStatus({ kind: "success", message: messageEcransMisAJour(res) });
     } catch (err) {
       setStatus({
         kind: "error",
@@ -457,482 +450,6 @@ function BatchSessionsSection({
   );
 }
 
-// ───── Shopping list section ───────────────────────────────────────────
-
-const RAYON_LABELS: Record<string, string> = {
-  // Phase 3 (import claude.ai)
-  "fruits-legumes": "Fruits & légumes",
-  boucherie: "Boucherie",
-  poissonnerie: "Poissonnerie",
-  cremerie: "Crémerie",
-  epicerie: "Épicerie",
-  surgeles: "Surgelés",
-  boulangerie: "Boulangerie",
-  boissons: "Boissons",
-  autres: "Autres",
-  // Legacy
-  "frais-fruits-legumes": "Fruits & légumes",
-  "frais-laitier": "Crémerie",
-  "frais-boucherie": "Boucherie",
-  "frais-poissonnerie": "Poissonnerie",
-  "sec-epicerie": "Épicerie",
-  surgele: "Surgelés",
-  autre: "Autres",
-};
-
-const RAYON_ORDER: string[] = [
-  "fruits-legumes",
-  "frais-fruits-legumes",
-  "boulangerie",
-  "boucherie",
-  "frais-boucherie",
-  "poissonnerie",
-  "frais-poissonnerie",
-  "cremerie",
-  "frais-laitier",
-  "epicerie",
-  "sec-epicerie",
-  "surgeles",
-  "surgele",
-  "boissons",
-  "autres",
-  "autre",
-];
-
-function ShoppingListSection({
-  householdId,
-  planId,
-  list,
-  uid,
-}: {
-  householdId: string;
-  planId: string;
-  list: ShoppingListWithId;
-  uid: string;
-}) {
-  const toggle = useToggleShoppingItem();
-  const remove = useRemoveShoppingItem();
-  const add = useAddShoppingItem();
-  const markShared = useMarkShoppingShared();
-  // Items dont une écriture (cochage / retrait) est en vol : bouton désactivé
-  // le temps de la transaction, pour éviter les doubles taps.
-  const pendingItemIds = useMutationState({
-    filters: { mutationKey: SHOPPING_ITEMS_MUTATION_KEY, status: "pending" },
-    select: (m) => (m.state.variables as { itemId?: string } | undefined)?.itemId,
-  });
-  const pendingIds = useMemo(
-    () => new Set(pendingItemIds.filter((id): id is string => !!id)),
-    [pendingItemIds],
-  );
-  const [hideChecked, setHideChecked] = useState(false);
-  const [addOpen, setAddOpen] = useState(false);
-  const [shareState, setShareState] = useState<"idle" | "sharing" | "copied">("idle");
-
-  const visible = useMemo(
-    () => (hideChecked ? list.items.filter((it) => !it.checked) : list.items),
-    [list.items, hideChecked],
-  );
-
-  const grouped = useMemo(() => {
-    const map: Record<string, typeof list.items> = {};
-    for (const it of visible) {
-      const key = it.rayon || "autres";
-      if (!map[key]) map[key] = [];
-      map[key].push(it);
-    }
-    const ordered: Array<[string, typeof list.items]> = [];
-    for (const k of RAYON_ORDER) {
-      if (map[k]) ordered.push([k, map[k]]);
-    }
-    for (const k of Object.keys(map)) {
-      if (!RAYON_ORDER.includes(k)) ordered.push([k, map[k]]);
-    }
-    return ordered;
-  }, [visible]);
-
-  const checkedCount = list.items.filter((i) => i.checked).length;
-  const sharedAtDate = tsToDate(list.lastSharedAt);
-  const sharedLabel = sharedAtDate ? formatRelativeTime(sharedAtDate) : null;
-
-  async function handleShare() {
-    setShareState("sharing");
-    const text = buildShareText(list);
-    const canShare = typeof navigator !== "undefined" && typeof navigator.share === "function";
-    let usedTo = "partage natif";
-    let success = false;
-    if (canShare) {
-      try {
-        await navigator.share({ title: "Liste de courses Family Hub", text });
-        success = true;
-      } catch (err) {
-        if (err instanceof Error && err.name === "AbortError") {
-          // User cancelled, no error
-          setShareState("idle");
-          return;
-        }
-        // Fall through to clipboard fallback
-      }
-    }
-    if (!success) {
-      try {
-        await navigator.clipboard.writeText(text);
-        usedTo = "presse-papier";
-        success = true;
-        setShareState("copied");
-        setTimeout(() => setShareState("idle"), 2500);
-      } catch {
-        setShareState("idle");
-        alert(
-          "Impossible de partager. Copie manuellement la liste ci-dessous :\n\n" + text,
-        );
-        return;
-      }
-    }
-    if (success) {
-      try {
-        await markShared.mutateAsync({
-          householdId,
-          listId: list.id,
-          planId,
-          sharedTo: usedTo,
-        });
-      } catch {
-        /* non bloquant : le share a marché côté user, juste pas tracké */
-      }
-      if (canShare) setShareState("idle");
-    }
-  }
-
-  return (
-    <section className="space-y-3">
-      <div className="flex items-center justify-between flex-wrap gap-2">
-        <h2 className="text-xl flex items-center gap-2">
-          <ShoppingCart size={20} className="text-brass" aria-hidden="true" />
-          Liste de courses
-          <span className="text-sm text-cream-mute font-normal">
-            ({checkedCount} / {list.items.length})
-          </span>
-        </h2>
-        <div className="flex items-center gap-2 flex-wrap">
-          <button
-            onClick={() => setAddOpen((v) => !v)}
-            className="text-xs text-cream-mute hover:text-cream flex items-center gap-1"
-          >
-            {addOpen ? <X size={12} /> : <Plus size={12} />}
-            {addOpen ? "Annuler" : "Ajouter"}
-          </button>
-          <button
-            onClick={() => setHideChecked((v) => !v)}
-            className="text-xs text-cream-mute hover:text-cream flex items-center gap-1"
-          >
-            <Filter size={12} />
-            {hideChecked ? "Afficher cochés" : "Masquer cochés"}
-          </button>
-        </div>
-      </div>
-
-      {/* Bouton Envoyer aux courses — proéminent (sticky en mobile via tile-card) */}
-      <ShareButton
-        sharedLabel={sharedLabel}
-        sharingNow={shareState === "sharing"}
-        copied={shareState === "copied"}
-        onShare={handleShare}
-        canShare={typeof navigator !== "undefined" && typeof navigator.share === "function"}
-      />
-
-      {/* Bouton HTML — fallback fiable si Web Share rate ou si l'utilisateur
-          veut juste un fichier à envoyer par mail / AirDrop / partage natif OS */}
-      <button
-        type="button"
-        onClick={() => {
-          const html = buildShareHtml(list);
-          const today = new Date().toISOString().slice(0, 10);
-          const blob = new Blob([html], { type: "text/html;charset=utf-8" });
-          const url = URL.createObjectURL(blob);
-          const a = document.createElement("a");
-          a.href = url;
-          a.download = `liste-courses-${today}.html`;
-          document.body.appendChild(a);
-          a.click();
-          document.body.removeChild(a);
-          setTimeout(() => URL.revokeObjectURL(url), 1000);
-        }}
-        className="tile-card !p-2.5 w-full flex items-center justify-center gap-2 text-sm text-cream-mute hover:text-cream transition"
-      >
-        <Download size={14} />
-        Télécharger en HTML (mail / AirDrop)
-      </button>
-
-      {/* Hint workflow Keep — visible toujours, discret */}
-      <p className="text-[11px] text-cream-mute italic">
-        Astuce : envoie vers <strong>Keep</strong>, puis long-press la note dans
-        Keep → <em>Afficher les cases à cocher</em>. Tu coches en faisant les
-        courses, hors-ligne. Si Keep ne marche pas, le bouton HTML te donne
-        un fichier autonome (checkboxes cliquables, ouvre depuis téléphone).
-      </p>
-
-      {addOpen && (
-        <AddItemForm
-          onAdd={(item) => {
-            add.mutate({
-              householdId,
-              listId: list.id,
-              planId,
-              item,
-            });
-            setAddOpen(false);
-          }}
-        />
-      )}
-
-      {grouped.length === 0 && (
-        <p className="text-cream-mute italic text-sm">Tout est coché ✨</p>
-      )}
-
-      <div className="grid gap-3 md:grid-cols-2">
-        {grouped.map(([rayon, items]) => (
-          <RayonGroup
-            key={rayon}
-            rayon={rayon}
-            items={items}
-            pendingIds={pendingIds}
-            onToggle={(itemId, checked) =>
-              toggle.mutate({
-                householdId,
-                listId: list.id,
-                planId,
-                itemId,
-                checked,
-                uid,
-              })
-            }
-            onRemove={(itemId) =>
-              remove.mutate({
-                householdId,
-                listId: list.id,
-                planId,
-                itemId,
-              })
-            }
-          />
-        ))}
-      </div>
-    </section>
-  );
-}
-
-function ShareButton({
-  sharedLabel,
-  sharingNow,
-  copied,
-  onShare,
-  canShare,
-}: {
-  sharedLabel: string | null;
-  sharingNow: boolean;
-  copied: boolean;
-  onShare: () => void;
-  canShare: boolean;
-}) {
-  const label = copied
-    ? "Liste copiée ! Colle-la dans Keep / Notes / Messages."
-    : sharedLabel
-      ? `Envoyée ${sharedLabel} · toucher pour renvoyer`
-      : canShare
-        ? "Envoyer aux courses"
-        : "Copier la liste";
-  const Icon = copied ? Check : sharingNow ? Loader2 : canShare ? Send : Copy;
-  return (
-    <button
-      onClick={onShare}
-      disabled={sharingNow}
-      className={`tile-card !p-3 w-full flex items-center justify-center gap-3 transition ${
-        sharedLabel
-          ? "text-cream-mute hover:text-cream"
-          : "text-brass hover:bg-bordure/30"
-      } ${copied ? "ring-1 ring-sage" : ""}`}
-    >
-      <Icon size={18} className={sharingNow ? "animate-spin" : ""} />
-      <span className="font-medium">{label}</span>
-    </button>
-  );
-}
-
-function AddItemForm({
-  onAdd,
-}: {
-  onAdd: (item: {
-    nom: string;
-    quantite: number;
-    unite: string;
-    rayon: ShoppingListWithId["items"][number]["rayon"];
-  }) => void;
-}) {
-  const [nom, setNom] = useState("");
-  const [quantite, setQuantite] = useState("1");
-  const [unite, setUnite] = useState("u");
-  const [rayon, setRayon] = useState<string>("autres");
-
-  function submit(e: React.FormEvent) {
-    e.preventDefault();
-    if (!nom.trim()) return;
-    const q = parseFloat(quantite.replace(",", "."));
-    onAdd({
-      nom: nom.trim(),
-      quantite: Number.isFinite(q) && q > 0 ? q : 1,
-      unite: unite.trim() || "u",
-      rayon: rayon as ShoppingListWithId["items"][number]["rayon"],
-    });
-  }
-
-  return (
-    <form onSubmit={submit} className="tile-card flex flex-wrap items-end gap-2">
-      <div className="flex-1 min-w-[140px]">
-        <label className="block text-[10px] uppercase tracking-widest text-cream-mute mb-1">
-          Nom
-        </label>
-        <input
-          type="text"
-          value={nom}
-          onChange={(e) => setNom(e.target.value)}
-          autoFocus
-          placeholder="ex: yaourts nature"
-          className="input !py-2"
-        />
-      </div>
-      <div className="w-20">
-        <label className="block text-[10px] uppercase tracking-widest text-cream-mute mb-1">
-          Qté
-        </label>
-        <input
-          type="text"
-          inputMode="decimal"
-          value={quantite}
-          onChange={(e) => setQuantite(e.target.value)}
-          className="input !py-2"
-        />
-      </div>
-      <div className="w-20">
-        <label className="block text-[10px] uppercase tracking-widest text-cream-mute mb-1">
-          Unité
-        </label>
-        <input
-          type="text"
-          value={unite}
-          onChange={(e) => setUnite(e.target.value)}
-          className="input !py-2"
-        />
-      </div>
-      <div className="min-w-[140px]">
-        <label className="block text-[10px] uppercase tracking-widest text-cream-mute mb-1">
-          Rayon
-        </label>
-        <select
-          value={rayon}
-          onChange={(e) => setRayon(e.target.value)}
-          className="input !py-2"
-        >
-          {RAYON_ORDER.map((r) => (
-            <option key={r} value={r}>
-              {RAYON_LABELS[r] ?? r}
-            </option>
-          ))}
-        </select>
-      </div>
-      <button type="submit" className="btn-primary !py-2 flex items-center gap-1">
-        <Plus size={14} />
-        Ajouter
-      </button>
-    </form>
-  );
-}
-
-function RayonGroup({
-  rayon,
-  items,
-  pendingIds,
-  onToggle,
-  onRemove,
-}: {
-  rayon: string;
-  items: ShoppingListWithId["items"];
-  pendingIds: Set<string>;
-  onToggle: (itemId: string, checked: boolean) => void;
-  onRemove: (itemId: string) => void;
-}) {
-  const [open, setOpen] = useState(true);
-  const label = RAYON_LABELS[rayon] ?? rayon;
-  const panelId = `rayon-panel-${rayon}`;
-
-  return (
-    <div className="tile-card space-y-2">
-      <button
-        onClick={() => setOpen((v) => !v)}
-        aria-expanded={open}
-        aria-controls={panelId}
-        className="flex items-center gap-2 w-full text-left"
-      >
-        {open ? (
-          <ChevronDown size={14} className="text-cream-mute" aria-hidden="true" />
-        ) : (
-          <ChevronRight size={14} className="text-cream-mute" aria-hidden="true" />
-        )}
-        <span className="eyebrow">{label}</span>
-        <span className="text-xs text-cream-mute ml-auto">
-          {items.filter((i) => !i.checked).length} / {items.length}
-        </span>
-      </button>
-      {open && (
-        <ul id={panelId} className="space-y-1 pl-4">
-          {items.map((it) => (
-            <li key={it.id} className="flex items-start gap-1 group">
-              <button
-                onClick={() => onToggle(it.id, !it.checked)}
-                aria-pressed={it.checked}
-                disabled={pendingIds.has(it.id)}
-                aria-busy={pendingIds.has(it.id)}
-                className="flex items-start gap-2 flex-1 text-left text-sm py-1 -my-1 hover:bg-bordure/20 rounded transition disabled:opacity-60 disabled:cursor-wait"
-              >
-                <span className="shrink-0 mt-1 sm:mt-0.5">
-                  {it.checked ? (
-                    <CheckCircle2 size={20} className="text-sage sm:w-4 sm:h-4" aria-hidden="true" />
-                  ) : (
-                    <Circle size={20} className="text-cream-mute hover:text-brass transition sm:w-4 sm:h-4" aria-hidden="true" />
-                  )}
-                </span>
-                <span
-                  className={`flex-1 ${it.checked ? "line-through text-cream-mute" : ""}`}
-                >
-                  <span className="tabular-nums">
-                    {formatQuantite(it.quantite, it.unite)}
-                  </span>{" "}
-                  {it.nom}
-                  {it.ajoutManuel && (
-                    <span className="ml-1 text-[9px] uppercase tracking-widest text-cream-mute">
-                      ajouté
-                    </span>
-                  )}
-                </span>
-              </button>
-              {it.ajoutManuel && (
-                <button
-                  onClick={() => onRemove(it.id)}
-                  disabled={pendingIds.has(it.id)}
-                  className="disabled:opacity-40 text-cream-mute hover:text-copper focus-visible:text-copper transition shrink-0 p-2.5 min-h-11 min-w-11 flex items-center justify-center"
-                  title={`Retirer ${it.nom}`}
-                  aria-label={`Retirer ${it.nom}`}
-                >
-                  <X size={14} aria-hidden="true" />
-                </button>
-              )}
-            </li>
-          ))}
-        </ul>
-      )}
-    </div>
-  );
-}
-
 // ───── helpers ─────────────────────────────────────────────────────────
 
 function formatDateFr(iso: string): string {
@@ -946,164 +463,4 @@ function formatDateFr(iso: string): string {
   } catch {
     return iso;
   }
-}
-
-function formatQuantite(q: number, unite: string): string {
-  if (!q || q === 0) return "";
-  const num = Number.isInteger(q) ? String(q) : q.toFixed(1);
-  return `${num} ${unite}`.trim();
-}
-
-/**
- * Convertit un Timestamp Firestore (web SDK ou shape sérialisée) en Date.
- * Renvoie null si absent ou invalide.
- */
-function tsToDate(ts: unknown): Date | null {
-  if (!ts) return null;
-  if (ts instanceof Date) return ts;
-  if (typeof ts === "string") {
-    const d = new Date(ts);
-    return isNaN(d.getTime()) ? null : d;
-  }
-  if (typeof ts === "object" && ts !== null) {
-    if ("toDate" in ts && typeof (ts as { toDate: () => Date }).toDate === "function") {
-      return (ts as { toDate: () => Date }).toDate();
-    }
-    if ("seconds" in ts) {
-      return new Date((ts as { seconds: number }).seconds * 1000);
-    }
-  }
-  return null;
-}
-
-function formatRelativeTime(d: Date): string {
-  const diffMs = Date.now() - d.getTime();
-  const min = Math.round(diffMs / 60000);
-  if (min < 1) return "à l'instant";
-  if (min < 60) return `il y a ${min} min`;
-  const h = Math.round(min / 60);
-  if (h < 24) return `il y a ${h} h`;
-  const days = Math.round(h / 24);
-  if (days < 7) return `il y a ${days} j`;
-  return `le ${d.toLocaleDateString("fr-FR", { day: "numeric", month: "short" })}`;
-}
-
-/**
- * Format texte pour Web Share / Keep / Notes.
- * Cf. brief §7.4 — items non-cochés groupés par rayon.
- */
-function buildShareText(list: ShoppingListWithId): string {
-  const items = list.items.filter((it) => !it.checked);
-  const byRayon: Record<string, typeof items> = {};
-  for (const it of items) {
-    const k = it.rayon || "autres";
-    if (!byRayon[k]) byRayon[k] = [];
-    byRayon[k].push(it);
-  }
-  const ordered: Array<[string, typeof items]> = [];
-  for (const k of RAYON_ORDER) {
-    if (byRayon[k]) ordered.push([k, byRayon[k]]);
-  }
-  for (const k of Object.keys(byRayon)) {
-    if (!RAYON_ORDER.includes(k)) ordered.push([k, byRayon[k]]);
-  }
-  const today = new Date().toLocaleDateString("fr-FR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-  });
-  const lines: string[] = [];
-  lines.push(`Liste de courses — ${today}`);
-  lines.push("");
-  for (const [rayon, list] of ordered) {
-    lines.push(`▸ ${RAYON_LABELS[rayon] ?? rayon}`);
-    for (const it of list) {
-      const qty = formatQuantite(it.quantite, it.unite);
-      lines.push(`☐ ${it.nom}${qty ? ` — ${qty}` : ""}`);
-    }
-    lines.push("");
-  }
-  return lines.join("\n").trim();
-}
-
-/**
- * Génère un HTML self-contained pour la liste de courses, téléchargeable
- * en .html. Cases à cocher cliquables, groupé par rayon, CSS inline pour
- * que le fichier marche partout (mail, AirDrop, ouvert depuis téléphone).
- */
-function buildShareHtml(list: ShoppingListWithId): string {
-  const items = list.items.filter((it) => !it.checked);
-  const byRayon: Record<string, typeof items> = {};
-  for (const it of items) {
-    const k = it.rayon || "autres";
-    if (!byRayon[k]) byRayon[k] = [];
-    byRayon[k].push(it);
-  }
-  const ordered: Array<[string, typeof items]> = [];
-  for (const k of RAYON_ORDER) {
-    if (byRayon[k]) ordered.push([k, byRayon[k]]);
-  }
-  for (const k of Object.keys(byRayon)) {
-    if (!RAYON_ORDER.includes(k)) ordered.push([k, byRayon[k]]);
-  }
-  const today = new Date().toLocaleDateString("fr-FR", {
-    weekday: "long",
-    day: "numeric",
-    month: "long",
-    year: "numeric",
-  });
-  const esc = (s: string) =>
-    s
-      .replace(/&/g, "&amp;")
-      .replace(/</g, "&lt;")
-      .replace(/>/g, "&gt;")
-      .replace(/"/g, "&quot;");
-  const sections = ordered
-    .map(([rayon, list]) => {
-      const lis = list
-        .map((it) => {
-          const qty = formatQuantite(it.quantite, it.unite);
-          return `<li><label><input type="checkbox"> <span class="n">${esc(it.nom)}</span>${qty ? `<span class="q"> — ${esc(qty)}</span>` : ""}</label></li>`;
-        })
-        .join("\n");
-      return `<section><h2>${esc(RAYON_LABELS[rayon] ?? rayon)}</h2><ul>${lis}</ul></section>`;
-    })
-    .join("\n");
-  return `<!DOCTYPE html>
-<html lang="fr">
-<head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Liste de courses — ${esc(today)}</title>
-<style>
-  * { box-sizing: border-box; }
-  body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
-         max-width: 640px; margin: 0 auto; padding: 20px 16px 80px;
-         background: #FAFAF7; color: #1F1A14; line-height: 1.4; }
-  h1 { font-size: 22px; margin: 0 0 4px; }
-  .date { font-size: 13px; color: #6B5A47; margin-bottom: 24px; font-style: italic; }
-  h2 { font-size: 14px; text-transform: uppercase; letter-spacing: 0.15em;
-       color: #B26E38; border-bottom: 1px solid #D4C7AC; padding-bottom: 4px;
-       margin: 24px 0 10px; }
-  ul { list-style: none; padding: 0; margin: 0; }
-  li { padding: 6px 0; border-bottom: 1px solid rgba(0,0,0,0.05); }
-  label { display: flex; align-items: baseline; gap: 10px; cursor: pointer;
-          font-size: 16px; }
-  input[type="checkbox"] { width: 20px; height: 20px; flex-shrink: 0;
-                            accent-color: #B26E38; cursor: pointer; }
-  input[type="checkbox"]:checked + .n { text-decoration: line-through;
-                                          color: #9C8A6E; }
-  .q { color: #6B5A47; font-size: 14px; }
-  @media print {
-    body { background: white; }
-    input[type="checkbox"] { border: 1.5px solid #333; }
-  }
-</style>
-</head>
-<body>
-<h1>Liste de courses</h1>
-<div class="date">${esc(today)}</div>
-${sections}
-</body>
-</html>`;
 }

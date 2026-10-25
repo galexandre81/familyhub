@@ -1,5 +1,5 @@
 import { useState, type FormEvent } from "react";
-import type { DisplayDeviceType, GridConfig, Resolution, Theme } from "@family-hub/types";
+import type { DisplayDeviceType, GridConfig, Resolution } from "@family-hub/types";
 import { useCreateDisplay } from "../lib/mutations";
 
 interface DisplayFormProps {
@@ -28,7 +28,6 @@ export default function DisplayForm({ householdId, onCreated, onCancel }: Displa
   const [type, setType] = useState<DisplayDeviceType>("ipad-mini-1");
   const [resolution, setResolution] = useState<Resolution>(PRESETS["ipad-mini-1"].resolution);
   const [grid, setGrid] = useState<GridConfig>(PRESETS["ipad-mini-1"].gridConfig);
-  const [theme, setTheme] = useState<Theme>("light");
   const [error, setError] = useState<string | null>(null);
 
   function handleTypeChange(t: DisplayDeviceType) {
@@ -51,7 +50,6 @@ export default function DisplayForm({ householdId, onCreated, onCancel }: Displa
         nom: nom.trim(),
         type,
         resolution,
-        theme,
         gridConfig: grid,
       });
       onCreated?.(id);
@@ -144,18 +142,6 @@ export default function DisplayForm({ householdId, onCreated, onCancel }: Displa
           />
         </Field>
       </fieldset>
-
-      <Field label="Thème">
-        <select
-          value={theme}
-          onChange={(e) => setTheme(e.target.value as Theme)}
-          className="input"
-        >
-          <option value="light">Clair</option>
-          <option value="dark">Sombre</option>
-          <option value="auto">Automatique</option>
-        </select>
-      </Field>
 
       {error && <p className="text-accent-chaud text-sm">{error}</p>}
 

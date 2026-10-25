@@ -130,6 +130,8 @@ export const ShoppingItemImportSchema = z.object({
   unite: z.string().min(1),
   rayon: RayonImportSchema,
   recetteTempIds: z.array(z.string()).default([]),
+  /** Produit qu'on a en général à la maison (sel, farine…) : gardé dans la liste, rangé à part au tri. */
+  placard: z.boolean().optional(),
 });
 
 export const ShoppingListImportSchema = z.object({

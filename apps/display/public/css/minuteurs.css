@@ -1,0 +1,209 @@
+/* minuteurs.css — panneau des minuteurs (js/minuteurs-panneau.js), choix
+   « Autre » (js/tiles/timer.js) et bandeau d'alarme (js/alarme.js).
+   Safari 9 : ni var(, ni gap, ni grid ; flex préfixé -webkit-, espacements
+   par marges. Les couleurs viennent des classes fh-* de ambiance.css ; seules
+   les couleurs du bouton « OK » de l'alarme sont posées ici (jour / nuit).
+
+   iOS 9 : JAMAIS de flex sur un <button>. Safari < 11 ne sait pas faire d'un
+   <button> un conteneur flex (flexbugs #9) : ses enfants restent en ligne et
+   la mise en page casse sur l'iPad mini 1. Le bouton reste inline-block (il
+   peut être un ÉLÉMENT flex d'une rangée) ; la mise en page de son contenu
+   vit dans un <span class="fh-min-dedans"> intérieur. Convention : toute
+   classe posée sur un bouton contient « btn » ; scripts/check-display-css.mjs
+   refuse alors display:flex sur un tel sélecteur. */
+
+/* --- Boutons communs : cible tactile >= 72 px, texte >= 20 px --- */
+.fh-min-btn {
+  min-height: 72px;
+  min-width: 72px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 14px;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.1;
+  cursor: pointer;
+  -webkit-appearance: none;
+  display: inline-block;
+  vertical-align: middle;
+  text-align: center;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+.fh-min-btn:active { opacity: 0.8; }
+/* Contenu du bouton (icône + mot) : c'est ce span qui est flex, pas le bouton. */
+.fh-min-dedans {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+  width: 100%;
+}
+.fh-min-colonne {
+  -webkit-flex-direction: column;
+  flex-direction: column;
+}
+.fh-min-doux { border-width: 2px; border-style: solid; }
+.fh-min-icone { display: block; margin-right: 8px; -webkit-flex-shrink: 0; flex-shrink: 0; }
+
+/* --- Panneau --- */
+.fh-min-panneau { width: 100%; }
+
+.fh-min-rapides {
+  display: -webkit-flex;
+  display: flex;
+  margin: 0 -4px 12px;
+}
+.fh-min-rapide {
+  -webkit-flex: 1 1 0%;
+  flex: 1 1 0%;
+  margin: 0 4px;
+  padding: 0 6px;
+  min-width: 0;
+}
+
+.fh-min-liste { width: 100%; }
+.fh-min-vide { font-size: 20px; margin: 8px 0; }
+
+.fh-min-ligne {
+  border-width: 2px;
+  border-style: solid;
+  border-radius: 16px;
+  padding: 12px;
+  margin-bottom: 10px;
+}
+.fh-min-ended { border-width: 4px; }
+
+.fh-min-tete {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: baseline;
+  align-items: baseline;
+  margin-bottom: 10px;
+}
+.fh-min-nom {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 22px;
+  font-weight: 700;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+  margin-right: 10px;
+}
+.fh-min-temps {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  font-size: 32px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+.fh-min-actions {
+  display: -webkit-flex;
+  display: flex;
+  margin: 0 -4px;
+}
+.fh-min-action {
+  -webkit-flex: 1 1 0%;
+  flex: 1 1 0%;
+  margin: 0 4px;
+  padding: 0 6px;
+  min-width: 0;
+  font-size: 20px;
+}
+
+/* --- Choix « Autre » (plein écran) --- */
+.fh-min-choix { width: 100%; }
+.fh-min-choix-rangee {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  margin: 0 -6px 12px;
+}
+.fh-min-choix-btn {
+  /* 4 par ligne : 2·3·4·15 puis 20·30·45·60 */
+  width: 23%;
+  width: -webkit-calc(25% - 12px);
+  width: calc(25% - 12px);
+  margin: 0 6px 12px;
+  min-height: 96px;
+}
+.fh-min-choix-nb { font-size: 40px; line-height: 1; margin-bottom: 4px; }
+
+.fh-min-pas {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+}
+.fh-min-pas-btn { width: 88px; padding: 0; border-width: 2px; border-style: solid; }
+.fh-min-pas-valeur {
+  min-width: 150px;
+  margin: 0 12px;
+  text-align: center;
+  font-size: 36px;
+  font-weight: 700;
+}
+.fh-min-pas-lancer {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  margin-left: 16px;
+}
+
+/* --- Bandeau d'alarme : par-dessus tout (overlay 200, debug 9999) --- */
+.fh-alarme {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  z-index: 10000;
+  padding: 12px;
+}
+.fh-alarme-ligne {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  border-radius: 18px;
+  padding: 12px 12px 12px 20px;
+  margin-bottom: 10px;
+  background: #F5C242;
+  color: #1E2B22;
+  -webkit-box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+  box-shadow: 0 8px 28px rgba(0, 0, 0, 0.35);
+}
+.fh-alarme-icone { display: block; margin-right: 16px; -webkit-flex-shrink: 0; flex-shrink: 0; }
+.fh-alarme-texte {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.15;
+  overflow: hidden;
+  max-height: 2.3em; /* 2 lignes max */
+}
+.fh-alarme-btn {
+  min-height: 80px;
+  min-width: 160px;
+  margin-left: 16px;
+  padding: 0 24px;
+  border: 0;
+  border-radius: 14px;
+  font-size: 28px;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-appearance: none;
+  display: block;
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+  text-align: center;
+  background: #1E2B22;
+  color: #F5C242;
+}
+.fh-alarme-btn:active { opacity: 0.85; }
+html.amb-nuit .fh-alarme-btn { background: #0F1B2D; color: #FFB547; }

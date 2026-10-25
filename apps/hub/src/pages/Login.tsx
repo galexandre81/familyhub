@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { AlertCircle } from "lucide-react";
 import { useAuth } from "../lib/auth";
 
 export default function Login() {
-  const { user, signIn, loading } = useAuth();
+  const { user, signIn, loading, erreur } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -12,16 +13,6 @@ export default function Login() {
 
   return (
     <div className="min-h-screen flex items-center justify-center px-6 py-12 relative">
-      {/* Atmosphere : ambient brass glow corners */}
-      <div
-        aria-hidden
-        className="absolute inset-0 pointer-events-none"
-        style={{
-          background:
-            "radial-gradient(ellipse at top, rgba(217,160,91,0.12), transparent 50%), radial-gradient(ellipse at bottom right, rgba(201,113,46,0.08), transparent 50%)",
-        }}
-      />
-
       <div className="relative max-w-md w-full">
         <div className="flex items-center gap-3 mb-12 justify-center">
           <span className="h-px w-8 bg-brass opacity-50" />
@@ -49,6 +40,13 @@ export default function Login() {
         >
           {loading ? "Chargement…" : "Entrer avec Google"}
         </button>
+
+        {erreur && (
+          <p role="alert" className="mt-4 flex items-center justify-center gap-2 text-cream">
+            <AlertCircle aria-hidden="true" className="h-5 w-5 shrink-0 text-brass" />
+            <span>{erreur}</span>
+          </p>
+        )}
 
         <div className="mt-10 flex items-center gap-3 text-cream-mute">
           <span className="h-px flex-1 bg-wood-dark" />

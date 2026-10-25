@@ -16,7 +16,6 @@ const IMPORT_INVALIDATED_KEYS = [
   "planSlots",
   "planCourses",
   "planBatchSessions",
-  "planShoppingList",
   "planRecettes",
   "recettes",
   "recette",

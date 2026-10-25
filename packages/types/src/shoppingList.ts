@@ -5,13 +5,21 @@ import type { RayonCourses } from "./recette";
  * Liste de courses associée à un plan actif (1-1 avec `MealPlan`).
  * Stockée à `households/{hid}/shoppingLists/{listId}`.
  *
- * Items dénormalisés en array dans le doc pour atomicité au cochage
- * et simplicité de manipulation. Volume attendu : ~30-60 items par
- * semaine, bien dans les limites Firestore.
+ * Format 2 (`format: 2`) : un document par article dans la sous-collection
+ * `items` (voir `ArticleCourses`) — deux téléphones qui cochent des articles
+ * différents hors ligne ne s'écrasent plus. L'ancien format gardait les
+ * articles dans le tableau `items` du document ; il est migré à la première
+ * ouverture (apps/hub/src/lib/useListeCourses.ts).
  */
 export interface ShoppingList {
   planId: string;
-  items: ShoppingListItem[];
+  /** 2 = articles en sous-collection `items`. Absent = ancien format (tableau). */
+  format?: 2;
+  /**
+   * @deprecated Ancien format : articles dans le tableau du document. Retiré
+   * par la migration (`deleteField`) ; ne plus écrire.
+   */
+  items?: ShoppingListItem[];
   /** Timestamp du dernier "Envoyer aux courses" via Web Share. */
   lastSharedAt?: Timestamp;
   /** Libellé app cible, ex: "partage natif", "Google Keep". */
@@ -20,8 +28,37 @@ export interface ShoppingList {
   updatedAt: Timestamp;
 }
 
+/** Où l'article sera acheté (ou s'il est déjà à la maison), choisi au tri. */
+export type DestinationArticle = "a-trier" | "deja" | "drive" | "magasin";
+
 /**
- * Un item de la liste de courses. ID local au tableau (pas un doc
+ * Un article de la liste de courses, format 2 : un document par article à
+ * `households/{hid}/shoppingLists/{listId}/items/{itemId}`. Chaque action
+ * (tri, coche) ne modifie que ses propres champs.
+ */
+export interface ArticleCourses {
+  nom: string;
+  quantite: number;
+  unite: string;
+  rayon: ShoppingListRayon | RayonCourses;
+  /** Recettes d'origine. Vide si ajout manuel. */
+  recetteIds: string[];
+  /** True si ajouté à la main (oubli), hors du plan. */
+  ajoutManuel: boolean;
+  destination: DestinationArticle;
+  /** Produit qu'on a en général à la maison : à vérifier au tri, jamais effacé. */
+  placard: boolean;
+  checked: boolean;
+  checkedAt?: Timestamp | null;
+  /** uid du compte qui a coché. */
+  checkedBy?: string | null;
+  /** Position d'origine (import) ; les oublis prennent max + 1. */
+  ordre: number;
+  createdAt?: Timestamp;
+}
+
+/**
+ * Ancien format : un item de la liste de courses. ID local au tableau (pas un doc
  * Firestore), généré côté client à l'import ou à l'ajout manuel.
  */
 export interface ShoppingListItem {

@@ -53,6 +53,28 @@ describe("parsePlanImport", () => {
     }
   });
 
+  it("accepte un champ placard optionnel sur un article de courses", () => {
+    const plan = minimalPlan() as { shoppingList: { items: unknown[] } };
+    plan.shoppingList.items = [
+      { nom: "Sel", quantite: 1, unite: "pincée", rayon: "epicerie", recetteTempIds: ["r1"], placard: true },
+      { nom: "Poireau", quantite: 2, unite: "pièce", rayon: "fruits-legumes", recetteTempIds: ["r1"] },
+    ];
+    const res = parse(plan);
+    expect(res.ok).toBe(true);
+    if (res.ok) {
+      expect(res.data.shoppingList.items[0].placard).toBe(true);
+      expect(res.data.shoppingList.items[1].placard).toBeUndefined();
+    }
+  });
+
+  it("refuse un placard qui n'est pas un booléen", () => {
+    const plan = minimalPlan() as { shoppingList: { items: unknown[] } };
+    plan.shoppingList.items = [
+      { nom: "Sel", quantite: 1, unite: "pincée", rayon: "epicerie", recetteTempIds: ["r1"], placard: "oui" },
+    ];
+    expect(parse(plan).ok).toBe(false);
+  });
+
   it("tolère un fence ```json autour du JSON", () => {
     const res = parsePlanImport("```json\n" + JSON.stringify(minimalPlan()) + "\n```");
     expect(res.ok).toBe(true);

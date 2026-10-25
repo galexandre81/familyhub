@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   BookOpen,
+  ChevronDown,
   Filter,
   Heart,
   Refrigerator,
@@ -14,7 +15,8 @@ import {
 } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useActiveHouseholdId, useRecettes, type RecetteWithId } from "../lib/queries";
-import { ErrorState } from "../components/states";
+import { ErrorState, LoadingState } from "../components/states";
+import { useEstTelephone } from "../lib/useEstTelephone";
 import {
   useDeleteRecette,
   useDownvoteRecette,
@@ -49,7 +51,12 @@ const SS = {
   filter: "livre.filter",
   frigo: "livre.frigo",
   scrollY: "livre.scrollY",
+  nbTelephone: "livre.nbTelephone",
 } as const;
+
+/** Téléphone : nombre de cartes rendues d'un coup (puis « Voir plus »). */
+const PAS_TELEPHONE = 40;
+const AUCUN_FRIGO: string[] = [];
 
 function ssGet(key: string): string | null {
   try {
@@ -77,6 +84,7 @@ export default function LivreRecettes() {
   const downvote = useDownvoteRecette();
   const restore = useRestoreRecette();
   const del = useDeleteRecette();
+  const telephone = useEstTelephone();
 
   // Initialisation depuis sessionStorage (restauration au retour arrière).
   const [search, setSearch] = useState(() => ssGet(SS.search) ?? "");
@@ -99,6 +107,14 @@ export default function LivreRecettes() {
     }
   });
   const [frigoInput, setFrigoInput] = useState("");
+  /** Téléphone : cartes affichées (rendu progressif, 588 recettes d'un coup = lent). */
+  const [nbTelephone, setNbTelephone] = useState(() => {
+    const n = parseInt(ssGet(SS.nbTelephone) ?? "", 10);
+    return Number.isFinite(n) && n > PAS_TELEPHONE ? n : PAS_TELEPHONE;
+  });
+  /* Sur téléphone ni filtre ni frigo (pas d'interface pour les changer) : les recettes actives. */
+  const filtreEffectif: FilterMode = telephone ? "tous" : filter;
+  const frigoEffectif = telephone ? AUCUN_FRIGO : frigo;
 
   /** Vrai une fois la restauration du scroll effectuée (one-shot). */
   const scrollRestored = useRef(false);
@@ -113,6 +129,9 @@ export default function LivreRecettes() {
   useEffect(() => {
     ssSet(SS.frigo, JSON.stringify(frigo));
   }, [frigo]);
+  useEffect(() => {
+    ssSet(SS.nbTelephone, String(nbTelephone));
+  }, [nbTelephone]);
 
   // Sauvegarde la position de scroll (window) avec un throttle léger via rAF.
   useEffect(() => {
@@ -154,8 +173,8 @@ export default function LivreRecettes() {
   const filtered = useMemo(() => {
     if (!recettes) return [];
     let list = recettes;
-    if (filter === "favoris") list = list.filter((r) => r.statut === "favorite" && !r.excluded);
-    else if (filter === "exclus") list = list.filter((r) => r.excluded);
+    if (filtreEffectif === "favoris") list = list.filter((r) => r.statut === "favorite" && !r.excluded);
+    else if (filtreEffectif === "exclus") list = list.filter((r) => r.excluded);
     else list = list.filter((r) => !r.excluded);
 
     if (search.trim()) {
@@ -170,7 +189,7 @@ export default function LivreRecettes() {
     }
 
     // Scoring frigo
-    const frigoNorm = frigo.map((f) => deburr(f.toLowerCase().trim())).filter(Boolean);
+    const frigoNorm = frigoEffectif.map((f) => deburr(f.toLowerCase().trim())).filter(Boolean);
     const scored = list.map((r) => {
       if (frigoNorm.length === 0) {
         return { recette: r, matched: 0, missing: 0 };
@@ -203,7 +222,7 @@ export default function LivreRecettes() {
       return onlyMatches;
     }
     return scored;
-  }, [recettes, search, filter, frigo]);
+  }, [recettes, search, filtreEffectif, frigoEffectif]);
 
   function addFrigo(value: string) {
     const v = value.trim();
@@ -216,8 +235,6 @@ export default function LivreRecettes() {
   function removeFrigo(idx: number) {
     setFrigo(frigo.filter((_, i) => i !== idx));
   }
-
-  if (!householdId) return null;
 
   async function withBusy(id: string, fn: () => Promise<unknown>) {
     setBusyId(id);
@@ -236,6 +253,27 @@ export default function LivreRecettes() {
       exclus: recettes.filter((r) => r.excluded).length,
     };
   }, [recettes]);
+
+  if (!householdId) return null;
+
+  if (telephone) {
+    return (
+      <LivreTelephone
+        search={search}
+        onSearch={(v) => {
+          setSearch(v);
+          setNbTelephone(PAS_TELEPHONE);
+        }}
+        recettes={filtered.map((f) => f.recette)}
+        chargement={isLoading}
+        erreur={isError}
+        livreVide={!!recettes && recettes.length === 0}
+        onRetry={() => void refetch()}
+        nb={nbTelephone}
+        onVoirPlus={() => setNbTelephone((n) => n + PAS_TELEPHONE)}
+      />
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -523,6 +561,120 @@ function RecetteCard({
           <Trash2 size={14} />
         </button>
       </div>
+    </div>
+  );
+}
+
+/**
+ * Téléphone : une colonne, recherche collée en haut, cartes de 2 lignes,
+ * pas d'actions pouce / corbeille ; toucher une carte ouvre le mode recette.
+ * Rendu progressif : 40 cartes, puis « Voir plus ».
+ */
+function LivreTelephone({
+  search,
+  onSearch,
+  recettes,
+  chargement,
+  erreur,
+  livreVide,
+  onRetry,
+  nb,
+  onVoirPlus,
+}: {
+  search: string;
+  onSearch: (v: string) => void;
+  recettes: RecetteWithId[];
+  chargement: boolean;
+  erreur: boolean;
+  livreVide: boolean;
+  onRetry: () => void;
+  nb: number;
+  onVoirPlus: () => void;
+}) {
+  const visibles = recettes.slice(0, nb);
+  const reste = recettes.length - visibles.length;
+
+  return (
+    <div className="flex flex-col gap-3">
+      <div className="sticky top-0 z-10 -mx-4 px-4 pt-1 pb-2 bg-ebony">
+        <label className="flex items-center gap-2 min-h-12 rounded-xl bg-ebony-card border border-hairline px-3">
+          <Search size={20} className="text-cream-mute shrink-0" aria-hidden="true" />
+          <span className="sr-only">Chercher une recette</span>
+          <input
+            type="search"
+            value={search}
+            onChange={(e) => onSearch(e.target.value)}
+            placeholder="Chercher une recette"
+            className="flex-1 min-w-0 bg-transparent text-base text-cream placeholder:text-cream-mute outline-none"
+          />
+          {search && (
+            <button
+              type="button"
+              onClick={() => onSearch("")}
+              className="min-h-12 min-w-12 -mr-3 inline-flex items-center justify-center text-cream-mute"
+              aria-label="Effacer la recherche"
+            >
+              <XIcon size={20} aria-hidden="true" />
+            </button>
+          )}
+        </label>
+      </div>
+
+      {chargement && <LoadingState />}
+      {erreur && <ErrorState message="Impossible de charger le livre de recettes." onRetry={onRetry} />}
+      {!chargement && !erreur && recettes.length === 0 && (
+        <p className="py-8 text-center text-base text-cream-mute">
+          {livreVide ? "Aucune recette dans le livre pour l'instant." : "Aucune recette ne correspond."}
+        </p>
+      )}
+
+      {visibles.length > 0 && (
+        <ul className="flex flex-col gap-2">
+          {visibles.map((r) => {
+            const fav = r.statut === "favorite" && !r.excluded;
+            const temps = r.tempsPrepMinutes + r.tempsCuissonMinutes;
+            const details = [
+              temps > 0 ? `${temps} min` : null,
+              r.portions ? `${r.portions} pers` : null,
+              r.seedTags?.styleCulinaire,
+            ].filter(Boolean);
+            return (
+              <li key={r.id}>
+                <Link
+                  to={`/livre-recettes/${r.id}/cuisine`}
+                  className="min-h-12 flex flex-col justify-center rounded-xl bg-ebony-card border border-hairline px-4 py-2"
+                >
+                  <span className="flex items-center gap-2 text-base text-cream leading-snug">
+                    <span className="line-clamp-1 flex-1">{r.nom}</span>
+                    {fav && (
+                      <>
+                        <Heart size={16} className="text-brass shrink-0" fill="currentColor" aria-hidden="true" />
+                        <span className="sr-only">favori</span>
+                      </>
+                    )}
+                  </span>
+                  {details.length > 0 && (
+                    <span className="text-[15px] text-cream-mute leading-snug line-clamp-1">
+                      {details.join(" · ")}
+                    </span>
+                  )}
+                </Link>
+              </li>
+            );
+          })}
+        </ul>
+      )}
+
+      {reste > 0 && (
+        <button
+          type="button"
+          onClick={onVoirPlus}
+          className="min-h-12 inline-flex items-center justify-center gap-2 rounded-xl border border-hairline text-base text-cream"
+        >
+          <ChevronDown size={20} aria-hidden="true" />
+          Voir plus ({reste})
+        </button>
+      )}
     </div>
   );
 }

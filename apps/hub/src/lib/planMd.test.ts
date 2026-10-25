@@ -2,6 +2,7 @@ import { describe, it, expect } from "vitest";
 import type { Absence, Profil } from "@family-hub/types";
 import {
   buildPlanMd,
+  PLAN_PROMPT_TEMPLATE,
   realDayLabel,
   deduceSaison,
   isAbsent,
@@ -160,5 +161,12 @@ describe("deduceSaison — bornes", () => {
   it("automne : septembre, octobre, novembre", () => {
     expect(deduceSaison(new Date("2026-09-01"))).toBe("automne");
     expect(deduceSaison(new Date("2026-11-30"))).toBe("automne");
+  });
+});
+
+describe("buildPlanMd — produits de placard", () => {
+  it("demande de marquer les produits de placard sans les retirer de la liste", () => {
+    expect(PLAN_PROMPT_TEMPLATE).toContain('"placard": true');
+    expect(PLAN_PROMPT_TEMPLATE).toContain("sans les retirer");
   });
 });

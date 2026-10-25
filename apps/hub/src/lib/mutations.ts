@@ -3,26 +3,31 @@ import {
   addDoc,
   collection,
   deleteDoc,
+  deleteField,
+  writeBatch,
   doc,
-  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
   arrayUnion,
+  type FieldValue,
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { db, functions } from "./firebase";
 import { isValidIcalUrl } from "./calendarUrl";
+import { lierProfilLocalement } from "./personnes";
+import { rafraichirEcransSansAttendre } from "./rafraichirEcrans";
+import { patchToucheHeuresRepas } from "./rafraichissementGroupe";
+import { toast } from "../components/Toast";
 import type {
   DisplayDeviceType,
   DisplayLayoutEntry,
   GridConfig,
+  HeuresRepas,
   HouseholdParametres,
   Profil,
   Resolution,
-  ShoppingListItem,
   TileType,
-  Theme,
 } from "@family-hub/types";
 
 interface CreateHouseholdInput {
@@ -39,6 +44,7 @@ export function useCreateHousehold() {
         nom,
         ownerUid: uid,
         membres: [uid],
+        roles: { [uid]: "parent" },
         parametres,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -62,12 +68,69 @@ export function useCreateHousehold() {
   });
 }
 
+interface CreateInvitationResponse {
+  code: string;
+  expiresAt: number;
+}
+
+/** Crée un lien d'invitation (usage unique, 7 jours) dans le foyer. */
+export function useCreateInvitation() {
+  return useMutation({
+    mutationFn: async ({ householdId }: { householdId: string }) => {
+      const fn = httpsCallable<{ householdId: string }, CreateInvitationResponse>(
+        functions,
+        "createInvitation",
+      );
+      const res = await fn({ householdId });
+      return res.data;
+    },
+  });
+}
+
+interface AcceptInvitationResponse {
+  householdId: string;
+  nom: string;
+}
+
+/**
+ * Accepte une invitation avec le compte connecté. Les foyers sont rechargés
+ * AVANT la fin de la mutation : sans ça, l'accueil afficherait un instant
+ * « Créer mon foyer » alors que la personne vient d'entrer dans un foyer.
+ */
+export function useAcceptInvitation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ code }: { code: string; uid: string }) => {
+      const fn = httpsCallable<{ code: string }, AcceptInvitationResponse>(
+        functions,
+        "acceptInvitation",
+      );
+      const res = await fn({ code });
+      return res.data;
+    },
+    onSuccess: (_data, vars) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: ["households", vars.uid] }),
+        qc.invalidateQueries({ queryKey: ["user", vars.uid] }),
+      ]),
+  });
+}
+
 interface UpdateHouseholdInput {
   uid: string;
   householdId: string;
+  /**
+   * Champs à écrire. Les réglages isolés passent par un chemin pointé
+   * (`"parametres.placard"`…) : deux modifications rapprochées de réglages
+   * différents ne s'écrasent pas (les autres champs de `parametres` restent).
+   * `deleteField()` retire un réglage.
+   */
   patch: Partial<{
     nom: string;
     parametres: HouseholdParametres;
+    "parametres.placard": string[];
+    "parametres.heuresRepas": HeuresRepas;
+    "parametres.modeleRechercheDrive": string | FieldValue;
   }>;
 }
 
@@ -82,6 +145,10 @@ export function useUpdateHousehold() {
     },
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["households", vars.uid] });
+      // L'iPad choisit le prochain repas d'après ces heures.
+      if (patchToucheHeuresRepas(vars.patch as Record<string, unknown>)) {
+        rafraichirEcransSansAttendre(vars.householdId, "menu");
+      }
     },
   });
 }
@@ -91,7 +158,6 @@ interface CreateDisplayInput {
   nom: string;
   type: DisplayDeviceType;
   resolution: Resolution;
-  theme: Theme;
   gridConfig: GridConfig;
 }
 
@@ -170,11 +236,14 @@ interface RefreshHouseholdDisplaysResponse {
   success: true;
   weeklyMenuTiles: number;
   recipeTodayTiles: number;
+  /** Ajoutés au plan 4 (absents d'un serveur pas encore redéployé). */
+  weatherTiles?: number;
+  calendarTiles?: number;
 }
 
 /**
- * Recalcule tout de suite toutes les tuiles « Menu de la semaine » et
- * « Recette du jour » du foyer (sinon : une fois par nuit côté serveur).
+ * Bouton « Mettre à jour les écrans » : recalcule tout de suite les tuiles
+ * menu, recette du jour, météo et agenda du foyer (portée « tout »).
  */
 export function useRefreshHouseholdDisplays() {
   return useMutation({
@@ -183,11 +252,11 @@ export function useRefreshHouseholdDisplays() {
     }: {
       householdId: string;
     }): Promise<RefreshHouseholdDisplaysResponse> => {
-      const fn = httpsCallable<{ householdId: string }, RefreshHouseholdDisplaysResponse>(
-        functions,
-        "refreshHouseholdDisplays",
-      );
-      const res = await fn({ householdId });
+      const fn = httpsCallable<
+        { householdId: string; portee: "tout" },
+        RefreshHouseholdDisplaysResponse
+      >(functions, "refreshHouseholdDisplays");
+      const res = await fn({ householdId, portee: "tout" });
       return res.data;
     },
   });
@@ -452,6 +521,7 @@ export function useValidateMealPlan() {
       void qc.invalidateQueries({ queryKey: ["draftPlan", vars.householdId] });
       void qc.invalidateQueries({ queryKey: ["activePlan", vars.householdId] });
       void qc.invalidateQueries({ queryKey: ["plan", vars.householdId, vars.planId] });
+      rafraichirEcransSansAttendre(vars.householdId, "menu");
     },
   });
 }
@@ -467,6 +537,7 @@ export function useDeleteMealPlan() {
       void qc.invalidateQueries({ queryKey: ["draftPlan", vars.householdId] });
       void qc.invalidateQueries({ queryKey: ["activePlan", vars.householdId] });
       void qc.invalidateQueries({ queryKey: ["plan", vars.householdId, vars.planId] });
+      rafraichirEcransSansAttendre(vars.householdId, "menu");
     },
   });
 }
@@ -488,6 +559,7 @@ function makeSlotMutation(name: "acceptSlot" | "refuseSlot") {
       onSuccess: (_data, vars) => {
         void qc.invalidateQueries({ queryKey: ["planSlots", vars.householdId, vars.planId] });
         void qc.invalidateQueries({ queryKey: ["plan", vars.householdId, vars.planId] });
+        rafraichirEcransSansAttendre(vars.householdId, "menu");
       },
     });
   };
@@ -522,6 +594,7 @@ export function useUpdateSlot() {
     },
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["planSlots", vars.householdId, vars.planId] });
+      rafraichirEcransSansAttendre(vars.householdId, "menu");
     },
   });
 }
@@ -535,6 +608,7 @@ export function useUpdateSlotPresence() {
     },
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["planSlots", vars.householdId, vars.planId] });
+      rafraichirEcransSansAttendre(vars.householdId, "menu");
     },
   });
 }
@@ -639,6 +713,8 @@ export function useCreateProfil() {
     },
     onSuccess: (_id, vars) => {
       void qc.invalidateQueries({ queryKey: ["profils", vars.householdId] });
+      // Couleurs et initiales des convives : dans l'instantané de l'iPad.
+      rafraichirEcransSansAttendre(vars.householdId, "menu");
     },
   });
 }
@@ -662,6 +738,8 @@ export function useUpdateProfil() {
     },
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["profils", vars.householdId] });
+      // Couleurs et initiales des convives : dans l'instantané de l'iPad.
+      rafraichirEcransSansAttendre(vars.householdId, "menu");
     },
   });
 }
@@ -680,276 +758,8 @@ export function useDeleteProfil() {
     },
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["profils", vars.householdId] });
-    },
-  });
-}
-
-/* --- Timers (collection partagée live, pas dans snapshot) --- */
-
-interface CreateTimerInput {
-  householdId: string;
-  label: string;
-  durationSeconds: number;
-}
-
-export function useCreateTimer() {
-  return useMutation({
-    mutationFn: async ({ householdId, label, durationSeconds }: CreateTimerInput) => {
-      const startedAt = Date.now();
-      const endsAt = startedAt + durationSeconds * 1000;
-      const ref = await addDoc(collection(db, `households/${householdId}/timers`), {
-        label,
-        durationSeconds,
-        startedAt: new Date(startedAt),
-        endsAt: new Date(endsAt),
-        status: "running",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-      return ref.id;
-    },
-  });
-}
-
-/* --- Liste de courses (Phase 3.4 — UI minimale, full mobile en 3.4 dédiée) --- */
-
-/**
- * Clé partagée par toutes les mutations qui touchent `items` : permet de
- * savoir si une autre écriture est encore en vol avant de refetch (sinon le
- * refetch écraserait la mise à jour optimiste d'un clic plus récent).
- */
-export const SHOPPING_ITEMS_MUTATION_KEY = ["shoppingItems"] as const;
-
-/**
- * Applique UNE modification au tableau `items` d'une liste de courses, dans
- * une transaction Firestore : on relit le document côté serveur, on applique
- * le changement (ciblé par id d'item) sur l'état le plus récent, on écrit.
- * Deux clics rapides ou deux téléphones ne s'annulent donc plus : chaque
- * écriture part de la version réelle, pas du cache local.
- */
-async function updateShoppingItems(
-  householdId: string,
-  listId: string,
-  apply: (items: ShoppingListItem[]) => ShoppingListItem[],
-  extra: Record<string, unknown> = {},
-): Promise<void> {
-  const ref = doc(db, `households/${householdId}/shoppingLists/${listId}`);
-  await runTransaction(db, async (tx) => {
-    const snap = await tx.get(ref);
-    if (!snap.exists()) throw new Error("Liste de courses introuvable.");
-    const current = ((snap.data() as { items?: ShoppingListItem[] }).items ?? []).slice();
-    tx.update(ref, {
-      items: apply(current),
-      ...extra,
-      updatedAt: serverTimestamp(),
-    });
-  });
-}
-
-function applyAddItem(items: ShoppingListItem[], item: ShoppingListItem): ShoppingListItem[] {
-  if (items.some((it) => it.id === item.id)) return items;
-  return [...items, item];
-}
-
-function applyRemoveItem(items: ShoppingListItem[], itemId: string): ShoppingListItem[] {
-  return items.filter((it) => it.id !== itemId);
-}
-
-/**
- * Pose l'état coché demandé (et non un « inverse ») : si deux personnes
- * cochent le même article, le résultat reste coché au lieu de s'annuler.
- */
-function applySetChecked(
-  items: ShoppingListItem[],
-  itemId: string,
-  checked: boolean,
-  uid: string,
-): ShoppingListItem[] {
-  return items.map((it) => {
-    if (it.id !== itemId || it.checked === checked) return it;
-    return checked
-      ? ({ ...it, checked: true, checkedAt: new Date(), checkedBy: uid } as unknown as ShoppingListItem)
-      : { ...it, checked: false };
-  });
-}
-
-type ShoppingListCache = { items: ShoppingListItem[] } | null | undefined;
-
-/**
- * Callbacks communs : mise à jour optimiste du cache `planShoppingList`,
- * rollback en cas d'erreur, refetch une fois la dernière écriture en vol
- * terminée.
- */
-function useShoppingItemsCallbacks<V extends { householdId: string; planId: string }>(
-  applyLocal: (items: ShoppingListItem[], vars: V) => ShoppingListItem[],
-) {
-  const qc = useQueryClient();
-  return {
-    mutationKey: SHOPPING_ITEMS_MUTATION_KEY,
-    onMutate: async (vars: V) => {
-      const key = ["planShoppingList", vars.householdId, vars.planId];
-      await qc.cancelQueries({ queryKey: key });
-      const previous = qc.getQueryData<ShoppingListCache>(key);
-      if (previous) {
-        qc.setQueryData(key, { ...previous, items: applyLocal(previous.items, vars) });
-      }
-      return { previous };
-    },
-    onError: (_err: unknown, vars: V, ctx: { previous: ShoppingListCache } | undefined) => {
-      if (ctx?.previous) {
-        qc.setQueryData(["planShoppingList", vars.householdId, vars.planId], ctx.previous);
-      }
-    },
-    onSettled: (_data: unknown, _err: unknown, vars: V) => {
-      // isMutating compte encore la mutation courante : on ne refetch qu'à la dernière.
-      if (qc.isMutating({ mutationKey: SHOPPING_ITEMS_MUTATION_KEY }) <= 1) {
-        void qc.invalidateQueries({
-          queryKey: ["planShoppingList", vars.householdId, vars.planId],
-        });
-      }
-    },
-  };
-}
-
-interface AddShoppingItemInput {
-  householdId: string;
-  listId: string;
-  planId: string;
-  item: Omit<ShoppingListItem, "id" | "checked" | "ajoutManuel" | "recetteIds">;
-}
-
-type AddShoppingItemVars = AddShoppingItemInput & { itemId: string };
-
-function newManualItem(vars: AddShoppingItemVars): ShoppingListItem {
-  return {
-    ...vars.item,
-    id: vars.itemId,
-    checked: false,
-    ajoutManuel: true,
-    recetteIds: [],
-  };
-}
-
-/**
- * Ajoute un item à la liste de courses (saisie manuelle).
- * Reset `lastSharedAt` à null pour signaler à l'UI qu'une mise à jour
- * existe depuis le dernier partage Keep.
- */
-export function useAddShoppingItem() {
-  const callbacks = useShoppingItemsCallbacks<AddShoppingItemVars>((items, vars) =>
-    applyAddItem(items, newManualItem(vars)),
-  );
-  const mutation = useMutation({
-    ...callbacks,
-    mutationFn: async (vars: AddShoppingItemVars) => {
-      await updateShoppingItems(
-        vars.householdId,
-        vars.listId,
-        (items) => applyAddItem(items, newManualItem(vars)),
-        // Reset shared status : la liste a changé depuis le dernier envoi.
-        { lastSharedAt: null },
-      );
-    },
-  });
-  // L'id est généré ici pour que le cache optimiste et le serveur aient le même.
-  const withId = (input: AddShoppingItemInput): AddShoppingItemVars => ({
-    ...input,
-    itemId: `manual-${Date.now()}-${Math.random().toString(36).slice(2, 8)}`,
-  });
-  return {
-    ...mutation,
-    mutate: (input: AddShoppingItemInput) => mutation.mutate(withId(input)),
-    mutateAsync: (input: AddShoppingItemInput) => mutation.mutateAsync(withId(input)),
-  };
-}
-
-interface RemoveShoppingItemInput {
-  householdId: string;
-  listId: string;
-  planId: string;
-  itemId: string;
-}
-
-/**
- * Supprime un item de la liste. Reset `lastSharedAt` à null.
- */
-export function useRemoveShoppingItem() {
-  const callbacks = useShoppingItemsCallbacks<RemoveShoppingItemInput>((items, vars) =>
-    applyRemoveItem(items, vars.itemId),
-  );
-  return useMutation({
-    ...callbacks,
-    mutationFn: async ({ householdId, listId, itemId }: RemoveShoppingItemInput) => {
-      await updateShoppingItems(
-        householdId,
-        listId,
-        (items) => applyRemoveItem(items, itemId),
-        { lastSharedAt: null },
-      );
-    },
-  });
-}
-
-/**
- * Marque la liste comme partagée (à appeler après un share natif réussi).
- */
-export function useMarkShoppingShared() {
-  const qc = useQueryClient();
-  return useMutation({
-    mutationFn: async ({
-      householdId,
-      listId,
-      sharedTo,
-    }: {
-      householdId: string;
-      listId: string;
-      planId: string;
-      sharedTo: string;
-    }) => {
-      await updateDoc(
-        doc(db, `households/${householdId}/shoppingLists/${listId}`),
-        {
-          lastSharedAt: serverTimestamp(),
-          lastSharedTo: sharedTo,
-          updatedAt: serverTimestamp(),
-        },
-      );
-    },
-    onSuccess: (_data, vars) => {
-      void qc.invalidateQueries({
-        queryKey: ["planShoppingList", vars.householdId, vars.planId],
-      });
-    },
-  });
-}
-
-interface ToggleShoppingItemInput {
-  householdId: string;
-  listId: string;
-  planId: string;
-  itemId: string;
-  /** État voulu après le clic (= inverse de ce que l'utilisateur voyait). */
-  checked: boolean;
-  uid: string;
-}
-
-/**
- * Coche / décoche un item de la liste de courses, en transaction (cf.
- * `updateShoppingItems`) : seul l'item ciblé change, sur l'état serveur.
- *
- * Note : le cochage NE reset PAS lastSharedAt (le brief §7.3 précise
- * que seuls les ajouts/retraits le font, pas les cochages).
- */
-export function useToggleShoppingItem() {
-  const callbacks = useShoppingItemsCallbacks<ToggleShoppingItemInput>((items, vars) =>
-    applySetChecked(items, vars.itemId, vars.checked, vars.uid),
-  );
-  return useMutation({
-    ...callbacks,
-    mutationFn: async ({ householdId, listId, itemId, checked, uid }: ToggleShoppingItemInput) => {
-      await updateShoppingItems(householdId, listId, (items) =>
-        applySetChecked(items, itemId, checked, uid),
-      );
+      // Couleurs et initiales des convives : dans l'instantané de l'iPad.
+      rafraichirEcransSansAttendre(vars.householdId, "menu");
     },
   });
 }
@@ -1067,6 +877,60 @@ export function useToggleBatchSessionDone() {
       void qc.invalidateQueries({
         queryKey: ["planBatchSessions", vars.householdId, vars.planId],
       });
+      // `done` figure dans le snapshot du menu affiché par l'iPad.
+      rafraichirEcransSansAttendre(vars.householdId, "menu");
+    },
+  });
+}
+
+/**
+ * « C'est moi » : relie le profil choisi au compte et l'enlève de tout autre
+ * profil du même compte. Optimiste : le cache `["profils", hid]` change tout
+ * de suite et l'écriture part sans attendre le serveur (hors ligne, Firestore
+ * la garde et l'envoie au retour du réseau). Un refus est affiché quand il
+ * arrive, et le cache est alors relu.
+ */
+export function useLierProfilAuCompte() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      householdId,
+      profilId,
+      uid,
+      autresProfilIds,
+    }: {
+      householdId: string;
+      profilId: string;
+      uid: string;
+      /** Profils du foyer portant déjà ce uid (à délier). */
+      autresProfilIds: string[];
+    }) => {
+      const batch = writeBatch(db);
+      for (const id of autresProfilIds) {
+        if (id === profilId) continue;
+        batch.update(doc(db, `households/${householdId}/profils/${id}`), {
+          uid: deleteField(),
+          updatedAt: serverTimestamp(),
+        });
+      }
+      batch.update(doc(db, `households/${householdId}/profils/${profilId}`), {
+        uid,
+        updatedAt: serverTimestamp(),
+      });
+      // Pas d'await : la promesse ne se résout qu'à l'accusé du serveur.
+      batch.commit().then(
+        () => rafraichirEcransSansAttendre(householdId, "menu"),
+        (err: unknown) => {
+          console.error("[c'est moi]", err);
+          toast("Ton profil n'a pas pu être enregistré — réessaie.", { type: "error" });
+          void qc.invalidateQueries({ queryKey: ["profils", householdId] });
+        },
+      );
+    },
+    onMutate: ({ householdId, profilId, uid }) => {
+      qc.setQueryData<Array<Profil & { id: string }>>(["profils", householdId], (avant) =>
+        avant ? lierProfilLocalement(avant, profilId, uid) : avant,
+      );
     },
   });
 }

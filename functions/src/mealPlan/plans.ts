@@ -22,8 +22,6 @@ const REPAS_LIST: Repas[] = ["petitDej", "dej", "diner"];
 const MAX_PRESENCE = 50;
 /** Borne du nombre de profils présents à un repas. */
 const MAX_PROFILS_PAR_SLOT = 50;
-/** Taille d'un batch Firestore (limite dure à 500 écritures). */
-const TAILLE_BATCH = 500;
 
 interface CreateMealPlanInput {
   householdId: string;
@@ -269,10 +267,10 @@ export const deleteMealPlan = onCall<DeleteMealPlanInput, Promise<{ success: tru
       .collection(`households/${householdId}/shoppingLists`)
       .where("planId", "==", planId)
       .get();
-    for (let i = 0; i < listesSnap.docs.length; i += TAILLE_BATCH) {
-      const batch = db.batch();
-      listesSnap.docs.slice(i, i + TAILLE_BATCH).forEach((d) => batch.delete(d.ref));
-      await batch.commit();
+    // recursiveDelete : la liste ET sa sous-collection `items` (format 2,
+    // un document par article) — sinon les articles resteraient orphelins.
+    for (const d of listesSnap.docs) {
+      await db.recursiveDelete(d.ref);
     }
 
     const planRef = db.doc(`households/${householdId}/mealPlans/${planId}`);
