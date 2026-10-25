@@ -159,9 +159,31 @@
   var alarmLoopInterval = null;
   var alarmCycleSec = 1.1; /* durée d'un cycle "di-din + silence" */
 
+  /* Identifiant de cet écran (stockage local) : un minuteur ne sonne que sur
+     l'appareil qui l'a lancé (champ appareil, voir sonneIci). */
+  var appareilEnMemoire = null;
+  function appareilId() {
+    try {
+      var lu = window.localStorage.getItem('fh-appareil');
+      if (lu) return lu;
+      var id = 'app-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+      window.localStorage.setItem('fh-appareil', id);
+      return id;
+    } catch (e) {
+      if (!appareilEnMemoire) appareilEnMemoire = 'app-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2, 10);
+      return appareilEnMemoire;
+    }
+  }
+
+  function sonneIci(t) {
+    var M = global.FamilyHubMinuteurs;
+    if (M && typeof M.sonneIci === 'function') return M.sonneIci(t, Date.now(), appareilId());
+    return t.status === 'ended';
+  }
+
   function alarmLoopActive() {
     for (var i = 0; i < state.timers.length; i++) {
-      if (state.timers[i].status === 'ended') return true;
+      if (state.timers[i].status === 'ended' && sonneIci(state.timers[i])) return true;
     }
     return false;
   }
@@ -264,6 +286,7 @@
       startedAt: new Date(startedAtMs),
       endsAt: new Date(endsAtMs),
       status: 'running',
+      appareil: appareilId(),
       createdAt: firebase.firestore.FieldValue.serverTimestamp(),
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }).then(function () {}, function (err) {
@@ -364,7 +387,7 @@
         }
         anyChange = true;
       }
-      if (t.status === 'ended') hasEnded = true;
+      if (t.status === 'ended' && sonneIci(t)) hasEnded = true;
     }
     /* Démarre / arrête la boucle d'alarme selon qu'il reste ou non un timer
        'ended' non acquitté. */
@@ -443,6 +466,7 @@
     stopTimer: stopTimer,
     acknowledgeTimer: acknowledgeTimer,
     timerRemainingMs: timerRemainingMs,
+    sonneIci: sonneIci,
     timerProgress: timerProgress,
     beepSequence: beepSequence
   };

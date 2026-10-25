@@ -57,8 +57,22 @@
     return { status: 'running', endsAtMs: base + 60000, durationSeconds: durationSeconds };
   }
 
+  /* Sonne (son + bandeau) sur CET appareil : seulement celui qui a lancé le
+     minuteur (champ appareil) ; un ancien minuteur sans appareil sonne partout.
+     Même règle que sonneIci du hub. Fini = 'ended', ou 'running' arrivé à zéro. */
+  function sonneIci(t, nowMs, appareil) {
+    if (!t) return false;
+    var fini = t.status === 'ended';
+    if (!fini && t.status === 'running') {
+      var fin = versMs(t.endsAt);
+      fini = fin !== null && nowMs >= fin;
+    }
+    return fini && (!t.appareil || t.appareil === appareil);
+  }
+
   var api = {
     versMs: versMs,
+    sonneIci: sonneIci,
     libelleMinuteur: libelleMinuteur,
     patchUneMinute: patchUneMinute
   };

@@ -6,6 +6,7 @@ import {
   formatMinuteur,
   libelleParDefaut,
   lireMinutesSaisies,
+  sonneIci,
   tempsRestantMs,
   versMs,
 } from "./minuteurs";
@@ -150,5 +151,21 @@ describe("estEnAlarme", () => {
   it("en pause ou acquitté : silence", () => {
     expect(estEnAlarme({ status: "paused", endsAt: new Date(T0), remainingSeconds: 5 }, T0 + 1)).toBe(false);
     expect(estEnAlarme({ status: "acknowledged", endsAt: new Date(T0) }, T0 + 1)).toBe(false);
+  });
+});
+
+describe("sonneIci (seul l'appareil qui a lancé le minuteur sonne)", () => {
+  const fini = { status: "ended" as const, endsAt: new Date(T0) };
+  it("lancé ici : sonne", () => {
+    expect(sonneIci({ ...fini, appareil: "tel-a" }, T0, "tel-a")).toBe(true);
+  });
+  it("lancé sur un autre appareil : silence", () => {
+    expect(sonneIci({ ...fini, appareil: "ipad" }, T0, "tel-a")).toBe(false);
+  });
+  it("ancien minuteur sans appareil : sonne partout, comme avant", () => {
+    expect(sonneIci(fini, T0, "tel-a")).toBe(true);
+  });
+  it("pas encore fini : silence, même ici", () => {
+    expect(sonneIci({ status: "running", endsAt: new Date(T0), appareil: "tel-a" }, T0 - 1, "tel-a")).toBe(false);
   });
 });

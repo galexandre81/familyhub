@@ -1,8 +1,8 @@
 /* alarme.js — bandeau d'alarme global des minuteurs. ES5 strict, iOS 9.
 
    Visible par-dessus tout (tableau, overlay plein écran, mode recette :
-   z-index le plus haut de la page) tant qu'un minuteur est terminé sur cet
-   écran ; « OK » (≥ 72 px) l'acquitte. Le son reste géré par
+   z-index le plus haut de la page) tant qu'un minuteur lancé SUR CET ÉCRAN
+   est terminé (ceux lancés ailleurs sonnent là où ils ont été lancés) ; « OK » (≥ 72 px) l'acquitte. Le son reste géré par
    timer-singleton.js (boucle d'alarme) : ce fichier ne fait que l'affichage,
    via FamilyHubTimers.subscribe. Chargé après timer-singleton.js. */
 (function (global) {
@@ -40,6 +40,7 @@
 
   function enAlarme(state, timers) {
     return (state.timers || []).filter(function (t) {
+      if (typeof timers.sonneIci === 'function' && !timers.sonneIci(t)) return false;
       if (t.status === 'ended') return true;
       /* Arrivé à zéro ici avant que le document soit marqué « ended ». */
       return t.status === 'running' && timers.timerRemainingMs(t) === 0;

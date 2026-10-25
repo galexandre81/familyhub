@@ -6,6 +6,9 @@
  * running → (paused ↔ running) → ended → acknowledged → supprimé ; « Arrêter »
  * supprime directement.
  *
+ * Sonnerie : seul l'appareil qui a lancé le minuteur sonne (champ `appareil`,
+ * voir sonneIci) ; les autres l'affichent sans sonner.
+ *
  * Fin d'un minuteur : l'iPad et les téléphones peuvent atteindre zéro en même
  * temps. On ne passe à `ended` que si le document est encore `running`
  * (transaction). Une transaction échoue hors ligne : dans ce cas on sonne
@@ -36,11 +39,12 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { toast } from "../components/Toast";
+import { identifiantAppareil } from "./appareil";
 import {
   ajoutUneMinute,
-  estEnAlarme,
   estTermine,
   libelleParDefaut,
+  sonneIci,
   tempsRestantMs,
   type Minuteur,
 } from "./minuteurs";
@@ -262,8 +266,9 @@ export function useMinuteursAbonnement(householdId?: string): MinuteursApi {
     return () => window.removeEventListener("online", auRetour);
   }, []);
 
-  // Son : tant qu'un minuteur sonne et que la page est visible.
-  const alarme = minuteurs.some((m) => estEnAlarme(m, nowMs));
+  // Son : tant qu'un minuteur lancé ICI sonne et que la page est visible.
+  const appareil = identifiantAppareil();
+  const alarme = minuteurs.some((m) => sonneIci(m, nowMs, appareil));
   useEffect(() => {
     installerDeverrouillage();
     if (!alarme) return;
@@ -295,6 +300,7 @@ export function useMinuteursAbonnement(householdId?: string): MinuteursApi {
         startedAt: new Date(debut),
         endsAt: new Date(debut + secondes * 1000),
         status: "running",
+        appareil: identifiantAppareil(),
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
       }).catch((err) => signalerErreur(err, "Le minuteur n'a pas pu être lancé."));

@@ -4,7 +4,8 @@
  * Document `households/{hid}/timers/{id}`, même forme que l'iPad
  * (apps/display/public/js/timer-singleton.js) : `label`, `durationSeconds`,
  * `startedAt`, `endsAt`, `status`, `pausedAt?`, `remainingSeconds?`,
- * `createdAt`, `updatedAt`. L'iPad écrit `endsAt` en Date (horloge locale) ;
+ * `appareil?` (appareil qui l'a lancé : lui seul sonne), `createdAt`,
+ * `updatedAt`. L'iPad écrit `endsAt` en Date (horloge locale) ;
  * Firestore les relit en Timestamp : tout passe par `versMs`.
  */
 import type { TimerStatus } from "@family-hub/types";
@@ -17,6 +18,8 @@ export interface MinuteurLu {
   endsAt: HorodatageLu;
   remainingSeconds?: number;
   durationSeconds?: number;
+  /** Identifiant de l'appareil qui l'a lancé (absent sur les anciens minuteurs). */
+  appareil?: string;
 }
 
 export interface Minuteur extends MinuteurLu {
@@ -115,4 +118,13 @@ export function ajoutUneMinute(t: MinuteurLu, nowMs: number): PatchAjoutMinute {
 /** Le minuteur doit sonner : marqué `ended`, ou encore `running` mais arrivé à zéro ici (ex. hors ligne). */
 export function estEnAlarme(t: MinuteurLu, nowMs: number): boolean {
   return t.status === "ended" || estTermine(t, nowMs);
+}
+
+/**
+ * Sonne (son et bandeau « c'est prêt ») sur CET appareil : seulement celui qui
+ * a lancé le minuteur. Les autres l'affichent sans sonner. Un ancien minuteur
+ * sans `appareil` sonne partout, comme avant.
+ */
+export function sonneIci(t: MinuteurLu, nowMs: number, appareil: string): boolean {
+  return estEnAlarme(t, nowMs) && (!t.appareil || t.appareil === appareil);
 }

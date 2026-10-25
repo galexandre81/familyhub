@@ -12,12 +12,14 @@
 import { useLocation } from "react-router-dom";
 import { BellRing, Check } from "lucide-react";
 import { useMinuteurs } from "../lib/MinuteursContext";
-import { estEnAlarme } from "../lib/minuteurs";
+import { identifiantAppareil } from "../lib/appareil";
+import { sonneIci } from "../lib/minuteurs";
 
 export default function VeilleurMinuteurs() {
   const { minuteurs, nowMs, acquitter } = useMinuteurs();
   const { pathname } = useLocation();
-  const enAlarme = minuteurs.filter((m) => estEnAlarme(m, nowMs));
+  const appareil = identifiantAppareil();
+  const enAlarme = minuteurs.filter((m) => sonneIci(m, nowMs, appareil));
   if (enAlarme.length === 0 || /\/cuisine\/?$/.test(pathname)) return null;
 
   return (
