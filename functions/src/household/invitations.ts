@@ -7,11 +7,15 @@ import { requireId } from "../lib/validate";
 import { SHORT_ID_ALPHABET } from "../auth/displayToken";
 import {
   DUREE_INVITATION_MS,
+  rolesApresArrivee,
   validerInvitation,
+  type RoleFoyer,
   type InvitationDoc,
   type RaisonRefusInvitation,
 } from "./invitationRules";
 
+// Alphabet (SHORT_ID_ALPHABET) et longueur repris côté hub dans
+// apps/hub/src/lib/invitations.ts (normaliserCodeInvitation). Garder alignés.
 const CODE_LENGTH = 10;
 
 function generateCode(): string {
@@ -123,12 +127,18 @@ export const acceptInvitation = onCall(
       if (!verdict.ok) throw refus(verdict.raison);
 
       // ----- Écritures -----
-      tx.update(
-        householdRef,
-        "membres", admin.firestore.FieldValue.arrayUnion(uid),
-        new admin.firestore.FieldPath("roles", uid), inv.role,
-        "updatedAt", admin.firestore.FieldValue.serverTimestamp(),
-      );
+      // Carte `roles` écrite en entier : un foyer ancien sans `roles` y gagne
+      // ses membres existants comme parents (cf. rolesApresArrivee).
+      tx.update(householdRef, {
+        membres: admin.firestore.FieldValue.arrayUnion(uid),
+        roles: rolesApresArrivee(
+          household.roles as Record<string, RoleFoyer> | undefined,
+          membres,
+          uid,
+          inv.role,
+        ),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+      });
       tx.set(
         userRef,
         {

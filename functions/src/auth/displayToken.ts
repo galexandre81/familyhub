@@ -14,7 +14,8 @@ function httpsErreurAppairage(reason: RaisonAppairage): HttpsError {
 
 const SETUP_TOKEN_TTL_SECONDS = 30 * 60; // 30 min
 
-/** Alphabet sans caractères confusables (0/O, 1/I/L) — facilite la saisie sur iPad. */
+/** Alphabet sans caractères confusables (0/O, 1/I/L) — facilite la saisie sur iPad.
+ *  Aussi utilisé par les codes d'invitation ; copie côté hub : apps/hub/src/lib/invitations.ts. */
 export const SHORT_ID_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const SHORT_ID_LENGTH = 6;
 

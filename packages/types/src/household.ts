@@ -6,7 +6,7 @@ export interface HouseholdParametres {
   systemeUnites: UnitSystem;
 }
 
-/** Rôle d'une personne dans le foyer. */
+/** Rôle d'une personne dans le foyer. Copie dans functions/src/household/invitationRules.ts. */
 export type RoleFoyer = "parent" | "enfant";
 
 export interface Household {

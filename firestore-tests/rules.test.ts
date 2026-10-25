@@ -210,6 +210,20 @@ describe("member access", () => {
     await assertFails(updateDoc(doc(db, "households", HID), { membres: [MEMBER_UID, OUTSIDER_UID] }));
   });
 
+  it("can update nom on a household without roles (foyer ancien)", async () => {
+    await testEnv.withSecurityRulesDisabled(async (ctx) => {
+      await setDoc(doc(ctx.firestore(), "households", "ancien"), {
+        nom: "Foyer ancien",
+        ownerUid: MEMBER_UID,
+        membres: [MEMBER_UID],
+        parametres: {},
+        createdAt: 1,
+        updatedAt: 1,
+      });
+    });
+    await assertSucceeds(updateDoc(doc(memberDb(), "households", "ancien"), { nom: "Renommé" }));
+  });
+
   it("cannot change roles via update (ajout d'un parent)", async () => {
     const db = memberDb();
     await assertFails(

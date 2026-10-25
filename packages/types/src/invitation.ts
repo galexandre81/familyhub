@@ -16,5 +16,9 @@ export interface Invitation {
   usedAt?: Timestamp;
 }
 
-/** Raisons de refus renvoyées par `acceptInvitation` (`details.raison`). */
+/**
+ * Raisons de refus renvoyées par `acceptInvitation` (`details.raison`).
+ * Copie dans functions/src/household/invitationRules.ts ; messages dans
+ * apps/hub/src/lib/invitations.ts. Garder alignés.
+ */
 export type RaisonRefusInvitation = "introuvable" | "expiree" | "deja-utilisee" | "deja-membre";

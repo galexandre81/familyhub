@@ -1,6 +1,10 @@
 /** Logique pure autour des liens d'invitation dans un foyer. */
 
-/** Même alphabet et longueur que les codes générés par `createInvitation`. */
+/**
+ * Même alphabet et longueur que les codes générés par `createInvitation`
+ * (functions/src/auth/displayToken.ts SHORT_ID_ALPHABET,
+ * functions/src/household/invitations.ts CODE_LENGTH). Garder alignés.
+ */
 const ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const LONGUEUR = 10;
 
@@ -15,6 +19,8 @@ export function normaliserCodeInvitation(brut: string | undefined): string | nul
   return valide ? code : null;
 }
 
+// Clés = RaisonRefusInvitation (packages/types/src/invitation.ts,
+// functions/src/household/invitationRules.ts). Garder alignés.
 const MESSAGES: Record<string, string> = {
   "expiree": "Cette invitation a expiré — demande un nouveau lien",
   "deja-utilisee": "Cette invitation a déjà servi",

@@ -1,5 +1,5 @@
 import { describe, it, expect } from "vitest";
-import { validerInvitation, type InvitationDoc } from "./invitationRules";
+import { rolesApresArrivee, validerInvitation, type InvitationDoc } from "./invitationRules";
 
 const NOW = 1_800_000_000_000;
 
@@ -62,5 +62,35 @@ describe("validerInvitation", () => {
       ok: false,
       raison: "deja-membre",
     });
+  });
+});
+
+describe("rolesApresArrivee", () => {
+  it("foyer ancien sans roles : les membres existants deviennent parents, puis l'arrivante", () => {
+    expect(rolesApresArrivee(undefined, ["alex"], "marie", "parent")).toEqual({
+      alex: "parent",
+      marie: "parent",
+    });
+  });
+
+  it("roles qui n'est pas un objet (null, tableau) : traité comme absent", () => {
+    expect(rolesApresArrivee(null as never, ["alex"], "marie", "parent")).toEqual({
+      alex: "parent",
+      marie: "parent",
+    });
+    expect(rolesApresArrivee([] as never, ["alex"], "marie", "enfant")).toEqual({
+      alex: "parent",
+      marie: "enfant",
+    });
+  });
+
+  it("roles existants conservés, l'arrivante ajoutée", () => {
+    const avant = { alex: "parent" as const, leo: "enfant" as const };
+    expect(rolesApresArrivee(avant, ["alex", "leo"], "marie", "parent")).toEqual({
+      alex: "parent",
+      leo: "enfant",
+      marie: "parent",
+    });
+    expect(avant).toEqual({ alex: "parent", leo: "enfant" });
   });
 });
