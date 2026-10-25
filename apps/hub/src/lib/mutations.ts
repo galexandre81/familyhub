@@ -733,33 +733,6 @@ export function useDeleteProfil() {
   });
 }
 
-/* --- Timers (collection partagée live, pas dans snapshot) --- */
-
-interface CreateTimerInput {
-  householdId: string;
-  label: string;
-  durationSeconds: number;
-}
-
-export function useCreateTimer() {
-  return useMutation({
-    mutationFn: async ({ householdId, label, durationSeconds }: CreateTimerInput) => {
-      const startedAt = Date.now();
-      const endsAt = startedAt + durationSeconds * 1000;
-      const ref = await addDoc(collection(db, `households/${householdId}/timers`), {
-        label,
-        durationSeconds,
-        startedAt: new Date(startedAt),
-        endsAt: new Date(endsAt),
-        status: "running",
-        createdAt: serverTimestamp(),
-        updatedAt: serverTimestamp(),
-      });
-      return ref.id;
-    },
-  });
-}
-
 /* --- Liste de courses (Phase 3.4 — UI minimale, full mobile en 3.4 dédiée) --- */
 
 /**
