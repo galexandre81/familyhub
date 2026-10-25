@@ -9,9 +9,12 @@
 // - Les chemins absolus /display/… sont rapportés à apps/display/public ; les
 //   autres chemins absolus (hors iPad) sont ignorés ; un dossier vaut son index.html.
 // - js/firebase-config.js est généré au build (copy-display-into-hub-dist.mjs).
+// - Les url(...) des feuilles css/*.css sont suivies aussi (chemins relatifs au
+//   fichier CSS ; data:, http(s): et // ignorés) : une police woff manquante
+//   fait échouer le build.
 //
 // Usage : node scripts/check-display-assets.mjs [dossier]  (défaut : apps/display/public)
-import { existsSync, readFileSync, statSync } from "node:fs";
+import { existsSync, readdirSync, readFileSync, statSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { dirname, relative, resolve } from "node:path";
 
@@ -53,9 +56,43 @@ for (const page of PAGES) {
   });
 }
 
+// url(...) des feuilles de style de l'iPad.
+const DOSSIER_CSS = resolve(SRC, "css");
+const feuilles = existsSync(DOSSIER_CSS)
+  ? readdirSync(DOSSIER_CSS).filter((f) => f.endsWith(".css")).sort()
+  : [];
+let verifiesCss = 0;
+for (const f of feuilles) {
+  const chemin = resolve(DOSSIER_CSS, f);
+  const lignes = readFileSync(chemin, "utf8").split("\n");
+  lignes.forEach((ligne, i) => {
+    const re = /url\(\s*["']?([^"')]*)["']?\s*\)/gi;
+    let m;
+    while ((m = re.exec(ligne)) !== null) {
+      const brut = m[1].trim();
+      const url = brut.split("#")[0].split("?")[0];
+      if (!url || /^([a-z]+:|\/\/)/i.test(url)) continue;
+      let cible;
+      if (url.startsWith("/")) {
+        if (!url.startsWith("/display/")) continue;
+        cible = resolve(SRC, url.slice("/display/".length));
+      } else {
+        cible = resolve(DOSSIER_CSS, url);
+      }
+      verifiesCss++;
+      if (!existsSync(cible) || !statSync(cible).isFile()) {
+        erreurs.push(`${relative(ROOT, chemin)}:${i + 1} — fichier introuvable : ${brut}`);
+      }
+    }
+  });
+}
+
 if (erreurs.length > 0) {
   console.error(`[assets] ${erreurs.length} fichier(s) référencé(s) par les pages de l'iPad introuvable(s) :`);
   for (const e of erreurs) console.error(`  ${e}`);
   process.exit(1);
 }
-console.log(`[assets] OK — ${verifies} référence(s) vérifiée(s) dans ${PAGES.join(", ")}.`);
+console.log(
+  `[assets] OK — ${verifies} référence(s) vérifiée(s) dans ${PAGES.join(", ")}, ` +
+    `${verifiesCss} url(...) dans ${feuilles.length} feuille(s) CSS.`,
+);
