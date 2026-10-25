@@ -29,9 +29,10 @@
    Lecture réseau d'abord (households/{hid}/recettes/{id} ; l'iPad tourne
    jour et nuit : pas de copie périmée quand le réseau répond). La copie en
    mémoire (dernière lecture ou memoriser) ne sert qu'en secours : lecture en
-   échec, ou sans réponse après DELAI_RESEAU_MS. Recette introuvable →
-   « Recette indisponible » à sa place dans le repas ; le minuteur marche
-   quand même.
+   échec, ou sans réponse après DELAI_RESEAU_MS. Sans copie, abandon après
+   DELAI_SANS_COPIE_MS → « Recette indisponible sans réseau ». Recette
+   introuvable (ou lecture refusée en ligne) → « Recette indisponible :
+   <nom> » à sa place dans le repas ; le minuteur marche quand même.
 
    Les fonctions *Es5 sont pures et testées (packages/design/src/
    displayModeRecette.test.ts) contre apps/hub/src/lib/repasCuisine.ts. */
@@ -124,6 +125,29 @@
     return copie;
   }
 
+  /* Issue d'une lecture de recette → { recette, motif }.
+     issue : 'trouve' (doc lu, `donnees`), 'absent' (doc inexistant),
+     'erreur' (lecture refusée ; `horsLigne` vrai si l'erreur dit
+     « hors ligne » ou si le navigateur se sait hors ligne), 'delai' (réseau
+     muet après le délai). La copie en mémoire sert de secours en cas
+     d'erreur ou de délai. motif : null (recette affichée), 'introuvable'
+     (doc absent ou échec en ligne → « Recette indisponible : <nom> ») ou
+     'hors-reseau' (rien reçu, pas de copie → « Recette indisponible sans
+     réseau »). */
+  function issueLectureEs5(issue, donnees, copie, horsLigne) {
+    if (issue === 'trouve' && donnees) return { recette: donnees, motif: null };
+    if (issue === 'absent' || issue === 'trouve') return { recette: null, motif: 'introuvable' };
+    if (copie) return { recette: copie, motif: null };
+    if (issue === 'delai' || horsLigne) return { recette: null, motif: 'hors-reseau' };
+    return { recette: null, motif: 'introuvable' };
+  }
+
+  /* Libellé d'une recette absente du repas, selon le motif. */
+  function libelleIndispoEs5(motif, nom) {
+    var base = motif === 'hors-reseau' ? 'Recette indisponible sans réseau' : 'Recette indisponible';
+    return nom ? base + ' : ' + nom : base;
+  }
+
   /* Portions affichées à l'ouverture : celles de l'appelant, sinon celles de
      la première recette, sinon 4 ; entier ≥ 1. */
   function portionsInitialesEs5(portions, recettes) {
@@ -137,7 +161,8 @@
 
   var PORTIONS_MIN = 1;
   var PORTIONS_MAX = 20;
-  var DELAI_RESEAU_MS = 5000;
+  var DELAI_RESEAU_MS = 5000;      /* réseau muet, copie en mémoire : on l'affiche */
+  var DELAI_SANS_COPIE_MS = 8000;  /* réseau muet, pas de copie : « sans réseau » */
 
   var cache = {}; /* id → données Firestore de la recette */
 
@@ -197,35 +222,49 @@
 
   /* --- Lecture des recettes (cache mémoire par id) --- */
 
-  /* Réseau d'abord ; copie en mémoire en secours (échec ou réseau muet). */
+  function navigateurHorsLigne() {
+    var nav = root && root.navigator;
+    return !!(nav && nav.onLine === false);
+  }
+
+  /* Réseau d'abord ; copie en mémoire en secours (échec ou réseau muet).
+     Toujours une minuterie : sans copie, on abandonne après
+     DELAI_SANS_COPIE_MS (« sans réseau ») au lieu d'attendre sans fin.
+     Résout { recette, motif } (voir issueLectureEs5). Une réponse tardive
+     met quand même la copie en mémoire à jour. */
   function lireRecette(id) {
     var copie = Object.prototype.hasOwnProperty.call(cache, id) ? cache[id] : null;
     var db = root.FamilyHubGetDb && root.FamilyHubGetDb();
     var hid = root.FamilyHubGetHouseholdId && root.FamilyHubGetHouseholdId();
-    if (!db || !hid || !id) return Promise.resolve(copie);
+    if (!db || !hid || !id) {
+      return Promise.resolve(issueLectureEs5('erreur', null, copie, navigateurHorsLigne()));
+    }
     return new Promise(function (resolve) {
       var fini = false;
       var minuterie = null;
-      function finir(v) {
+      function finir(issue, donnees, horsLigne) {
         if (fini) return;
         fini = true;
         if (minuterie) clearTimeout(minuterie);
-        resolve(v);
+        resolve(issueLectureEs5(issue, donnees, copie, horsLigne));
       }
-      if (copie) minuterie = setTimeout(function () { finir(copie); }, DELAI_RESEAU_MS);
+      minuterie = setTimeout(function () { finir('delai', null, true); },
+        copie ? DELAI_RESEAU_MS : DELAI_SANS_COPIE_MS);
       try {
         db.collection('households').doc(hid).collection('recettes').doc(String(id)).get()
           .then(function (doc) {
-            if (!doc.exists) { delete cache[id]; finir(null); return; }
+            if (!doc.exists) { delete cache[id]; finir('absent', null, false); return; }
             var d = doc.data() || {};
             cache[id] = d;
-            finir(d);
+            finir('trouve', d, false);
           }, function (err) {
             if (root.console && root.console.warn) root.console.warn('[mode-recette] lecture', id, err);
-            finir(copie);
+            var code = err && err.code ? String(err.code) : '';
+            var msg = err && err.message ? String(err.message) : '';
+            finir('erreur', null, code === 'unavailable' || /offline/i.test(msg) || navigateurHorsLigne());
           });
       } catch (e) {
-        finir(copie);
+        finir('erreur', null, navigateurHorsLigne());
       }
     });
   }
@@ -273,7 +312,7 @@
     return b;
   }
 
-  function rendreEtapes(zone, ordonne, noms) {
+  function rendreEtapes(zone, ordonne, noms, motifs) {
     zone.innerHTML = '';
     for (var i = 0; i < ordonne.length; i++) {
       var r = ordonne[i].recette;
@@ -281,8 +320,9 @@
         var idM = ordonne[i].id;
         var nomConnu = noms && idM && Object.prototype.hasOwnProperty.call(noms, idM)
           ? texteSeul(noms[idM]) : '';
+        var motif = motifs && idM && Object.prototype.hasOwnProperty.call(motifs, idM) ? motifs[idM] : null;
         zone.appendChild(el('p', 'fh-mr-indispo fh-carte fh-bordure fh-texte',
-          'Recette indisponible' + (nomConnu ? ' : ' + echapper(nomConnu) : '')));
+          echapper(libelleIndispoEs5(motif, nomConnu))));
         continue;
       }
       var bloc = el('section', 'fh-mr-recette');
@@ -317,7 +357,8 @@
     zone.innerHTML = '';
     var p = repas.presentes;
     if (p.length === 0) {
-      zone.appendChild(el('p', 'fh-mr-vide fh-texte-doux', 'Recette indisponible'));
+      zone.appendChild(el('p', 'fh-mr-vide fh-texte-doux',
+        libelleIndispoEs5(repas.horsReseau ? 'hors-reseau' : null, '')));
       return;
     }
     for (var i = 0; i < p.length; i++) {
@@ -492,8 +533,16 @@
     Promise.all(lectures).then(function (res) {
       if (monJeton !== jeton || ecran !== e) return;
       var parId = {};
-      for (var j = 0; j < ids.length; j++) if (res[j]) parId[ids[j]] = res[j];
+      var motifs = {};
+      var horsReseau = false;
+      for (var j = 0; j < ids.length; j++) {
+        var lu = res[j] || {};
+        if (lu.recette) parId[ids[j]] = lu.recette;
+        else motifs[ids[j]] = lu.motif;
+        if (lu.motif === 'hors-reseau') horsReseau = true;
+      }
       var repas = assemblerRepasEs5(ids, parId);
+      repas.horsReseau = horsReseau;
       var ordonne = repasOrdonneEs5(ids, parId);
       if (ids.length === 0) ordonne.push({ id: '', recette: null });
       e.repas = repas;
@@ -511,7 +560,7 @@
         e.nomMinuteur = nom;
         if (!e.retour) monterPanneau(e);
       }
-      rendreEtapes(e.zoneEtapes, ordonne, e.noms);
+      rendreEtapes(e.zoneEtapes, ordonne, e.noms, motifs);
       majPortions(e);
     });
   }
@@ -527,6 +576,8 @@
     etapesTrieesEs5: etapesTrieesEs5,
     portionsInitialesEs5: portionsInitialesEs5,
     repasOrdonneEs5: repasOrdonneEs5,
+    issueLectureEs5: issueLectureEs5,
+    libelleIndispoEs5: libelleIndispoEs5,
     ouvrir: ouvrir,
     fermer: fermer,
     estOuvert: estOuvert,

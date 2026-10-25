@@ -136,3 +136,40 @@ describe("portionsInitialesEs5", () => {
     expect(m.portionsInitialesEs5(2.6, [])).toBe(3);
   });
 });
+
+describe("issueLectureEs5 / libelleIndispoEs5 — lecture d'une recette", () => {
+  const api = m as ApiModeRecette & {
+    issueLectureEs5(
+      issue: "trouve" | "absent" | "erreur" | "delai",
+      donnees: unknown,
+      copie: unknown,
+      horsLigne: boolean,
+    ): { recette: unknown; motif: null | "introuvable" | "hors-reseau" };
+    libelleIndispoEs5(motif: string | null, nom: string): string;
+  };
+  const doc = { nom: "Gratin" };
+  const copie = { nom: "Gratin (copie)" };
+
+  it("doc lu → la recette", () => {
+    expect(api.issueLectureEs5("trouve", doc, copie, false)).toEqual({ recette: doc, motif: null });
+  });
+  it("doc absent → introuvable, même avec une copie", () => {
+    expect(api.issueLectureEs5("absent", null, copie, false)).toEqual({ recette: null, motif: "introuvable" });
+  });
+  it("délai ou erreur avec copie → la copie", () => {
+    expect(api.issueLectureEs5("delai", null, copie, true)).toEqual({ recette: copie, motif: null });
+    expect(api.issueLectureEs5("erreur", null, copie, false)).toEqual({ recette: copie, motif: null });
+  });
+  it("délai sans copie → hors-reseau (on n'attend pas sans fin)", () => {
+    expect(api.issueLectureEs5("delai", null, null, true)).toEqual({ recette: null, motif: "hors-reseau" });
+  });
+  it("erreur hors ligne sans copie → hors-reseau ; erreur en ligne → introuvable", () => {
+    expect(api.issueLectureEs5("erreur", null, null, true).motif).toBe("hors-reseau");
+    expect(api.issueLectureEs5("erreur", null, null, false).motif).toBe("introuvable");
+  });
+  it("libellés", () => {
+    expect(api.libelleIndispoEs5("hors-reseau", "")).toBe("Recette indisponible sans réseau");
+    expect(api.libelleIndispoEs5("introuvable", "Gratin")).toBe("Recette indisponible : Gratin");
+    expect(api.libelleIndispoEs5(null, "")).toBe("Recette indisponible");
+  });
+});
