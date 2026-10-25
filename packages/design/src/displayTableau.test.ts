@@ -38,6 +38,8 @@ interface ApiTableau {
   evenementsSemaine(events: Evt[] | undefined, now: Date, max?: number): Array<{ jour: string; heure: string | null; titre: string }>;
   libelleEnsuite(repas: Repas, dateISO: string, now: Date, heures?: unknown): string;
   pastillesPresents(slot: Slot, profils: unknown): Pastille[];
+  pastillesAffichees(pastilles: Pastille[], invites: number, max?: number): { pastilles: Pastille[]; reste: number };
+  formatPlat(plat: string): { long: boolean; deuxLignes: boolean };
   resumeRepas(data: unknown, now: Date): {
     prochain: null | {
       moment: string;
@@ -46,6 +48,9 @@ interface ApiTableau {
       plat: string;
       accompagnements: string;
       pastilles: Pastille[];
+      reste: number;
+      platLong: boolean;
+      titre: string;
       presence: string;
       portions: number | undefined;
       recetteIds: string[];
@@ -174,6 +179,41 @@ describe("pastillesPresents", () => {
   });
 });
 
+describe("pastillesAffichees (rangée « Commencer » sans débordement)", () => {
+  const P = (i: string): Pastille => ({ initiale: i, nom: i, classe: null, couleur: null });
+  it("5 profils + 2 invités : 3 pastilles puis « +4 » (4 × 70 + 10 + 180 = 470 ≤ 523 px)", () => {
+    const r = t.pastillesAffichees(["A", "B", "C", "D", "E"].map(P), 2, 3);
+    expect(r.pastilles.map((x) => x.initiale)).toEqual(["A", "B", "C"]);
+    expect(r.reste).toBe(4);
+    const pastillesVisibles = r.pastilles.length + (r.reste > 0 ? 1 : 0);
+    expect(pastillesVisibles * 70 + 10 + 180).toBeLessThanOrEqual(523);
+  });
+  it("3 personnes sans invité : pas de « +N » ; invités seuls → « +N » ; max 3 par défaut", () => {
+    expect(t.pastillesAffichees(["A", "B", "C"].map(P), 0).reste).toBe(0);
+    expect(t.pastillesAffichees(["A", "B"].map(P), 1)).toEqual({ pastilles: ["A", "B"].map(P), reste: 1 });
+    expect(t.pastillesAffichees(["A", "B", "C", "D"].map(P), 0)).toEqual({ pastilles: ["A", "B", "C"].map(P), reste: 1 });
+    expect(t.pastillesAffichees([], -3).reste).toBe(0);
+  });
+});
+
+describe("formatPlat (accompagnements masqués si le plat tient sur 2 lignes)", () => {
+  it("seuils 18 / 22 caractères", () => {
+    expect(t.formatPlat("Saumon au four")).toEqual({ long: false, deuxLignes: false });
+    expect(t.formatPlat("x".repeat(18))).toEqual({ long: false, deuxLignes: false });
+    expect(t.formatPlat("x".repeat(19))).toEqual({ long: true, deuxLignes: false });
+    expect(t.formatPlat("x".repeat(22))).toEqual({ long: true, deuxLignes: false });
+    expect(t.formatPlat("Salade de pâtes au thon et poivrons")).toEqual({ long: true, deuxLignes: true });
+  });
+  it("dans resumeRepas : plat long → accompagnements vides", () => {
+    const r = t.resumeRepas(
+      { semaine: [{ date: "2026-10-26", repas: "dej", recetteIds: ["a", "b"], recetteNoms: ["Salade de pâtes au thon et poivrons", "Pain"] }] },
+      at("2026-10-26T10:00:00"),
+    );
+    expect(r.prochain!.platLong).toBe(true);
+    expect(r.prochain!.accompagnements).toBe("");
+  });
+});
+
 describe("resumeRepas", () => {
   const data = {
     profils: { g: { initiale: "G", nom: "Alex", couleurPersonne: "sapin" } },
@@ -193,7 +233,9 @@ describe("resumeRepas", () => {
     expect(p.plat).toBe("Salade de pâtes");
     expect(p.accompagnements).toBe("Poivrons · Pain");
     expect(p.pastilles.map((x) => x.initiale)).toEqual(["G"]);
-    expect(p.presence).toBe("+ 2 invités");
+    expect(p.reste).toBe(2);
+    expect(p.presence).toBe("");
+    expect(p.titre).toBe("Déjeuner · lundi 26 octobre");
     expect(p.portions).toBe(3);
     expect(p.recetteIds).toEqual(["p1", "a1", "a2"]);
     expect(p.noms).toEqual({ p1: "Salade de pâtes", a1: "Poivrons", a2: "Pain" });

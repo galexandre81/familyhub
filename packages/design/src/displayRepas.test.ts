@@ -29,6 +29,7 @@ interface ApiRepas {
   libelleDans(minutes: number): string;
   remplissageBarre(minutes: number): number;
   libelleMoment(repas: Repas, dateISO: string, now: Date, heures?: unknown): string;
+  titreRepas(repas: Repas, dateISO: string): string;
 }
 
 const SOURCE = readFileSync(
@@ -166,6 +167,14 @@ describe("libelleMoment", () => {
     expect(r.libelleMoment("diner", "2026-10-27", at("2026-10-25T10:00:00"))).toBe("Mardi 27 · Dîner");
     expect(r.libelleMoment("dej", "2026-11-01", now)).toBe("Dimanche 1 · Déjeuner");
     expect(r.libelleMoment("petitDej", "2026-10-31", now)).toBe("Samedi 31 · Petit-déjeuner");
+  });
+});
+
+describe("titreRepas (titre du mode recette, menu et tableau)", () => {
+  it("« Dîner · mardi 27 octobre », comme le menu de la semaine", () => {
+    expect(r.titreRepas("diner", "2026-10-27")).toBe("Dîner · mardi 27 octobre");
+    expect(r.titreRepas("petitDej", "2026-11-01")).toBe("Petit-déj · dimanche 1 novembre");
+    expect(r.titreRepas("dej", "n'importe")).toBe("Déjeuner · ");
   });
 });
 

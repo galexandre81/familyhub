@@ -159,6 +159,31 @@
     return out;
   }
 
+  /* Rangée « Commencer » : au plus `max` pastilles (3), puis une pastille
+     « +N » pour le reste (personnes au-delà + invités). Largeur utile de la
+     rangée : colonne gauche (960 − 22) × 1,6 / 2,6 ≈ 577 px − bordures 6 −
+     marges internes 48 ≈ 523 px. Pastille = 60 + 10 de marge = 70 px.
+     Pire cas, ex. 5 profils + 2 invités : 3 pastilles + « +4 » = 4 × 70 =
+     280 px, + 10 de marge du bouton, + bouton min 180 px = 470 ≤ 523 px. */
+  function pastillesAffichees(pastilles, invites, max) {
+    var liste = pastilles || [];
+    var limite = max == null ? 3 : max;
+    var montrees = liste.slice(0, limite);
+    var reste = (liste.length - montrees.length) + Math.max(0, +invites || 0);
+    return { pastilles: montrees, reste: reste };
+  }
+
+  /* Taille du plat d'après sa longueur (estimation : Bricolage 800 ≈ 0,55 em
+     par caractère, zone de 523 px) : ≤ 18 caractères à 52 px sur une ligne ;
+     19 à 22 à 42 px sur une ligne ; au-delà, 42 px sur 2 lignes et la ligne
+     des accompagnements est masquée (plutôt que coupée à moitié). */
+  var PLAT_COURT = 18;
+  var PLAT_UNE_LIGNE = 22;
+  function formatPlat(plat) {
+    var n = String(plat == null ? '' : plat).length;
+    return { long: n > PLAT_COURT, deuxLignes: n > PLAT_UNE_LIGNE };
+  }
+
   function nomsDuSlot(slot) {
     var noms = slot.recetteNoms || [];
     var propres = [];
@@ -190,12 +215,10 @@
       : (slot.profilsPresents ? slot.profilsPresents.length : 0);
     var nbInvites = +slot.invitesCount || 0;
     var total = nbProfils + nbInvites;
-    var presence = '';
-    if (pastilles.length > 0) {
-      if (nbInvites > 0) presence = '+ ' + pluriel(nbInvites, 'invité');
-    } else if (total > 0) {
-      presence = pluriel(total, 'personne');
-    }
+    /* Pastilles connues : invités dans la pastille « +N ». Ancien snapshot
+       sans présents : un simple « N personnes ». */
+    var affichees = pastilles.length > 0 ? pastillesAffichees(pastilles, nbInvites, 3) : { pastilles: [], reste: 0 };
+    var presence = pastilles.length === 0 && total > 0 ? pluriel(total, 'personne') : '';
     var ids = (slot.recetteIds || []).slice();
     var nomsParId = {};
     var bruts = slot.recetteNoms || [];
@@ -204,17 +227,24 @@
     }
     var moment = R.libelleMoment(slot.repas, slot.date, now, heures);
     var cleP = [];
-    for (var k = 0; k < pastilles.length; k++) {
-      cleP.push(pastilles[k].initiale + '/' + (pastilles[k].classe || pastilles[k].couleur || ''));
+    for (var k = 0; k < affichees.pastilles.length; k++) {
+      var pk = affichees.pastilles[k];
+      cleP.push(pk.initiale + '/' + (pk.classe || pk.couleur || ''));
     }
+    cleP.push('+' + affichees.reste);
+    var plat = noms[0] || 'Repas prévu';
+    var fmt = formatPlat(plat);
     var prochain = {
       moment: moment,
       dans: R.libelleDans(minutes),
       barre: R.remplissageBarre(minutes),
-      plat: noms[0] || 'Repas prévu',
-      accompagnements: noms.slice(1).join(' · '),
-      pastilles: pastilles,
+      plat: plat,
+      platLong: fmt.long,
+      accompagnements: fmt.deuxLignes ? '' : noms.slice(1).join(' · '),
+      pastilles: affichees.pastilles,
+      reste: affichees.reste,
       presence: presence,
+      titre: typeof R.titreRepas === 'function' ? R.titreRepas(slot.repas, slot.date) : moment,
       portions: total > 0 ? total : undefined,
       recetteIds: ids,
       noms: nomsParId,
@@ -451,7 +481,7 @@
       if (!p || !mr || !p.recetteIds.length) return;
       var rt = sources()['recipe-today'];
       if (rt && rt.data && rt.data.recettes && mr.memoriserListe) mr.memoriserListe(rt.data.recettes);
-      mr.ouvrir({ recetteIds: p.recetteIds, titre: p.moment, portions: p.portions, noms: p.noms });
+      mr.ouvrir({ recetteIds: p.recetteIds, titre: p.titre, portions: p.portions, noms: p.noms });
     }
 
     function rendreRepasMessage(titre, message) {
@@ -482,7 +512,7 @@
       corps.appendChild(barre);
 
       var textes = el('div', 'tab-repas-textes');
-      textes.appendChild(el('div', 'tab-repas-plat fh-titre fh-texte' + (p.plat.length > 22 ? ' tab-repas-plat-long' : ''),
+      textes.appendChild(el('div', 'tab-repas-plat fh-titre fh-texte' + (p.platLong ? ' tab-repas-plat-long' : ''),
         echapper(p.plat)));
       if (p.accompagnements) textes.appendChild(el('div', 'tab-repas-acc fh-texte-doux', echapper(p.accompagnements)));
       corps.appendChild(textes);
@@ -495,6 +525,10 @@
         if (ps.couleur) pill.style.backgroundColor = ps.couleur;
         if (ps.nom) pill.setAttribute('title', ps.nom);
         bas.appendChild(pill);
+      }
+      if (p.reste > 0) {
+        bas.appendChild(el('span', 'tab-pastille tab-pastille-reste fh-titre fh-p-texte tab-pastille-neutre',
+          '+' + p.reste));
       }
       if (p.presence) bas.appendChild(el('span', 'tab-presence fh-texte-doux', echapper(p.presence)));
       var go = bouton('tab-commencer-btn fh-action fh-titre', svg(ICONES.commencer, 28) + '<span>Commencer</span>',
@@ -593,6 +627,8 @@
     evenementsSemaine: evenementsSemaine,
     libelleEnsuite: libelleEnsuite,
     pastillesPresents: pastillesPresents,
+    pastillesAffichees: pastillesAffichees,
+    formatPlat: formatPlat,
     resumeRepas: resumeRepas,
     meteoResume: meteoResume,
     monter: monter

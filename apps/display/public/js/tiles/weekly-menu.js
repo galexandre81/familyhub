@@ -433,7 +433,9 @@
       var nbPresents = nbProfils + (+slot.invitesCount || 0);
       global.FamilyHubModeRecette.ouvrir({
         recetteIds: slot.recetteIds,
-        titre: repasLabelLong(slot.repas) + ' · ' + dateLongFr(slot.date),
+        titre: global.FamilyHubRepas && global.FamilyHubRepas.titreRepas
+          ? global.FamilyHubRepas.titreRepas(slot.repas, slot.date)
+          : repasLabelLong(slot.repas) + ' · ' + dateLongFr(slot.date),
         portions: nbPresents > 0 ? nbPresents : undefined,
         noms: nomsParId(slot.recetteIds, slot.recetteNoms)
       });

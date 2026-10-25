@@ -186,13 +186,14 @@ html.amb-nuit .tab-barre-plein { background: #FFB547; }
   margin-right: 10px;
 }
 .tab-pastille-neutre { background: #55665A; }
+.tab-pastille-reste { font-size: 24px; }
 html.amb-nuit .tab-pastille-neutre { background: #A8B6C8; }
 .tab-presence { font-size: 20px; margin-right: 12px; white-space: nowrap; }
 .tab-commencer-btn {
   -webkit-flex: 1 1 auto;
   flex: 1 1 auto;
   display: block;
-  min-width: 200px;
+  min-width: 180px; /* calcul de la rangée : js/tableau.js, pastillesAffichees */
   height: 80px;
   margin-left: 10px;
   padding: 0 16px;

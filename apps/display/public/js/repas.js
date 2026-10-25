@@ -121,7 +121,22 @@
     return JOURS[jour] + ' ' + j.d + ' · ' + nom;
   }
 
+  /* Titre du mode recette ouvert sur un repas (même texte depuis le menu de
+     la semaine et le tableau) : « Dîner · mardi 27 octobre ». */
+  var NOMS_TITRE = { petitDej: 'Petit-déj', dej: 'Déjeuner', diner: 'Dîner' };
+  var JOURS_MIN = ['dimanche', 'lundi', 'mardi', 'mercredi', 'jeudi', 'vendredi', 'samedi'];
+  var MOIS_MIN = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin', 'juillet',
+    'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+  function titreRepas(repas, dateISO) {
+    var nom = NOMS_TITRE[repas] || repas || 'Repas';
+    var j = parseISO(dateISO || '');
+    if (isNaN(j.y) || isNaN(j.m) || isNaN(j.d)) return nom + ' · ';
+    var d = new Date(j.y, j.m - 1, j.d, 12, 0, 0);
+    return nom + ' · ' + JOURS_MIN[d.getDay()] + ' ' + d.getDate() + ' ' + MOIS_MIN[d.getMonth()];
+  }
+
   var api = {
+    titreRepas: titreRepas,
     heureDuRepas: heureDuRepas,
     prochainsRepas: prochainsRepas,
     minutesAvant: minutesAvant,
