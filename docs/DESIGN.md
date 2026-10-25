@@ -82,7 +82,7 @@ Puis **recharger l'iPad une fois à la main** : l'ancien `core.js` ne surveille 
 
 Les **fonctions d'abord** : c'est le serveur qui écrit dans l'instantané de l'iPad l'indication des repas annulés. Si le nouvel iPad (hébergement) arrivait avant les nouvelles fonctions, il lirait un instantané sans cette indication et pourrait afficher un repas annulé comme prochain repas. Puis les règles, puis l'hébergement ; recharger l'iPad une fois à la main.
 
-Après le déploiement, **une fois dans le hub** : Écrans → l'écran de la cuisine → « Préparer l'écran de cuisine » (ajoute les tuiles qui manquent au tableau).
+Après le déploiement, **une fois dans le hub** : iPad de cuisine → « Préparer l'écran de cuisine » (ajoute les tuiles qui manquent au tableau).
 
 **Vérifications sur l'iPad (iPad mini, iOS 9) :**
 

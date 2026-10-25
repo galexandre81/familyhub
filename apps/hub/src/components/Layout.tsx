@@ -1,5 +1,5 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
-import { BookOpen, ChefHat, Home, MonitorSmartphone, LayoutGrid, Settings, LogOut } from "lucide-react";
+import { BookOpen, ChefHat, Home, Settings, LogOut, Tablet } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useActiveHouseholdId, useHouseholds } from "../lib/queries";
 import { useAmbiance } from "../lib/ambiance";
@@ -13,8 +13,7 @@ const navItems = [
   { to: "/", icon: Home, label: "Accueil", end: true },
   { to: "/menu", icon: ChefHat, label: "Menu" },
   { to: "/livre-recettes", icon: BookOpen, label: "Recettes" },
-  { to: "/displays", icon: MonitorSmartphone, label: "Écrans" },
-  { to: "/tiles", icon: LayoutGrid, label: "Tuiles" },
+  { to: "/ipad", icon: Tablet, label: "iPad de cuisine" },
   { to: "/parametres", icon: Settings, label: "Paramètres" },
 ];
 

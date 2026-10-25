@@ -113,11 +113,8 @@ export default function Dashboard() {
                     {h.membres.length} membre{h.membres.length > 1 ? "s" : ""}
                   </p>
                   <div className="mt-6 flex gap-2">
-                    <Link to="/displays" className="btn-secondary">
-                      Écrans
-                    </Link>
-                    <Link to="/tiles" className="btn-secondary">
-                      Tuiles
+                    <Link to="/ipad" className="btn-secondary">
+                      iPad de cuisine
                     </Link>
                   </div>
                 </li>
