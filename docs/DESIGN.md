@@ -64,3 +64,15 @@ Pourquoi : sur cette branche, le hub écrit `roles: { [uid]: "parent" }` en cré
 Puis **recharger l'iPad une fois à la main** : l'ancien `core.js` ne surveille pas `version.json`, il ne se rechargera donc pas tout seul pour ce déploiement-ci. Les déploiements suivants le rechargeront automatiquement (vérification toutes les 10 minutes).
 
 `npm run deploy` (un seul `firebase deploy`) publie aussi les règles avant l'hébergement ; il convient donc, mais la séquence ci-dessus (fonctions → règles → hébergement) reste celle à suivre. Entre l'étape 2 et l'étape 3, un ancien iPad qui tenterait encore d'écrire un thème est simplement refusé par les règles, sans casser l'écran.
+
+**Liste de courses (Plan 3) — après le déploiement, avant d'aller faire les courses :**
+
+- [ ] Sur **chaque téléphone**, ouvrir une fois l'onglet Courses **avec du réseau** (ou ré-importer le plan en cours). Une liste créée avant ce lot est à l'ancien format : tant qu'elle n'a pas été ouverte en ligne, elle ne peut pas être cochée hors ligne (bandeau « Cette liste doit être ouverte une fois avec du réseau avant de pouvoir être cochée. »).
+- [ ] Déployer **en même temps** le Plan 4 (tuile courses de l'iPad) : l'iPad lit le nouveau format de liste.
+
+**Vérifications à la main (courses) :**
+
+- [ ] Ré-import d'une liste à l'ancien format : les articles, le tri et les coches sont repris, la liste passe au nouveau format.
+- [ ] Deux téléphones en mode avion cochent chacun des articles, puis se reconnectent : toutes les coches arrivent, aucune n'est écrasée.
+- [ ] Un oubli ajouté à la main et non acheté est reporté dans la liste du plan suivant.
+- [ ] Plan 4 déployé avec ce lot : la tuile courses de l'iPad affiche la liste.

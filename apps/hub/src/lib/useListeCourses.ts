@@ -39,7 +39,13 @@ import {
   updateDoc,
   where,
 } from "firebase/firestore";
-import type { ArticleCourses, DestinationArticle, ShoppingList } from "@family-hub/types";
+import {
+  estProduitPlacard,
+  PLACARD_DEFAUT,
+  type ArticleCourses,
+  type DestinationArticle,
+  type ShoppingList,
+} from "@family-hub/types";
 import { db } from "./firebase";
 import { useAuth } from "./auth";
 import { toast } from "../components/Toast";
@@ -48,7 +54,9 @@ import {
   doitMigrer,
   migrerArticles,
   patchCoche,
+  patchTri,
   prochainOrdre,
+  statutPlacard,
   type ArticleAvecId,
 } from "./listeCourses";
 
@@ -58,28 +66,32 @@ export interface ListeCoursesApi {
   liste?: ListeCoursesAvecId;
   articles: ArticleAvecId[];
   chargement: boolean;
+  /**
+   * Liste encore à l'ancien format (tableau) : lecture seule tant qu'elle
+   * n'a pas été ouverte une fois avec du réseau (la migration est en ligne).
+   */
+  enAttenteDeMigration: boolean;
   trier(id: string, destination: DestinationArticle): void;
   cocher(id: string, coche: boolean): void;
   ajouterOubli(nom: string): void;
   supprimer(id: string): void;
   /**
-   * Article « placard » : drapeau stocké OU nom reconnu par la liste du foyer
-   * (calculé à la lecture, pour les listes déjà migrées). À passer à `vueTri`.
+   * Article « placard » (`statutPlacard`) : liste du foyer si personnalisée,
+   * sinon drapeau stocké OU liste par défaut. À passer à `vueTri`.
    */
   estPlacardArticle(article: ArticleCourses): boolean;
 }
 
 export interface ListeCoursesOptions {
   /**
-   * Produit de placard (selon la liste du foyer) ? Utilisé à la migration et
-   * à la lecture. Par défaut aucun.
+   * Liste de placard personnalisée du foyer (`parametres.placard`) ; absente =
+   * non personnalisée (liste par défaut + drapeau du modèle).
    */
-  estPlacard?: (nom: string) => boolean;
+  placardFoyer?: string[];
 }
 
 /** Une transaction est limitée à 500 écritures : au-delà on ne migre pas (irréaliste). */
 const MAX_ARTICLES_MIGRATION = 450;
-const AUCUN_PLACARD = () => false;
 
 function signalerErreur(err: unknown, message: string): void {
   const code = (err as { code?: string } | null)?.code;
@@ -89,9 +101,13 @@ function signalerErreur(err: unknown, message: string): void {
   toast(message, { type: "error" });
 }
 
+/** Affiché (bandeau + toast) tant que la liste est à l'ancien format. */
+export const MESSAGE_MIGRATION =
+  "Cette liste doit être ouverte une fois avec du réseau avant de pouvoir être cochée.";
+
 /** Action refusée tant que la liste n'est pas passée au format 2. */
 function signalerMigrationEnCours(): void {
-  toast("La liste se met à jour : reconnecte-toi un instant, puis réessaie.", { type: "info" });
+  toast(MESSAGE_MIGRATION, { type: "info" });
 }
 
 function colListes(householdId: string) {
@@ -136,8 +152,14 @@ export function useListeCourses(
   const { user } = useAuth();
   const uid = user?.uid;
 
-  const estPlacardRef = useRef(options.estPlacard ?? AUCUN_PLACARD);
-  estPlacardRef.current = options.estPlacard ?? AUCUN_PLACARD;
+  const placardFoyer = options.placardFoyer;
+  const placardFoyerRef = useRef(placardFoyer);
+  placardFoyerRef.current = placardFoyer;
+  /** Drapeau stocké à la migration : liste du foyer, sinon liste par défaut. */
+  const estPlacardNom = useCallback(
+    (nom: string) => estProduitPlacard(nom, placardFoyerRef.current ?? PLACARD_DEFAUT),
+    [],
+  );
 
   const [liste, setListe] = useState<ListeCoursesAvecId | undefined>(undefined);
   const [listeConfirmee, setListeConfirmee] = useState(false);
@@ -202,22 +224,22 @@ export function useListeCourses(
     if (!householdId || !liste || !aMigrer || !listeConfirmee) return;
     if (migrees.current.has(liste.id)) return;
     migrees.current.add(liste.id);
-    lancerMigration(householdId, liste.id, estPlacardRef.current).catch((err) => {
+    lancerMigration(householdId, liste.id, estPlacardNom).catch((err) => {
       migrees.current.delete(liste.id);
       signalerErreur(err, "La liste de courses n'a pas pu être mise à jour.");
     });
-  }, [householdId, liste, aMigrer, listeConfirmee]);
+  }, [householdId, liste, aMigrer, listeConfirmee, estPlacardNom]);
 
   // Avant migration : articles lus dans l'ancien tableau (affichage seul).
   const articles = useMemo<ArticleAvecId[]>(() => {
     if (aMigrer && liste) {
-      return migrerArticles(liste.items ?? [], estPlacardRef.current).map(({ id, data }) => ({
+      return migrerArticles(liste.items ?? [], estPlacardNom).map(({ id, data }) => ({
         id,
         ...data,
       }));
     }
     return docsArticles;
-  }, [aMigrer, liste, docsArticles]);
+  }, [aMigrer, liste, docsArticles, estPlacardNom]);
 
   const chargement = !listeChargee || (!!liste && !aMigrer && !articlesCharges);
 
@@ -238,11 +260,12 @@ export function useListeCourses(
     (id: string, destination: DestinationArticle) => {
       const ref = refArticle(id);
       if (!ref) return;
-      updateDoc(ref, { destination }).catch((err) =>
-        signalerErreur(err, "Le tri n'a pas pu être enregistré."),
-      );
+      // Une seule écriture : destination + coche remise à zéro si elle change.
+      const patch = patchTri(docsArticles.find((a) => a.id === id)?.destination, destination);
+      if (!patch) return;
+      updateDoc(ref, patch).catch((err) => signalerErreur(err, "Le tri n'a pas pu être enregistré."));
     },
-    [refArticle],
+    [refArticle, docsArticles],
   );
 
   const cocher = useCallback(
@@ -287,9 +310,19 @@ export function useListeCourses(
   );
 
   const estPlacardArticle = useCallback(
-    (article: ArticleCourses) => article.placard === true || estPlacardRef.current(article.nom),
-    [],
+    (article: ArticleCourses) => statutPlacard(article, placardFoyer),
+    [placardFoyer],
   );
 
-  return { liste, articles, chargement, trier, cocher, ajouterOubli, supprimer, estPlacardArticle };
+  return {
+    liste,
+    articles,
+    chargement,
+    enAttenteDeMigration: aMigrer,
+    trier,
+    cocher,
+    ajouterOubli,
+    supprimer,
+    estPlacardArticle,
+  };
 }

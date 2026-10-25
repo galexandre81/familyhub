@@ -11,8 +11,10 @@ import {
   grouperParRayon,
   migrerArticles,
   patchCoche,
+  patchTri,
   prochainOrdre,
   rayonCanonique,
+  statutPlacard,
   vueDrive,
   vueMagasin,
   vueTri,
@@ -197,11 +199,18 @@ describe("vues", () => {
     expect(v.tries.map((a) => a.id)).toEqual(["lait", "poivre", "pain"]);
   });
 
-  it("vueTri : un article est « placard » si son drapeau est vrai OU si le prédicat le dit", () => {
+  it("vueTri : le prédicat fait autorité (le drapeau stocké n'est pas ajouté)", () => {
     const liste = [art("farine", { ordre: 0 }), art("poireau", { ordre: 1 }), art("sel", { placard: true, ordre: 2 })];
     const v = vueTri(liste, (a) => a.nom === "farine");
-    expect(v.placard.map((a) => a.id)).toEqual(["farine", "sel"]);
-    expect(v.aTrier.map((a) => a.id)).toEqual(["poireau"]);
+    expect(v.placard.map((a) => a.id)).toEqual(["farine"]);
+    expect(v.aTrier.map((a) => a.id)).toEqual(["poireau", "sel"]);
+  });
+
+  it("vueTri : liste du foyer personnalisée sans « sel » → « sel » importé placard n'est plus à vérifier", () => {
+    const liste = [art("Sel fin", { placard: true, ordre: 0 }), art("Safran", { ordre: 1 })];
+    const v = vueTri(liste, (a) => statutPlacard(a, ["safran"]));
+    expect(v.placard.map((a) => a.id)).toEqual(["Safran"]);
+    expect(v.aTrier.map((a) => a.id)).toEqual(["Sel fin"]);
   });
 
   it("vueMagasin : magasin + non triés, jamais « déjà » ni drive", () => {
@@ -446,5 +455,43 @@ describe("oublisAReporter", () => {
       art("o2", { nom: "piles", ajoutManuel: true }),
     ]);
     expect(r).toHaveLength(1);
+  });
+});
+
+describe("statutPlacard (arbitrage 7)", () => {
+  it("liste du foyer personnalisée : elle fait autorité, le drapeau du modèle est ignoré", () => {
+    // Produit retiré de la liste personnalisée : plus « placard », même marqué à l'import.
+    expect(statutPlacard({ nom: "Sel fin", placard: true }, ["poivre"])).toBe(false);
+    expect(statutPlacard({ nom: "Poivre noir", placard: false }, ["poivre"])).toBe(true);
+    // Liste personnalisée vide : rien n'est placard.
+    expect(statutPlacard({ nom: "Sel", placard: true }, [])).toBe(false);
+  });
+
+  it("liste non personnalisée : drapeau du modèle OU liste par défaut", () => {
+    expect(statutPlacard({ nom: "Safran", placard: true })).toBe(true);
+    expect(statutPlacard({ nom: "Sel fin", placard: false })).toBe(true);
+    expect(statutPlacard({ nom: "Tomates", placard: false })).toBe(false);
+    expect(statutPlacard({ nom: "Tomates" } as { nom: string; placard: boolean })).toBe(false);
+  });
+});
+
+describe("patchTri", () => {
+  it("destination qui change : une seule écriture, coche remise à zéro", () => {
+    expect(patchTri("drive", "magasin")).toEqual({
+      destination: "magasin",
+      checked: false,
+      checkedBy: null,
+      checkedAt: null,
+    });
+    expect(patchTri(undefined, "deja")).toEqual({
+      destination: "deja",
+      checked: false,
+      checkedBy: null,
+      checkedAt: null,
+    });
+  });
+
+  it("même destination : rien à écrire (la coche n'est pas effacée)", () => {
+    expect(patchTri("magasin", "magasin")).toBeNull();
   });
 });

@@ -1,4 +1,4 @@
-import { useCallback, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Link } from "react-router-dom";
 import {
   Archive,
@@ -16,7 +16,6 @@ import {
   ShoppingCart,
   Trash2,
 } from "lucide-react";
-import { estProduitPlacard, PLACARD_DEFAUT } from "@family-hub/types";
 import { useAuth } from "../lib/auth";
 import {
   useActiveHouseholdId,
@@ -68,9 +67,7 @@ export default function Menu() {
   const { data: batchSessions } = usePlanBatchSessions(householdId, currentPlan?.id);
   const { data: households } = useHouseholds(user?.uid);
   const parametresFoyer = households?.find((h) => h.id === householdId)?.parametres;
-  const placardFoyer = parametresFoyer?.placard ?? PLACARD_DEFAUT;
-  const estPlacard = useCallback((nom: string) => estProduitPlacard(nom, placardFoyer), [placardFoyer]);
-  const courses = useListeCourses(householdId, currentPlan?.id, { estPlacard });
+  const courses = useListeCourses(householdId, currentPlan?.id, { placardFoyer: parametresFoyer?.placard });
   const estTelephone = useEstTelephone();
   const deletePlan = useDeleteMealPlan();
 

@@ -111,6 +111,34 @@ export function patchCoche<H>(
   };
 }
 
+/**
+ * Champs à écrire pour trier un article. Si la destination change, la coche
+ * est remise à zéro (coché dans le chariot du drive puis envoyé au magasin :
+ * il ne doit pas y apparaître coché). Même destination : rien à écrire (null).
+ */
+export function patchTri<D extends string>(
+  actuelle: D | undefined,
+  nouvelle: D,
+): { destination: D; checked: false; checkedBy: null; checkedAt: null } | null {
+  if (actuelle === nouvelle) return null;
+  return { destination: nouvelle, checked: false, checkedBy: null, checkedAt: null };
+}
+
+/**
+ * Statut « placard » d'un article (arbitrage 7).
+ * - Le foyer a personnalisé sa liste (`placardFoyer` défini) : elle fait
+ *   autorité, le drapeau stocké à l'import est ignoré (un produit retiré de la
+ *   liste n'est plus « placard »).
+ * - Sinon : drapeau stocké (posé par le modèle) OU liste par défaut.
+ */
+export function statutPlacard(
+  article: Pick<ArticleCourses, "nom" | "placard">,
+  placardFoyer?: string[],
+): boolean {
+  if (placardFoyer) return estProduitPlacard(article.nom, placardFoyer);
+  return article.placard === true || estProduitPlacard(article.nom, PLACARD_DEFAUT);
+}
+
 const parOrdre = (a: ArticleAvecId, b: ArticleAvecId) => a.ordre - b.ordre;
 
 export interface GroupeRayon<T extends ArticleAvecId = ArticleAvecId> {
@@ -150,11 +178,11 @@ export function grouperParRayon<T extends ArticleAvecId>(articles: T[]): GroupeR
  */
 export function vueTri<T extends ArticleAvecId>(
   articles: T[],
-  /** Statut « placard » calculé à la lecture (liste du foyer) ; s'ajoute au drapeau stocké. */
-  estPlacard: (article: T) => boolean = () => false,
+  /** Statut « placard » (par défaut `statutPlacard` sans liste du foyer) ; fait autorité. */
+  estPlacard: (article: T) => boolean = (a) => statutPlacard(a),
 ): { placard: T[]; aTrier: T[]; tries: T[] } {
   const tries = [...articles].sort(parOrdre);
-  const placard = (a: T) => a.placard || estPlacard(a);
+  const placard = estPlacard;
   return {
     placard: tries.filter((a) => a.destination === "a-trier" && placard(a)),
     aTrier: tries.filter((a) => a.destination === "a-trier" && !placard(a)),

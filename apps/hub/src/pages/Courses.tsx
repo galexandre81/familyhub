@@ -7,12 +7,11 @@
  * les envoie au retour du réseau. Un oubli s'ajoute en bas de l'écran.
  */
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { ListChecks, Plus, Share2, ShoppingCart, Store, WifiOff } from "lucide-react";
+import { ListChecks, Plus, Share2, ShoppingCart, Store, Wifi, WifiOff } from "lucide-react";
 import clsx from "clsx";
-import { estProduitPlacard, PLACARD_DEFAUT } from "@family-hub/types";
 import { useAuth } from "../lib/auth";
 import { useActiveHouseholdId, useActivePlan, useHouseholds, useProfils } from "../lib/queries";
-import { useListeCourses } from "../lib/useListeCourses";
+import { MESSAGE_MIGRATION, useListeCourses } from "../lib/useListeCourses";
 import { couleurDuProfil } from "../lib/personnes";
 import { dateDuTimestamp } from "../lib/semaine";
 import {
@@ -95,13 +94,17 @@ export default function Courses() {
   const estTelephone = useEstTelephone();
   const enLigne = useEnLigne();
 
-  const placardFoyer = household?.parametres?.placard ?? PLACARD_DEFAUT;
-  const estPlacard = useCallback((nom: string) => estProduitPlacard(nom, placardFoyer), [placardFoyer]);
-  const { liste, articles, chargement, trier, cocher, ajouterOubli, supprimer, estPlacardArticle } = useListeCourses(
-    householdId,
-    plan?.id,
-    { estPlacard },
-  );
+  const {
+    liste,
+    articles,
+    chargement,
+    enAttenteDeMigration,
+    trier,
+    cocher,
+    ajouterOubli,
+    supprimer,
+    estPlacardArticle,
+  } = useListeCourses(householdId, plan?.id, { placardFoyer: household?.parametres?.placard });
 
   const [modeChoisi, setModeChoisi] = useState<ModeCourses | undefined>(lireMode);
   /*
@@ -180,6 +183,16 @@ export default function Courses() {
           </p>
         )}
       </header>
+
+      {enAttenteDeMigration && (
+        <p
+          role="status"
+          className="flex items-start gap-2 rounded-xl border border-brass/60 bg-ebony-card px-4 py-3 text-base text-cream"
+        >
+          <Wifi size={20} className="shrink-0 mt-0.5 text-brass" aria-hidden="true" />
+          {MESSAGE_MIGRATION}
+        </p>
+      )}
 
       <div role="group" aria-label="Mode" className="grid grid-cols-2 gap-2">
         {(
