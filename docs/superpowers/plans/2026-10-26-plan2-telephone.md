@@ -2,13 +2,13 @@
 
 > **For agentic workers:** REQUIRED SUB-SKILL: Use superpowers:subagent-driven-development (recommended) or superpowers:executing-plans to implement this plan task-by-task. Steps use checkbox (`- [ ]`) syntax for tracking.
 
-**Goal:** Faire du hub une application de téléphone installable, utilisable hors ligne et partagée entre Alex et Marie : Aujourd'hui, Semaine, Recettes, mode recette avec minuteurs partagés. L'onglet Courses est réservé ici et construit au plan 3.
+**Goal:** Faire du hub une application de téléphone installable, utilisable hors ligne et partagée entre les deux parents : Aujourd'hui, Semaine, Recettes, mode recette avec minuteurs partagés. L'onglet Courses est réservé ici et construit au plan 3.
 
-**Architecture:** Le hub React détecte un écran étroit et affiche une coque téléphone (onglets en bas) au lieu de la navigation PC. Firestore garde ses données en local (persistance IndexedDB), un service worker met l'application en cache. Marie rejoint le foyer par une invitation traitée par des Cloud Functions (les règles interdisent aux clients de toucher `membres`). Chaque personne relie son compte à son profil (« C'est moi »), ce qui donne sa couleur.
+**Architecture:** Le hub React détecte un écran étroit et affiche une coque téléphone (onglets en bas) au lieu de la navigation PC. Firestore garde ses données en local (persistance IndexedDB), un service worker met l'application en cache. L'autre parent rejoint le foyer par une invitation traitée par des Cloud Functions (les règles interdisent aux clients de toucher `membres`). Chaque personne relie son compte à son profil (« C'est moi »), ce qui donne sa couleur.
 
 **Tech Stack:** React 18, React Router 6, React Query 5, Firebase JS 11 (Firestore `persistentLocalCache`), `vite-plugin-pwa` (Workbox), Cloud Functions v2, règles Firestore, Vitest.
 
-**Spec:** `docs/superpowers/specs/2026-10-25-refonte-ipad-mobile-design.md` (§3, §5, §8 bis « Accès de Marie », « Téléphone : installation… », « Minuteurs », §12).
+**Spec:** `docs/superpowers/specs/2026-10-25-refonte-ipad-mobile-design.md` (§3, §5, §8 bis « Accès de l'autre parent », « Téléphone : installation… », « Minuteurs », §12).
 
 ## Global Constraints
 
@@ -17,7 +17,7 @@
 - Apparence : jetons du design system uniquement (classes Tailwind existantes reliées aux variables `--c-*`, couleurs de personnes `--c-p-*`) ; cibles tactiles ≥ 48 px sur téléphone ; texte ≥ 15 px ; « une seule chose en jaune (`--c-maintenant`) par écran : la prochaine » ; toujours icône + mot ; 2 lignes max, le reste replié.
 - Téléphone = largeur < 768 px (`(max-width: 767px)`). Les pages PC ne deviennent pas responsive : sur téléphone, seules les pages de ce plan existent, les autres affichent « Disponible sur ordinateur ».
 - Le service worker ne contrôle **jamais** `/display/` ni `/d/`.
-- Heures des repas (réponse de Alex) : petit-déjeuner 07:00 en semaine, 08:00 le week-end ; déjeuner 12:15 ; dîner 19:00. Un repas reste « le prochain » jusqu'à 1 h après son heure.
+- Heures des repas (réponse du propriétaire) : petit-déjeuner 07:00 en semaine, 08:00 le week-end ; déjeuner 12:15 ; dîner 19:00. Un repas reste « le prochain » jusqu'à 1 h après son heure.
 - Minuteur téléphone : sonne seulement quand l'application est ouverte ; pas de notifications push.
 - Textes visibles en français, tutoiement. Aucun déploiement dans ce plan.
 - Commits : trailer `Co-Authored-By: Claude Opus 5.5 (1M context) <noreply@anthropic.com>`.
@@ -25,7 +25,7 @@
 ## Review Focus
 
 - Téléphone sans réseau au lancement : l'application s'ouvre et affiche les données déjà vues (cache SW + Firestore) — vérifié par la config du SW (navigateFallback) et la persistance activée ; test de la fonction de config.
-- Marie ouvre le lien d'invitation alors qu'elle n'est pas connectée : après connexion Google, elle rejoint le foyer **sans** passer par « Créer mon foyer » — test du stockage/lecture du code en attente.
+- L'autre parent ouvre le lien d'invitation sans être connecté : après connexion Google, il rejoint le foyer **sans** passer par « Créer mon foyer » — test du stockage/lecture du code en attente.
 - Invitation expirée, déjà utilisée, ou ouverte par quelqu'un déjà membre : message clair, aucune écriture — tests de la fonction pure de validation.
 - Repas à plusieurs recettes, recette supprimée entre-temps : le mode recette affiche les recettes présentes et signale celle qui manque — test de l'assemblage.
 - Minuteur terminé pendant que deux appareils sont ouverts : un seul passage à « terminé », pas d'erreur si le document a déjà été modifié ou supprimé — test de `tempsRestantMs` / `estTermine` et écriture idempotente.
@@ -41,7 +41,7 @@
 - Create: `scripts/generate-hub-icons.mjs` (réutilise l'encodeur PNG de `scripts/generate-display-icon.mjs` — extraire l'encodeur commun dans `scripts/lib/png.mjs`) → `apps/hub/public/icons/icon-192.png`, `icon-512.png`, `apple-touch-icon.png` (180)
 - Modify: `apps/hub/index.html` (`<link rel="apple-touch-icon">`, `<meta name="apple-mobile-web-app-capable" content="yes">`)
 - Modify: `apps/hub/src/lib/auth.tsx` (connexion par redirection quand l'app est installée)
-- Modify: `docs/DESIGN.md` (section « Téléphone » : `VITE_FIREBASE_AUTH_DOMAIN` = domaine du site, ajout de l'URI de redirection `https://<site>/__/auth/handler` dans la console Google Cloud, à faire par Alex)
+- Modify: `docs/DESIGN.md` (section « Téléphone » : `VITE_FIREBASE_AUTH_DOMAIN` = domaine du site, ajout de l'URI de redirection `https://<site>/__/auth/handler` dans la console Google Cloud, à faire par le propriétaire)
 
 **Interfaces:**
 - Produces: `pwaOptions: Partial<VitePWAOptions>` — `registerType: "autoUpdate"`, manifest `{ name: "Family Hub", short_name: "Family Hub", lang: "fr", start_url: "/", display: "standalone", background_color: "#EEF4EA", theme_color: "#EEF4EA", icons: [192, 512 (purpose any maskable)] }`, workbox `{ navigateFallback: "/index.html", navigateFallbackDenylist: [/^\/display/, /^\/d\//, /^\/__/], globPatterns: ["**/*.{js,css,html,woff,woff2,png,svg}"], globIgnores: ["display/**"] }`.
@@ -51,7 +51,7 @@
 - [ ] **Step 2:** FAIL. **Step 3:** implémenter (connexion : `signInWithRedirect` si `doitUtiliserRedirection(window.matchMedia("(display-mode: standalone)").matches, navigator.userAgent)`, sinon popup ; `getRedirectResult` au démarrage pour créer le doc user comme aujourd'hui). **Step 4:** tests PASS, `npm run build` OK, `apps/hub/dist/sw.js` et `manifest.webmanifest` présents, `dist/display/` absent du précache (grep dans `sw.js`).
 - [ ] **Step 5: Commit** `feat(hub): application installable et utilisable hors ligne`
 
-### Task 2: Rôles, invitations et arrivée de Marie
+### Task 2: Rôles, invitations et arrivée de l'autre parent
 
 **Files:**
 - Create: `functions/src/household/invitations.ts` (+ export dans `functions/src/index.ts`), `functions/src/household/invitationRules.ts` (logique pure) + test `invitationRules.test.ts`
@@ -71,7 +71,7 @@
 
 - [ ] **Step 1: Tests** — `validerInvitation` (4 refus + succès ; `expiresAt` exactement égal à now = expirée) ; `invitationEnAttente` (aller-retour, stockage indisponible → `null` sans exception) ; règles : un membre ne peut pas modifier `roles`, un client ne lit ni n'écrit `invitations`, création de foyer avec `roles` = `{moi: parent}` OK et `{autre: parent}` refusée.
 - [ ] **Step 2:** FAIL. **Step 3:** implémenter. **Step 4:** tests hub + functions PASS, lint functions, build OK.
-- [ ] **Step 5: Commit** `feat: invitation d'un membre du foyer (Marie) et rôles`
+- [ ] **Step 5: Commit** `feat: invitation d'un membre du foyer (l'autre parent) et rôles`
 
 ### Task 3: « C'est moi » et couleurs de personnes
 
@@ -141,7 +141,7 @@
 **Interfaces:**
 - Consumes: `prochainsRepas`, `minutesAvant`, `libelleDans`, `heureDuRepas` (tâche 4), `estParent` / `couleurDuProfil` (tâche 3), `useActivePlan`, `usePlanSlots`, `usePlanRecettes`, `usePlanBatchSessions`.
 - Produces: `useEstTelephone(): boolean` (`matchMedia("(max-width: 767px)")`, à jour au redimensionnement) ; `resumeAujourdhui(slots, recettes, batchSessions, now, heures): { prochain?: {…}; autresDuJour: […]; batchDuJour?: BatchSession }`.
-- Page Aujourd'hui : deux cartes **de même taille, moyennes** côte à côte si la largeur le permet, sinon l'une sous l'autre à hauteur égale : (1) **Prochain repas** — en-tête jaune `--c-maintenant` « Dîner · 19:00 » + « dans 1 h 30 », barre de temps qui se vide (référence : 3 h avant le repas = barre pleine), plat principal + accompagnements (2 lignes max), pastilles des présents, bouton « Cuisiner » → `menu/:planId/:slotId/cuisine` ; (2) **PC d'Léo** — visible seulement si `estParent`, contenu « Bientôt : couper ou remettre le wifi du PC d'Léo » ; en dessous : les autres repas du jour (passés effacés : opacité réduite + barré léger), et le batch du jour s'il existe. Pas d'agenda. Sans plan actif : « Pas de menu en cours — il se prépare sur l'ordinateur ».
+- Page Aujourd'hui : deux cartes **de même taille, moyennes** côte à côte si la largeur le permet, sinon l'une sous l'autre à hauteur égale : (1) **Prochain repas** — en-tête jaune `--c-maintenant` « Dîner · 19:00 » + « dans 1 h 30 », barre de temps qui se vide (référence : 3 h avant le repas = barre pleine), plat principal + accompagnements (2 lignes max), pastilles des présents, bouton « Cuisiner » → `menu/:planId/:slotId/cuisine` ; (2) **PC des enfants** — visible seulement si `estParent`, contenu « Bientôt : couper ou remettre le wifi du PC des enfants » ; en dessous : les autres repas du jour (passés effacés : opacité réduite + barré léger), et le batch du jour s'il existe. Pas d'agenda. Sans plan actif : « Pas de menu en cours — il se prépare sur l'ordinateur ».
 
 - [ ] **Step 1: Tests** `resumeAujourdhui` (repas passé effacé, batch du jour, sans plan). **Step 2:** FAIL. **Step 3:** implémenter. **Step 4:** PASS + build. **Step 5: Commit** `feat(hub): coque téléphone et écran Aujourd'hui`
 

@@ -30,17 +30,17 @@
 ## 1.1 Le pitch
 
 **Family Hub**, c'est un assistant familial qui tourne sur :
-- ton **PC** (édition / configuration / wizard plan repas)
-- un ou plusieurs **iPad ou tablettes** (affichage en cuisine, salon, entrée…)
-- les **mobiles** de la famille (liste de courses, recette du jour)
+- ton **PC** (préparation : wizard plan repas, recettes, réglages, écrans)
+- un **iPad ou une tablette en cuisine** (tableau de cuisine : prochain repas, minuteurs, météo, agenda, mode recette)
+- les **téléphones** des parents : une application installable sur l'écran d'accueil, utilisable sans réseau, avec quatre onglets **Aujourd'hui · Semaine · Courses · Recettes**
 
 Il regroupe en un seul système :
 - 🍽️ **Planning des repas hebdomadaire** générés en collaboration avec Claude.ai
 - 📖 **Livre de recettes** familial avec favoris
-- 🛒 **Liste de courses** auto-générée, envoyable vers Google Keep en un tap
+- 🛒 **Liste de courses** auto-générée, triée à la maison (« On l'a » / « Drive » / « Magasin »), cochée en magasin **même sans réseau**, partagée entre les téléphones (chaque coche prend la couleur de la personne)
 - 📅 **Agenda familial** depuis Google Calendar
-- ⏲️ **Minuteurs** de cuisine partagés entre tous les écrans
-- 🌤️ **Météo**, ⏰ **horloge**, 📻 **radio**, etc.
+- ⏲️ **Minuteurs** de cuisine partagés entre l'iPad et les téléphones
+- 🌤️ **Météo**, 📻 **radio**, ambiance **jour / nuit** automatique (lever et coucher du soleil)
 
 ## 1.2 Comment ça marche en pratique : le dimanche soir
 
@@ -58,13 +58,13 @@ Il regroupe en un seul système :
 7. Quand ça te convient, tu lui dis "OK, génère le JSON"
 8. Tu copies le JSON et le colles dans /menu/import
 9. C'est fini : le menu est sur l'iPad cuisine, la liste de courses
-   sur ton mobile, prêt pour la semaine
+   dans l'onglet Courses des téléphones, prêt pour la semaine
 ```
 
 Pendant la semaine :
-- L'iPad cuisine affiche **automatiquement la recette du moment** (le matin → petit-déj, midi → déjeuner, soir → dîner)
-- En tapant la recette, tu passes en **mode cuisine** plein écran avec timers intégrés sur les étapes
-- Tu peux **cocher la liste de courses** dans Google Keep en faisant les courses
+- L'iPad cuisine affiche **le prochain repas** (« Dîner · 19:00 », « dans 1 h 30 ») d'après les heures des repas réglées dans le hub
+- En touchant « Commencer », tu passes en **mode recette** : toutes les étapes d'un coup, les ingrédients et le minuteur à droite
+- À la maison, tu **tries la liste de courses** sur ton téléphone ; en magasin, tu **coches** dans l'onglet Courses, même sans réseau : tout se synchronise au retour du réseau
 - Si tu as commandé des pizzas un soir, tu **marques le slot comme annulé** en un tap
 
 ## 1.3 Ce que tu vas obtenir
@@ -148,11 +148,13 @@ Le projet est un **monorepo**, c'est-à-dire un seul dépôt GitHub qui contient
 ```
 family hub/
 ├── apps/
-│   ├── hub/         ← le site web pour PC + mobile (React, moderne)
+│   ├── hub/         ← le site web pour PC + l'application des téléphones
+│   │                   (React, installable, utilisable hors ligne)
 │   └── display/     ← le site pour iPad mini cuisine (vanilla JS, vieux mais
 │                       compatible avec les iPad mini 1 sous iOS 9 !)
 ├── functions/       ← les "petits programmes serveur" (Cloud Functions)
 ├── packages/
+│   ├── design/      ← le design system (couleurs jour/nuit, polices)
 │   └── types/       ← des types partagés entre apps/hub et functions
 └── firebase.json    ← configuration Firebase
 ```
@@ -524,9 +526,13 @@ npm install
 
 ## 6.4 Configurer ton projet Firebase dans le code
 
-### Étape 1 : modifier `.firebaserc`
+### Étape 1 : créer `.firebaserc`
 
-Le fichier `.firebaserc` (avec un point devant) dit à Firebase CLI à quel projet déployer.
+Le fichier `.firebaserc` (avec un point devant) dit à Firebase CLI à quel projet déployer. Il est **propre à ton foyer** : il n'est pas dans le dépôt (le fichier `.gitignore` l'exclut), tu le crées à partir du modèle `.firebaserc.example`.
+
+Dans le dossier `family-hub`, **copie** `.firebaserc.example` et nomme la copie `.firebaserc` :
+- Windows (PowerShell) : `Copy-Item .firebaserc.example .firebaserc`
+- Mac / Linux : `cp .firebaserc.example .firebaserc`
 
 Ouvre le dossier `family-hub` dans **VS Code** (si tu l'as installé) ou un éditeur de texte simple :
 - Sur Windows : clic droit sur le dossier → "Ouvrir avec Code" si VS Code est installé, sinon **Notepad++** ou même **Bloc-notes**.
@@ -537,12 +543,12 @@ Dans le fichier `.firebaserc`, tu verras :
 ```json
 {
   "projects": {
-    "default": "<PROJECT_ID>"
+    "default": "<ton-projet-firebase>"
   }
 }
 ```
 
-**Remplace** `<PROJECT_ID>` par **ton** identifiant de projet Firebase (celui de la section 5.2). Sauvegarde.
+**Remplace** `<ton-projet-firebase>` par **ton** identifiant de projet Firebase (celui de la section 5.2). Sauvegarde.
 
 Exemple final :
 
@@ -614,7 +620,7 @@ Vérifie que c'est bien **ton** identifiant de projet qui apparaît à la fin de
 
 > 🚨 **Si tu vois des erreurs rouges** :
 > - Vérifie que `apps/hub/.env.local` contient bien les 6 lignes avec les vraies valeurs. Si l'une manque, le build s'arrête sur « config Firebase incomplète pour l'iPad » en nommant la ligne en cause.
-> - Vérifie que `.firebaserc` contient bien ton projectId.
+> - Vérifie que `.firebaserc` existe (copie de `.firebaserc.example`) et contient bien ton projectId.
 > - Si erreur "Cannot find module" : refais `npm install`.
 > - Section 12 a la liste des erreurs fréquentes.
 
@@ -622,7 +628,7 @@ Vérifie que c'est bien **ton** identifiant de projet qui apparaît à la fin de
 
 - ✅ Code cloné dans `family-hub` sur ton bureau
 - ✅ Dépendances installées (`npm install` réussi)
-- ✅ `.firebaserc` pointe vers ton projet
+- ✅ `.firebaserc` créé (depuis `.firebaserc.example`) et pointe vers ton projet
 - ✅ `apps/hub/.env.local` créé avec ta config web
 - ✅ Compilation réussie (`npm run build`)
 
@@ -769,61 +775,27 @@ Il n'y a rien à choisir : l'interface passe toute seule en ambiance de jour ou 
    - Notes libres (ex: "n'aime pas trop épicé")
 3. **Crée tous les membres présents aux repas**, c'est ce qui guidera Claude.ai pour le menu.
 
-## 8.4 Créer un display (iPad cuisine, mobile, etc.)
+## 8.4 Créer l'écran de cuisine (iPad)
 
-Un "display" est un écran qui affiche les tuiles. Tu peux en avoir plusieurs (iPad cuisine, mobile pour la liste de courses, tablette du salon…).
+Un « écran » est l'appareil de la cuisine (iPad, tablette) qui affiche le **tableau de cuisine**. Les téléphones, eux, ne sont **pas** des écrans : chacun s'y connecte avec son compte Google (voir 8.7).
 
 1. Dans la nav du haut, clique **Écrans**.
 2. Clique **+ Nouvel écran**.
 3. **Nom** : ex `iPad cuisine`
-4. **Type d'appareil** : choisis selon le device cible
-   - `ipad-mini-1` : iPad mini 1ère génération (très vieux, vu chez toi en cuisine)
+4. **Type d'appareil** : choisis selon l'appareil
+   - `ipad-mini-1` : iPad mini 1ère génération (iOS 9, le cas prévu en priorité)
    - `modern-tablet` : iPad récent, autre tablette
-   - `mobile` : téléphone portable
-   - `desktop` : ordinateur, écran mural moderne
-5. **Résolution** : laisse les valeurs par défaut suggérées
-6. **Configuration de la grille** :
-   - 4 colonnes × 3 lignes pour iPad mini cuisine
-   - 2 colonnes × 4 lignes pour mobile
-7. Clique **Créer**.
+5. **Résolution** : laisse les valeurs par défaut suggérées (les autres réglages du formulaire n'ont plus d'effet : la disposition du tableau est fixe).
+6. Clique **Créer**.
 
-## 8.5 Ajouter des tuiles à ce display
+## 8.5 Préparer le tableau de cuisine
 
-Tu viens de créer un display vide. Maintenant tu choisis quelles tuiles afficher.
+Le tableau de l'iPad a une disposition **fixe** (en-tête avec l'heure et la météo, prochain repas, minuteurs, « Ensuite », agenda de la semaine, puis Recettes / Menu de la semaine / Radio / Réglages). Il se remplit à partir de **tuiles** qui servent de sources de données et de réglages (ville de la météo, lien de l'agenda, radios…).
 
-D'abord il faut **créer les tuiles** dans la bibliothèque de tuiles, puis on les place dans le layout du display.
-
-### Créer les tuiles
-
-1. Dans la nav du haut, clique **Tuiles**.
-2. Clique **+ Nouvelle tuile**.
-3. **Type** : choisis dans la liste :
-   - **Horloge** : affiche l'heure
-   - **Météo** : météo de la ville (sélectionne la ville)
-   - **Radio** : lecteur de radios web (avec presets)
-   - **Minuteur** : timers de cuisine partagés
-   - **Calendrier** : agenda Google (optionnel, voir section 10)
-   - **Recette du jour** : recipe-today (recette du repas en cours)
-   - **Menu de la semaine** : weekly-menu (grille 7×3)
-   - **Liste de courses** : shopping-list (avec Web Share Keep)
-   - **Livre de recettes** : livre-recettes (recherche/filtres)
-4. Renseigne nom + paramètres spécifiques au type.
-5. Clique **Créer**.
-
-**Crée les tuiles que tu veux** sur ton display cuisine. Pour démarrer, je conseille :
-- Horloge
-- Météo (ta ville)
-- Recette du jour
-- Menu de la semaine
-- Livre de recettes
-- Minuteur
-
-### Placer les tuiles dans le display
-
-1. Retourne dans **Écrans**, clique sur ton display.
-2. Tu vois une grille vide (4×3 si iPad mini cuisine).
-3. Pour chaque case, clique → choisis la tuile à mettre.
-4. Quand tu es satisfaite, clique **Enregistrer**.
+1. Dans **Écrans**, clique sur ton écran.
+2. La section **Tableau de cuisine** liste les sources nécessaires (météo, agenda, menu de la semaine, recette du jour, minuteur, radio, réglages, livre de recettes), chacune « Présente » ou « Manquante ».
+3. Clique **Préparer l'écran de cuisine** : le hub crée les tuiles qui manquent (avec des réglages par défaut, la météo sur la ville du foyer) et les rattache à l'écran.
+4. Pour ajuster une source (ville météo, radios, agenda), va dans **Tuiles** et ouvre la tuile concernée.
 
 ## 8.6 Pairer ton display physique (l'iPad)
 
@@ -834,7 +806,7 @@ Le display est créé côté serveur, mais l'iPad ne sait pas encore qu'il est c
 3. Une fenêtre s'ouvre avec un **QR code** et un **lien court** (`https://family-hub-TONNOM.web.app/d/XXXXXX`), valables 30 minutes et **utilisables une seule fois**.
 4. **Sur l'iPad lui-même** (pas sur ton téléphone ni ton ordinateur) : scanne le QR code avec l'appareil photo, ou tape le lien court dans Safari.
 5. La page affiche le code et un bouton **Associer cet appareil comme écran** : appuie dessus.
-6. L'iPad se charge, et hop, il affiche maintenant les tuiles configurées.
+6. L'iPad se charge, et hop, il affiche maintenant le tableau de cuisine.
 
 > ⚠️ **Un appareil = un écran : appairer un deuxième appareil sur le même écran déconnecte le premier.** Le premier affiche alors « Écran appairé ailleurs — à reconfigurer ».
 
@@ -842,12 +814,30 @@ Le display est créé côté serveur, mais l'iPad ne sait pas encore qu'il est c
 
 > 💡 **Astuce iPad** : sur l'iPad cuisine, ajoute le site à l'**écran d'accueil** (Safari → Partager → Sur l'écran d'accueil). Ça donne une icône comme une vraie app, sans la barre d'adresse.
 
+## 8.7 Installer l'application sur les téléphones et inviter l'autre parent
+
+Sur un téléphone, le hub s'affiche en **version téléphone** (onglets en bas : **Aujourd'hui · Semaine · Courses · Recettes**). Les pages de préparation (Écrans, Tuiles, Paramètres, import de plan) restent sur l'ordinateur.
+
+1. **Sur ton téléphone**, ouvre `https://family-hub-TONNOM.web.app` et connecte-toi avec ton compte Google.
+2. **Installe-la sur l'écran d'accueil** : Safari → Partager → « Sur l'écran d'accueil » (iPhone), ou menu ⋮ → « Installer l'application » (Android). Elle s'ouvre ensuite comme une vraie app, **même sans réseau** (pratique dans les magasins mal couverts).
+3. Au premier lancement, choisis **« C'est moi »** sur ton profil : tes coches dans la liste de courses prendront ta couleur.
+4. **Inviter l'autre parent** : sur l'ordinateur, **Paramètres → Inviter un parent** crée un lien à usage unique (valable 7 jours). Envoie-le ; la personne l'ouvre sur son téléphone, se connecte avec **son propre** compte Google et rejoint le foyer comme parent (sans passer par « Créer mon foyer »).
+
+> ℹ️ **Connexion depuis l'app installée sur iPhone** : si la connexion Google échoue dans l'app installée, suis les étapes de la section « Téléphone » de [docs/DESIGN.md](./docs/DESIGN.md) (régler `VITE_FIREBASE_AUTH_DOMAIN` sur le domaine du site). Dans Safari, la connexion marche sans ce réglage.
+
+## 8.8 Réglages utiles dans Paramètres
+
+Sur l'ordinateur, **Paramètres** contient aussi :
+- **Heures des repas** (semaine et week-end) : elles servent à « le prochain repas » et au compte à rebours « dans 1 h 30 » sur l'iPad et les téléphones ;
+- **Produits de placard** (sel, poivre, farine…) : ces articles arrivent dans le rayon « Sûrement dans le placard — à vérifier » au lieu d'être effacés ;
+- **Drive** : le site de courses en ligne utilisé par la colonne « Drive » du PC (lien « Chercher sur … » pour chaque article ; par défaut Intermarché).
+
 ## ✅ Récap section 8
 
 - ✅ Foyer créé avec localisation
 - ✅ Profils famille créés
-- ✅ Au moins un display créé avec des tuiles
-- ✅ iPad / mobile pairé sur ce display
+- ✅ Écran de cuisine créé, préparé et appairé sur l'iPad
+- ✅ Application installée sur les téléphones, autre parent invité
 
 ---
 
@@ -924,8 +914,8 @@ Il te répond en générant un **artefact** (un encadré spécial) contenant un 
 ## 9.5 Profiter du résultat
 
 - **Sur le hub web** (`/menu`) : tu vois la grille semaine, le batch cooking proposé, la liste de courses agrégée. Tu peux cliquer sur n'importe quelle recette pour la voir en détail (ingrédients + étapes).
-- **Sur ton iPad cuisine** : la tuile **Recette du jour** affiche maintenant la recette du moment (déjà ce midi par exemple). Tap → mode cuisine plein écran avec timers.
-- **Sur ton mobile** : ouvre `/menu`, descends à **Liste de courses**, clique **Envoyer aux courses**, choisis **Keep**. La liste arrive dans Google Keep.
+- **Sur ton iPad cuisine** : le tableau affiche le **prochain repas**. « Commencer » → mode recette (toutes les étapes, ingrédients et minuteur à droite).
+- **Sur ton téléphone** : l'onglet **Courses** contient la liste du plan. À la maison, mode **Trier** : chaque article part en « On l'a », « Drive » ou « Magasin ». En magasin, mode **Magasin** : coche par rayon, même hors ligne. « Partager la liste » reste disponible en secours (texte à coller où tu veux).
 
 ## ✅ Récap section 9
 
@@ -957,7 +947,7 @@ Dans **Tuiles** sur ton hub :
 2. Colle l'URL dans **Adresse secrète iCal de ton agenda Google**.
 3. Configure le nombre de jours à afficher et le nombre max d'événements.
 4. Enregistre. Une synchronisation se fait tout de suite.
-5. Place la tuile dans le layout d'un display.
+5. Si l'écran de cuisine affiche encore « À configurer dans le hub » pour l'agenda : **Écrans** → ton écran → **Préparer l'écran de cuisine**.
 
 > Le scheduler Firebase rafraîchit l'agenda toutes les 15 minutes automatiquement.
 
@@ -1048,14 +1038,17 @@ Firestore est chez Google donc déjà sauvegardé côté infra. Si tu veux une s
 
 ## 12.3 Sur l'iPad
 
-**"Type inconnu : recipe-today" / "Tuile manquante"**
-→ Cache Safari iPad. Clique sur le bouton **Recharger** dans la cellule. Si ça persiste : **Réglages iPad → Safari → Effacer historique et données**.
+**« À configurer dans le hub » sur un bloc du tableau**
+→ La source de ce bloc manque à l'écran. Dans le hub : **Écrans** → ton écran → **Préparer l'écran de cuisine**.
+
+**L'iPad affiche une ancienne version après une mise à jour**
+→ Il vérifie les nouvelles versions toutes les 10 minutes (et attend qu'aucune recette ne soit ouverte). Si ça persiste : recharge la page à la main, ou **Réglages iPad → Safari → Effacer historique et données**.
 
 **Le QR code de pairing ne marche pas**
 → Le token expire après 30 minutes. Régénère un nouveau token depuis le DisplayEditor sur le hub.
 
-**Recettes du jour vide après import**
-→ La recette du moment est calculée toutes les 30 min par un cron. Soit tu attends, soit tu retires/remets la tuile (déclenche un refresh).
+**Prochain repas vide après import**
+→ Sur la page **Menu**, clique **Mettre à jour les écrans** (ou **Rafraîchir** sur la page de l'écran). Sinon l'iPad se met à jour tout seul peu après minuit.
 
 ## 12.4 Dans l'import JSON Claude.ai
 
@@ -1097,9 +1090,9 @@ Si tu as suivi le guide jusqu'ici, tu as :
 | Quand | Ce qui se passe |
 |---|---|
 | Dimanche soir 20h | Tu lances le wizard plan repas, dialogue avec Claude.ai, importes le JSON. ~10 min. |
-| Lundi-dimanche midi | L'iPad cuisine affiche automatiquement la recette du moment. Tap → mode cuisine, timers. |
-| Samedi matin | Tu ouvres `/menu` sur ton mobile, tap "Envoyer aux courses" → la liste arrive dans Keep. |
-| Au supermarché | Tu coches dans Keep en faisant les courses, hors-ligne. |
+| Lundi-dimanche | L'iPad cuisine affiche le prochain repas. « Commencer » → mode recette, minuteurs partagés avec les téléphones. |
+| Samedi matin | Sur ton téléphone, onglet Courses → **Trier** : on vérifie le placard, chaque article part en « On l'a », « Drive » ou « Magasin ». Le drive se remplit depuis le PC. |
+| Au supermarché | Onglet Courses → **Magasin** : tu coches par rayon, même sans réseau ; l'autre parent voit ce qui a été pris au retour du réseau. |
 | Pizza commandée mardi | Tu marques le slot mardi soir comme "annulé" en un tap sur `/menu`. |
 
 **Bon Family Hub à toi et à ta famille** 🍽️

@@ -9,8 +9,8 @@ import {
 
 describe("lienInvitation", () => {
   it("construit l'adresse /rejoindre/{code} sur l'origine du site", () => {
-    expect(lienInvitation("https://<PROJECT_ID>.web.app", "ABCDEFGHJK")).toBe(
-      "https://<PROJECT_ID>.web.app/rejoindre/ABCDEFGHJK",
+    expect(lienInvitation("https://mon-foyer.web.app", "ABCDEFGHJK")).toBe(
+      "https://mon-foyer.web.app/rejoindre/ABCDEFGHJK",
     );
   });
 });

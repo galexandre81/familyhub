@@ -32,7 +32,7 @@ Avant de commencer, ouvrir un navigateur Chrome avec :
 Créer la branche depuis l'état actuel :
 
 ```bash
-cd "/c/Users/guill/Desktop/family hub"
+cd "<chemin-du-depot>"
 git checkout -b phase-4-ipad-ux
 ```
 
@@ -175,7 +175,7 @@ Si la fonction `expand()` pose `container.className = 'tile-overlay-content tile
 - [ ] **Step 4 : Vérifier le build**
 
 ```bash
-cd "/c/Users/guill/Desktop/family hub"
+cd "<chemin-du-depot>"
 npm run build
 ```
 
@@ -1424,7 +1424,7 @@ S'il y a aussi une `interface TileConfig` ou map par type, vérifier si on doit 
 - [ ] **Step 3 : Build types**
 
 ```bash
-cd "/c/Users/guill/Desktop/family hub"
+cd "<chemin-du-depot>"
 npm run build:types
 ```
 
@@ -1530,7 +1530,7 @@ EOF
 - [ ] **Build complet passe**
 
 ```bash
-cd "/c/Users/guill/Desktop/family hub"
+cd "<chemin-du-depot>"
 npm run build
 ```
 

@@ -68,7 +68,7 @@ export default function MenuWizard() {
   });
   /**
    * Qui est présent cette semaine ? Filtre week-level avant la grille fine
-   * par slot. Permet d'exclure Papi/Mamie en 1 clic s'ils ne sont pas là.
+   * par slot. Permet d'exclure les grands-parents en 1 clic s'ils ne sont pas là.
    * Vide tant qu'on n'a pas chargé les profils.
    */
   const [attendees, setAttendees] = useState<string[]>([]);
@@ -424,7 +424,7 @@ function StepAttendance({
           <div>
             <h2 className="text-xl mb-1">Qui est là cette semaine ?</h2>
             <p className="text-cream-mute text-sm">
-              Décoche les personnes qui ne sont pas là (ex: Papi / Mamie qui ne
+              Décoche les personnes qui ne sont pas là (ex : les grands-parents qui ne
               viennent qu'occasionnellement). Tu pourras toujours les rajouter
               ponctuellement sur un repas spécifique à l'étape suivante.
             </p>

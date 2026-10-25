@@ -20,7 +20,7 @@
 
 > ⚠️ Important : `git push` ≠ `firebase deploy`. Les changements de **règles
 > Firestore** et de **functions** ne prennent effet qu'au prochain
-> `firebase deploy` lancé par Alex.
+> `firebase deploy` lancé par le propriétaire.
 
 ---
 
@@ -107,7 +107,7 @@ demandent un test sur device/émulateur — non appliqués en aveugle.
   réécriture en convention `${date}_${repas}`.
 
 ### Seul reliquat (nécessite une décision/compte externe)
-- ⏳ **Observabilité (Sentry ou équivalent)** : besoin d'un compte/DSN de Alex.
+- ⏳ **Observabilité (Sentry ou équivalent)** : besoin d'un compte/DSN du propriétaire.
   Le reste (pagination recettes, versioning assets display, i18n, backup Firestore)
   reste « faible / non urgent ».
 

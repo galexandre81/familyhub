@@ -28,7 +28,7 @@ export const DUREE_INVITATION_MS = 7 * 24 * 60 * 60 * 1000;
 
 /**
  * Dit si `uid` peut entrer dans le foyer avec cette invitation.
- * Ordre : introuvable, déjà membre (Marie qui rouvre son propre lien lit
+ * Ordre : introuvable, déjà membre (l'autre parent qui rouvre son propre lien lit
  * « Tu fais déjà partie de ce foyer » plutôt que « déjà servi »), déjà
  * utilisée, expirée (`expiresAt` égal à maintenant = expirée).
  */
@@ -47,8 +47,8 @@ export function validerInvitation(
 
 /**
  * Carte `roles` complète après l'arrivée de `uid`. Un foyer créé avant les
- * rôles n'a pas de `roles` : ses membres existants (Alex) deviennent
- * parents — sinon `{marie: parent}` seul ferait perdre le statut de parent au
+ * rôles n'a pas de `roles` : ses membres existants (le fondateur) deviennent
+ * parents — sinon `{nouveau: parent}` seul ferait perdre le statut de parent au
  * fondateur, et les règles interdisent au client de réparer `roles`.
  */
 export function rolesApresArrivee(

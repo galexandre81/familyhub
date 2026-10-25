@@ -1,6 +1,6 @@
 /**
  * Téléphone — onglet « Aujourd'hui » : deux cartes moyennes de même taille
- * (prochain repas, PC d'Léo pour les parents), puis les autres repas du
+ * (prochain repas, PC des enfants pour les parents), puis les autres repas du
  * jour (passés effacés) et le batch du jour. Pas d'agenda.
  */
 import { useMemo } from "react";
@@ -101,7 +101,7 @@ export default function Aujourdhui() {
             <p className="text-base text-cream">Pas de menu en cours — il se prépare sur l'ordinateur</p>
           </section>
         )}
-        {parent && <CartePcLéo />}
+        {parent && <CartePcEnfants />}
       </div>
 
       {resume.autresDuJour.length > 0 && (
@@ -231,15 +231,15 @@ function CarteProchainRepas({
   );
 }
 
-function CartePcLéo() {
+function CartePcEnfants() {
   return (
-    <section className={`${CARTE} p-4 gap-3`} aria-label="PC d'Léo">
+    <section className={`${CARTE} p-4 gap-3`} aria-label="PC des enfants">
       <h2 className="flex items-center gap-2 text-lg font-semibold text-cream">
         <Monitor size={20} aria-hidden="true" />
-        PC d'Léo
+        PC des enfants
       </h2>
       <p className="flex-1 flex items-center text-base text-cream-mute">
-        Bientôt : couper ou remettre le wifi du PC d'Léo
+        Bientôt : couper ou remettre le wifi du PC des enfants
       </p>
     </section>
   );

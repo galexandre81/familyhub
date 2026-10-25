@@ -1,19 +1,19 @@
 # Refonte Family Hub : iPad de cuisine + version téléphone
 
-Date : 25.10.2026 · Auteur : Claude, d'après la conversation avec Alex (audit UX du même jour).
+Date : 25.10.2026 · Auteur : Claude, d'après la conversation avec le propriétaire du foyer (audit UX du même jour).
 
 ## 1. Intention
 
-Family Hub sert surtout **dans la cuisine (iPad mural)** et **sur les téléphones de Alex et Marie**. Le hub PC n'est utilisé que par Alex, pour préparer (plans, recettes, réglages) ; son côté « responsive » n'a pas d'importance.
+Family Hub sert surtout **dans la cuisine (iPad mural)** et **sur les téléphones des deux parents**. Le hub PC n'est utilisé que par le propriétaire, pour préparer (plans, recettes, réglages) ; son côté « responsive » n'a pas d'importance.
 
 Aujourd'hui :
 - l'iPad affiche une grille de 10 cases réglée à la main, où l'essentiel (« quoi cuisiner ») est à l'étroit, à côté de tuiles peu utilisées ;
 - les téléphones reçoivent la même grille en plus petit (2×4), illisible, et sont appairés comme des « écrans » en lecture seule : on ne peut rien cocher, on ne sait pas qui tient le téléphone ;
 - la liste de courses ne se coche que dans Google Keep.
 
-But : un iPad qui répond en un coup d'œil à « qu'est-ce qu'on cuisine » et sert de support pendant la cuisine, et un téléphone personnel qui gère les courses de bout en bout (même sans réseau), montre le menu et, plus tard, pilote le wifi du PC d'Léo.
+But : un iPad qui répond en un coup d'œil à « qu'est-ce qu'on cuisine » et sert de support pendant la cuisine, et un téléphone personnel qui gère les courses de bout en bout (même sans réseau), montre le menu et, plus tard, pilote le wifi du PC des enfants.
 
-Family Hub doit pouvoir évoluer : la structure doit accueillir d'autres fonctions plus tard (le wifi d'Léo en premier).
+Family Hub doit pouvoir évoluer : la structure doit accueillir d'autres fonctions plus tard (le wifi du PC des enfants en premier).
 
 ## 2. Ordre des chantiers
 
@@ -21,21 +21,21 @@ Family Hub doit pouvoir évoluer : la structure doit accueillir d'autres fonctio
 2. **Téléphone** : version téléphone du hub, connectée avec le compte Google de chacun ; Courses, Aujourd'hui, Semaine, Recettes.
 3. **iPad** : nouveau tableau de cuisine + nouveau mode recette + minuteur amélioré.
 4. **Hub PC** : liste drive Intermarché, tri de la liste ; et en passant les bugs bloquants de l'audit (voir §9).
-5. **Plus tard, projet séparé** : wifi du PC d'Léo (Linux Mint). Ce document lui réserve seulement sa place.
+5. **Plus tard, projet séparé** : wifi du PC des enfants (Linux). Ce document lui réserve seulement sa place.
 
 Chaque chantier est livrable seul (on peut s'arrêter après n'importe lequel sans casser l'existant).
 
-## 3. Décisions de Alex
+## 3. Décisions du propriétaire
 
 - Le **design system « Alpage + Veillée »** fait autorité pour l'apparence : couleurs, polices, tailles, composants, les 7 règles « tête légère ». Ses maquettes de mise en page ne sont qu'une proposition ; **les fonctionnalités décidées ici priment**.
 - Les ambiances **jour et nuit remplacent complètement les 6 thèmes actuels** (Caractère, Forêt, Marine, Bordeaux, Glacier, Lin), partout : iPad, téléphone, hub.
-- **Marie se connecte avec son compte Google** sur son téléphone. Les téléphones ne sont plus des « écrans » appairés.
+- **L'autre parent se connecte avec son compte Google** sur son téléphone. Les téléphones ne sont plus des « écrans » appairés.
 - iPad : pas d'étape-par-étape dans le mode recette ; **toute la recette d'un coup**, quantités en haut à droite, minuteur à droite, étapes qui défilent facilement.
 - iPad : la liste de courses n'y sert jamais ; la radio rarement ; ordre d'usage : prochain repas > recette et minuteur pendant la cuisine > météo > agenda de la semaine > livre de recettes.
-- Téléphone : prochain repas en carte **moyenne**, carte « PC d'Léo » **de même taille** ; menu de la semaine oui ; **pas d'agenda** ; recettes peu utilisées mais accessibles.
+- Téléphone : prochain repas en carte **moyenne**, carte « PC des enfants » **de même taille** ; menu de la semaine oui ; **pas d'agenda** ; recettes peu utilisées mais accessibles.
 - Courses : les produits de placard **ne sont pas effacés par défaut**, ils sont rangés à part « sûrement dans le placard », à vérifier.
 - Drive : **Intermarché**, liste drive **sur le PC seulement**.
-- Pronote : pas d'intégration développée. Piste à vérifier sans code : un lien d'export agenda (iCal) depuis le compte d'Léo, que la tuile agenda sait déjà lire.
+- Logiciel de vie scolaire (type Pronote) : pas d'intégration développée. Piste à vérifier sans code : un lien d'export agenda (iCal) depuis le compte de l'enfant, que la tuile agenda sait déjà lire.
 
 ## 4. Socle commun (chantier 1)
 
@@ -46,16 +46,16 @@ Jetons à extraire dans **un seul fichier source** (ex. `packages/design-tokens/
 - des variables CSS pour le hub (React/Tailwind) ;
 - une feuille CSS ES5-compatible pour l'app display (iPad mini 1, iOS 9 : **pas de variables CSS** fiables, pas de `gap` en flex, pas de grid ; donc valeurs écrites en dur par la génération, avec une classe `.amb-jour` / `.amb-nuit` sur `<html>`).
 
-Contenu : couleurs jour (fond #EEF4EA, carte #FFFFFF, texte #1E2B22, texte doux #55665A, action #2D56C8, « maintenant » #F5C242) et nuit (fond #0F1B2D, carte #182841, texte #F2F5F8, texte doux #A8B6C8, action et « maintenant » #FFB547) ; couleurs des personnes (Alex sapin #2B7A4B / #5BC08A la nuit, Marie tôle rouge #C8462B / #F2836A, Léo lilas #8A55D0 / #B994F2) ; polices Bricolage Grotesque (titres) et Atkinson Hyperlegible (texte) ; échelles de tailles (téléphone min 15 px, iPad min 20 px) ; boutons (bord 2 px, ombre décalée), cartes, pastilles, cases à cocher ; cibles 48 px téléphone, 72 px iPad.
+Contenu : couleurs jour (fond #EEF4EA, carte #FFFFFF, texte #1E2B22, texte doux #55665A, action #2D56C8, « maintenant » #F5C242) et nuit (fond #0F1B2D, carte #182841, texte #F2F5F8, texte doux #A8B6C8, action et « maintenant » #FFB547) ; couleurs des personnes (sapin #2B7A4B / #5BC08A la nuit, tôle rouge #C8462B / #F2836A, lilas #8A55D0 / #B994F2) ; polices Bricolage Grotesque (titres) et Atkinson Hyperlegible (texte) ; échelles de tailles (téléphone min 15 px, iPad min 20 px) ; boutons (bord 2 px, ombre décalée), cartes, pastilles, cases à cocher ; cibles 48 px téléphone, 72 px iPad.
 
 Les 7 règles s'appliquent à tous les écrans : une seule chose en jaune par écran (la prochaine) ; le temps se voit (« dans 1 h 30 » + barre) ; ce qui est fait s'efface sans disparaître ; couleur = personne, rien d'autre ; toujours une icône et un mot ; 2 lignes max, le reste replié ; cibles 48/72 px.
 
 **Polices sur iOS 9** : pas de woff2 ni de polices variables → héberger nous-mêmes des fichiers statiques (woff + ttf) aux graisses utilisées (Bricolage 500/700/800, Atkinson 400/700).
 
-**Profils sans couleur dans le design system** (mamie, papi, futurs profils) : *décision Claude* — deux teintes supplémentaires distinctes des trois existantes, en suivant la même logique jour/nuit ; la couleur devient un champ du profil, choisi dans une palette fermée.
+**Profils sans couleur dans le design system** (grands-parents, futurs profils) : *décision Claude* — deux teintes supplémentaires distinctes des trois existantes, en suivant la même logique jour/nuit ; la couleur devient un champ du profil, choisi dans une palette fermée.
 
 ### Ambiance jour / nuit
-- Bascule automatique : *décision Claude* — nuit entre le coucher et le lever du soleil à Paris (heures fournies par Open-Meteo, déjà utilisé pour la météo), repli 19:00–07:00 si l'info manque.
+- Bascule automatique : *décision Claude* — nuit entre le coucher et le lever du soleil dans la ville du foyer (heures fournies par Open-Meteo, déjà utilisé pour la météo), repli 19:00–07:00 si l'info manque.
 - Même règle sur iPad, téléphone et hub. Le réglage de thème (household `parametres.themeId`, tuile Réglages de l'iPad, page Paramètres du hub) est retiré ; les 6 thèmes et leur CSS sont supprimés.
 - La luminosité de l'iPad (brightness.js) reste réglable.
 
@@ -66,17 +66,17 @@ Les 7 règles s'appliquent à tous les écrans : une seule chose en jaune par é
 - Installable sur l'écran d'accueil (manifeste + service worker) et **utilisable sans réseau** : l'application doit s'ouvrir hors ligne (magasins sans réseau) et Firestore doit garder ses données en local (persistance hors ligne activée), les écritures partent au retour du réseau.
 - Quand l'écran est étroit, le hub affiche la navigation téléphone (onglets en bas) au lieu de celle du PC. Les pages PC n'ont pas à devenir responsive : sur téléphone, seuls les écrans décrits ici existent ; le reste du hub (Écrans, Tuiles, Profils, import de plan…) reste réservé au PC.
 
-### Accès de Marie
-- Marie devient **membre du foyer** (aujourd'hui seul Alex est dans `membres`). Il faut un moyen simple de l'ajouter : *décision Claude* — invitation par code ou lien généré depuis le hub PC par un membre existant ; Marie se connecte avec Google et rejoint le foyer.
-- Les comptes des téléphones appairés comme « écrans » (« mobile marie », « Mobile Alex ») sont retirés une fois les comptes personnels en place.
+### Accès de l'autre parent
+- L'autre parent devient **membre du foyer** (aujourd'hui seul le propriétaire est dans `membres`). Il faut un moyen simple de l'ajouter : *décision Claude* — invitation par code ou lien généré depuis le hub PC par un membre existant ; l'autre parent se connecte avec Google et rejoint le foyer.
+- Les comptes des téléphones appairés comme « écrans » (un par parent) sont retirés une fois les comptes personnels en place.
 
 ### Onglets
-**Aujourd'hui · Semaine · Courses · Recettes** (+ **Wifi** plus tard, ou intégré à la carte d'Léo — au choix du projet wifi).
+**Aujourd'hui · Semaine · Courses · Recettes** (+ **Wifi** plus tard, ou intégré à la carte « PC des enfants » — au choix du projet wifi).
 
 **Aujourd'hui**
 - Deux cartes de même taille, moyennes :
   - **Prochain repas** : moment et heure, plat principal + accompagnements, pour qui (pastilles de couleur), « dans 1 h 30 » + barre de temps, bouton « Cuisiner » (ouvre le mode recette).
-  - **PC d'Léo** : réservée à Alex et Marie ; tant que le projet wifi n'existe pas, carte présente marquée « bientôt ».
+  - **PC des enfants** : réservée aux parents ; tant que le projet wifi n'existe pas, carte présente marquée « bientôt ».
 - En dessous : les autres repas du jour (passés effacés), le batch du jour s'il y en a un.
 - Pas d'agenda.
 
@@ -102,7 +102,7 @@ Les 7 règles s'appliquent à tous les écrans : une seule chose en jaune par é
 ### Les trois moments
 1. **À la maison, avant de partir (avec réseau) : le tri.** Chaque article est rangé dans **« On l'a déjà »**, **« Drive »** ou **« Magasin »**. Un rayon à part **« Sûrement dans le placard — à vérifier »** est affiché en premier pendant le tri.
 2. **Le drive (PC seulement)** : la liste « Drive » sous forme d'une ligne par article ; chaque article ouvre la recherche du site Intermarché ; on coche au fur et à mesure qu'on remplit le panier en ligne. Aucun remplissage automatique du panier (pas d'accès possible pour une application tierce).
-3. **En magasin (sans réseau)** : la liste « Magasin », rangée par rayon, grandes cases (60 px de haut) ; on coche hors ligne ; au retour du réseau tout se synchronise et Marie voit ce qui a été pris ; la liste ne montre plus que ce qui reste pour le magasin suivant.
+3. **En magasin (sans réseau)** : la liste « Magasin », rangée par rayon, grandes cases (60 px de haut) ; on coche hors ligne ; au retour du réseau tout se synchronise et l'autre parent voit ce qui a été pris ; la liste ne montre plus que ce qui reste pour le magasin suivant.
 
 ### Règles
 - Une case cochée prend **la couleur de la personne** qui l'a cochée, l'article passe barré **en bas de son rayon** (il ne disparaît pas ; on peut décocher).
@@ -181,13 +181,13 @@ Cartographie faite le 25.10 en lecture seule sur `main` (59968cd), constats vér
 - Un seul `authToken` par écran : appairer un 2e appareil sur le même écran invalide le 1er, qui reste connecté mais échoue à chaque renouvellement et rappelle la function toutes les 60 s sans fin (c'est le badge « PERMISSION-DENIED » vu dans le Chrome de bureau). L'`authToken` (90 jours) n'est jamais prolongé.
 - Exiger : renouveler l'`authToken` à chaque rafraîchissement réussi ; ne pas appeler `refreshDisplayToken` tant que la session Firebase est valide ; arrêter la boucle après échec définitif avec un message clair (« Cet écran a été appairé ailleurs ») ; règle documentée « un appareil = un écran ».
 - Action manuelle, sans code : nettoyer l'appairage du Chrome de bureau (bouton « reset » de setup.html), **sans le ré-appairer** sur l'écran Cuisine iPad.
-- Retirer les anciens écrans « mobile marie » et « Mobile Alex » avec la suppression du hub (`deleteDisplay`), pas en effaçant le document.
+- Retirer les deux anciens écrans « téléphone » appairés avec la suppression du hub (`deleteDisplay`), pas en effaçant le document.
 
-### Accès de Marie et lien compte ↔ personne
+### Accès de l'autre parent et lien compte ↔ personne
 - Les règles interdisent à quiconque de modifier `membres` (`firestore.rules:37-39`) et aucune invitation n'existe. L'invitation passe donc par des Cloud Functions (Admin SDK) : création réservée à un membre, acceptation qui ajoute l'uid à `membres` ; collection d'invitations fermée aux clients ; tests de règles dans `firestore-tests/`.
 - Empêcher qu'un invité crée son propre foyer avant d'accepter (la règle de création le permet aujourd'hui) : le lien d'invitation doit être traité avant l'écran « Créer mon foyer ».
-- Ajouter à chaque profil le compte qui lui correspond (`uid`), pour que « la case prend la couleur de qui a coché » et la carte « PC d'Léo » sachent qui est connecté.
-- *Décision Claude* : les membres du foyer sont les parents (Alex, Marie) ; un champ de rôle est posé dès maintenant (`parent` par défaut) pour que le projet wifi puisse restreindre l'accès par rôle si un enfant reçoit un jour un compte.
+- Ajouter à chaque profil le compte qui lui correspond (`uid`), pour que « la case prend la couleur de qui a coché » et la carte « PC des enfants » sachent qui est connecté.
+- *Décision Claude* : les membres du foyer sont les parents ; un champ de rôle est posé dès maintenant (`parent` par défaut) pour que le projet wifi puisse restreindre l'accès par rôle si un enfant reçoit un jour un compte.
 
 ### Courses hors ligne
 - Aujourd'hui le hub coche par `runTransaction` (`mutations.ts:737`) : **une transaction échoue sans réseau**. Il lit la liste en `getDocs` (pas de temps réel). Un ré-import du même plan supprime et recrée la liste (coches perdues). L'iPad lit « la liste la plus récemment modifiée », pas forcément celle du plan actif.
@@ -229,14 +229,14 @@ Le reste de l'audit PC (jargon, doublons de recettes et d'étiquettes, éditeur 
 - Pas de remplissage automatique du panier Intermarché.
 - Pas d'intégration Pronote développée.
 - Pas de mise en page responsive des pages PC du hub.
-- Pas de nettoyage des recettes (doublons, étiquettes) sans validation ligne par ligne de Alex.
-- Échec même si « ça marche » : un iPad qui ne charge plus (code non ES5, police woff2 seule, `gap`, variables CSS) ; une liste de courses inutilisable sans réseau ; des coches perdues après synchronisation ; l'accès au PC d'Léo visible sur l'iPad ou par Léo.
+- Pas de nettoyage des recettes (doublons, étiquettes) sans validation ligne par ligne du propriétaire.
+- Échec même si « ça marche » : un iPad qui ne charge plus (code non ES5, police woff2 seule, `gap`, variables CSS) ; une liste de courses inutilisable sans réseau ; des coches perdues après synchronisation ; l'accès au PC des enfants visible sur l'iPad ou par l'enfant.
 
-## 12. Réponses de Alex (25.10)
+## 12. Réponses du propriétaire (25.10)
 
 1. **Heures des repas** : petit-déjeuner 7:00 en semaine, 8:00 le week-end ; déjeuner 12:00–12:30 (*décision Claude* : heure de référence 12:15) ; dîner 19:00. Stockées comme réglage du foyer, modifiables dans le hub PC, avec une valeur semaine et une valeur week-end. *Décision Claude* : « dans 1 h 30 » compte jusqu'à l'heure du repas ; un repas passe au suivant 1 h après son heure.
 2. **Minuteur sur le téléphone** : il sonne **seulement quand l'application est ouverte**. Pas de notifications push.
-3. Modèles des téléphones : non précisés ; tester sur l'iPhone et/ou l'Android réels de Alex et Marie (connexion Google, hors ligne, installation sur l'écran d'accueil).
+3. Modèles des téléphones : non précisés ; tester sur l'iPhone et/ou l'Android réels des deux parents (connexion Google, hors ligne, installation sur l'écran d'accueil).
 
 ## 11. Laissé au builder
 

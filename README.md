@@ -122,7 +122,8 @@ npm install
 # Configurer
 cp .env.example apps/hub/.env.local
 # → édite apps/hub/.env.local avec tes clés Firebase
-# → édite .firebaserc avec ton projectId
+cp .firebaserc.example .firebaserc
+# → édite .firebaserc avec ton projectId (fichier non versionné)
 # (la config de l'iPad est générée au build depuis ce même .env.local)
 
 # Connexion
@@ -169,7 +170,7 @@ familyhub/
 ├── firebase.json
 ├── firestore.rules
 ├── firestore.indexes.json
-├── .firebaserc               # ⚠️ projectId à éditer pour ton projet
+├── .firebaserc.example       # modèle : copier en .firebaserc (non versionné) avec ton projectId
 ├── .env.example
 └── package.json              # workspaces npm
 ```

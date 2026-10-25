@@ -102,7 +102,7 @@ describe("libelleDate / libelleHeure", () => {
 describe("evenementsSemaine", () => {
   const now = at("2026-10-26T10:00:00"); // lundi
   const evs: Evt[] = [
-    { summary: "Danse Léo", startISO: "2026-10-27T18:30:00", endISO: "2026-10-27T19:30:00" },
+    { summary: "Rendez-vous Léo", startISO: "2026-10-27T18:30:00", endISO: "2026-10-27T19:30:00" },
     { summary: "Vacances", startISO: "2026-10-28", endISO: "2026-10-29", allDay: true },
     { summary: "Passé", startISO: "2026-10-26T08:00:00", endISO: "2026-10-26T09:00:00" },
     { summary: "En cours", startISO: "2026-10-26T09:30:00", endISO: "2026-10-26T11:00:00" },
@@ -111,11 +111,11 @@ describe("evenementsSemaine", () => {
   ];
   it("prochains sur 7 jours (aujourd'hui → dimanche), triés, passés et lointains exclus", () => {
     const res = t.evenementsSemaine(evs, now, 10);
-    expect(res.map((e) => e.titre)).toEqual(["En cours", "Danse Léo", "Vacances", "Dimanche"]);
+    expect(res.map((e) => e.titre)).toEqual(["En cours", "Rendez-vous Léo", "Vacances", "Dimanche"]);
   });
   it("format « mar. 27 », heure HH:MM, journée entière sans heure", () => {
     const res = t.evenementsSemaine(evs, now, 10);
-    expect(res[1]).toEqual({ jour: "mar. 27", heure: "18:30", titre: "Danse Léo" });
+    expect(res[1]).toEqual({ jour: "mar. 27", heure: "18:30", titre: "Rendez-vous Léo" });
     expect(res[2]).toEqual({ jour: "mer. 28", heure: null, titre: "Vacances" });
   });
   it("limite au maximum demandé (4 par défaut)", () => {
@@ -157,16 +157,16 @@ describe("libelleEnsuite", () => {
 
 describe("pastillesPresents", () => {
   const profils = {
-    g: { initiale: "G", nom: "Alex", couleurPersonne: "sapin" },
-    j: { initiale: "J", nom: "Marie", couleur: "#C8462B" },
-    a: { nom: "leo" },
+    g: { initiale: "A", nom: "Alex", couleurPersonne: "sapin" },
+    j: { initiale: "M", nom: "Marie", couleur: "#C8462B" },
+    a: { nom: "léo" },
   };
   it("couleur de personne en classe, sinon hex, sinon rien ; initiale de repli", () => {
     const res = t.pastillesPresents({ date: "2026-10-26", repas: "dej", recetteIds: ["r"], profilsPresents: ["g", "j", "a", "inconnu"] }, profils);
     expect(res).toEqual([
-      { initiale: "G", nom: "Alex", classe: "fh-p-sapin", couleur: null },
-      { initiale: "J", nom: "Marie", classe: null, couleur: "#C8462B" },
-      { initiale: "A", nom: "leo", classe: null, couleur: null },
+      { initiale: "A", nom: "Alex", classe: "fh-p-sapin", couleur: null },
+      { initiale: "M", nom: "Marie", classe: null, couleur: "#C8462B" },
+      { initiale: "L", nom: "léo", classe: null, couleur: null },
     ]);
   });
   it("couleur de personne inconnue ou hex invalide ignorées ; ancien snapshot sans présents", () => {
@@ -216,7 +216,7 @@ describe("formatPlat (accompagnements masqués si le plat tient sur 2 lignes)", 
 
 describe("resumeRepas", () => {
   const data = {
-    profils: { g: { initiale: "G", nom: "Alex", couleurPersonne: "sapin" } },
+    profils: { g: { initiale: "A", nom: "Alex", couleurPersonne: "sapin" } },
     semaine: [
       { date: "2026-10-26", repas: "dej", recetteIds: ["p1", "a1", "a2"], recetteNoms: ["Salade de pâtes", "Poivrons", "Pain"], profilsPresents: ["g"], profilsCount: 1, invitesCount: 2 },
       { date: "2026-10-26", repas: "diner", recetteIds: ["p2"], recetteNoms: ["Saumon au four"], profilsCount: 3, invitesCount: 0 },
@@ -232,7 +232,7 @@ describe("resumeRepas", () => {
     expect(p.barre).toBe(0.5);
     expect(p.plat).toBe("Salade de pâtes");
     expect(p.accompagnements).toBe("Poivrons · Pain");
-    expect(p.pastilles.map((x) => x.initiale)).toEqual(["G"]);
+    expect(p.pastilles.map((x) => x.initiale)).toEqual(["A"]);
     expect(p.reste).toBe(2);
     expect(p.presence).toBe("");
     expect(p.titre).toBe("Déjeuner · lundi 26 octobre");
@@ -272,7 +272,7 @@ describe("meteoResume", () => {
     selectedLocationId: "b",
     locations: [
       { id: "a", ville: "Lyon" },
-      { id: "b", ville: "Paris" },
+      { id: "b", ville: "Grenoble" },
     ],
   };
   const data = {
@@ -282,7 +282,7 @@ describe("meteoResume", () => {
     },
   };
   it("ville choisie, température arrondie, ciel", () => {
-    expect(t.meteoResume(data, config)).toEqual({ temp: "-1°", ciel: "Neige", ville: "Paris" });
+    expect(t.meteoResume(data, config)).toEqual({ temp: "-1°", ciel: "Neige", ville: "Grenoble" });
   });
   it("repli sur la première ville ; données manquantes → null", () => {
     expect(t.meteoResume(data, { locations: config.locations })).toEqual({ temp: "14°", ciel: "Soleil", ville: "Lyon" });

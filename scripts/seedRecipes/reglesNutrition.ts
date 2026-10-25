@@ -35,12 +35,12 @@ export interface ReglesNutrition {
 }
 
 /**
- * Preset par défaut = note Alex. Doit rester aligné avec le preset
+ * Preset par défaut = note du propriétaire du foyer. Doit rester aligné avec le preset
  * "equilibre" dans packages/types/src/kitchenBuddy/reglesNutrition.ts.
  */
 export const DEFAULT_REGLES_NUTRITION: ReglesNutrition = {
   presetId: "equilibre",
-  nomAffiche: "Équilibre Alex",
+  nomAffiche: "Équilibre famille",
   ratios: { legumes: 60, proteines: 22, feculents: 18 },
   legumesPriorises: [
     "brocoli", "courgette", "épinards", "haricots verts",

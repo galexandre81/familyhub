@@ -1,8 +1,8 @@
 import { describe, it, expect } from "vitest";
 import { doitUtiliserRedirection } from "./authMode";
 
-const SITE = "<PROJECT_ID>.web.app";
-const FIREBASEAPP = "<PROJECT_ID>.firebaseapp.com";
+const SITE = "mon-foyer.web.app";
+const FIREBASEAPP = "mon-foyer.firebaseapp.com";
 
 describe("doitUtiliserRedirection", () => {
   it("redirige quand l'app est installée et que l'authentification passe par le domaine du site", () => {
@@ -20,6 +20,6 @@ describe("doitUtiliserRedirection", () => {
   });
 
   it("ignore la casse du domaine", () => {
-    expect(doitUtiliserRedirection(true, "<PROJECT_ID>.web.app", SITE)).toBe(true);
+    expect(doitUtiliserRedirection(true, "Mon-Foyer.web.app", SITE)).toBe(true);
   });
 });

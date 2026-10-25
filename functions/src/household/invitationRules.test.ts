@@ -12,7 +12,7 @@ const NOW = 1_800_000_000_000;
 function invitation(partiel: Partial<InvitationDoc> = {}): InvitationDoc {
   return {
     householdId: "h1",
-    createdBy: "alex",
+    createdBy: "parentA",
     role: "parent",
     expiresAt: { toMillis: () => NOW + 60_000 },
     ...partiel,
@@ -21,11 +21,11 @@ function invitation(partiel: Partial<InvitationDoc> = {}): InvitationDoc {
 
 describe("validerInvitation", () => {
   it("accepte une invitation valide, non utilisée, pour une non-membre", () => {
-    expect(validerInvitation(invitation(), "marie", ["alex"], NOW)).toEqual({ ok: true });
+    expect(validerInvitation(invitation(), "parentB", ["parentA"], NOW)).toEqual({ ok: true });
   });
 
   it("refuse une invitation absente → introuvable", () => {
-    expect(validerInvitation(undefined, "marie", ["alex"], NOW)).toEqual({
+    expect(validerInvitation(undefined, "parentB", ["parentA"], NOW)).toEqual({
       ok: false,
       raison: "introuvable",
     });
@@ -33,7 +33,7 @@ describe("validerInvitation", () => {
 
   it("refuse une invitation expirée", () => {
     const inv = invitation({ expiresAt: { toMillis: () => NOW - 1 } });
-    expect(validerInvitation(inv, "marie", ["alex"], NOW)).toEqual({
+    expect(validerInvitation(inv, "parentB", ["parentA"], NOW)).toEqual({
       ok: false,
       raison: "expiree",
     });
@@ -41,7 +41,7 @@ describe("validerInvitation", () => {
 
   it("expiresAt exactement égal à maintenant = expirée", () => {
     const inv = invitation({ expiresAt: { toMillis: () => NOW } });
-    expect(validerInvitation(inv, "marie", ["alex"], NOW)).toEqual({
+    expect(validerInvitation(inv, "parentB", ["parentA"], NOW)).toEqual({
       ok: false,
       raison: "expiree",
     });
@@ -49,22 +49,22 @@ describe("validerInvitation", () => {
 
   it("refuse une invitation déjà utilisée par quelqu'un d'autre", () => {
     const inv = invitation({ usedBy: "quelquun" });
-    expect(validerInvitation(inv, "marie", ["alex", "quelquun"], NOW)).toEqual({
+    expect(validerInvitation(inv, "parentB", ["parentA", "quelquun"], NOW)).toEqual({
       ok: false,
       raison: "deja-utilisee",
     });
   });
 
   it("refuse une personne déjà membre du foyer", () => {
-    expect(validerInvitation(invitation(), "alex", ["alex"], NOW)).toEqual({
+    expect(validerInvitation(invitation(), "parentA", ["parentA"], NOW)).toEqual({
       ok: false,
       raison: "deja-membre",
     });
   });
 
-  it("déjà membre l'emporte sur déjà utilisée (Marie rouvre son propre lien)", () => {
-    const inv = invitation({ usedBy: "marie" });
-    expect(validerInvitation(inv, "marie", ["alex", "marie"], NOW)).toEqual({
+  it("déjà membre l'emporte sur déjà utilisée (le parent B rouvre son propre lien)", () => {
+    const inv = invitation({ usedBy: "parentB" });
+    expect(validerInvitation(inv, "parentB", ["parentA", "parentB"], NOW)).toEqual({
       ok: false,
       raison: "deja-membre",
     });
@@ -73,31 +73,31 @@ describe("validerInvitation", () => {
 
 describe("rolesApresArrivee", () => {
   it("foyer ancien sans roles : les membres existants deviennent parents, puis l'arrivante", () => {
-    expect(rolesApresArrivee(undefined, ["alex"], "marie", "parent")).toEqual({
-      alex: "parent",
-      marie: "parent",
+    expect(rolesApresArrivee(undefined, ["parentA"], "parentB", "parent")).toEqual({
+      parentA: "parent",
+      parentB: "parent",
     });
   });
 
   it("roles qui n'est pas un objet (null, tableau) : traité comme absent", () => {
-    expect(rolesApresArrivee(null as never, ["alex"], "marie", "parent")).toEqual({
-      alex: "parent",
-      marie: "parent",
+    expect(rolesApresArrivee(null as never, ["parentA"], "parentB", "parent")).toEqual({
+      parentA: "parent",
+      parentB: "parent",
     });
-    expect(rolesApresArrivee([] as never, ["alex"], "marie", "enfant")).toEqual({
-      alex: "parent",
-      marie: "enfant",
+    expect(rolesApresArrivee([] as never, ["parentA"], "enfant", "enfant")).toEqual({
+      parentA: "parent",
+      enfant: "enfant",
     });
   });
 
   it("roles existants conservés, l'arrivante ajoutée", () => {
-    const avant = { alex: "parent" as const, leo: "enfant" as const };
-    expect(rolesApresArrivee(avant, ["alex", "leo"], "marie", "parent")).toEqual({
-      alex: "parent",
+    const avant = { parentA: "parent" as const, leo: "enfant" as const };
+    expect(rolesApresArrivee(avant, ["parentA", "leo"], "parentB", "parent")).toEqual({
+      parentA: "parent",
       leo: "enfant",
-      marie: "parent",
+      parentB: "parent",
     });
-    expect(avant).toEqual({ alex: "parent", leo: "enfant" });
+    expect(avant).toEqual({ parentA: "parent", leo: "enfant" });
   });
 });
 
@@ -116,7 +116,7 @@ describe("peutInviter", () => {
     expect(peutInviter({ membres: ["g"], roles: null }, "g")).toBe(true);
   });
   it("non-membre ou foyer absent : refusé", () => {
-    expect(peutInviter({ membres: ["g"] }, "marie")).toBe(false);
+    expect(peutInviter({ membres: ["g"] }, "parentB")).toBe(false);
     expect(peutInviter(undefined, "g")).toBe(false);
     expect(peutInviter({}, "g")).toBe(false);
   });

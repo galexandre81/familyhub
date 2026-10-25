@@ -16,7 +16,7 @@
 - `npm run build` doit passer à la fin de chaque tâche ; tests : `npm test --workspace=hub`, `npm test --workspace=functions`, `npm test --workspace=@family-hub/design`.
 - Valeurs du design system copiées telles quelles de `Sys-Fondations.dc.html` (couleurs listées dans la tâche 1).
 - Bascule nuit : entre le coucher et le lever du soleil ; repli 19:00–07:00 si l'info manque.
-- Ordre de déploiement (à respecter par Alex / l'exécutant, noté dans le message de commit de la tâche 5) : hébergement (hub + iPad) **avant** les règles Firestore qui retirent l'écriture du thème.
+- Ordre de déploiement (à respecter par le propriétaire / l'exécutant, noté dans le message de commit de la tâche 5) : hébergement (hub + iPad) **avant** les règles Firestore qui retirent l'écriture du thème.
 - Textes visibles en français, tutoiement.
 - Aucun déploiement dans ce plan : le déploiement est une étape séparée, après accord.
 
@@ -50,7 +50,7 @@
 Valeurs (verbatim design system) :
 - jour : fond `#EEF4EA`, carte `#FFFFFF`, texte `#1E2B22`, texteDoux `#55665A`, action `#2D56C8`, maintenant `#F5C242`, bordure `#1E2B22`, ligne `#C9D6C6`.
 - nuit : fond `#0F1B2D`, carte `#182841`, texte `#F2F5F8`, texteDoux `#A8B6C8`, action `#FFB547`, maintenant `#FFB547`, bordure `#2C3F5C`, ligne `#2C3F5C`.
-- personnes : sapin `#2B7A4B`/`#5BC08A` (Alex), toleRouge `#C8462B`/`#F2836A` (Marie), lilas `#8A55D0`/`#B994F2` (Léo) ; *décision Claude* pour mamie et papi : miel `#B7791F`/`#F0B95A`, ardoise `#3E6A8A`/`#8DB8D8`.
+- personnes : sapin `#2B7A4B`/`#5BC08A`, toleRouge `#C8462B`/`#F2836A`, lilas `#8A55D0`/`#B994F2` (les trois personnes déjà colorées dans le design system) ; *décision Claude* pour les deux profils sans couleur (les grands-parents) : miel `#B7791F`/`#F0B95A`, ardoise `#3E6A8A`/`#8DB8D8`.
 
 - [ ] **Step 1: Write the failing tests**
 

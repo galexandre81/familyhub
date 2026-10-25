@@ -23,6 +23,10 @@ C'est arrivé sur `refreshDisplayToken` — résolu manuellement le 2026-05-09. 
 
 ## Diagnostic
 
+Dans les commandes ci-dessous, remplacer `<PROJECT_ID>` par l'identifiant de ton projet Firebase (celui de ton `.firebaserc`).
+
+Dans les commandes ci-dessous, remplacer `<PROJECT_ID>` par l'identifiant de ton projet Firebase (celui de ton `.firebaserc`).
+
 ### Vérifier le binding sur une fonction
 
 ```powershell

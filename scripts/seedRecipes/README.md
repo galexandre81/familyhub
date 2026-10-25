@@ -35,7 +35,7 @@ Pour passer en mode warning au lieu de rejet : `--no-strict-constraints`.
 
 ## Règles nutrition famille (preset)
 
-Le foyer choisit un preset structurel via le hub (`/parametres/regles-nutrition`) — par défaut **« Équilibre Alex »** (60% légumes / 22% protéines / 18% féculents, max 1 féculent par repas, légumes peu caloriques privilégiés, carottes/betteraves limitées).
+Le foyer choisit un preset structurel via le hub (`/parametres/regles-nutrition`) — par défaut **« Équilibre famille »** (60% légumes / 22% protéines / 18% féculents, max 1 féculent par repas, légumes peu caloriques privilégiés, carottes/betteraves limitées).
 
 Presets disponibles : `equilibre`, `perte-poids`, `proteine`, `mediterraneen`, `vegetarien-equilibre`, `sans-sel-strict`, ou `custom` (le foyer réécrit chaque champ).
 
