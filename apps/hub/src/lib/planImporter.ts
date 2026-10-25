@@ -7,30 +7,56 @@
  *    → réutilise leur ID au lieu de créer un doublon
  * 3. Map tempId → realId pour recettes et batchSessions
  * 4. Mappe `profilsPresentsNoms` (texte) → profilIds via le snapshot du plan
- * 5. Wipe les slots / batchSessions / shoppingList existants du plan
+ * 5. Wipe les slots / batchSessions existants du plan
  * 6. Crée les nouvelles entités, archive le précédent plan actif, promeut le nouveau
+ * 7. Liste de courses (format 2, un document par article) :
+ *    - ré-import du même plan : même document de liste, articles fusionnés
+ *      (`fusionnerReimport`) — le tri, les coches et les oublis survivent ;
+ *      une liste encore à l'ancien format est convertie au passage ;
+ *    - nouveau plan : liste neuve, avec les oublis non cochés de la liste du
+ *      plan actif précédent (`oublisAReporter`).
  *
- * Tout en un seul `WriteBatch` : succès atomique ou rien.
+ * Lot principal atomique (plan, slots, recettes, batchs, document de liste,
+ * archives). Les articles y sont aussi tant que le total tient sous
+ * `MAX_OPS_LOT` (import entièrement atomique) ; au-delà, ils partent juste
+ * après, en lots supplémentaires (`ecrireParLots`).
  */
 
 import {
   collection,
+  deleteField,
   doc,
+  getDoc,
   getDocs,
   query,
   serverTimestamp,
   where,
   writeBatch,
+  type QuerySnapshot,
+  type WriteBatch,
 } from "firebase/firestore";
 import { db } from "./firebase";
+import { ecrireParLots } from "./ecritureParLots";
+import {
+  articlesDuPlan,
+  doitMigrer,
+  fusionnerReimport,
+  migrerArticles,
+  oublisAReporter,
+  type ArticleAvecId,
+} from "./listeCourses";
 import type {
   PlanImport,
   RecetteImport,
   RayonImport,
 } from "./planImportSchema";
 import {
+  estProduitPlacard,
   REPAS_IMPORT_TO_LEGACY,
+  type ArticleCourses,
+  type Household,
   type Profil,
+  type ShoppingList,
   type Repas,
   type RecetteSaison,
 } from "@family-hub/types";
@@ -71,6 +97,9 @@ const DIFF_MAP: Record<"facile" | "moyen" | "avance", 1 | 2 | 3> = {
   moyen: 2,
   avance: 3,
 };
+
+/** Sous la limite Firestore de 500 écritures par lot, avec de la marge. */
+const MAX_OPS_LOT = 450;
 
 export interface ImportPlanResult {
   recettesCreated: number;
@@ -172,22 +201,21 @@ export async function importPlanFromJson(args: {
     return { ids, unresolved };
   };
 
-  // ---- 6. Wipe existant : slots, batchSessions, shoppingLists du plan ----
+  // ---- 6. Lectures : slots, batchSessions, listes du plan, plans actifs, foyer ----
   const slotsRef = collection(db, `households/${householdId}/mealPlans/${planId}/slots`);
   const batchesRef = collection(
     db,
     `households/${householdId}/mealPlans/${planId}/batchSessions`,
   );
-  /* Wipe UNIQUEMENT les shoppingLists du PLAN COURANT (réimport sur même
-     plan). On filtre sur `planId` pour ne pas détruire les listes des autres
-     plans (perte de données en multi-plan) et borner le nombre de deletes
-     sous la limite des 500 writes par batch. */
+  /* Listes du PLAN COURANT seulement (ré-import) : les listes des autres
+     plans ne sont jamais touchées. */
   const planShoppingQ = query(
     collection(db, `households/${householdId}/shoppingLists`),
     where("planId", "==", planId),
   );
 
-  const [oldSlotsSnap, oldBatchesSnap, planShoppingSnap, activePlanSnap] = await Promise.all([
+  const [oldSlotsSnap, oldBatchesSnap, planShoppingSnap, activePlanSnap, householdSnap] =
+    await Promise.all([
     getDocs(slotsRef),
     getDocs(batchesRef),
     getDocs(planShoppingQ),
@@ -197,23 +225,48 @@ export async function importPlanFromJson(args: {
         where("statut", "==", "active"),
       ),
     ),
+    getDoc(doc(db, `households/${householdId}`)),
   ]);
-  // Format 2 : les articles des anciennes listes sont en sous-collection
-  // `items` ; on les efface avec leur liste (sinon documents orphelins).
+  // Produits de placard du foyer ; absent = liste par défaut.
+  const placardFoyer = (householdSnap.data() as Household | undefined)?.parametres?.placard;
+  const estPlacard = (nom: string) => estProduitPlacard(nom, placardFoyer);
+
+  // Articles des listes du plan (ré-import), en sous-collection `items`.
   const oldShoppingItemsSnaps = await Promise.all(
     planShoppingSnap.docs.map((d) => getDocs(collection(d.ref, "items"))),
   );
 
+  // Nouveau plan : articles des listes du (des) plan(s) actif(s) précédent(s),
+  // pour reporter leurs oublis. Inutile en ré-import (la fusion les garde).
+  const plansPrecedents = activePlanSnap.docs.map((d) => d.id).filter((id) => id !== planId);
+  const articlesPrecedents: ArticleCourses[] = [];
+  if (planShoppingSnap.empty && plansPrecedents.length > 0) {
+    const listesPrecedentes = await getDocs(
+      query(
+        collection(db, `households/${householdId}/shoppingLists`),
+        where("planId", "in", plansPrecedents.slice(0, 30)),
+      ),
+    );
+    const itemsPrecedents = await Promise.all(
+      listesPrecedentes.docs.map((d) => getDocs(collection(d.ref, "items"))),
+    );
+    listesPrecedentes.docs.forEach((d, i) => {
+      articlesPrecedents.push(
+        ...articlesDeListe(d.data() as ShoppingList, itemsPrecedents[i], estPlacard),
+      );
+    });
+  }
+
   // ---- 7. Big batch write ----
   const batch = writeBatch(db);
 
-  // Wipes : slots + batches du plan courant + la/les shoppingList(s) du plan
-  // courant (qu'on va recréer). Scopé au planId : les listes des autres plans
-  // sont préservées.
+  /** Écritures du lot principal (pour décider où vont les articles). */
+  let opsPrincipales = 0;
+
+  // Wipes : slots + batches du plan courant (recréés plus bas).
   oldSlotsSnap.docs.forEach((d) => batch.delete(d.ref));
   oldBatchesSnap.docs.forEach((d) => batch.delete(d.ref));
-  planShoppingSnap.docs.forEach((d) => batch.delete(d.ref));
-  oldShoppingItemsSnaps.forEach((snap) => snap.docs.forEach((d) => batch.delete(d.ref)));
+  opsPrincipales += oldSlotsSnap.size + oldBatchesSnap.size;
 
   // Creates : recettes
   for (const { ref, data: r } of recettesToCreate) {
@@ -340,26 +393,72 @@ export async function importPlanFromJson(args: {
     );
   }
 
-  // Creates : shoppingList (1 doc par plan)
-  const shoppingRef = doc(collection(db, `households/${householdId}/shoppingLists`));
-  const shoppingItems = data.shoppingList.items.map((it, idx) => ({
-    id: `item-${idx}-${Math.random().toString(36).slice(2, 8)}`,
-    nom: it.nom,
-    quantite: it.quantite,
-    unite: it.unite,
-    rayon: it.rayon,
-    recetteIds: (it.recetteTempIds ?? [])
-      .map((tid) => recetteTempToReal.get(tid))
-      .filter((x): x is string => !!x),
-    checked: false,
-    ajoutManuel: false,
-  }));
-  batch.set(shoppingRef, {
-    planId,
-    items: shoppingItems,
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-  });
+  opsPrincipales +=
+    recettesToCreate.length + recettesToBumpUsage.length + data.batchSessions.length + slotsCreated;
+
+  // Liste de courses (1 doc par plan, format 2 : articles en sous-collection)
+  const nouveauxArticles = articlesDuPlan(
+    data.shoppingList.items.map((it) => ({
+      nom: it.nom,
+      quantite: it.quantite,
+      unite: it.unite,
+      rayon: it.rayon,
+      recetteIds: (it.recetteTempIds ?? [])
+        .map((tid) => recetteTempToReal.get(tid))
+        .filter((x): x is string => !!x),
+      placard: it.placard,
+    })),
+    placardFoyer,
+  );
+  /** Écritures d'articles : dans le lot principal ou en lots supplémentaires. */
+  const opsArticles: Array<(b: WriteBatch) => void> = [];
+  const listeExistante = planShoppingSnap.docs[0];
+  if (listeExistante) {
+    // Ré-import : même document de liste, articles fusionnés.
+    const itemsCol = collection(listeExistante.ref, "items");
+    const itemsSnap = oldShoppingItemsSnaps[0];
+    const idsEnBase = new Set(itemsSnap.docs.map((d) => d.id));
+    const existants = articlesDeListe(listeExistante.data() as ShoppingList, itemsSnap, estPlacard);
+    const { aEcrire, aSupprimer } = fusionnerReimport(existants, nouveauxArticles);
+    for (const { id, data: article } of aEcrire) {
+      const ref = id ? doc(itemsCol, id) : doc(itemsCol);
+      const valeur = id ? article : { ...article, createdAt: serverTimestamp() };
+      opsArticles.push((b) => b.set(ref, valeur));
+    }
+    // Un id issu de l'ancien tableau n'a pas de document : rien à effacer.
+    for (const id of aSupprimer) {
+      if (idsEnBase.has(id)) opsArticles.push((b) => b.delete(doc(itemsCol, id)));
+    }
+    // Ancien format : le tableau disparaît, la liste passe au format 2.
+    batch.update(listeExistante.ref, {
+      format: 2,
+      items: deleteField(),
+      updatedAt: serverTimestamp(),
+    });
+    opsPrincipales += 1;
+    // Anomalie : plusieurs listes pour ce plan → seule la première est gardée.
+    planShoppingSnap.docs.slice(1).forEach((d, i) => {
+      batch.delete(d.ref);
+      opsPrincipales += 1;
+      oldShoppingItemsSnaps[i + 1].docs.forEach((it) => opsArticles.push((b) => b.delete(it.ref)));
+    });
+  } else {
+    // Nouveau plan : liste neuve + oublis non cochés du plan précédent.
+    const listeRef = doc(collection(db, `households/${householdId}/shoppingLists`));
+    const itemsCol = collection(listeRef, "items");
+    batch.set(listeRef, {
+      planId,
+      format: 2,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    opsPrincipales += 1;
+    const articles = [...nouveauxArticles, ...oublisAReporter(articlesPrecedents, nouveauxArticles)];
+    for (const article of articles) {
+      const ref = doc(itemsCol);
+      opsArticles.push((b) => b.set(ref, { ...article, createdAt: serverTimestamp() }));
+    }
+  }
 
   // Archive précédents plans actifs (sauf celui qu'on active là)
   const archivedIds: string[] = [];
@@ -371,6 +470,7 @@ export async function importPlanFromJson(args: {
       updatedAt: serverTimestamp(),
     });
     archivedIds.push(d.id);
+    opsPrincipales += 1;
   }
 
   // Réécrit dateDebut/dateFin du plan à partir des vraies dates des slots
@@ -401,20 +501,46 @@ export async function importPlanFromJson(args: {
     ...(data.commentaireGeneral ? { commentaireImport: data.commentaireGeneral } : {}),
   });
 
-  await batch.commit();
+  opsPrincipales += 1; // promotion du plan
+
+  /* Articles dans le lot principal si tout tient (import entièrement
+     atomique) ; sinon le lot principal part d'abord, puis les articles. */
+  if (opsPrincipales + opsArticles.length <= MAX_OPS_LOT) {
+    opsArticles.forEach((op) => op(batch));
+    await batch.commit();
+  } else {
+    await batch.commit();
+    await ecrireParLots(() => writeBatch(db), opsArticles, MAX_OPS_LOT);
+  }
 
   return {
     recettesCreated: recettesToCreate.length,
     recettesReused: recettesToBumpUsage.length,
     slotsCreated,
     batchSessionsCreated: data.batchSessions.length,
-    shoppingItemsCreated: shoppingItems.length,
+    shoppingItemsCreated: nouveauxArticles.length,
     archivedPreviousPlanIds: archivedIds,
     unresolvedProfilNoms: Array.from(unresolvedNoms),
   };
 }
 
 // ---- helpers ----
+
+/**
+ * Articles d'une liste existante : sous-collection (format 2) ou, pour une
+ * liste encore à l'ancien format, conversion en mémoire du tableau (mêmes ids
+ * que la migration des téléphones) pour que tri et coches survivent.
+ */
+function articlesDeListe(
+  liste: ShoppingList,
+  itemsSnap: QuerySnapshot,
+  estPlacard: (nom: string) => boolean,
+): ArticleAvecId[] {
+  if (doitMigrer(liste)) {
+    return migrerArticles(liste.items ?? [], estPlacard).map(({ id, data }) => ({ ...data, id }));
+  }
+  return itemsSnap.docs.map((d) => ({ ...(d.data() as ArticleCourses), id: d.id }));
+}
 
 function countUsage(tempId: string, data: PlanImport): number {
   let n = 0;

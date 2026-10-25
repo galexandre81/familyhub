@@ -2,7 +2,10 @@ import { describe, expect, it } from "vitest";
 import type { ArticleCourses, ShoppingListItem } from "@family-hub/types";
 import {
   articleOubli,
+  articlesDuPlan,
   cleArticle,
+  fusionnerReimport,
+  oublisAReporter,
   doitMigrer,
   grouperParRayon,
   migrerArticles,
@@ -231,5 +234,181 @@ describe("oubli", () => {
       checkedBy: null,
       ordre: 5,
     });
+  });
+});
+
+describe("articlesDuPlan", () => {
+  const ligne = (nom: string, extra: { placard?: boolean } = {}) => ({
+    nom,
+    quantite: 2,
+    unite: "pièces",
+    rayon: "epicerie" as const,
+    recetteIds: ["r1"],
+    ...extra,
+  });
+
+  it("crée des articles à trier, non cochés, dans l'ordre de l'import", () => {
+    const r = articlesDuPlan([ligne("Tomates"), ligne("Riz")]);
+    expect(r).toEqual([
+      {
+        nom: "Tomates",
+        quantite: 2,
+        unite: "pièces",
+        rayon: "epicerie",
+        recetteIds: ["r1"],
+        ajoutManuel: false,
+        destination: "a-trier",
+        placard: false,
+        checked: false,
+        checkedAt: null,
+        checkedBy: null,
+        ordre: 0,
+      },
+      expect.objectContaining({ nom: "Riz", ordre: 1 }),
+    ]);
+  });
+
+  it("placard = drapeau du modèle OU produit de placard du foyer", () => {
+    const r = articlesDuPlan(
+      [ligne("Safran", { placard: true }), ligne("Sel fin"), ligne("Cumin"), ligne("Tomates")],
+      ["cumin"],
+    );
+    expect(r.map((a) => a.placard)).toEqual([true, false, true, false]);
+    // Sans liste du foyer : liste par défaut (le sel en fait partie).
+    expect(articlesDuPlan([ligne("Sel fin")])[0].placard).toBe(true);
+  });
+});
+
+describe("fusionnerReimport", () => {
+  const nouveau = (nom: string, extra: Partial<ArticleCourses> = {}): ArticleCourses => {
+    const { id: _id, ...data } = art(nom, { destination: "a-trier", ...extra });
+    return data;
+  };
+
+  it("même produit : garde l'id, le tri et la coche ; prend quantité, rayon et recettes du nouveau", () => {
+    const existants = [
+      art("x1", {
+        nom: "Œufs",
+        unite: "pièces",
+        quantite: 6,
+        rayon: "cremerie",
+        destination: "drive",
+        checked: true,
+        checkedBy: "uid-a",
+        checkedAt: "T1" as never,
+        recetteIds: ["r1"],
+      }),
+    ];
+    const r = fusionnerReimport(existants, [
+      nouveau("oeuf", { unite: "Pièces", quantite: 12, rayon: "epicerie", recetteIds: ["r2"], ordre: 3 }),
+    ]);
+    expect(r.aSupprimer).toEqual([]);
+    expect(r.aEcrire).toEqual([
+      {
+        id: "x1",
+        data: expect.objectContaining({
+          nom: "oeuf",
+          quantite: 12,
+          rayon: "epicerie",
+          recetteIds: ["r2"],
+          destination: "drive",
+          checked: true,
+          checkedBy: "uid-a",
+          checkedAt: "T1",
+          ordre: 3,
+        }),
+      },
+    ]);
+  });
+
+  it("un oubli (ajout manuel) absent du nouveau plan est conservé, après les articles du plan", () => {
+    const existants = [art("o1", { nom: "Piles", ajoutManuel: true, destination: "magasin", ordre: 1 })];
+    const r = fusionnerReimport(existants, [nouveau("Riz", { ordre: 0 }), nouveau("Pâtes", { ordre: 1 })]);
+    expect(r.aSupprimer).toEqual([]);
+    const oubli = r.aEcrire.find((e) => e.id === "o1");
+    expect(oubli?.data).toMatchObject({ nom: "Piles", ajoutManuel: true, destination: "magasin", ordre: 2 });
+  });
+
+  it("un article du plan qui a disparu est supprimé ; un nouvel article est créé sans id", () => {
+    const existants = [art("a1", { nom: "Courgettes" }), art("a2", { nom: "Riz" })];
+    const r = fusionnerReimport(existants, [nouveau("Riz"), nouveau("Lentilles")]);
+    expect(r.aSupprimer).toEqual(["a1"]);
+    expect(r.aEcrire.map((e) => [e.id, e.data.nom])).toEqual([
+      ["a2", "Riz"],
+      [undefined, "Lentilles"],
+    ]);
+  });
+
+  it("un oubli qui entre dans le plan devient un article du plan (gardant son tri)", () => {
+    const existants = [art("o1", { nom: "Riz", ajoutManuel: true, destination: "deja" })];
+    const r = fusionnerReimport(existants, [nouveau("riz")]);
+    expect(r.aEcrire).toEqual([
+      { id: "o1", data: expect.objectContaining({ ajoutManuel: false, destination: "deja" }) },
+    ]);
+  });
+
+  it("deux articles existants pour la même clé : un seul est repris, l'autre supprimé", () => {
+    const existants = [art("a1", { nom: "Riz" }), art("a2", { nom: "riz" })];
+    const r = fusionnerReimport(existants, [nouveau("Riz")]);
+    expect(r.aEcrire.map((e) => e.id)).toEqual(["a1"]);
+    expect(r.aSupprimer).toEqual(["a2"]);
+  });
+
+  it("aucun champ undefined dans ce qui est écrit (refusé par Firestore)", () => {
+    const existants = [art("x1", { nom: "Riz", checked: true, checkedBy: "u" })];
+    const r = fusionnerReimport(existants, [nouveau("Riz")]);
+    for (const { data } of r.aEcrire) {
+      expect(Object.values(data).some((v) => v === undefined)).toBe(false);
+    }
+  });
+});
+
+describe("oublisAReporter", () => {
+  it("reprend les oublis non cochés, remis au magasin, sans id", () => {
+    const r = oublisAReporter([
+      art("o1", { nom: "Piles", ajoutManuel: true, destination: "drive", ordre: 7 }),
+      art("o2", { nom: "Ampoule", ajoutManuel: true, checked: true, checkedBy: "u" }),
+      art("p1", { nom: "Riz", ajoutManuel: false }),
+    ]);
+    expect(r).toEqual([
+      {
+        nom: "Piles",
+        quantite: 1,
+        unite: "",
+        rayon: "epicerie",
+        recetteIds: [],
+        ajoutManuel: true,
+        destination: "magasin",
+        placard: false,
+        checked: false,
+        checkedAt: null,
+        checkedBy: null,
+        ordre: 0,
+      },
+    ]);
+  });
+
+  it("ne reprend pas un oubli déjà dans le nouveau plan ; numérote après lui", () => {
+    const { id: _id, ...riz } = art("n1", { nom: "Riz", ordre: 0 });
+    const r = oublisAReporter(
+      [
+        art("o1", { nom: "riz", ajoutManuel: true }),
+        art("o2", { nom: "Piles", ajoutManuel: true }),
+        art("o3", { nom: "Lampe", ajoutManuel: true }),
+      ],
+      [riz],
+    );
+    expect(r.map((a) => [a.nom, a.ordre])).toEqual([
+      ["Piles", 1],
+      ["Lampe", 2],
+    ]);
+  });
+
+  it("deux oublis identiques ne sont reportés qu'une fois", () => {
+    const r = oublisAReporter([
+      art("o1", { nom: "Piles", ajoutManuel: true }),
+      art("o2", { nom: "piles", ajoutManuel: true }),
+    ]);
+    expect(r).toHaveLength(1);
   });
 });

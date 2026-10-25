@@ -5,7 +5,9 @@
  * lectures/écritures et passe les horodatages serveur en paramètre.
  */
 import {
+  estProduitPlacard,
   normaliserNom,
+  PLACARD_DEFAUT,
   type ArticleCourses,
   type ShoppingList,
   type ShoppingListItem,
@@ -193,4 +195,133 @@ export function articleOubli(nom: string, ordre: number): ArticleCourses {
     checkedBy: null,
     ordre,
   };
+}
+
+/** Une ligne de la liste importée, recettes déjà résolues en vrais ids. */
+export interface LigneImport {
+  nom: string;
+  quantite: number;
+  unite: string;
+  rayon: ShoppingListRayon;
+  recetteIds: string[];
+  /** Drapeau « produit de placard » posé par le modèle. */
+  placard?: boolean;
+}
+
+/**
+ * Articles d'un plan importé : à trier, non cochés, dans l'ordre de l'import.
+ * `placard` = drapeau du modèle OU produit de placard du foyer (absent =
+ * liste par défaut).
+ */
+export function articlesDuPlan(lignes: LigneImport[], placardFoyer?: string[]): ArticleCourses[] {
+  return lignes.map((l, ordre) => ({
+    nom: l.nom,
+    quantite: l.quantite,
+    unite: l.unite,
+    rayon: l.rayon,
+    recetteIds: l.recetteIds,
+    ajoutManuel: false,
+    destination: "a-trier",
+    placard: l.placard === true || estProduitPlacard(l.nom, placardFoyer ?? PLACARD_DEFAUT),
+    checked: false,
+    checkedAt: null,
+    checkedBy: null,
+    ordre,
+  }));
+}
+
+/** Copie sans champ `undefined` (refusé par Firestore). */
+function sansUndefined<T extends object>(o: T): T {
+  return Object.fromEntries(Object.entries(o).filter(([, v]) => v !== undefined)) as T;
+}
+
+/**
+ * Ré-import d'un plan sur sa liste existante, sans perdre le tri ni les coches.
+ *
+ * - Même produit (`cleArticle`) : garde l'id, la destination et la coche de
+ *   l'existant ; prend quantité, rayon, recettes, ordre et placard du nouveau.
+ * - Oubli (ajout manuel) absent du nouveau plan : conservé, renuméroté après
+ *   les articles du plan.
+ * - Autre existant absent du nouveau plan : supprimé.
+ * - Nouveau sans équivalent : créé (`id` absent).
+ */
+export function fusionnerReimport(
+  existants: ArticleAvecId[],
+  nouveaux: ArticleCourses[],
+): { aEcrire: Array<{ id?: string; data: ArticleCourses }>; aSupprimer: string[] } {
+  const parCle = new Map<string, ArticleAvecId[]>();
+  for (const e of [...existants].sort(parOrdre)) {
+    const cle = cleArticle(e);
+    const liste = parCle.get(cle);
+    if (liste) liste.push(e);
+    else parCle.set(cle, [e]);
+  }
+  const repris = new Set<string>();
+  const aEcrire: Array<{ id?: string; data: ArticleCourses }> = [];
+  for (const n of nouveaux) {
+    const e = parCle.get(cleArticle(n))?.find((x) => !repris.has(x.id));
+    if (!e) {
+      aEcrire.push({ data: sansUndefined(n) });
+      continue;
+    }
+    repris.add(e.id);
+    aEcrire.push({
+      id: e.id,
+      data: sansUndefined({
+        ...n,
+        destination: e.destination,
+        checked: e.checked,
+        checkedBy: e.checkedBy ?? null,
+        checkedAt: e.checkedAt ?? null,
+        createdAt: e.createdAt,
+      }),
+    });
+  }
+  let ordre = prochainOrdre(nouveaux);
+  const aSupprimer: string[] = [];
+  for (const e of [...existants].sort(parOrdre)) {
+    if (repris.has(e.id)) continue;
+    if (e.ajoutManuel) {
+      const { id, ...data } = e;
+      aEcrire.push({ id, data: sansUndefined({ ...data, ordre: ordre++ }) });
+    } else {
+      aSupprimer.push(e.id);
+    }
+  }
+  return { aEcrire, aSupprimer };
+}
+
+/**
+ * Oublis du plan précédent à reporter dans la liste d'un nouveau plan :
+ * ajouts manuels non cochés, remis au magasin, sans doublon ni produit déjà
+ * présent dans `nouveaux`, numérotés après eux.
+ */
+export function oublisAReporter(
+  articlesPlanPrecedent: Array<ArticleCourses & { id?: string }>,
+  nouveaux: ArticleCourses[] = [],
+): ArticleCourses[] {
+  const vus = new Set(nouveaux.map(cleArticle));
+  let ordre = prochainOrdre(nouveaux);
+  const resultat: ArticleCourses[] = [];
+  for (const a of [...articlesPlanPrecedent].sort((x, y) => x.ordre - y.ordre)) {
+    if (!a.ajoutManuel || a.checked) continue;
+    const cle = cleArticle(a);
+    if (vus.has(cle)) continue;
+    vus.add(cle);
+    resultat.push({
+      nom: a.nom,
+      quantite: a.quantite,
+      unite: a.unite,
+      rayon: a.rayon,
+      recetteIds: a.recetteIds ?? [],
+      ajoutManuel: true,
+      destination: "magasin",
+      placard: a.placard === true,
+      checked: false,
+      checkedAt: null,
+      checkedBy: null,
+      ordre: ordre++,
+    });
+  }
+  return resultat;
 }
