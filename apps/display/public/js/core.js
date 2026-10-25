@@ -601,18 +601,11 @@
         break;
       }
     }
-    var cls = amb.ambianceFromSun(new Date(), sun && sun.sunrise, sun && sun.sunset) === 'jour'
-      ? 'amb-jour' : 'amb-nuit';
+    var ambiance = amb.ambianceFromSun(new Date(), sun && sun.sunrise, sun && sun.sunset);
     var html = document.documentElement;
-    var classes = (html.className || '').split(/\s+/);
-    var kept = [];
-    for (var i = 0; i < classes.length; i++) {
-      var c = classes[i];
-      if (!c || c.indexOf('theme-') === 0) continue;
-      kept.push(c);
-    }
-    kept.push(cls);
-    var next = kept.join(' ');
+    /* Retire theme-* ET amb-* (sinon amb-jour/amb-nuit s'accumulent et la
+       nuit gagne pour toujours) ; n'écrit que si ça change. */
+    var next = amb.classesAvecAmbiance(html.className || '', ambiance);
     if (html.className !== next) html.className = next;
   }
 

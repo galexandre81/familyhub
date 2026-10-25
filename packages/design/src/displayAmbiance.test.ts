@@ -107,3 +107,32 @@ describe("ambianceFromSun — parité avec ambianceAt", () => {
     expect(amb.ambianceFromSun(at(h), s?.sunrise, s?.sunset)).toBe(ambianceAt(at(h), s));
   });
 });
+
+describe("classesAvecAmbiance — className de <html>", () => {
+  const api = amb as ApiAmbiance & {
+    classesAvecAmbiance(className: string, ambiance: "jour" | "nuit"): string;
+  };
+
+  it("jour → nuit → jour : exactement une classe amb-jour, rien ne s'accumule", () => {
+    let c = "ipad theme-sombre";
+    c = api.classesAvecAmbiance(c, "jour");
+    c = api.classesAvecAmbiance(c, "nuit");
+    c = api.classesAvecAmbiance(c, "jour");
+    expect(c.split(" ").filter((x) => x === "amb-jour")).toHaveLength(1);
+    expect(c).not.toContain("amb-nuit");
+    expect(c).toBe("ipad amb-jour");
+  });
+
+  it("retire theme-* et amb-*, garde les autres classes", () => {
+    expect(api.classesAvecAmbiance("a theme-x amb-nuit b", "nuit")).toBe("a b amb-nuit");
+  });
+
+  it("idempotent : réappliqué chaque minute, le résultat ne grossit pas", () => {
+    const une = api.classesAvecAmbiance("ipad", "nuit");
+    expect(api.classesAvecAmbiance(une, "nuit")).toBe(une);
+  });
+
+  it("className vide ou absent", () => {
+    expect(api.classesAvecAmbiance("", "jour")).toBe("amb-jour");
+  });
+});

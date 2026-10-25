@@ -62,10 +62,27 @@
     return { sunrise: d.sunrise, sunset: d.sunset };
   }
 
+  /* className de <html> avec l'ambiance demandée : retire toute classe
+     theme-* (ancien choix de thème) et amb-* (ambiance précédente), garde
+     les autres, puis ajoute amb-jour ou amb-nuit. Idempotent : appliqué
+     chaque minute, le résultat ne grossit pas. */
+  function classesAvecAmbiance(className, ambiance) {
+    var classes = String(className == null ? '' : className).split(/\s+/);
+    var kept = [];
+    for (var i = 0; i < classes.length; i++) {
+      var c = classes[i];
+      if (!c || c.indexOf('theme-') === 0 || c.indexOf('amb-') === 0) continue;
+      kept.push(c);
+    }
+    kept.push(ambiance === 'jour' ? 'amb-jour' : 'amb-nuit');
+    return kept.join(' ');
+  }
+
   var api = {
     parseHHMM: parseHHMM,
     ambianceFromSun: ambianceFromSun,
-    sunFromWeatherData: sunFromWeatherData
+    sunFromWeatherData: sunFromWeatherData,
+    classesAvecAmbiance: classesAvecAmbiance
   };
 
   if (root) root.FamilyHubAmbiance = api;
