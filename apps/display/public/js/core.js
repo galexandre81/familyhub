@@ -581,7 +581,7 @@
   }
 
   /* Ambiance jour/nuit TRANSITOIRE : l'iPad ne choisit ni n'écrit plus de
-     thème. Il réutilise les overrides CSS theme-lin (jour) / theme-marine
+     thème. Il réutilise les overrides CSS amb-jour (jour) / amb-nuit
      (nuit) selon le lever/coucher du soleil de la tuile météo. Règle et
      lecture des données : js/ambiance.js (fonctions pures, testées par
      packages/design/src/displayAmbiance.test.ts). */
@@ -602,7 +602,7 @@
       }
     }
     var cls = amb.ambianceFromSun(new Date(), sun && sun.sunrise, sun && sun.sunset) === 'jour'
-      ? 'theme-lin' : 'theme-marine';
+      ? 'amb-jour' : 'amb-nuit';
     var html = document.documentElement;
     var classes = (html.className || '').split(/\s+/);
     var kept = [];

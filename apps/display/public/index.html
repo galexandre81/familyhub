@@ -13,6 +13,9 @@
        pour TOUS les assets à la fois (pas de skew vieux core.js / nouveau
        settings.js). Ne rien bumper à la main. -->
   <link rel="stylesheet" href="css/styles.css?v=__DISPLAY_VERSION__">
+  <!-- fonts.css puis ambiance.css APRÈS styles.css : à spécificité égale la dernière règle gagne, donc les jetons du design system l'emportent sur les anciennes couleurs en dur. -->
+  <link rel="stylesheet" href="css/fonts.css?v=__DISPLAY_VERSION__">
+  <link rel="stylesheet" href="css/ambiance.css?v=__DISPLAY_VERSION__">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="manifest" href="manifest.json">
 </head>

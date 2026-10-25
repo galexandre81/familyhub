@@ -1,0 +1,48 @@
+/* GÉNÉRÉ par packages/design/scripts/gen-display-css.mjs — ne pas modifier à la main. */
+.fh-titre { font-family: "Bricolage Grotesque", -apple-system, Helvetica, Arial, sans-serif; }
+.fh-corps { font-family: "Atkinson Hyperlegible", -apple-system, Helvetica, Arial, sans-serif; }
+/* jour */
+html.amb-jour .fh-fond { background: #EEF4EA; color: #1E2B22; }
+html.amb-jour .fh-carte { background: #FFFFFF; color: #1E2B22; }
+html.amb-jour .fh-texte { color: #1E2B22; }
+html.amb-jour .fh-texte-doux { color: #55665A; }
+html.amb-jour .fh-action { background: #2D56C8; color: #FFFFFF; }
+html.amb-jour .fh-maintenant { background: #F5C242; color: #1E2B22; }
+html.amb-jour .fh-bordure { border-color: #1E2B22; }
+html.amb-jour .fh-p-sapin { background: #2B7A4B; }
+html.amb-jour .fh-p-toleRouge { background: #C8462B; }
+html.amb-jour .fh-p-lilas { background: #8A55D0; }
+html.amb-jour .fh-p-miel { background: #B7791F; }
+html.amb-jour .fh-p-ardoise { background: #3E6A8A; }
+html.amb-jour .fh-p-texte { color: #FFFFFF; }
+html.amb-jour, html.amb-jour body { background: #EEF4EA; color: #1E2B22; }
+html.amb-jour .grid-cell { background: #FFFFFF; border-color: #C9D6C6; }
+html.amb-jour .tile-title { color: #55665A; }
+html.amb-jour .tile-overlay { background: #EEF4EA; }
+html.amb-jour .tile-overlay-bar { background: #FFFFFF; border-bottom-color: #C9D6C6; }
+html.amb-jour .tile-overlay-back { color: #1E2B22; }
+html.amb-jour .boot-title, html.amb-jour .error-title { color: #1E2B22; }
+html.amb-jour .error-link { background: #2D56C8; color: #FFFFFF; }
+
+/* nuit */
+html.amb-nuit .fh-fond { background: #0F1B2D; color: #F2F5F8; }
+html.amb-nuit .fh-carte { background: #182841; color: #F2F5F8; }
+html.amb-nuit .fh-texte { color: #F2F5F8; }
+html.amb-nuit .fh-texte-doux { color: #A8B6C8; }
+html.amb-nuit .fh-action { background: #FFB547; color: #0F1B2D; }
+html.amb-nuit .fh-maintenant { background: #FFB547; color: #0F1B2D; }
+html.amb-nuit .fh-bordure { border-color: #2C3F5C; }
+html.amb-nuit .fh-p-sapin { background: #5BC08A; }
+html.amb-nuit .fh-p-toleRouge { background: #F2836A; }
+html.amb-nuit .fh-p-lilas { background: #B994F2; }
+html.amb-nuit .fh-p-miel { background: #F0B95A; }
+html.amb-nuit .fh-p-ardoise { background: #8DB8D8; }
+html.amb-nuit .fh-p-texte { color: #0F1B2D; }
+html.amb-nuit, html.amb-nuit body { background: #0F1B2D; color: #F2F5F8; }
+html.amb-nuit .grid-cell { background: #182841; border-color: #2C3F5C; }
+html.amb-nuit .tile-title { color: #A8B6C8; }
+html.amb-nuit .tile-overlay { background: #0F1B2D; }
+html.amb-nuit .tile-overlay-bar { background: #182841; border-bottom-color: #2C3F5C; }
+html.amb-nuit .tile-overlay-back { color: #F2F5F8; }
+html.amb-nuit .boot-title, html.amb-nuit .error-title { color: #F2F5F8; }
+html.amb-nuit .error-link { background: #FFB547; color: #0F1B2D; }
