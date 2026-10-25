@@ -7,7 +7,7 @@
  * les envoie au retour du réseau. Un oubli s'ajoute en bas de l'écran.
  */
 import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
-import { ListChecks, Plus, Share2, ShoppingCart, WifiOff } from "lucide-react";
+import { ListChecks, Plus, Share2, ShoppingCart, Store, WifiOff } from "lucide-react";
 import clsx from "clsx";
 import { estProduitPlacard, PLACARD_DEFAUT } from "@family-hub/types";
 import { useAuth } from "../lib/auth";
@@ -97,7 +97,7 @@ export default function Courses() {
 
   const placardFoyer = household?.parametres?.placard ?? PLACARD_DEFAUT;
   const estPlacard = useCallback((nom: string) => estProduitPlacard(nom, placardFoyer), [placardFoyer]);
-  const { liste, articles, chargement, trier, cocher, ajouterOubli, estPlacardArticle } = useListeCourses(
+  const { liste, articles, chargement, trier, cocher, ajouterOubli, supprimer, estPlacardArticle } = useListeCourses(
     householdId,
     plan?.id,
     { estPlacard },
@@ -134,6 +134,8 @@ export default function Courses() {
     if (!oubli.trim()) return;
     ajouterOubli(oubli);
     setOubli("");
+    // En tri, l'oubli n'apparaît pas à l'écran (il part au magasin) : on le dit.
+    if (mode === "trier") toast("Ajouté au magasin (rayon Autres)", { type: "success" });
   };
 
   if (householdsLoading || planLoading || (plan && chargement)) return <LoadingState />;
@@ -156,7 +158,8 @@ export default function Courses() {
             <h1 className="font-serif text-2xl text-cream leading-tight">Courses</h1>
             {debut && <p className="text-[15px] text-cream-mute">{titreSemaine(debut)}</p>}
           </div>
-          <p className="shrink-0 text-lg text-cream tabular-nums" aria-label="Articles du magasin cochés">
+          <p className="shrink-0 text-lg text-cream tabular-nums">
+            <span className="sr-only">Articles du magasin cochés : </span>
             {progression.coches} / {progression.total}
           </p>
         </div>
@@ -182,7 +185,7 @@ export default function Courses() {
         {(
           [
             { m: "trier", libelle: "Trier", Icone: ListChecks },
-            { m: "magasin", libelle: "Magasin", Icone: ShoppingCart },
+            { m: "magasin", libelle: "Magasin", Icone: Store },
           ] as const
         ).map(({ m, libelle, Icone }) => (
           <button
@@ -209,10 +212,11 @@ export default function Courses() {
           articles={articles}
           estPlacard={estPlacardArticle}
           onTrier={trier}
+          onRetirer={supprimer}
           onAllerAuMagasin={() => choisirMode("magasin")}
         />
       ) : (
-        <VueMagasin articles={articles} quiACoche={quiACoche} onCocher={cocher} />
+        <VueMagasin articles={articles} quiACoche={quiACoche} onCocher={cocher} onRetirer={supprimer} />
       )}
 
       <button

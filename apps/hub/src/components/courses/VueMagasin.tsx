@@ -13,6 +13,8 @@ interface Props {
   /** Prénom et couleur de la personne reliée au compte `checkedBy`. */
   quiACoche(uid: string | null | undefined): QuiACoche;
   onCocher(id: string, coche: boolean): void;
+  /** Retirer un oubli (ajout manuel seulement). */
+  onRetirer(id: string): void;
 }
 
 const idRayon = (rayon: string) => `rayon-${rayon}`;
@@ -22,7 +24,7 @@ function restantsTexte(n: number): string {
   return n === 1 ? "1 restant" : `${n} restants`;
 }
 
-export default function VueMagasin({ articles, quiACoche, onCocher }: Props) {
+export default function VueMagasin({ articles, quiACoche, onCocher, onRetirer }: Props) {
   const groupes = useMemo(() => grouperParRayon(vueMagasin(articles)), [articles]);
 
   const allerAuRayon = useCallback((rayon: string) => {
@@ -59,14 +61,19 @@ export default function VueMagasin({ articles, quiACoche, onCocher }: Props) {
             <span className="text-[15px] text-cream-mute">{restantsTexte(g.restants)}</span>
           </h2>
           <ul className="flex flex-col divide-y divide-hairline rounded-xl bg-ebony-card border border-hairline">
-            {g.articles.map((a) => (
-              <LigneArticle
-                key={a.id}
-                article={a}
-                qui={a.checked ? quiACoche(a.checkedBy) : undefined}
-                onBasculer={onCocher}
-              />
-            ))}
+            {g.articles.map((a) => {
+              const qui = a.checked ? quiACoche(a.checkedBy) : undefined;
+              return (
+                <LigneArticle
+                  key={a.id}
+                  article={a}
+                  prenom={qui?.prenom}
+                  couleur={qui?.couleur}
+                  onBasculer={onCocher}
+                  onRetirer={a.ajoutManuel ? onRetirer : undefined}
+                />
+              );
+            })}
           </ul>
         </section>
       ))}

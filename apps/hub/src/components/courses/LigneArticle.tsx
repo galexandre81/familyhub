@@ -2,10 +2,11 @@
  * Ligne d'article en magasin (60 px) : grande case de 30 px, nom + quantité,
  * prénom de la personne qui a coché à droite. Toute la ligne se touche ;
  * toucher à nouveau décoche. Case cochée : couleur de la personne + coche
- * blanche (le jour) ou sombre (la nuit) via `--c-p-texte`.
+ * blanche (le jour) ou sombre (la nuit) via `--c-p-texte`. Un oubli (ajout
+ * manuel) a en plus un petit bouton « Retirer » en bout de ligne.
  */
 import { memo } from "react";
-import { Check } from "lucide-react";
+import { Check, X } from "lucide-react";
 import clsx from "clsx";
 import type { ArticleAvecId } from "../../lib/listeCourses";
 import { libelleQuantite } from "../../lib/coursesTelephone";
@@ -18,23 +19,28 @@ export interface QuiACoche {
 
 interface Props {
   article: ArticleAvecId;
-  qui?: QuiACoche;
+  /** Prénom de la personne qui a coché (article coché seulement). */
+  prenom?: string;
+  /** Sa couleur CSS ; absente = personne inconnue. */
+  couleur?: string;
   onBasculer(id: string, coche: boolean): void;
+  /** Présent pour un oubli (ajout manuel) seulement. */
+  onRetirer?(id: string): void;
 }
 
-function LigneArticle({ article, qui, onBasculer }: Props) {
+function LigneArticle({ article, prenom, couleur: couleurQui, onBasculer, onRetirer }: Props) {
   const coche = article.checked;
   const quantite = libelleQuantite(article);
-  const couleur = qui?.couleur ?? "rgb(var(--c-cream-mute))";
+  const couleur = couleurQui ?? "rgb(var(--c-cream-mute))";
 
   return (
-    <li>
+    <li className="flex items-center">
       <button
         type="button"
         role="checkbox"
         aria-checked={coche}
         onClick={() => onBasculer(article.id, !coche)}
-        className="w-full min-h-[60px] flex items-center gap-3 px-3 text-left rounded-xl active:bg-ebony-ridge"
+        className="flex-1 min-w-0 min-h-[60px] flex items-center gap-3 px-3 text-left rounded-xl active:bg-ebony-ridge"
       >
         <span
           aria-hidden="true"
@@ -56,12 +62,23 @@ function LigneArticle({ article, qui, onBasculer }: Props) {
             </span>
           )}
         </span>
-        {coche && qui && (
-          <span className="shrink-0 text-[15px] font-semibold text-cream-mute" style={{ color: qui.couleur }}>
-            {qui.prenom}
+        {coche && prenom && (
+          <span className="shrink-0 text-[15px] font-semibold text-cream-mute" style={{ color: couleurQui }}>
+            {prenom}
           </span>
         )}
       </button>
+      {onRetirer && (
+        <button
+          type="button"
+          onClick={() => onRetirer(article.id)}
+          aria-label={`Retirer ${article.nom}`}
+          title="Retirer"
+          className="shrink-0 min-h-12 min-w-12 mr-1 inline-flex items-center justify-center rounded-xl text-cream-mute active:bg-ebony-ridge"
+        >
+          <X size={20} aria-hidden="true" />
+        </button>
+      )}
     </li>
   );
 }
