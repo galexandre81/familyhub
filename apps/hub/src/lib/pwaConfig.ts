@@ -23,7 +23,8 @@ export const pwaOptions: Partial<VitePWAOptions> = {
     lang: "fr",
     start_url: "/",
     display: "standalone",
-    background_color: "#EEF4EA",
+    // Écran de lancement Android : même bleu nuit que l'icône (scripts/lib/iconeMaison.mjs).
+    background_color: "#0F1B2D",
     theme_color: "#EEF4EA",
     icons: [
       { src: "/icons/icon-192.png", sizes: "192x192", type: "image/png" },
