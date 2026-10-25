@@ -48,7 +48,7 @@ export default function Semaine() {
   const { data: households, isLoading: householdsLoading } = useHouseholds(user?.uid);
   const household = households?.find((h) => h.id === householdId);
   const { data: planActif, isLoading: planActifLoading } = useActivePlan(householdId);
-  const { data: plans } = useAllPlans(householdId, PLANS_MAX);
+  const { data: plans, isLoading: plansLoading } = useAllPlans(householdId, PLANS_MAX);
   const now = useMaintenant();
 
   /** Plan choisi avec les flèches ; par défaut le plan actif (sinon le plus récent). */
@@ -80,7 +80,8 @@ export default function Semaine() {
     [profils],
   );
 
-  if (householdsLoading || planActifLoading) return <LoadingState />;
+  /* Sans plan actif, on attend la liste des plans avant d'affirmer qu'il n'y a pas de menu. */
+  if (householdsLoading || planActifLoading || (!plan && plansLoading)) return <LoadingState />;
   if (!householdId || !plan) {
     return (
       <div className="flex flex-col items-center text-center gap-3 py-12">
