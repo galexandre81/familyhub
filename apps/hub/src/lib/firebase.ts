@@ -1,6 +1,11 @@
 import { initializeApp, type FirebaseApp } from "firebase/app";
 import { getAuth, GoogleAuthProvider, type Auth } from "firebase/auth";
-import { getFirestore, type Firestore } from "firebase/firestore";
+import {
+  initializeFirestore,
+  persistentLocalCache,
+  persistentMultipleTabManager,
+  type Firestore,
+} from "firebase/firestore";
 import { getFunctions, type Functions } from "firebase/functions";
 
 const firebaseConfig = {
@@ -14,7 +19,12 @@ const firebaseConfig = {
 
 export const app: FirebaseApp = initializeApp(firebaseConfig);
 export const auth: Auth = getAuth(app);
-export const db: Firestore = getFirestore(app);
+// Cache local persistant (IndexedDB) : les données déjà vues restent lisibles
+// hors ligne, et les écritures faites sans réseau partent au retour de la
+// connexion. Partagé entre plusieurs onglets ouverts.
+export const db: Firestore = initializeFirestore(app, {
+  localCache: persistentLocalCache({ tabManager: persistentMultipleTabManager() }),
+});
 export const functions: Functions = getFunctions(app, "europe-west1");
 export const googleProvider = new GoogleAuthProvider();
 

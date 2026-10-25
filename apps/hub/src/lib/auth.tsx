@@ -1,12 +1,15 @@
 import { createContext, useContext, useEffect, useState, type ReactNode } from "react";
 import {
+  getRedirectResult,
   onAuthStateChanged,
   signInWithPopup,
+  signInWithRedirect,
   signOut as firebaseSignOut,
   type User,
 } from "firebase/auth";
 import { doc, serverTimestamp, setDoc } from "firebase/firestore";
 import { auth, db, googleProvider } from "./firebase";
+import { doitUtiliserRedirection } from "./authMode";
 
 interface AuthContextValue {
   user: User | null;
@@ -17,27 +20,42 @@ interface AuthContextValue {
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
 
+/** Crée ou met à jour le document users/{uid} à chaque connexion. */
+function enregistrerUtilisateur(u: User): void {
+  void setDoc(
+    doc(db, `users/${u.uid}`),
+    {
+      uid: u.uid,
+      email: u.email ?? "",
+      displayName: u.displayName ?? "",
+      photoURL: u.photoURL ?? "",
+      lastLoginAt: serverTimestamp(),
+    },
+    { merge: true },
+  );
+}
+
+function estAppInstallee(): boolean {
+  return typeof window.matchMedia === "function"
+    && window.matchMedia("(display-mode: standalone)").matches;
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    // Retour d'une connexion par redirection (app installée, iPhone/iPad) :
+    // on finalise le résultat ; onAuthStateChanged ci-dessous reçoit alors
+    // l'utilisateur et écrit users/{uid} comme pour la fenêtre surgissante.
+    getRedirectResult(auth).catch((err: unknown) => {
+      console.error("[auth] échec de la connexion par redirection", err);
+    });
+
     return onAuthStateChanged(auth, (u) => {
       setUser(u);
       setLoading(false);
-      if (u) {
-        void setDoc(
-          doc(db, `users/${u.uid}`),
-          {
-            uid: u.uid,
-            email: u.email ?? "",
-            displayName: u.displayName ?? "",
-            photoURL: u.photoURL ?? "",
-            lastLoginAt: serverTimestamp(),
-          },
-          { merge: true },
-        );
-      }
+      if (u) enregistrerUtilisateur(u);
     });
   }, []);
 
@@ -45,7 +63,11 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     user,
     loading,
     signIn: async () => {
-      await signInWithPopup(auth, googleProvider);
+      if (doitUtiliserRedirection(estAppInstallee(), navigator.userAgent)) {
+        await signInWithRedirect(auth, googleProvider);
+      } else {
+        await signInWithPopup(auth, googleProvider);
+      }
     },
     signOut: async () => {
       await firebaseSignOut(auth);

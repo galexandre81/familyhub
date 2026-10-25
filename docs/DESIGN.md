@@ -32,6 +32,20 @@ Il n'y a plus de choix de thème (ni `parametres.themeId`, ni champ `theme` sur 
 
 `npm run check:display` vérifie une partie de ces règles.
 
+## Téléphone (application installable)
+
+Le hub s'installe sur l'écran d'accueil du téléphone (manifest + service worker générés par `vite-plugin-pwa`, réglages dans `apps/hub/src/lib/pwaConfig.ts`). Les données Firestore déjà vues restent lisibles hors ligne (cache IndexedDB, `apps/hub/src/lib/firebase.ts`).
+
+- Le service worker ne contrôle jamais `/display/`, `/d/…` (écran de l'iPad) ni `/__/…` (pages de connexion servies par Firebase Hosting).
+- Icônes : `node scripts/generate-hub-icons.mjs` régénère `apps/hub/public/icons/` (PNG versionnés).
+- Connexion Google : fenêtre surgissante sur ordinateur ; **redirection pleine page** quand l'app est installée ou sur iPhone/iPad (`apps/hub/src/lib/authMode.ts`).
+
+**À faire par Alex avant le premier déploiement de ce lot** (sinon la connexion par redirection échoue sur iPhone, Safari bloquant les cookies tiers) :
+
+1. Dans `apps/hub/.env.local`, mettre `VITE_FIREBASE_AUTH_DOMAIN` sur le **domaine du site** (par exemple `<PROJECT_ID>.web.app`) au lieu de `…firebaseapp.com`.
+2. Dans la console Google Cloud (API et services → Identifiants → client OAuth « Web client » du projet), ajouter l'URI de redirection autorisée `https://<site>/__/auth/handler` (par exemple `https://<PROJECT_ID>.web.app/__/auth/handler`).
+3. Dans la console Firebase (Authentication → Paramètres → Domaines autorisés), vérifier que ce domaine figure dans la liste.
+
 ## Déployer ce lot
 
 Avant la fusion : le job CI `rules-tests` (règles Firestore sur l'émulateur) doit être vert, en plus du job `build`.
