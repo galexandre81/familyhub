@@ -132,148 +132,234 @@
     container.innerHTML = '';
   }
 
-  /* --- Vue PLEIN ÉCRAN (overlay) ---
-     Layout :
-       1. Hero : ville sélectionnée — gros temp/icône, label, min/max, sunrise/sunset
-       2. Semaine : 7 colonnes (jour + icône + max/min) pour la ville sélectionnée
-       3. Autres villes : chips compactes (nom + icône + temp) — tap pour switcher
-  */
+  /* --- Vue PLEIN ÉCRAN (overlay) — design « Alpage + Veillée » ---
+     Barre (overlay.js, tete()) : « Météo », ville + nombre de jours, et les
+     villes en boutons (≤ 3 ; au-delà, rangée en haut du contenu). Toucher une
+     ville la choisit (config.selectedLocationId, comme avant).
+     Contenu : carte du moment (icône, température, ciel, min/max, lever et
+     coucher du soleil, prochaines heures), puis les jours en 7 colonnes.
+     Styles : css/plein-ecran.css (fh-mt-*). */
+
+  var JOURS = ['Dimanche', 'Lundi', 'Mardi', 'Mercredi', 'Jeudi', 'Vendredi', 'Samedi'];
+  var MOIS_COURTS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+  var VILLES_MAX_BARRE = 3;
+
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  /* « 12° » ; jamais « -0° ». '' si la valeur n'est pas un nombre. */
+  function degres(v) {
+    if (typeof v !== 'number' || isNaN(v)) return '';
+    var n = Math.round(v);
+    if (n === 0) n = 0;
+    return n + '°';
+  }
+
+  /* Libellé d'une colonne de jour. idx 0 = aujourd'hui, 1 = demain (les jours
+     du snapshot commencent aujourd'hui). isoDate « YYYY-MM-DD » lue comme date
+     locale. → { nom: 'Aujourd'hui' | 'Demain' | 'Mercredi', date: '28 oct.' } */
+  function libelleJour(isoDate, idx) {
+    var parts = String(isoDate || '').split('-');
+    var d = parts.length === 3
+      ? new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10))
+      : null;
+    if (d && isNaN(d.getTime())) d = null;
+    var nom = idx === 0 ? 'Aujourd\'hui' : (idx === 1 ? 'Demain' : (d ? JOURS[d.getDay()] : ''));
+    var date = d ? d.getDate() + ' ' + MOIS_COURTS[d.getMonth()] : '';
+    return { nom: nom, date: date };
+  }
+
+  /* Prochaines heures du snapshot (forecast, offsets > 0, 3 au plus).
+     → [{ quand: 'Dans 6 h', temp: '9°', iconKey }] */
+  function prochainesHeures(ld) {
+    var f = (ld && ld.forecast) || [];
+    var out = [];
+    for (var i = 0; i < f.length && out.length < 3; i++) {
+      var h = f[i] || {};
+      if (!(h.hourOffset > 0) || typeof h.tempC !== 'number') continue;
+      out.push({ quand: 'Dans ' + h.hourOffset + ' h', temp: degres(h.tempC), iconKey: h.iconKey });
+    }
+    return out;
+  }
+
+  /* Données utilisables d'une ville : current ET daily, sinon null. */
+  function donneesVille(data, locId) {
+    var ld = dataFor(data, locId);
+    return ld && ld.current && ld.daily ? ld : null;
+  }
+
+  var ICONE_LEVER =
+    '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" class="fh-mt-soleil-icone">' +
+      '<path d="M4 18 H20 M7.5 18 A4.5 4.5 0 0 1 16.5 18 M12 6 V10 M9.5 8 L12 5.5 L14.5 8 M5 12.5 L6.5 13.5 M19 12.5 L17.5 13.5" ' +
+        'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '</svg>';
+  var ICONE_COUCHER =
+    '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" class="fh-mt-soleil-icone">' +
+      '<path d="M4 18 H20 M7.5 18 A4.5 4.5 0 0 1 16.5 18 M12 5.5 V9.5 M9.5 7.5 L12 10 L14.5 7.5 M5 12.5 L6.5 13.5 M19 12.5 L17.5 13.5" ' +
+        'fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '</svg>';
+
+  /* Zone de tête de la barre du plein écran (overlay.js) ; sans elle (appel
+     direct), une tête en haut du contenu. Vidée à chaque appel. */
+  function zoneTete(container) {
+    var O = global.FamilyHubOverlay;
+    var t = O && typeof O.tete === 'function' ? O.tete() : null;
+    if (t) { t.innerHTML = ''; return t; }
+    var h = document.createElement('div');
+    h.className = 'fh-pe-tete-repli fh-carte fh-bordure';
+    container.insertBefore(h, container.firstChild);
+    return h;
+  }
+
+  function titresHtml(titre, sousTitre) {
+    return '<div class="fh-pe-titres">' +
+      '<div class="fh-pe-titre fh-titre fh-texte">' + escapeHtml(titre) + '</div>' +
+      (sousTitre ? '<div class="fh-pe-sous-titre fh-texte-doux">' + escapeHtml(sousTitre) + '</div>' : '') +
+      '</div>';
+  }
+
+  function heroHtml(ld) {
+    var html = '<div class="fh-mt-hero fh-pe-carte fh-carte fh-bordure">';
+    html += '<div class="fh-mt-hero-icone">' + iconSVG(ld.current.iconKey) + '</div>';
+    html += '<div class="fh-mt-hero-temp fh-titre fh-texte">' + degres(ld.current.tempC) + '</div>';
+    html += '<div class="fh-mt-hero-infos">';
+    html += '<div class="fh-mt-hero-ciel fh-titre fh-texte">' + escapeHtml(ld.current.label || '') + '</div>';
+    html += '<div class="fh-mt-hero-minmax fh-texte">Min ' + degres(ld.daily.minC) +
+      ' · <span class="fh-mt-minmax-max">Max ' + degres(ld.daily.maxC) + '</span></div>';
+    if (ld.daily.sunrise || ld.daily.sunset) {
+      html += '<div class="fh-mt-hero-soleil fh-texte-doux">';
+      if (ld.daily.sunrise) html += '<div class="fh-mt-soleil">' + ICONE_LEVER + '<span>Lever ' + escapeHtml(ld.daily.sunrise) + '</span></div>';
+      if (ld.daily.sunset) html += '<div class="fh-mt-soleil">' + ICONE_COUCHER + '<span>Coucher ' + escapeHtml(ld.daily.sunset) + '</span></div>';
+      html += '</div>';
+    }
+    html += '</div>';
+    var heures = prochainesHeures(ld);
+    if (heures.length > 0) {
+      html += '<div class="fh-mt-heures">';
+      for (var i = 0; i < heures.length; i++) {
+        html += '<div class="fh-mt-heure">' +
+          '<div class="fh-mt-heure-quand fh-texte-doux">' + escapeHtml(heures[i].quand) + '</div>' +
+          '<div class="fh-mt-heure-icone">' + iconSVG(heures[i].iconKey) + '</div>' +
+          '<div class="fh-mt-heure-temp fh-texte">' + heures[i].temp + '</div>' +
+          '</div>';
+      }
+      html += '</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
+  function semaineHtml(weekly) {
+    var html = '<div class="fh-mt-semaine">';
+    for (var d = 0; d < weekly.length; d++) {
+      var day = weekly[d] || {};
+      var lib = libelleJour(day.date, d);
+      var auj = d === 0;
+      html += '<div class="fh-mt-jour fh-carte fh-bordure' + (auj ? ' fh-mt-jour-aujourdhui' : '') + '">';
+      html += '<div class="fh-mt-jour-nom fh-titre ' + (auj ? 'fh-maintenant' : 'fh-texte') + '">' + escapeHtml(lib.nom) + '</div>';
+      html += '<div class="fh-mt-jour-date fh-texte-doux">' + escapeHtml(lib.date) + '</div>';
+      html += '<div class="fh-mt-jour-icone">' + iconSVG(day.iconKey) + '</div>';
+      html += '<div class="fh-mt-jour-max fh-titre fh-texte">' + degres(day.maxC) + '</div>';
+      html += '<div class="fh-mt-jour-min fh-texte-doux">' + degres(day.minC) + '</div>';
+      html += '</div>';
+    }
+    html += '</div>';
+    return html;
+  }
+
   function expand(container, data, config) {
     container.innerHTML = '';
-    container.className = 'tile-overlay-content tile-weather-expand';
+    container.className = 'tile-overlay-content tile-overlay-content--full fh-pe-fixe fh-mt';
 
     var locs = (config && config.locations) || [];
     var selectedId = config && config.selectedLocationId;
     if (!selectedId && locs.length > 0) selectedId = locs[0].id;
 
-    var headerEl = document.createElement('h1');
-    headerEl.className = 'tile-overlay-h1';
-    headerEl.innerHTML = 'Météo';
-    container.appendChild(headerEl);
+    var corps = document.createElement('div');
+    corps.className = 'fh-pe-corps';
+    corps.setAttribute('data-scroll-lock', '1');
+    container.appendChild(corps);
 
     if (locs.length === 0) {
-      var noEl = document.createElement('p');
-      noEl.innerHTML = 'Aucune ville configurée. Configure les villes depuis le hub.';
-      container.appendChild(noEl);
+      zoneTete(container).innerHTML = titresHtml('Météo', '');
+      corps.innerHTML = '<div class="fh-pe-message fh-texte-doux">Aucune ville configurée.<br>Ajoute des villes depuis le hub.</div>';
       return;
     }
-
-    var bodyEl = document.createElement('div');
-    bodyEl.className = 'tile-weather-expand-body';
-    container.appendChild(bodyEl);
 
     function findLoc(id) {
       for (var i = 0; i < locs.length; i++) if (locs[i].id === id) return locs[i];
       return locs[0];
     }
 
-    function renderBody() {
-      var loc = findLoc(selectedId);
-      var ld = dataFor(data, loc.id);
-      /* Garde contre un snapshot partiel : on ne considère ld "présent"
-         que si current ET daily existent, sinon on retombe sur le branch
-         "Données indisponibles" plutôt que de throw. */
-      if (ld && (!ld.current || !ld.daily)) ld = null;
-      var html = '';
-
-      /* HERO : ville sélectionnée en grand */
-      html += '<section class="weather-hero">';
-      html += '<div class="weather-hero-ville">' + loc.ville + '</div>';
-      html += '<div class="weather-hero-row">';
-      if (ld) {
-        html += '<div class="weather-hero-icon">' + iconSVG(ld.current.iconKey) + '</div>';
-        html += '<div class="weather-hero-temp">' + Math.round(ld.current.tempC) + '°</div>';
-        html += '<div class="weather-hero-meta">';
-        html += '<div class="weather-hero-label">' + ld.current.label + '</div>';
-        html += '<div class="weather-hero-range">Min ' + Math.round(ld.daily.minC) + '° &nbsp;·&nbsp; Max ' + Math.round(ld.daily.maxC) + '°</div>';
-        html += '<div class="weather-hero-sun">☀ ' + ld.daily.sunrise + '&nbsp;&nbsp;/&nbsp;&nbsp;🌙 ' + ld.daily.sunset + '</div>';
-        html += '</div>';
-      } else {
-        html += '<div class="weather-hero-meta"><div class="weather-hero-label">Données indisponibles</div></div>';
+    function villesHtml(dansBarre) {
+      var html = '<div class="fh-mt-villes' + (dansBarre ? '' : ' fh-mt-villes-contenu') + '">';
+      for (var i = 0; i < locs.length; i++) {
+        var l = locs[i];
+        var lld = dataFor(data, l.id);
+        var actif = l.id === selectedId;
+        html += '<button type="button" class="fh-pe-btn fh-mt-ville-btn fh-carte fh-texte fh-bordure fh-corps' +
+          (actif ? ' is-active' : '') + '" data-loc-id="' + escapeHtml(l.id) + '"' +
+          ' aria-pressed="' + (actif ? 'true' : 'false') + '">' +
+          '<span class="fh-pe-dedans">' +
+          (lld && lld.current ? '<span class="fh-mt-ville-icone">' + iconSVG(lld.current.iconKey) + '</span>' : '') +
+          '<span>' + escapeHtml(l.ville) + '</span>' +
+          (lld && lld.current ? '<span class="fh-mt-ville-temp">' + degres(lld.current.tempC) + '</span>' : '') +
+          '</span></button>';
       }
       html += '</div>';
-      html += '</section>';
+      return html;
+    }
 
-      /* SEMAINE : 7 colonnes pour la ville sélectionnée */
-      if (ld && ld.weekly && ld.weekly.length > 0) {
-        html += '<section class="weather-week-section">';
-        html += '<div class="weather-section-title">Cette semaine</div>';
-        html += '<div class="weather-card-week">';
-        for (var d = 0; d < ld.weekly.length; d++) {
-          var day = ld.weekly[d];
-          html += '<div class="weather-day' + (d === 0 ? ' weather-day-today' : '') + '">';
-          html += '<div class="weather-day-name">' + dayLabel(day.date, d) + '</div>';
-          html += '<div class="weather-day-icon">' + iconSVG(day.iconKey) + '</div>';
-          html += '<div class="weather-day-max">' + Math.round(day.maxC) + '°</div>';
-          html += '<div class="weather-day-min">' + Math.round(day.minC) + '°</div>';
-          html += '</div>';
+    function renderBody() {
+      var loc = findLoc(selectedId);
+      var ld = donneesVille(data, loc.id);
+      var weekly = (ld && ld.weekly) || [];
+      var villesEnBarre = locs.length > 1 && locs.length <= VILLES_MAX_BARRE;
+
+      var tete = zoneTete(container);
+      tete.innerHTML = titresHtml('Météo', loc.ville +
+        (weekly.length > 1 ? ' · prévisions sur ' + weekly.length + ' jours' : '')) +
+        (villesEnBarre ? villesHtml(true) : '');
+
+      var html = '';
+      if (locs.length > VILLES_MAX_BARRE) html += villesHtml(false);
+      if (ld) {
+        html += heroHtml(ld);
+        if (weekly.length > 0) {
+          html += '<h2 class="fh-pe-section-titre fh-titre fh-texte">Les prochains jours</h2>';
+          html += semaineHtml(weekly);
         }
-        html += '</div>';
-        html += '</section>';
+      } else {
+        html += '<div class="fh-pe-message fh-texte-doux">Pas encore de données pour ' + escapeHtml(loc.ville) + '.</div>';
       }
+      corps.innerHTML = html;
 
-      /* AUTRES VILLES : chips */
-      if (locs.length > 1) {
-        html += '<section class="weather-others-section">';
-        html += '<div class="weather-section-title">Autres villes — touche pour changer</div>';
-        html += '<div class="weather-chips">';
-        for (var i = 0; i < locs.length; i++) {
-          var l = locs[i];
-          if (l.id === selectedId) continue;
-          var lld = dataFor(data, l.id);
-          if (lld && !lld.current) lld = null;
-          html += '<button class="weather-chip" data-loc-id="' + l.id + '">';
-          if (lld) {
-            html += '<div class="weather-chip-icon">' + iconSVG(lld.current.iconKey) + '</div>';
-          }
-          html += '<div class="weather-chip-info">';
-          html += '<div class="weather-chip-ville">' + l.ville + '</div>';
-          if (lld) {
-            html += '<div class="weather-chip-temp">' + Math.round(lld.current.tempC) + '°</div>';
-          } else {
-            html += '<div class="weather-chip-temp">—</div>';
-          }
-          html += '</div>';
-          html += '</button>';
+      /* Choix de la ville : boutons de la barre ou du contenu. */
+      var zones = [tete, corps];
+      for (var z = 0; z < zones.length; z++) {
+        var btns = zones[z].querySelectorAll('[data-loc-id]');
+        for (var k = 0; k < btns.length; k++) {
+          btns[k].addEventListener('click', choisirVille);
         }
-        html += '</div>';
-        html += '</section>';
-      }
-
-      bodyEl.innerHTML = html;
-
-      /* Bind clics sur les chips */
-      var chips = bodyEl.querySelectorAll('.weather-chip');
-      for (var k = 0; k < chips.length; k++) {
-        (function (chip) {
-          chip.addEventListener('click', function () {
-            var newId = chip.getAttribute('data-loc-id');
-            if (!newId || newId === selectedId) return;
-            selectedId = newId;
-            /* Persiste sur Firestore — la tuile principale du dashboard se mettra à jour. */
-            if (global.FamilyHubUpdateTileConfig) {
-              global.FamilyHubUpdateTileConfig(container._tileId, { selectedLocationId: newId });
-            }
-            renderBody();
-            /* Scroll vers le haut pour voir le hero mis à jour */
-            container.scrollTop = 0;
-          });
-        })(chips[k]);
       }
     }
 
-    renderBody();
-  }
+    function choisirVille() {
+      var newId = this.getAttribute('data-loc-id');
+      if (!newId || newId === selectedId) return;
+      selectedId = newId;
+      /* Persiste sur Firestore — la tuile principale du dashboard se mettra à jour. */
+      if (global.FamilyHubUpdateTileConfig) {
+        global.FamilyHubUpdateTileConfig(container._tileId, { selectedLocationId: newId });
+      }
+      renderBody();
+      corps.scrollTop = 0;
+    }
 
-  /* Format court "Lun", "Mar", ... — index 0 = "Auj." */
-  function dayLabel(isoDate, idx) {
-    if (idx === 0) return 'Auj.';
-    var DAYS = ['Dim', 'Lun', 'Mar', 'Mer', 'Jeu', 'Ven', 'Sam'];
-    /* Parse YYYY-MM-DD comme date locale (sans décalage UTC). */
-    var parts = (isoDate || '').split('-');
-    if (parts.length !== 3) return '';
-    var d = new Date(parseInt(parts[0], 10), parseInt(parts[1], 10) - 1, parseInt(parts[2], 10));
-    return DAYS[d.getDay()];
+    renderBody();
   }
 
   function collapse(container) {
@@ -285,6 +371,10 @@
     render: render,
     cleanup: cleanup,
     expand: expand,
-    collapse: collapse
+    collapse: collapse,
+    /* Fonctions pures (testées par packages/design/src/displayMeteo.test.ts). */
+    libelleJour: libelleJour,
+    prochainesHeures: prochainesHeures,
+    degres: degres
   };
 })(window);
