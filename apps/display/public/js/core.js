@@ -678,6 +678,7 @@
       if (!snap.exists) return;
       var data = snap.data() || {};
       state.householdConfig = data;
+      if (state.tableau) { try { state.tableau.actualiser(); } catch (e) {} }
     }, function (err) {
       if (window.console && window.console.error) window.console.error('household listener', err);
       /* Listener terminé par le SDK : on l'oublie et on le ré-attache. */
@@ -872,7 +873,11 @@
       showError('Module du tableau manquant : recharge la page.');
       return;
     }
-    state.tableau = window.FamilyHubTableau.monter(hote, { sources: sourcesParType });
+    state.tableau = window.FamilyHubTableau.monter(hote, {
+      sources: sourcesParType,
+      /* Document du foyer (nom de la carte « PC des enfants »…). */
+      foyer: function () { return state.householdConfig; }
+    });
     showGrid();
   }
 

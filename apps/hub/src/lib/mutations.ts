@@ -131,6 +131,7 @@ interface UpdateHouseholdInput {
     "parametres.placard": string[];
     "parametres.heuresRepas": HeuresRepas;
     "parametres.modeleRechercheDrive": string | FieldValue;
+    "parametres.nomPcEnfants": string | FieldValue;
   }>;
 }
 
