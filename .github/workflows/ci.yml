@@ -26,7 +26,7 @@ jobs:
           cache: npm
       - name: Install
         run: npm ci
-      - name: iPad — syntaxe ES5 (Safari 9)
+      - name: iPad — ES5, CSS et fichiers référencés (Safari 9)
         run: npm run check:display
       - name: Lint (functions)
         run: npm run lint --workspace=functions

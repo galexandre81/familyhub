@@ -5,7 +5,8 @@
 (function (global) {
   'use strict';
 
-  var DISPLAY_VERSION = '20260511a';
+  /* Posée par index.html, horodatée au build (copy-display-into-hub-dist.mjs). */
+  var DISPLAY_VERSION = global.FH_DISPLAY_VERSION || '—';
 
   function escapeHtml(s) {
     if (s == null) return '';

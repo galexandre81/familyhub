@@ -666,7 +666,7 @@
         if (window.console && window.console.log) {
           window.console.log('[display] layout changed, reloading…');
         }
-        reloadForLayoutChange();
+        reloadDisplay();
       }
     }, function (err) {
       if (window.console && window.console.error) window.console.error('display listener', err);
@@ -677,12 +677,13 @@
     });
   }
 
-  /* Hard reload pour re-fetch index.html après un changement de layout.
+  /* Hard reload pour re-fetch index.html (changement de layout, ou nouvelle
+     version déployée — cf. checkDisplayVersion).
      Si l'overlay plein écran est ouvert (ex: une recette lue en grand),
      on diffère le reload pour ne pas l'arracher sous les yeux : on poll
      jusqu'à fermeture de l'overlay puis on reload. Idempotent via un flag. */
   var layoutReloadPending = false;
-  function reloadForLayoutChange() {
+  function reloadDisplay() {
     function doReload() {
       /* Cache buster sur le reload pour forcer iOS 9 à re-fetch index.html */
       var url = window.location.pathname + '?reload=' + Date.now();
@@ -709,6 +710,47 @@
         doReload();
       }
     }, 1000);
+  }
+
+  /* Rechargement automatique après un déploiement. Le build écrit
+     version.json ({"version":"YYYYMMDDHHmm"}) et la même valeur dans
+     window.FH_DISPLAY_VERSION (index.html). Si elles diffèrent, un nouveau
+     déploiement est en ligne : on recharge (même report si overlay ouvert).
+     Toute erreur (hors ligne, version.json absent → Hosting renvoie
+     index.html, donc JSON invalide) est ignorée : on réessaiera plus tard. */
+  var DISPLAY_VERSION_CHECK_MS = 10 * 60 * 1000;
+  function checkDisplayVersion() {
+    var current = window.FH_DISPLAY_VERSION;
+    /* Page servie sans build (placeholder non remplacé) : rien à comparer. */
+    if (!current || current.indexOf('__') === 0) return;
+    if (!window.fetch) return;
+    window.fetch('version.json?ts=' + Date.now(), { cache: 'no-store' })
+      .then(function (res) {
+        if (!res.ok) return null;
+        return res.text();
+      })
+      .then(function (text) {
+        if (!text) return;
+        var data;
+        try { data = JSON.parse(text); } catch (e) { return; }
+        if (data && typeof data.version === 'string' && data.version
+            && data.version !== current) {
+          if (window.console && window.console.log) {
+            window.console.log('[display] nouvelle version ' + data.version + ' (actuelle ' + current + '), reloading…');
+          }
+          reloadDisplay();
+        }
+      })
+      .catch(function () { /* réseau indisponible : prochain essai */ });
+  }
+
+  function setupVersionWatch() {
+    setInterval(checkDisplayVersion, DISPLAY_VERSION_CHECK_MS);
+    if (document && document.addEventListener) {
+      document.addEventListener('visibilitychange', function () {
+        if (!document.hidden) checkDisplayVersion();
+      });
+    }
   }
 
   function layoutKey(layout) {
@@ -887,6 +929,8 @@
     setupVisibilityRefresh();
 
     setupStalenessWatch();
+
+    setupVersionWatch();
 
     /* Ambiance jour/nuit : au boot (repli 07-19h), puis toutes les 60 s.
        Un seul interval, durée de vie = celle de la page (kiosque). */

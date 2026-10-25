@@ -14,7 +14,7 @@
     "build:types": "npm run build --workspace=@family-hub/types",
     "build:hub": "npm run build --workspace=hub",
     "build:functions": "npm run build --workspace=functions",
-    "check:display": "node scripts/check-display-es5.mjs",
+    "check:display": "node scripts/check-display-es5.mjs && node scripts/check-display-css.mjs && node scripts/check-display-assets.mjs",
     "build": "npm run check:display && npm run build:design && npm run build:types && npm run build:functions && npm run build:hub",
     "dev:hub": "npm run dev --workspace=hub",
     "deploy": "npm run build && firebase deploy",
