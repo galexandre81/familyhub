@@ -1,0 +1,808 @@
+/* plein-ecran.css — vues plein écran ouvertes depuis le tableau (js/overlay.js) :
+   agenda de la semaine (tiles/calendar.js, fh-ag-*), menu de la semaine et
+   batch cooking (tiles/weekly-menu.js, fh-sem-*, fh-bt-*), livre de recettes
+   (tiles/livreRecettes.js, fh-lv-*). Design « Alpage + Veillée », comme le
+   tableau (tableau.css) et le mode recette (mode-recette.css).
+   iPad mini 1, 1024×768 paysage, lu à 1 m : texte ≥ 20 px, titres 28–44 px,
+   cibles ≥ 72 px.
+   Safari 9 : ni var(, ni gap, ni grid ; flex préfixé -webkit-, espacements
+   par marges. Couleurs : classes fh-* de ambiance.css ; les teintes qui n'y
+   sont pas (lignes de séparation, état « choisi ») sont écrites ici pour le
+   jour ET la nuit, avec les valeurs de packages/design/src/tokens.ts.
+   iOS 9 : JAMAIS de flex sur un <button> (flexbugs #9) : la mise en page du
+   contenu vit dans un <span> intérieur ; les classes de bouton contiennent
+   « btn » (contrôlé par scripts/check-display-css.mjs). */
+
+/* ===================== Hôte plein écran (overlay.js) ===================== */
+
+.tile-overlay { font-size: 22px; }
+.tile-overlay-bar {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  min-height: 90px;
+  padding: 8px 16px;
+  border-width: 0 0 2px;
+  border-style: solid;
+  box-sizing: border-box;
+}
+/* Même trait que la barre du mode recette (le jour : couleur du texte). */
+html.amb-jour .tile-overlay-bar { border-bottom-color: #1E2B22; }
+html.amb-nuit .tile-overlay-bar { border-bottom-color: #2C3F5C; }
+.tile-overlay-fermer-btn { -webkit-flex: 0 0 auto; flex: 0 0 auto; }
+
+/* Zone de tête remplie par la vue : titre (+ sous-titre), puis actions. */
+.tile-overlay-tete,
+.fh-pe-tete-repli {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  margin-left: 16px;
+}
+/* Repli sans overlay (appel direct d'expand) : même tête, en haut du contenu. */
+.fh-pe-tete-repli {
+  margin-left: 0;
+  min-height: 90px;
+  padding: 8px 16px;
+  border-width: 0 0 2px;
+  border-style: solid;
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+}
+.fh-pe-tete-repli + * { min-height: 0; }
+
+.fh-pe-titres {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+}
+.fh-pe-titre {
+  font-size: 32px;
+  font-weight: 700;
+  line-height: 1.1;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fh-pe-sous-titre {
+  font-size: 20px;
+  line-height: 1.25;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fh-pe-maj {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  font-size: 20px;
+  line-height: 1.2;
+  text-align: right;
+  margin: 0 18px 0 12px;
+}
+
+/* Navigation ‹ 1 / 3 › */
+.fh-pe-nav {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  margin-left: 12px;
+}
+.fh-pe-nav-etape {
+  min-width: 64px;
+  margin: 0 8px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* --- Boutons : cible ≥ 72 px, texte ≥ 22 px (comme .fh-mr-btn) --- */
+.fh-pe-btn {
+  min-height: 72px;
+  min-width: 72px;
+  margin: 0;
+  padding: 0 20px;
+  border: 0;
+  border-radius: 14px;
+  font-family: inherit;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.15;
+  cursor: pointer;
+  -webkit-appearance: none;
+  display: inline-block;
+  vertical-align: middle;
+  text-align: center;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+.fh-pe-btn:active { opacity: 0.8; }
+.fh-pe-btn[disabled] { opacity: 0.3; cursor: default; }
+/* Variante bordée (sur fh-carte) : comme « Fermer » du mode recette. */
+.fh-pe-btn.fh-bordure { border-width: 2px; border-style: solid; }
+.fh-pe-fleche-btn { width: 72px; padding: 0; }
+.fh-pe-dedans {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+  width: 100%;
+}
+.fh-pe-icone { display: block; margin-right: 8px; -webkit-flex-shrink: 0; flex-shrink: 0; }
+.fh-pe-icone-seule { display: block; -webkit-flex-shrink: 0; flex-shrink: 0; }
+.fh-pe-btn + .fh-pe-btn { margin-left: 12px; }
+/* Bouton « retour » de la vue (ex. « La semaine »), avant le titre. */
+.fh-pe-retour-btn { -webkit-flex: 0 0 auto; flex: 0 0 auto; margin-right: 16px; }
+.fh-pe-action-btn { -webkit-flex: 0 0 auto; flex: 0 0 auto; margin-left: 12px; }
+
+.fh-pe-message {
+  font-size: 26px;
+  line-height: 1.35;
+  text-align: center;
+  padding: 60px 40px;
+}
+
+/* ===================== Agenda de la semaine (fh-ag-*) ===================== */
+
+.tile-overlay-content.fh-ag {
+  overflow: hidden;
+  padding: 0;
+}
+/* Pager : viewport + piste ; la piste en absolu pour que chaque page ait une
+   hauteur stable et puisse défiler seule (Safari 9). */
+.fh-ag-viewport {
+  -webkit-flex: 1 1 0%;
+  flex: 1 1 0%;
+  position: relative;
+  overflow: hidden;
+  width: 100%;
+  min-height: 0;
+}
+.fh-ag-track {
+  position: absolute;
+  top: 0;
+  left: 0;
+  bottom: 0;
+  display: -webkit-flex;
+  display: flex;
+  will-change: transform;
+}
+.fh-ag-page {
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+  height: 100%;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 10px 24px 16px;
+  box-sizing: border-box;
+}
+
+/* Un jour = une ligne : nom à gauche, événements à droite. */
+.fh-ag-jour {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: flex-start;
+  align-items: flex-start;
+  min-height: 72px;
+  padding: 10px 16px;
+  border-width: 0 0 2px;
+  border-style: solid;
+  box-sizing: border-box;
+}
+html.amb-jour .fh-ag-jour { border-color: #C9D6C6; }
+html.amb-nuit .fh-ag-jour { border-color: #2C3F5C; }
+.fh-ag-jour:last-child { border-bottom-width: 0; }
+/* Aujourd'hui : une carte bordée (classes fh-carte fh-bordure). */
+.fh-ag-jour.fh-ag-jour-aujourdhui {
+  border-width: 3px;
+  border-radius: 22px;
+  margin: 4px 0;
+  padding: 12px 16px;
+}
+html.amb-jour .fh-ag-jour.fh-ag-jour-aujourdhui { border-color: #1E2B22; -webkit-box-shadow: 0 5px 0 #1E2B22; box-shadow: 0 5px 0 #1E2B22; }
+html.amb-nuit .fh-ag-jour.fh-ag-jour-aujourdhui { border-color: #2C3F5C; }
+/* Ce qui est passé s'efface sans disparaître. */
+.fh-ag-jour-passe { opacity: 0.5; }
+
+.fh-ag-jour-tete {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  width: 200px;
+  padding-right: 12px;
+  box-sizing: border-box;
+}
+.fh-ag-jour-nom {
+  display: inline-block;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.fh-ag-jour-nom.fh-maintenant {
+  padding: 2px 12px 4px;
+  margin-left: -12px;
+  border-radius: 12px;
+}
+.fh-ag-jour-date { font-size: 20px; line-height: 1.25; margin-top: 2px; }
+
+.fh-ag-evts {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  padding-top: 2px;
+}
+.fh-ag-rien { font-size: 22px; line-height: 1.3; }
+.fh-ag-evt {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: baseline;
+  align-items: baseline;
+}
+.fh-ag-evt + .fh-ag-evt { margin-top: 8px; }
+.fh-ag-evt-heure {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  width: 170px;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.3;
+  white-space: nowrap;
+  -webkit-font-feature-settings: "tnum";
+  font-feature-settings: "tnum";
+}
+.fh-ag-evt-corps { -webkit-flex: 1 1 auto; flex: 1 1 auto; min-width: 0; }
+.fh-ag-evt-titre {
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.25;
+  word-wrap: break-word;
+}
+.fh-ag-evt-lieu { font-size: 20px; line-height: 1.3; margin-top: 1px; }
+
+/* ===================== Menu de la semaine (fh-sem-*) ===================== */
+
+.tile-overlay-content.fh-sem {
+  overflow: hidden;
+  padding: 0;
+}
+
+/* Bouton « Batch cooking » en haut de la semaine (pleine largeur). */
+.fh-sem-batch-btn {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  display: block;
+  margin: 14px 24px 0;
+  padding: 0 20px;
+  border-radius: 18px;
+  text-align: left;
+}
+.fh-sem-batch-btn.fh-bordure { border-width: 3px; }
+.fh-sem-batch-texte {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: 4px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fh-sem-batch-voir { -webkit-flex: 0 0 auto; flex: 0 0 auto; margin: 0 4px 0 16px; }
+
+/* En-tête des colonnes (hors de la zone qui défile). */
+.fh-sem-entete {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  padding: 12px 24px 8px;
+}
+.fh-sem-col-titre {
+  -webkit-flex: 1 1 0%;
+  flex: 1 1 0%;
+  min-width: 0;
+  margin-left: 12px;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+
+/* Zone qui défile : les jours. */
+.fh-sem-grille {
+  -webkit-flex: 1 1 0%;
+  flex: 1 1 0%;
+  min-height: 0;
+  position: relative; /* offsetTop des lignes (ouverture sur aujourd'hui) */
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 0 24px 24px;
+}
+.fh-sem-ligne {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: stretch;
+  align-items: stretch;
+  padding: 6px 0;
+}
+.fh-sem-jour {
+  -webkit-flex: 0 0 150px;
+  flex: 0 0 150px;
+  width: 150px;
+  padding-top: 8px;
+}
+.fh-sem-jour-nom {
+  display: inline-block;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.fh-sem-jour-nom.fh-maintenant {
+  padding: 2px 10px 4px;
+  margin-left: -10px;
+  border-radius: 12px;
+}
+.fh-sem-jour-date { font-size: 20px; line-height: 1.25; margin-top: 2px; }
+
+/* Une case repas. */
+.fh-sem-case {
+  -webkit-flex: 1 1 0%;
+  flex: 1 1 0%;
+  min-width: 0;
+  min-height: 84px;
+  margin-left: 12px;
+  padding: 10px 14px;
+  border-width: 2px;
+  border-style: solid;
+  border-color: transparent;
+  border-radius: 16px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.fh-sem-case-touche { cursor: pointer; -webkit-tap-highlight-color: rgba(0, 0, 0, 0); }
+.fh-sem-case-touche:active { opacity: 0.75; }
+.fh-sem-ligne-aujourdhui .fh-sem-case.fh-carte { border-width: 3px; }
+html.amb-jour .fh-sem-ligne-aujourdhui .fh-sem-case.fh-carte { -webkit-box-shadow: 0 4px 0 #1E2B22; box-shadow: 0 4px 0 #1E2B22; }
+.fh-sem-plat {
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.2;
+  max-height: 2.4em; /* 2 lignes max, points de suspension (Safari 9 : -webkit-line-clamp) */
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+}
+.fh-sem-autres,
+.fh-sem-meta {
+  font-size: 20px;
+  line-height: 1.3;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.fh-sem-case-vide {
+  font-size: 26px;
+  line-height: 60px;
+  padding-left: 18px;
+}
+.fh-sem-case-acompleter {
+  font-size: 22px;
+  border-style: dashed;
+  line-height: 1.3;
+}
+html.amb-jour .fh-sem-case-acompleter { border-color: #C9D6C6; }
+html.amb-nuit .fh-sem-case-acompleter { border-color: #2C3F5C; }
+/* Passé et annulé : estompés, sans disparaître ; annulé barré. */
+.fh-sem-case-passee { opacity: 0.5; }
+.fh-sem-case-annulee { opacity: 0.6; }
+.fh-sem-case-annulee .fh-sem-plat,
+.fh-sem-case-annulee .fh-sem-autres { text-decoration: line-through; }
+
+/* ===================== Batch cooking (fh-bt-*) ===================== */
+
+.fh-bt-liste {
+  -webkit-flex: 1 1 0%;
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 24px 28px;
+}
+.fh-bt-session {
+  border-width: 3px;
+  border-style: solid;
+  border-radius: 28px;
+  padding: 18px 22px 10px;
+  margin-bottom: 20px;
+}
+html.amb-jour .fh-bt-session { -webkit-box-shadow: 0 6px 0 #1E2B22; box-shadow: 0 6px 0 #1E2B22; }
+.fh-bt-session-faite { opacity: 0.6; }
+html.amb-jour .fh-bt-session-faite { -webkit-box-shadow: none; box-shadow: none; }
+.fh-bt-tete {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+}
+.fh-bt-date {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.15;
+}
+.fh-bt-fait {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  margin-left: 16px;
+  font-size: 22px;
+  font-weight: 700;
+}
+.fh-bt-meta {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  font-size: 22px;
+  line-height: 1.3;
+  margin-top: 4px;
+}
+.fh-bt-notes {
+  font-size: 22px;
+  line-height: 1.4;
+  margin: 14px 0 4px;
+  padding: 4px 0 4px 16px;
+  border-left-width: 5px;
+  border-left-style: solid;
+}
+html.amb-jour .fh-bt-notes { border-left-color: #C9D6C6; }
+html.amb-nuit .fh-bt-notes { border-left-color: #2C3F5C; }
+/* Recettes : deux par ligne. */
+.fh-bt-recettes {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  margin: 12px -6px 0;
+}
+.fh-bt-recette-btn {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  width: 48%;
+  width: -webkit-calc(50% - 12px);
+  width: calc(50% - 12px);
+  margin: 0 6px 12px;
+  padding: 8px 14px 8px 18px;
+  text-align: left;
+}
+.fh-pe-btn.fh-bt-recette-btn + .fh-bt-recette-btn { margin-left: 6px; }
+.fh-bt-recette-nom {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-right: 8px;
+  line-height: 1.2;
+}
+
+/* ===================== Livre de recettes (fh-lv-*) ===================== */
+
+/* Le conteneur de l'overlay défile (position de la liste mémorisée par le JS). */
+.tile-overlay-content.fh-lv {
+  display: block;
+  padding: 0;
+}
+.fh-lv-page { padding: 20px 32px 48px; }
+
+.fh-lv-question {
+  font-size: 40px;
+  font-weight: 700;
+  line-height: 1.1;
+  margin: 4px 0 6px;
+}
+.fh-lv-aide { font-size: 22px; line-height: 1.35; margin: 0 0 20px; }
+
+/* Grilles de choix (2 à 5 par ligne) : marges, pas de gap (Safari 9). */
+.fh-lv-choix {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  margin: 0 -8px 8px;
+}
+.fh-lv-choix-btn {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  display: block;
+  margin: 0 8px 16px;
+  padding: 16px 10px 14px;
+  border-width: 3px;
+  border-style: solid;
+  border-radius: 20px;
+  font-family: inherit;
+  text-align: center;
+  cursor: pointer;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+.fh-lv-choix-btn:active { opacity: 0.8; }
+.fh-lv-cols-2 .fh-lv-choix-btn { width: 47%; width: -webkit-calc(50% - 16px); width: calc(50% - 16px); }
+.fh-lv-cols-3 .fh-lv-choix-btn { width: 30%; width: -webkit-calc(33.333% - 16px); width: calc(33.333% - 16px); }
+.fh-lv-cols-4 .fh-lv-choix-btn { width: 22%; width: -webkit-calc(25% - 16px); width: calc(25% - 16px); }
+.fh-lv-cols-5 .fh-lv-choix-btn { width: 17%; width: -webkit-calc(20% - 16px); width: calc(20% - 16px); }
+.fh-lv-choix-icone { display: block; line-height: 0; margin-bottom: 10px; }
+.fh-lv-choix-icone svg { display: block; width: 64px; height: 64px; margin: 0 auto; }
+.fh-lv-choix-mot {
+  display: block;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.fh-lv-choix-grand-btn { min-height: 170px; padding-top: 24px; }
+.fh-lv-choix-petit-btn { min-height: 120px; }
+.fh-lv-choix-petit-btn .fh-lv-choix-icone { margin-bottom: 6px; }
+.fh-lv-choix-petit-btn .fh-lv-choix-icone svg { width: 46px; height: 46px; }
+.fh-lv-choix-petit-btn .fh-lv-choix-mot { font-size: 21px; }
+/* Coché : aplat « action » + coche devant le mot. */
+.fh-lv-coche { display: none; }
+.fh-lv-choix-btn.is-active .fh-lv-coche {
+  display: inline-block;
+  vertical-align: -4px;
+  margin-right: 6px;
+}
+html.amb-jour .fh-lv-choix-btn.is-active { background: #2D56C8; color: #FFFFFF; border-color: #2D56C8; }
+html.amb-nuit .fh-lv-choix-btn.is-active { background: #FFB547; color: #0F1B2D; border-color: #FFB547; }
+
+.fh-lv-actions {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-justify-content: flex-end;
+  justify-content: flex-end;
+  -webkit-align-items: center;
+  align-items: center;
+  margin-top: 16px;
+}
+.fh-lv-actions .fh-pe-btn + .fh-pe-btn { margin-left: 16px; }
+.fh-lv-suivant-btn { min-width: 200px; }
+.fh-lv-icone-apres { display: block; margin-left: 8px; -webkit-flex-shrink: 0; flex-shrink: 0; }
+
+/* Frigo */
+.fh-lv-frigo {
+  border-width: 3px;
+  border-style: solid;
+  border-radius: 22px;
+  padding: 16px 20px 12px;
+  margin: 4px 0 8px;
+}
+.fh-lv-frigo-titre { font-size: 26px; font-weight: 700; line-height: 1.2; }
+.fh-lv-frigo-aide { font-size: 20px; line-height: 1.35; margin: 4px 0 12px; }
+.fh-lv-frigo-ligne {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  margin-bottom: 8px;
+}
+.fh-lv-frigo-champ {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  height: 72px;
+  padding: 0 18px;
+  border-width: 2px;
+  border-style: solid;
+  border-radius: 14px;
+  font-family: inherit;
+  font-size: 24px;
+  -webkit-appearance: none;
+  box-sizing: border-box;
+}
+html.amb-jour .fh-lv-frigo-champ::-webkit-input-placeholder { color: #55665A; }
+html.amb-nuit .fh-lv-frigo-champ::-webkit-input-placeholder { color: #A8B6C8; }
+.fh-lv-ajouter-btn { -webkit-flex: 0 0 auto; flex: 0 0 auto; margin-left: 12px; }
+.fh-lv-puces {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  -webkit-align-items: center;
+  align-items: center;
+  margin: 4px -4px 0;
+}
+.fh-lv-puce {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  height: 72px;
+  margin: 0 4px 8px;
+  padding: 0 0 0 20px;
+  border-width: 2px;
+  border-style: solid;
+  border-radius: 36px;
+  font-size: 22px;
+  font-weight: 700;
+  box-sizing: border-box;
+}
+.fh-lv-puce-x-btn {
+  width: 68px;
+  height: 68px;
+  padding: 0;
+  margin: 0;
+  border: 0;
+  border-radius: 34px;
+  background: transparent;
+  cursor: pointer;
+  -webkit-appearance: none;
+}
+.fh-lv-puce-x-btn svg { margin: 0 auto; }
+.fh-lv-puce-x-btn:active { opacity: 0.6; }
+.fh-lv-puces .fh-lv-vider-btn { margin: 0 4px 8px; }
+
+/* Sections d'envies */
+.fh-lv-section {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  margin: 24px 0 12px;
+  padding-bottom: 8px;
+  border-width: 0 0 2px;
+  border-style: solid;
+}
+html.amb-jour .fh-lv-section { border-color: #C9D6C6; }
+html.amb-nuit .fh-lv-section { border-color: #2C3F5C; }
+.fh-lv-section-titre { font-size: 28px; font-weight: 700; line-height: 1.2; margin: 0; }
+.fh-lv-basculer-btn { -webkit-flex: 0 0 auto; flex: 0 0 auto; margin-left: 16px; }
+
+/* Résultats */
+.fh-lv-resultats {
+  margin-top: 20px;
+  padding-top: 18px;
+  border-width: 2px 0 0;
+  border-style: solid;
+}
+html.amb-jour .fh-lv-resultats { border-color: #C9D6C6; }
+html.amb-nuit .fh-lv-resultats { border-color: #2C3F5C; }
+.fh-lv-compte { font-size: 30px; font-weight: 700; line-height: 1.2; margin: 0 0 16px; }
+.fh-lv-cartes {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  margin: 0 -8px;
+}
+.fh-lv-carte-btn {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  display: block;
+  width: 30%;
+  width: -webkit-calc(33.333% - 16px);
+  width: calc(33.333% - 16px);
+  min-height: 124px;
+  margin: 0 8px 16px;
+  padding: 14px 16px;
+  border-width: 2px;
+  border-style: solid;
+  border-radius: 18px;
+  font-family: inherit;
+  text-align: left;
+  vertical-align: top;
+  cursor: pointer;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+.fh-lv-carte-btn:active { opacity: 0.8; }
+html.amb-jour .fh-lv-carte-btn { -webkit-box-shadow: 0 4px 0 #1E2B22; box-shadow: 0 4px 0 #1E2B22; }
+.fh-lv-carte-nom {
+  display: block;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  max-height: 2.5em;
+  overflow: hidden;
+  font-size: 23px;
+  font-weight: 700;
+  line-height: 1.25;
+}
+.fh-lv-carte-frigo { display: block; font-size: 20px; font-weight: 700; line-height: 1.3; margin-top: 6px; }
+.fh-lv-carte-meta { display: block; font-size: 20px; line-height: 1.3; margin-top: 6px; }
+.fh-lv-vide { text-align: center; padding: 30px 20px; font-size: 22px; line-height: 1.4; }
+.fh-lv-vide-icone svg { display: block; margin: 0 auto 12px; }
+.fh-lv-plus { text-align: center; font-size: 20px; margin: 12px 0 0; }
+
+/* Fiche recette */
+.fh-lv-fiche-nom { font-size: 40px; font-weight: 700; line-height: 1.1; margin: 4px 0 6px; }
+.fh-lv-fiche-meta { font-size: 22px; line-height: 1.3; }
+.fh-lv-fiche-desc { font-size: 22px; line-height: 1.4; margin: 10px 0 0; }
+.fh-lv-fiche-corps {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: flex-start;
+  align-items: flex-start;
+  margin-top: 20px;
+}
+.fh-lv-fiche-ing {
+  -webkit-flex: 0 0 36%;
+  flex: 0 0 36%;
+  width: 36%;
+  margin-right: 20px;
+  padding: 16px 18px 10px;
+  border-width: 3px;
+  border-style: solid;
+  border-radius: 22px;
+  box-sizing: border-box;
+}
+.fh-lv-fiche-etapes { -webkit-flex: 1 1 auto; flex: 1 1 auto; min-width: 0; }
+.fh-lv-fiche-h2 { font-size: 28px; font-weight: 700; line-height: 1.2; margin: 0 0 10px; }
+.fh-lv-fiche-etapes .fh-lv-fiche-h2 { margin-top: 14px; }
+.fh-lv-ing-liste { list-style: none; margin: 0; padding: 0; }
+.fh-lv-ing {
+  font-size: 22px;
+  line-height: 1.3;
+  padding: 7px 0;
+  border-width: 0 0 1px;
+  border-style: solid;
+}
+html.amb-jour .fh-lv-ing { border-color: #C9D6C6; }
+html.amb-nuit .fh-lv-ing { border-color: #2C3F5C; }
+.fh-lv-ing:last-child { border-bottom-width: 0; }
+.fh-lv-ing-qte { font-weight: 700; }
+.fh-lv-etapes-liste { list-style: none; margin: 0; padding: 0; }
+.fh-lv-etape {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: flex-start;
+  align-items: flex-start;
+  border-width: 2px;
+  border-style: solid;
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.fh-lv-etape-num {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  display: block;
+  width: 44px;
+  height: 44px;
+  line-height: 44px;
+  border-radius: 22px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  margin-right: 14px;
+}
+.fh-lv-etape-texte {
+  display: block;
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 22px;
+  line-height: 1.4;
+  padding-top: 6px;
+}
+.fh-lv-etape-duree { font-size: 20px; }

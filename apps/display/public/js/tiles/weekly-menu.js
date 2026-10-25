@@ -1,6 +1,7 @@
 /* tiles/weekly-menu.js — Menu de la semaine.
    Compact : titre + jour courant en avant + mini-aperçu 7 jours.
-   Expand : grille 7 colonnes (jours) x 3 lignes (repas) plein écran.
+   Expand : plein écran, une ligne par jour, une colonne par repas, et la vue
+   batch cooking (design « Alpage + Veillée », css/plein-ecran.css).
    ES5 vanilla, iOS 9.3.6 OK. Data depuis le snapshot pré-calculé. */
 (function (global) {
   'use strict';
@@ -254,48 +255,149 @@
     return d.hasActivePlan ? 1 : 0;
   }
 
+  /* ---------- EXPAND : plein écran (design « Alpage + Veillée ») ----------
+     css/plein-ecran.css, classes fh-sem-* (semaine) et fh-bt-* (batch).
+     Titre et navigation dans la barre du plein écran (overlay.js, tete()).
+     Semaine : une ligne par jour (le jour à gauche, aujourd'hui sur l'aplat
+     « maintenant »), une colonne par repas ; la liste défile, ouverte sur
+     aujourd'hui. iOS 9 : contenu des boutons dans un span intérieur. */
+
+  var TRAIT = ' fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"';
+  function icone(inner, taille, classe) {
+    var t = taille || 26;
+    return '<svg viewBox="0 0 24 24" width="' + t + '" height="' + t + '" aria-hidden="true" class="' +
+      (classe || 'fh-pe-icone') + '">' + inner + '</svg>';
+  }
+  var ICONES = {
+    petitDej: '<path d="M5 9 H16 V14 Q16 18 12 18 H9 Q5 18 5 14 Z M16 10 H17.5 Q20 10 20 12.5 Q20 15 17.5 15 H16 M4 21 H18"' + TRAIT + '/>',
+    dej: '<circle cx="12" cy="12" r="4"' + TRAIT + '/><path d="M12 2.5 V5 M12 19 V21.5 M2.5 12 H5 M19 12 H21.5 M5.3 5.3 L7 7 M17 17 L18.7 18.7 M5.3 18.7 L7 17 M17 7 L18.7 5.3"' + TRAIT + '/>',
+    diner: '<path d="M19 14.5 A8 8 0 1 1 9.5 5 A6.5 6.5 0 0 0 19 14.5 Z"' + TRAIT + '/>',
+    marmite: '<path d="M4 10 H20 V17 Q20 20 17 20 H7 Q4 20 4 17 Z M2 10 H22 M9 6 Q8 4.5 9 3 M13 6 Q12 4.5 13 3"' + TRAIT + '/>',
+    horloge: '<circle cx="12" cy="13" r="8"' + TRAIT + '/><path d="M12 9 V13 L15 15 M9 2 H15"' + TRAIT + '/>',
+    coche: '<path d="M5 12.5 L10 17 L19 7"' + TRAIT + '/>',
+    gauche: '<path d="M15 5 L8 12 L15 19"' + TRAIT + ' stroke-width="2.8"/>',
+    droite: '<path d="M9 5 L16 12 L9 19"' + TRAIT + ' stroke-width="2.8"/>'
+  };
+
+  var REPAS_ORDRE = ['petitDej', 'dej', 'diner'];
+
+  /* Colonnes de la grille : déjeuner et dîner toujours ; le petit-déjeuner
+     seulement si au moins un de ses créneaux porte une recette (sinon une
+     colonne de « — » prendrait un tiers de la largeur). Pur, testé
+     (packages/design/src/displayMenuSemaine.test.ts). */
+  function repasAffichesEs5(semaine) {
+    var liste = semaine || [];
+    for (var i = 0; i < liste.length; i++) {
+      var s = liste[i];
+      if (s && s.repas === 'petitDej' && s.recetteIds && s.recetteIds.length > 0) {
+        return REPAS_ORDRE.slice();
+      }
+    }
+    return ['dej', 'diner'];
+  }
+
+  /* Ligne sous le plat : « Annulé », personnes, invités, batch. Pur, testé. */
+  function metaCaseEs5(slot) {
+    var s = slot || {};
+    var morceaux = [];
+    if (s.annule) morceaux.push('Annulé');
+    var p = +s.profilsCount || 0;
+    if (p > 0) morceaux.push(p + ' pers.');
+    var inv = +s.invitesCount || 0;
+    if (inv > 0) morceaux.push('+' + inv + ' invité' + (inv > 1 ? 's' : ''));
+    if (s.isBatchConsumer) morceaux.push('batch');
+    return morceaux.join(' · ');
+  }
+
+  var JOURS_COURTS_DIM = ['dim.', 'lun.', 'mar.', 'mer.', 'jeu.', 'ven.', 'sam.'];
+  var MOIS_COURTS = ['janv.', 'févr.', 'mars', 'avr.', 'mai', 'juin', 'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
+
+  /* AAAA-MM-JJ → Date locale à midi (pas de glissement autour du DST). */
+  function dateDepuisIso(dateStr) {
+    if (!dateStr) return null;
+    var parts = String(dateStr).split('-');
+    if (parts.length !== 3) return null;
+    var y = parseInt(parts[0], 10);
+    var m = parseInt(parts[1], 10) - 1;
+    var dd = parseInt(parts[2], 10);
+    if (isNaN(y) || isNaN(m) || isNaN(dd)) return null;
+    return new Date(y, m, dd, 12, 0, 0);
+  }
+
+  /* « Du jeu. 22 au mer. 28 oct. » (mois de début ajouté s'il change).
+     Pur, testé. */
+  function plageSemaineEs5(debutIso, finIso) {
+    var d = dateDepuisIso(debutIso);
+    var f = dateDepuisIso(finIso || debutIso);
+    if (!d || !f) return '';
+    var memeMois = d.getMonth() === f.getMonth() && d.getFullYear() === f.getFullYear();
+    return 'Du ' + JOURS_COURTS_DIM[d.getDay()] + ' ' + d.getDate() +
+      (memeMois ? '' : ' ' + MOIS_COURTS[d.getMonth()]) +
+      ' au ' + JOURS_COURTS_DIM[f.getDay()] + ' ' + f.getDate() + ' ' + MOIS_COURTS[f.getMonth()];
+  }
+
+  function el(tag, classes, html) {
+    var n = document.createElement(tag);
+    if (classes) n.className = classes;
+    if (html != null) n.innerHTML = html;
+    return n;
+  }
+
+  function bouton(classes, html, aria) {
+    var b = document.createElement('button');
+    b.type = 'button';
+    b.className = 'fh-pe-btn fh-corps ' + classes;
+    b.innerHTML = '<span class="fh-pe-dedans">' + html + '</span>';
+    if (aria) b.setAttribute('aria-label', aria);
+    return b;
+  }
+
+  /* Zone de tête de la barre du plein écran (overlay.js) ; sans elle (appel
+     direct), une tête en haut du contenu. Vidée à chaque appel. */
+  function zoneTete(container) {
+    var O = global.FamilyHubOverlay;
+    var t = O && typeof O.tete === 'function' ? O.tete() : null;
+    if (t) { t.innerHTML = ''; return t; }
+    var h = el('div', 'fh-pe-tete-repli fh-carte fh-bordure');
+    container.appendChild(h);
+    return h;
+  }
+
+  function titres(titre, sousTitre) {
+    return el('div', 'fh-pe-titres',
+      '<div class="fh-pe-titre fh-titre fh-texte">' + escapeHtml(titre) + '</div>' +
+      (sousTitre ? '<div class="fh-pe-sous-titre fh-texte-doux">' + escapeHtml(sousTitre) + '</div>' : ''));
+  }
+
   function expand(container, data, _config, _tileId) {
-    container.className = 'tile-overlay-content tile-overlay-content--full tile-weekly-menu-expand';
+    container.className = 'tile-overlay-content tile-overlay-content--full fh-sem';
     container.innerHTML = '';
-    /* Force layout flex column pour que la grille puisse scroller proprement
-       (sinon overlap header/body sur iOS 9). Un repas touché s'ouvre dans le
-       mode recette (js/mode-recette.js), par-dessus. */
-    container.style.cssText =
-      'display:-webkit-flex; display:flex; ' +
-      '-webkit-flex-direction:column; flex-direction:column; ' +
-      'height:100%; width:100%; overflow:hidden;';
+    container.style.cssText = '';
 
     var d = data || {};
     var nPlans = plansCount(d);
     if (nPlans === 0) {
-      container.innerHTML =
-        '<div style="padding:60px; text-align:center; font-size:18px; opacity:0.7">' +
-          'Pas de plan actif cette semaine.' +
-        '</div>';
+      zoneTete(container).appendChild(titres('Menu de la semaine', ''));
+      container.appendChild(el('div', 'fh-pe-message fh-texte-doux', 'Pas de menu prévu cette semaine.'));
       return;
     }
 
     /* Index du plan courant dans data.plans : 0 = plus récent = actif si présent.
        État closure : préservé entre re-renders du même expand mais reset à
-       chaque ouverture (volontaire — on commence toujours sur l'actif). */
+       chaque ouverture (volontaire — on commence toujours sur l'actif). Un
+       repas touché s'ouvre dans le mode recette (js/mode-recette.js), par-dessus. */
     var currentIdx = 0;
 
     /* Vue grille — extraite dans une fonction pour pouvoir y revenir
-       depuis la vue détail recette. */
+       depuis la vue batch. */
     renderGrid();
 
     function renderGrid() {
       container.innerHTML = '';
-      container.style.cssText =
-        'display:-webkit-flex; display:flex; ' +
-        '-webkit-flex-direction:column; flex-direction:column; ' +
-        'height:100%; width:100%; overflow:hidden;';
       var plan = selectPlan(d, currentIdx);
       if (!plan) {
-        container.innerHTML =
-          '<div style="padding:60px; text-align:center; font-size:18px; opacity:0.7">' +
-            'Plan introuvable.' +
-          '</div>';
+        zoneTete(container).appendChild(titres('Menu de la semaine', ''));
+        container.appendChild(el('div', 'fh-pe-message fh-texte-doux', 'Plan introuvable.'));
         return;
       }
       var nav = {
@@ -318,105 +420,66 @@
     function showBatchView() {
       var plan = selectPlan(d, currentIdx) || {};
       var sessions = (plan.batchSessions || []);
+      container.innerHTML = '';
+
+      var tete = zoneTete(container);
+      var retour = bouton('fh-pe-retour-btn fh-carte fh-texte fh-bordure',
+        icone(ICONES.gauche) + '<span>La semaine</span>', 'Retour au menu de la semaine');
+      retour.setAttribute('data-act', 'back');
+      retour.addEventListener('click', renderGrid);
+      tete.appendChild(retour);
+      tete.appendChild(titres('Batch cooking',
+        sessions.length === 0 ? '' :
+          sessions.length + ' session' + (sessions.length > 1 ? 's' : '') + ' à préparer'));
+
       if (sessions.length === 0) {
-        container.innerHTML =
-          '<div style="padding:60px; text-align:center; opacity:0.7">' +
-            '<div style="font-size:18px; margin-bottom:14px">Aucune session de batch cooking cette semaine.</div>' +
-            '<button type="button" data-act="back" style="padding:10px 20px; background:#D9A05B; color:#1F1A14; border:none; border-radius:4px; font-weight:600;">← Retour à la semaine</button>' +
-          '</div>';
-        var bb0 = container.querySelector('[data-act="back"]');
-        if (bb0) bb0.addEventListener('click', renderGrid);
+        container.appendChild(el('div', 'fh-pe-message fh-texte-doux',
+          'Aucune session de batch cooking cette semaine.'));
         return;
       }
 
-      container.innerHTML = '';
-      container.style.cssText =
-        'display:-webkit-flex; display:flex; ' +
-        '-webkit-flex-direction:column; flex-direction:column; ' +
-        'height:100%; width:100%; overflow:hidden;';
-
-      /* Bandeau retour */
-      var backBar = document.createElement('div');
-      backBar.style.cssText =
-        'padding:8px 20px; background:rgba(217,160,91,0.10); ' +
-        'border-bottom:1px solid rgba(217,160,91,0.25); ' +
-        '-webkit-flex-shrink:0; flex-shrink:0;';
-      backBar.innerHTML =
-        '<button type="button" style="background:transparent; color:#D9A05B; ' +
-        'border:none; font-size:14px; padding:4px 0; font-weight:600;">' +
-        '← Retour à la semaine</button>';
-      backBar.querySelector('button').addEventListener('click', renderGrid);
-      container.appendChild(backBar);
-
-      /* Header batch */
-      var bHeader = document.createElement('div');
-      bHeader.style.cssText =
-        'padding:16px 20px; border-bottom:1px solid rgba(217,160,91,0.15); ' +
-        '-webkit-flex-shrink:0; flex-shrink:0;';
-      bHeader.innerHTML =
-        '<div style="font-size:11px; letter-spacing:0.2em; text-transform:uppercase; opacity:0.7">Batch cooking de la semaine</div>' +
-        '<div style="font-family:Georgia,serif; font-size:24px; margin-top:2px">' +
-        sessions.length + ' session' + (sessions.length > 1 ? 's' : '') + ' à préparer</div>';
-      container.appendChild(bHeader);
-
-      /* Body : liste des sessions, chaque session liste ses recettes (cliquables) */
-      var body = document.createElement('div');
-      body.style.cssText =
-        'padding:20px; overflow-y:auto; -webkit-overflow-scrolling:touch; ' +
-        '-webkit-flex:1 1 auto; flex:1 1 auto; min-height:0;';
+      /* Liste des sessions (défile) ; chaque recette s'ouvre dans le mode recette. */
+      var body = el('div', 'fh-bt-liste');
       container.appendChild(body);
       body.setAttribute('data-scroll-lock', '1');
 
       for (var s = 0; s < sessions.length; s++) {
         (function (session) {
           var dateLabel = dateLongFr(session.date);
-          var card = document.createElement('div');
-          card.style.cssText =
-            'background:rgba(217,160,91,0.05); border:1px solid rgba(217,160,91,0.20); ' +
-            'border-radius:6px; padding:16px; margin-bottom:14px;' +
-            (session.done ? 'opacity:0.55;' : '');
+          dateLabel = dateLabel.charAt(0).toUpperCase() + dateLabel.slice(1);
+          var ids = session.recetteIds || [];
+          var noms = session.recetteNoms || [];
+          var card = el('div', 'fh-bt-session fh-carte fh-bordure' + (session.done ? ' fh-bt-session-faite' : ''));
           var html =
-            '<div style="display:-webkit-flex; display:flex; -webkit-justify-content:space-between; justify-content:space-between; -webkit-align-items:flex-start; align-items:flex-start; -webkit-flex-wrap:wrap; flex-wrap:wrap; margin-bottom:10px">' + /* un seul enfant : gap sans effet, retiré */
-              '<div>' +
-                '<div style="font-family:Georgia,serif; font-size:18px; line-height:1.2">' +
-                  escapeHtml(dateLabel) + (session.done ? ' <span style="font-size:11px; color:#7D9F76; font-family:inherit; font-weight:600; letter-spacing:0.05em">· TERMINÉ</span>' : '') +
-                '</div>' +
-                '<div style="font-size:12px; opacity:0.7; margin-top:2px">' +
-                  '⏱ ' + session.dureeEstimeeMinutes + ' min · ' +
-                  session.recetteIds.length + ' recette' + (session.recetteIds.length > 1 ? 's' : '') +
-                '</div>' +
-              '</div>' +
-            '</div>';
+            '<div class="fh-bt-tete">' +
+              '<div class="fh-bt-date fh-titre fh-texte">' + escapeHtml(dateLabel) + '</div>' +
+              (session.done
+                ? '<div class="fh-bt-fait fh-texte">' + icone(ICONES.coche, 26) + '<span>Terminé</span></div>'
+                : '') +
+            '</div>' +
+            '<div class="fh-bt-meta fh-texte-doux">' + icone(ICONES.horloge, 24) +
+              '<span>' + (+session.dureeEstimeeMinutes || 0) + ' min · ' +
+              ids.length + ' recette' + (ids.length > 1 ? 's' : '') + '</span></div>';
           if (session.notes) {
-            html +=
-              '<div style="background:rgba(217,160,91,0.08); border-left:3px solid #D9A05B; ' +
-              'padding:8px 12px; font-style:italic; font-size:13px; margin-bottom:12px;">' +
-              '« ' + escapeHtml(session.notes) + ' »</div>';
+            html += '<p class="fh-bt-notes fh-texte">' + escapeHtml(session.notes) + '</p>';
           }
-          html += '<div style="font-size:11px; letter-spacing:0.15em; text-transform:uppercase; opacity:0.6; margin-bottom:6px">Recettes à préparer</div>';
-          html += '<div data-role="recettes" class="fh-gap-c6" style="display:-webkit-flex; display:flex; -webkit-flex-direction:column; flex-direction:column"></div>';
+          html += '<div class="fh-bt-recettes"></div>';
           card.innerHTML = html;
-          var recettesWrap = card.querySelector('[data-role="recettes"]');
-          for (var ri = 0; ri < session.recetteIds.length; ri++) {
+          var recettesWrap = card.querySelector('.fh-bt-recettes');
+          for (var ri = 0; ri < ids.length; ri++) {
             (function (rid, nom) {
-              var btn = document.createElement('button');
-              btn.type = 'button';
-              /* Couleurs du design system (jour comme nuit), pas de couleur en dur. */
-              btn.className = 'fh-carte fh-texte fh-bordure fh-corps';
-              btn.style.cssText =
-                'text-align:left; padding:10px 14px; ' +
-                'border-width:1px; border-style:solid; border-radius:4px; ' +
-                'font-size:14px; cursor:pointer;';
-              btn.innerHTML = '<span class="fh-texte-doux" style="margin-right:8px">▸</span>' + escapeHtml(nom || rid);
+              var btn = bouton('fh-bt-recette-btn fh-carte fh-texte fh-bordure',
+                '<span class="fh-bt-recette-nom">' + escapeHtml(nom || rid) + '</span>' +
+                icone(ICONES.droite, 26, 'fh-pe-icone-seule'));
               btn.addEventListener('click', function () {
                 /* Pas de repas pour un batch : titre = nom de la recette. */
                 if (!global.FamilyHubModeRecette) return;
-                var noms = {};
-                if (nom) noms[rid] = nom;
-                global.FamilyHubModeRecette.ouvrir({ recetteIds: [rid], noms: noms });
+                var nomsParRid = {};
+                if (nom) nomsParRid[rid] = nom;
+                global.FamilyHubModeRecette.ouvrir({ recetteIds: [rid], noms: nomsParRid });
               });
               recettesWrap.appendChild(btn);
-            })(session.recetteIds[ri], session.recetteNoms[ri]);
+            })(ids[ri], noms[ri]);
           }
           body.appendChild(card);
         })(sessions[s]);
@@ -453,86 +516,31 @@
     }
   }
 
-  var MOIS_SHORT = ['janv', 'févr', 'mars', 'avr', 'mai', 'juin', 'juil', 'août', 'sept', 'oct', 'nov', 'déc'];
-
   /**
-   * Construit la grille semaine dans `container` à partir d'un PLAN (actif ou
+   * Construit la vue semaine dans `container` à partir d'un PLAN (actif ou
    * archivé). Le nombre de jours est dérivé du plan lui-même, pas hardcodé 7.
    *
    * @param plan { planId, statut, dateDebutISO, dateFinISO, semaine[], batchSessions[] }
-   * @param nav  { index, total, canPrev, canNext, onPrev, onNext } pour ◀ ▶
+   * @param nav  { index, total, canPrev, canNext, onPrev, onNext } pour ‹ ›
    */
   function buildGridUI(container, plan, onCellTap, onBatchTap, nav) {
     var p = plan || {};
     var isArchived = p.statut === 'archived';
 
-    /* ---- Header ---- */
-    var header = document.createElement('div');
-    header.style.cssText =
-      'padding:14px 20px 12px; border-bottom:1px solid rgba(217,160,91,0.15); ' +
-      '-webkit-flex-shrink:0; flex-shrink:0;';
-
-    var dateRange = '';
-    if (p.dateDebutISO) {
-      var debut = new Date(p.dateDebutISO + 'T12:00:00Z');
-      var fin = new Date((p.dateFinISO || p.dateDebutISO) + 'T12:00:00Z');
-      dateRange = 'Semaine du ' +
-        debut.getDate() + ' ' + MOIS_SHORT[debut.getMonth()] +
-        ' au ' +
-        fin.getDate() + ' ' + MOIS_SHORT[fin.getMonth()];
-    }
-
-    /* ─ Première ligne : eyebrow "MENU…" + nav ◀ ▶ ─ */
-    var topRow = document.createElement('div');
-    topRow.style.cssText =
-      'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; ' +
-      '-webkit-justify-content:space-between; justify-content:space-between;';
-    topRow.className = 'fh-gap-r8'; /* ex-gap 8px (Safari 9) */
-    var eyebrow = document.createElement('div');
-    eyebrow.style.cssText =
-      'font-size:11px; letter-spacing:0.2em; text-transform:uppercase; opacity:0.7;';
-    eyebrow.innerHTML = 'Menu de la semaine';
-    topRow.appendChild(eyebrow);
+    /* ---- Tête (barre du plein écran) : titre, dates, navigation ---- */
+    var tete = zoneTete(container);
+    var plage = p.dateDebutISO ? plageSemaineEs5(p.dateDebutISO, p.dateFinISO) : '';
+    tete.appendChild(titres('Menu de la semaine', (isArchived ? 'Archivé · ' : '') + plage));
 
     if (nav && nav.total > 1) {
-      var navWrap = document.createElement('div');
-      navWrap.style.cssText =
-        'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center;';
-      navWrap.className = 'fh-gap-r6'; /* ex-gap 6px (Safari 9) */
-      var prevBtn = makeNavBtn('◀', 'Semaine précédente', nav.canPrev, nav.onPrev);
-      var counter = document.createElement('span');
-      counter.style.cssText =
-        'font-size:10px; letter-spacing:0.12em; opacity:0.55; min-width:38px; text-align:center;';
-      counter.innerHTML = (nav.index + 1) + ' / ' + nav.total;
-      var nextBtn = makeNavBtn('▶', 'Semaine suivante', nav.canNext, nav.onNext);
-      navWrap.appendChild(prevBtn);
-      navWrap.appendChild(counter);
-      navWrap.appendChild(nextBtn);
-      topRow.appendChild(navWrap);
+      var navWrap = el('div', 'fh-pe-nav');
+      navWrap.appendChild(makeNavBtn(ICONES.gauche, 'Semaine précédente', nav.canPrev, nav.onPrev));
+      navWrap.appendChild(el('div', 'fh-pe-nav-etape fh-texte-doux', (nav.index + 1) + ' / ' + nav.total));
+      navWrap.appendChild(makeNavBtn(ICONES.droite, 'Semaine suivante', nav.canNext, nav.onNext));
+      tete.appendChild(navWrap);
     }
-    header.appendChild(topRow);
 
-    /* ─ Deuxième ligne : range de dates + badge archivé ─ */
-    var titleRow = document.createElement('div');
-    titleRow.style.cssText =
-      'display:-webkit-flex; display:flex; -webkit-align-items:baseline; align-items:baseline; margin-top:2px;';
-    titleRow.className = 'fh-gap-r10'; /* ex-gap 10px (Safari 9) */
-    var title = document.createElement('div');
-    title.style.cssText = 'font-family:Georgia,serif; font-size:24px;';
-    title.innerHTML = escapeHtml(dateRange);
-    titleRow.appendChild(title);
-    if (isArchived) {
-      var badge = document.createElement('span');
-      badge.style.cssText =
-        'display:inline-block; padding:2px 8px; font-size:10px; letter-spacing:0.15em; ' +
-        'text-transform:uppercase; background:rgba(217,160,91,0.15); ' +
-        'border:1px solid rgba(217,160,91,0.35); color:' + BRASS + '; border-radius:3px;';
-      badge.innerHTML = 'Archivé';
-      titleRow.appendChild(badge);
-    }
-    header.appendChild(titleRow);
-
-    /* ─ Bouton batch (inchangé) ─ */
+    /* ---- Batch cooking de la semaine ---- */
     var batchSessions = p.batchSessions || [];
     var batchCount = batchSessions.length;
     var batchTotalMin = 0;
@@ -540,179 +548,130 @@
       batchTotalMin += +batchSessions[bi].dureeEstimeeMinutes || 0;
     }
     if (batchCount > 0 && typeof onBatchTap === 'function') {
-      var batchBtn = document.createElement('button');
-      batchBtn.type = 'button';
-      batchBtn.style.cssText =
-        'margin-top:10px; padding:10px 14px; background:rgba(217,160,91,0.12); ' +
-        'border:1px solid rgba(217,160,91,0.40); color:#D9A05B; border-radius:4px; ' +
-        'font-size:13px; font-weight:600; cursor:pointer; ' +
-        'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center;';
-      batchBtn.className = 'fh-gap-r8'; /* ex-gap 8px (Safari 9) */
-      batchBtn.innerHTML =
-        '<svg viewBox="0 0 50 50" width="18" height="18" aria-hidden="true">' +
-          '<path d="M10 22 L40 22 L38 38 Q38 42, 34 42 L16 42 Q12 42, 12 38 Z" ' +
-            'fill="rgba(217,160,91,0.18)" stroke="#D9A05B" stroke-width="2" stroke-linejoin="round"/>' +
-          '<path d="M14 22 Q14 12, 25 12 Q36 12, 36 22" fill="none" stroke="#D9A05B" stroke-width="2"/>' +
-          '<line x1="6" y1="42" x2="44" y2="42" stroke="#D9A05B" stroke-width="2" stroke-linecap="round"/>' +
-        '</svg>' +
-        '<span>Batch cooking de la semaine · ' + batchCount + ' session' + (batchCount > 1 ? 's' : '') +
-        ' · ' + batchTotalMin + ' min</span>' +
-        /* margin-left:auto inline écrase la marge fh-gap-r8 : le padding
-           garde les 8px minimum que le gap assurait. */
-        '<span style="margin-left:auto; padding-left:8px; opacity:0.7">→</span>';
+      var batchBtn = bouton('fh-sem-batch-btn fh-carte fh-texte fh-bordure',
+        icone(ICONES.marmite, 30) +
+        '<span class="fh-sem-batch-texte">Batch cooking' +
+          '<span class="fh-texte-doux"> · ' + batchCount + ' session' + (batchCount > 1 ? 's' : '') +
+          ' · ' + batchTotalMin + ' min</span></span>' +
+        '<span class="fh-sem-batch-voir">Voir</span>' + icone(ICONES.droite, 26, 'fh-pe-icone-seule'));
+      batchBtn.setAttribute('data-act', 'batch');
       batchBtn.addEventListener('click', function (ev) {
         ev.stopPropagation();
         onBatchTap();
       });
-      header.appendChild(batchBtn);
+      container.appendChild(batchBtn);
     }
 
-    container.appendChild(header);
-
-    /* ---- Grille (variable nDays = semaine.length / 3) ---- */
+    /* ---- Grille : une ligne par jour (nDays = semaine.length / 3) ---- */
     var semaine = p.semaine || [];
     var nDays = Math.max(1, Math.floor(semaine.length / 3));
     var byJour = groupByJour(semaine);
     var todayIdx = todayJourIndex(semaine);
+    var repasList = repasAffichesEs5(semaine);
 
-    var gridWrap = document.createElement('div');
-    gridWrap.style.cssText =
-      'padding:16px 20px; overflow:auto; -webkit-overflow-scrolling:touch; ' +
-      '-webkit-flex:1 1 auto; flex:1 1 auto; min-height:0;';
+    var entete = el('div', 'fh-sem-entete');
+    entete.appendChild(el('div', 'fh-sem-jour'));
+    for (var ri = 0; ri < repasList.length; ri++) {
+      entete.appendChild(el('div', 'fh-sem-col-titre fh-texte-doux',
+        icone(ICONES[repasList[ri]], 26) + '<span>' + escapeHtml(repasShort(repasList[ri])) + '</span>'));
+    }
+    container.appendChild(entete);
+
+    var gridWrap = el('div', 'fh-sem-grille');
     container.appendChild(gridWrap);
     gridWrap.setAttribute('data-scroll-lock', '1');
 
-    var table = document.createElement('table');
-    table.style.cssText = 'width:100%; border-collapse:separate; border-spacing:6px; font-size:12px;';
-    gridWrap.appendChild(table);
-
-    /* Header row */
-    var thead = document.createElement('thead');
-    var trH = document.createElement('tr');
-    var thCorner = document.createElement('th');
-    thCorner.setAttribute('scope', 'col');
-    thCorner.innerHTML = '<span style="position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)">Repas</span>';
-    trH.appendChild(thCorner);
+    var ligneAujourdhui = null;
     for (var j = 0; j < nDays; j++) {
-      var th = document.createElement('th');
-      th.setAttribute('scope', 'col');
+      var jourInfo = byJour[j] || null;
       var isToday = j === todayIdx;
-      th.style.cssText =
-        'padding:6px 4px; font-weight:600; letter-spacing:0.08em; ' +
-        'text-transform:uppercase; font-size:11px; ' +
-        'color:' + (isToday ? BRASS : 'inherit') + ';' +
-        (isToday ? 'border-bottom:2px solid ' + BRASS + ';' : '');
-      var dateLabel = '';
-      var headerDayName = JOURS_SHORT[j % 7];
-      if (byJour[j] && byJour[j].date) {
-        headerDayName = dayLabelFromDate(byJour[j].date) || headerDayName;
-        var d2 = new Date(byJour[j].date + 'T12:00:00Z');
-        dateLabel = '<div style="font-size:9px; opacity:0.6; margin-top:1px; font-weight:400; letter-spacing:0">' +
-                    d2.getDate() + '/' + (d2.getMonth() + 1) + '</div>';
+      var dateJ = jourInfo && jourInfo.date ? dateDepuisIso(jourInfo.date) : null;
+      var ligne = el('div', 'fh-sem-ligne' + (isToday ? ' fh-sem-ligne-aujourdhui' : ''));
+      var nomJour = isToday ? 'Aujourd\'hui'
+        : (dateJ ? JOURS_LONG[dateJ.getDay() === 0 ? 6 : dateJ.getDay() - 1] : JOURS_LONG[j % 7]);
+      ligne.appendChild(el('div', 'fh-sem-jour',
+        '<div class="fh-sem-jour-nom fh-titre' + (isToday ? ' fh-maintenant' : ' fh-texte') + '">' +
+          escapeHtml(nomJour) + '</div>' +
+        (dateJ ? '<div class="fh-sem-jour-date fh-texte-doux">' +
+          (isToday ? JOURS_COURTS_DIM[dateJ.getDay()] + ' ' : '') +
+          dateJ.getDate() + ' ' + MOIS_COURTS[dateJ.getMonth()] + '</div>' : '')));
+
+      for (var rj = 0; rj < repasList.length; rj++) {
+        var repas = repasList[rj];
+        ligne.appendChild(caseRepas((jourInfo && jourInfo.slots[repas]) || null, repas, j, byJour, onCellTap));
       }
-      th.innerHTML = headerDayName + dateLabel;
-      trH.appendChild(th);
+      gridWrap.appendChild(ligne);
+      if (isToday) ligneAujourdhui = ligne;
     }
-    thead.appendChild(trH);
-    table.appendChild(thead);
 
-    /* Body : 3 rows for petitDej / dej / diner */
-    var tbody = document.createElement('tbody');
-    var repasList = ['petitDej', 'dej', 'diner'];
-    for (var ri = 0; ri < repasList.length; ri++) {
-      var repas = repasList[ri];
-      var tr = document.createElement('tr');
-
-      var tdLabel = document.createElement('th');
-      tdLabel.setAttribute('scope', 'row');
-      tdLabel.style.cssText =
-        'padding:8px; vertical-align:middle; text-align:center; ' +
-        'border-right:1px solid rgba(217,160,91,0.1);';
-      tdLabel.title = repasShort(repas);
-      tdLabel.setAttribute('aria-label', repasShort(repas));
-      tdLabel.innerHTML = repasIconSvg(repas, 28);
-      tr.appendChild(tdLabel);
-
-      for (var jj = 0; jj < nDays; jj++) {
-        var slot = (byJour[jj] && byJour[jj].slots[repas]) || null;
-        var cell = document.createElement('td');
-        var isPast = isSlotPast(slot);
-        var isCellToday = jj === todayIdx;
-        var hasRecettes = slot && slot.recetteIds && slot.recetteIds.length > 0;
-        cell.style.cssText =
-          'padding:8px 6px; vertical-align:top; min-width:100px; ' +
-          'border:1px solid ' + (isCellToday ? 'rgba(217,160,91,0.4)' : 'rgba(217,160,91,0.1)') + ';' +
-          'background:' + (isCellToday ? 'rgba(217,160,91,0.05)' : 'transparent') + ';' +
-          'border-radius:4px;' +
-          (isPast ? 'opacity:0.55;' : '') +
-          (hasRecettes ? 'cursor:pointer;' : '');
-        if (hasRecettes && typeof onCellTap === 'function') {
-          (function (s, dayJ) {
-            cell.setAttribute('role', 'button');
-            cell.setAttribute('tabindex', '0');
-            var dayLbl = (byJour[dayJ] && byJour[dayJ].date)
-              ? (dayLabelFromDate(byJour[dayJ].date) || JOURS_SHORT[dayJ % 7])
-              : JOURS_SHORT[dayJ % 7];
-            var nomsLbl = (s.recetteNoms && s.recetteNoms.length > 0)
-              ? ' : ' + s.recetteNoms.join(', ')
-              : '';
-            cell.setAttribute('aria-label',
-              'Voir la recette — ' + repasShort(repas) + ' ' + dayLbl + nomsLbl);
-            cell.addEventListener('click', function () { onCellTap(s); });
-            cell.addEventListener('keydown', function (ev) {
-              if (ev.keyCode === 13 || ev.keyCode === 32 ||
-                  ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') {
-                ev.preventDefault();
-                onCellTap(s);
-              }
-            });
-          })(slot, jj);
-        }
-        if (!slot || (slot.recetteNoms.length === 0 && slot.profilsCount === 0)) {
-          cell.style.opacity = '0.3';
-          cell.innerHTML = '<span style="font-size:18px; color:' + BRASS + '">—</span>';
-        } else if (slot.recetteNoms.length === 0) {
-          cell.innerHTML = '<span style="font-size:11px; opacity:0.6; font-style:italic">à compléter</span>';
-        } else {
-          var html = '';
-          for (var ni = 0; ni < slot.recetteNoms.length; ni++) {
-            html += '<div style="font-size:12px; line-height:1.3; margin-bottom:' +
-                    (ni < slot.recetteNoms.length - 1 ? '4px' : '0') + ';' +
-                    (ni === 0 ? 'font-weight:600' : 'opacity:0.75; font-style:italic') + '">' +
-                    escapeHtml(slot.recetteNoms[ni]) + '</div>';
-          }
-          var meta = [];
-          if (slot.profilsCount > 0) meta.push(slot.profilsCount + (slot.profilsCount > 1 ? ' personnes' : ' personne'));
-          if (slot.invitesCount > 0) meta.push('+' + slot.invitesCount + ' invité' + (slot.invitesCount > 1 ? 's' : ''));
-          if (slot.isBatchConsumer) meta.push('batch');
-          if (meta.length > 0) {
-            html += '<div style="margin-top:6px; font-size:10px; opacity:0.55; ' +
-                    'letter-spacing:0.05em; text-transform:uppercase">' +
-                    escapeHtml(meta.join(' · ')) + '</div>';
-          }
-          cell.innerHTML = html;
-        }
-        tr.appendChild(cell);
-      }
-      tbody.appendChild(tr);
+    /* Ouvre la semaine sur aujourd'hui (les jours passés restent au-dessus). */
+    if (ligneAujourdhui) {
+      setTimeout(function () {
+        try { gridWrap.scrollTop = Math.max(0, ligneAujourdhui.offsetTop - 4); } catch (e) { /* noop */ }
+      }, 0);
     }
-    table.appendChild(tbody);
   }
 
-  function makeNavBtn(label, title, enabled, onClick) {
-    var b = document.createElement('button');
-    b.type = 'button';
+  /* Une case repas : carte touchable si des recettes, sinon « — » ou
+     « À compléter ». Passé et annulé estompés (sans disparaître). */
+  function caseRepas(slot, repas, dayJ, byJour, onCellTap) {
+    var cell = document.createElement('div');
+    var isPast = isSlotPast(slot);
+    var hasRecettes = slot && slot.recetteIds && slot.recetteIds.length > 0;
+    var noms = (slot && slot.recetteNoms) || [];
+    var classes = 'fh-sem-case';
+    if (isPast) classes += ' fh-sem-case-passee';
+    if (slot && slot.annule) classes += ' fh-sem-case-annulee';
+
+    if (!slot || (noms.length === 0 && !(+slot.profilsCount > 0))) {
+      cell.className = classes + ' fh-sem-case-vide fh-texte-doux';
+      cell.innerHTML = '—';
+      return cell;
+    }
+    if (noms.length === 0) {
+      cell.className = classes + ' fh-sem-case-acompleter fh-texte-doux';
+      cell.innerHTML = 'À compléter';
+    } else {
+      cell.className = classes + ' fh-carte fh-bordure';
+      var html = '<div class="fh-sem-plat fh-texte">' + escapeHtml(noms[0]) + '</div>';
+      if (noms.length > 1) {
+        html += '<div class="fh-sem-autres fh-texte-doux">+ ' + escapeHtml(noms.slice(1).join(', ')) + '</div>';
+      }
+      var meta = metaCaseEs5(slot);
+      if (meta) html += '<div class="fh-sem-meta fh-texte-doux">' + escapeHtml(meta) + '</div>';
+      cell.innerHTML = html;
+    }
+
+    if (hasRecettes && typeof onCellTap === 'function') {
+      cell.className += ' fh-sem-case-touche';
+      cell.setAttribute('role', 'button');
+      cell.setAttribute('tabindex', '0');
+      var dayLbl = (byJour[dayJ] && byJour[dayJ].date)
+        ? (dayLabelFromDate(byJour[dayJ].date) || JOURS_SHORT[dayJ % 7])
+        : JOURS_SHORT[dayJ % 7];
+      var nomsLbl = noms.length > 0 ? ' : ' + noms.join(', ') : '';
+      cell.setAttribute('aria-label',
+        'Voir la recette — ' + repasShort(repas) + ' ' + dayLbl + nomsLbl);
+      cell.addEventListener('click', function () { onCellTap(slot); });
+      cell.addEventListener('keydown', function (ev) {
+        if (ev.keyCode === 13 || ev.keyCode === 32 ||
+            ev.key === 'Enter' || ev.key === ' ' || ev.key === 'Spacebar') {
+          ev.preventDefault();
+          onCellTap(slot);
+        }
+      });
+    }
+    return cell;
+  }
+
+  function makeNavBtn(iconeInner, title, enabled, onClick) {
+    var b = bouton('fh-pe-fleche-btn fh-carte fh-texte fh-bordure',
+      icone(iconeInner, 30, 'fh-pe-icone-seule'), title);
     b.title = title;
-    b.setAttribute('aria-label', title);
-    if (!enabled) b.setAttribute('aria-disabled', 'true');
-    b.innerHTML = label;
-    b.style.cssText =
-      'width:38px; height:38px; padding:0; border-radius:50%; ' +
-      'background:' + (enabled ? 'rgba(217,160,91,0.10)' : 'transparent') + '; ' +
-      'border:1px solid ' + (enabled ? 'rgba(217,160,91,0.40)' : 'rgba(217,160,91,0.15)') + '; ' +
-      'color:' + (enabled ? BRASS : 'rgba(217,160,91,0.30)') + '; ' +
-      'font-size:14px; cursor:' + (enabled ? 'pointer' : 'default') + '; ' +
-      '-webkit-tap-highlight-color:transparent;';
+    if (!enabled) {
+      b.disabled = true;
+      b.setAttribute('aria-disabled', 'true');
+    }
     if (enabled && typeof onClick === 'function') {
       b.addEventListener('click', function (ev) {
         ev.stopPropagation();
@@ -729,6 +688,9 @@
     render: render,
     cleanup: cleanup,
     expand: expand,
-    collapse: collapse
+    collapse: collapse,
+    repasAffiches: repasAffichesEs5,
+    metaCase: metaCaseEs5,
+    plageSemaine: plageSemaineEs5
   };
 })(window);

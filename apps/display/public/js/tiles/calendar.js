@@ -1,5 +1,6 @@
 /* tiles/calendar.js — calendrier familial Google via flux iCal pré-calculé.
-   Vue compacte = prochain event + 2 suivants. Vue expand = pager 7 jours/page swipeable.
+   Vue compacte = prochain event + 2 suivants. Vue expand = pager 7 jours/page swipeable
+   (design « Alpage + Veillée » : css/plein-ecran.css, classes fh-ag-*).
    ES5 vanilla, iOS 9 OK. La data vient du snapshot ; aucun appel réseau direct ici. */
 (function (global) {
   'use strict';
@@ -10,6 +11,15 @@
                    'juil.', 'août', 'sept.', 'oct.', 'nov.', 'déc.'];
   var MONTHS_LONG_FR = ['janvier', 'février', 'mars', 'avril', 'mai', 'juin',
                         'juillet', 'août', 'septembre', 'octobre', 'novembre', 'décembre'];
+
+  var CHEVRON_GAUCHE =
+    '<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true" class="fh-pe-icone-seule">' +
+      '<path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '</svg>';
+  var CHEVRON_DROITE =
+    '<svg viewBox="0 0 24 24" width="30" height="30" aria-hidden="true" class="fh-pe-icone-seule">' +
+      '<path d="M9 5 L16 12 L9 19" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '</svg>';
 
   var DAYS_PER_PAGE = 7;
   var DEFAULT_PAGES = 3; /* 21 jours visibles par défaut côté display */
@@ -293,41 +303,54 @@
     return DAYS_LONG_FR[date.getDay()];
   }
 
+  /* Vue semaine (design « Alpage + Veillée », css/plein-ecran.css) : une
+     ligne par jour, nom du jour à gauche, événements à droite. Aujourd'hui
+     dans une carte, son nom sur l'aplat « maintenant » (la seule chose en
+     jaune de l'écran) ; jours passés estompés. */
+  function majuscule(s) {
+    s = String(s || '');
+    return s.charAt(0).toUpperCase() + s.slice(1);
+  }
+
   function renderDayRow(day, now) {
     var row = document.createElement('div');
-    row.className = 'cal-day-row';
-    if (sameDay(day.date, now)) row.className += ' cal-day-row-today';
-    else if (day.isPast) row.className += ' cal-day-row-past';
-    if (day.items.length === 0) row.className += ' cal-day-row-empty';
+    var estAujourdhui = sameDay(day.date, now);
+    row.className = 'fh-ag-jour';
+    if (estAujourdhui) row.className += ' fh-ag-jour-aujourdhui fh-carte fh-bordure';
+    else if (day.isPast) row.className += ' fh-ag-jour-passe';
+    if (day.items.length === 0) row.className += ' fh-ag-jour-vide';
 
     var pill = document.createElement('div');
-    pill.className = 'cal-day-pill';
-    var labelTop = libelleJourSemaine(day.date, now);
+    pill.className = 'fh-ag-jour-tete';
+    var labelTop = majuscule(libelleJourSemaine(day.date, now));
     pill.innerHTML =
-      '<div class="cal-day-pill-name">' + escapeHtml(labelTop) + '</div>' +
-      '<div class="cal-day-pill-date">' + day.date.getDate() + ' ' + MONTHS_FR[day.date.getMonth()] + '</div>';
+      '<div class="fh-ag-jour-nom fh-titre' + (estAujourdhui ? ' fh-maintenant' : ' fh-texte') + '">' +
+        escapeHtml(labelTop) + '</div>' +
+      '<div class="fh-ag-jour-date fh-texte-doux">' + day.date.getDate() + ' ' +
+        MONTHS_FR[day.date.getMonth()] + '</div>';
     row.appendChild(pill);
 
     var events = document.createElement('div');
-    events.className = 'cal-day-events';
+    events.className = 'fh-ag-evts';
 
     if (day.items.length === 0) {
       var empty = document.createElement('div');
-      empty.className = 'cal-day-empty';
-      empty.innerHTML = '—';
+      empty.className = 'fh-ag-rien fh-texte-doux';
+      empty.innerHTML = 'Rien de prévu';
       events.appendChild(empty);
     } else {
       for (var i = 0; i < day.items.length; i++) {
         var it = day.items[i];
         var card = document.createElement('div');
-        card.className = 'cal-event' + (it.ev.allDay ? ' cal-event-allday' : '');
+        card.className = 'fh-ag-evt' + (it.ev.allDay ? ' fh-ag-evt-journee' : '');
         var loc = it.ev.location
-          ? '<div class="cal-event-loc">' + escapeHtml(it.ev.location) + '</div>'
+          ? '<div class="fh-ag-evt-lieu fh-texte-doux">' + escapeHtml(it.ev.location) + '</div>'
           : '';
         card.innerHTML =
-          '<div class="cal-event-time">' + escapeHtml(fmtEventTime(it.ev, it.start, it.end)) + '</div>' +
-          '<div class="cal-event-body">' +
-            '<div class="cal-event-summary">' + escapeHtml(it.ev.summary) + '</div>' +
+          '<div class="fh-ag-evt-heure' + (it.ev.allDay ? ' fh-texte-doux' : ' fh-texte') + '">' +
+            escapeHtml(fmtEventTime(it.ev, it.start, it.end)) + '</div>' +
+          '<div class="fh-ag-evt-corps">' +
+            '<div class="fh-ag-evt-titre fh-texte">' + escapeHtml(it.ev.summary) + '</div>' +
             loc +
           '</div>';
         events.appendChild(card);
@@ -339,7 +362,7 @@
 
   function renderPage(page, now) {
     var pageEl = document.createElement('div');
-    pageEl.className = 'cal-page';
+    pageEl.className = 'fh-ag-page';
     for (var i = 0; i < page.length; i++) {
       pageEl.appendChild(renderDayRow(page[i], now));
     }
@@ -368,34 +391,47 @@
     var currentIdx = 0;
 
     var viewport = document.createElement('div');
-    viewport.className = 'cal-pager-viewport';
+    viewport.className = 'fh-ag-viewport';
 
     var track = document.createElement('div');
-    track.className = 'cal-pager-track';
+    track.className = 'fh-ag-track';
     track.style.width = (pageCount * 100) + '%';
     viewport.appendChild(track);
 
     for (var i = 0; i < pageCount; i++) {
       var pg = renderPage(pages[i], now);
       pg.style.width = (100 / pageCount) + '%';
+      /* Une page dont la semaine déborde défile seule (core.js : anti-rebond iOS). */
+      pg.setAttribute('data-scroll-lock', '1');
       track.appendChild(pg);
     }
 
-    /* Navigation : flèches + libellé de page central explicite. */
+    /* Titre (dates de la semaine affichée) et navigation, posés dans la
+       barre du plein écran par expand(). Flèches de 72 px ; iOS 9 : contenu
+       des boutons dans un span (jamais de flex sur un <button>). */
+    var titre = document.createElement('div');
+    titre.className = 'fh-pe-titres';
+    titre.innerHTML =
+      '<div class="fh-pe-titre fh-titre fh-texte">Agenda</div>' +
+      '<div class="fh-pe-sous-titre fh-texte-doux"></div>';
+    var sousTitre = titre.lastChild;
+
     var nav = document.createElement('div');
-    nav.className = 'cal-pager-nav';
+    nav.className = 'fh-pe-nav';
 
     var prevBtn = document.createElement('button');
-    prevBtn.className = 'cal-pager-arrow cal-pager-arrow-prev';
-    prevBtn.innerHTML = '‹';
+    prevBtn.type = 'button';
+    prevBtn.className = 'fh-pe-btn fh-pe-fleche-btn fh-carte fh-texte fh-bordure';
+    prevBtn.innerHTML = '<span class="fh-pe-dedans">' + CHEVRON_GAUCHE + '</span>';
     prevBtn.setAttribute('aria-label', 'Semaine précédente');
 
     var label = document.createElement('div');
-    label.className = 'cal-pager-label';
+    label.className = 'fh-pe-nav-etape fh-texte-doux';
 
     var nextBtn = document.createElement('button');
-    nextBtn.className = 'cal-pager-arrow cal-pager-arrow-next';
-    nextBtn.innerHTML = '›';
+    nextBtn.type = 'button';
+    nextBtn.className = 'fh-pe-btn fh-pe-fleche-btn fh-carte fh-texte fh-bordure';
+    nextBtn.innerHTML = '<span class="fh-pe-dedans">' + CHEVRON_DROITE + '</span>';
     nextBtn.setAttribute('aria-label', 'Semaine suivante');
 
     nav.appendChild(prevBtn);
@@ -412,13 +448,10 @@
 
     function updateDots() {
       var range = formatPageRange(pages[currentIdx]);
-      label.innerHTML =
-        '<span class="cal-pager-label-range">' + escapeHtml(range) + '</span>' +
-        '<span class="cal-pager-label-step">Semaine ' + (currentIdx + 1) + ' / ' + pageCount + '</span>';
+      sousTitre.innerHTML = escapeHtml(range);
+      label.innerHTML = (currentIdx + 1) + ' / ' + pageCount;
       prevBtn.disabled = (currentIdx === 0);
       nextBtn.disabled = (currentIdx === pageCount - 1);
-      prevBtn.style.opacity = (currentIdx === 0) ? '0.25' : '1';
-      nextBtn.style.opacity = (currentIdx === pageCount - 1) ? '0.25' : '1';
     }
 
     function goTo(idx) {
@@ -490,6 +523,7 @@
 
     return {
       viewport: viewport,
+      titre: titre,
       nav: nav,
       goTo: goTo,
       pageCount: pageCount,
@@ -497,37 +531,41 @@
     };
   }
 
+  /* Zone de tête de la barre du plein écran (overlay.js) ; sans elle (banc
+     d'essai, appel direct), une tête en haut du contenu. */
+  function zoneTete(container) {
+    var O = global.FamilyHubOverlay;
+    var t = O && typeof O.tete === 'function' ? O.tete() : null;
+    if (t) { t.innerHTML = ''; return t; }
+    var h = document.createElement('div');
+    h.className = 'fh-pe-tete-repli fh-carte fh-bordure';
+    container.appendChild(h);
+    return h;
+  }
+
   function expand(container, data, _config) {
     container.innerHTML = '';
-    container.className = 'tile-overlay-content tile-calendar-expand';
+    container.className = 'tile-overlay-content tile-overlay-content--full fh-ag';
 
-    /* Header : titre + meta refresh */
-    var headWrap = document.createElement('div');
-    headWrap.className = 'cal-head';
-
-    var titleEl = document.createElement('h1');
-    titleEl.className = 'tile-overlay-h1 cal-head-title';
-    titleEl.innerHTML = 'Agenda famille';
-    headWrap.appendChild(titleEl);
-
-    if (data && data.fetchedAt) {
-      var fetched = parseISO(data.fetchedAt);
-      if (fetched) {
-        var refreshEl = document.createElement('div');
-        refreshEl.className = 'cal-head-meta';
-        refreshEl.innerHTML = 'Mis à jour ' + fmtTime(fetched);
-        headWrap.appendChild(refreshEl);
-      }
-    }
-    container.appendChild(headWrap);
-
+    var tete = zoneTete(container);
     var events = (data && data.events) || [];
     var now = new Date();
     var pages = buildPages(events, now, DEFAULT_PAGES);
     var pager = buildPager(pages, now);
 
+    tete.appendChild(pager.titre);
+    if (data && data.fetchedAt) {
+      var fetched = parseISO(data.fetchedAt);
+      if (fetched) {
+        var refreshEl = document.createElement('div');
+        refreshEl.className = 'fh-pe-maj fh-texte-doux';
+        refreshEl.innerHTML = 'Mis à jour<br>à ' + fmtTime(fetched);
+        tete.appendChild(refreshEl);
+      }
+    }
+    tete.appendChild(pager.nav);
+
     container.appendChild(pager.viewport);
-    container.appendChild(pager.nav);
 
     /* Stocke la ref pager pour cleanup éventuel + le handler resize pour
        pouvoir le retirer dans collapse(). */
