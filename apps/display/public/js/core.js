@@ -63,7 +63,6 @@
     displayConfig: null,
     householdConfig: null,
     householdUnsub: null,
-    appliedThemeId: null,
     /* Indicateur fraîcheur / hors-ligne (kiosk 24/7) */
     snapshotGeneratedAtMs: 0,    /* age de référence du dernier snapshot reçu (ms epoch) */
     snapshotTtlSeconds: 0,       /* ttlSeconds top-level du snapshot, sert au seuil */
@@ -507,47 +506,63 @@
     }, false);
   }
 
-  /* Applique un thème sur <html>. Retire d'abord toute classe theme-*
-     présente. Vide / 'caractere' = thème par défaut (pas de classe).
-     Re-render aussi les tuiles 'settings' compactes pour mettre à jour
-     leur aperçu thème (swatches + nom) — sans ça la tuile compacte
-     reste figée sur l'ancien thème jusqu'au prochain snapshot. */
-  function applyDisplayTheme(themeId) {
+  /* Ambiance jour/nuit TRANSITOIRE : l'iPad ne choisit ni n'écrit plus de
+     thème. Il réutilise les overrides CSS theme-lin (jour) / theme-marine
+     (nuit) selon le lever/coucher du soleil. Même règle que ambianceAt du
+     hub : jour si lever <= now < coucher ; repli 07:00-19:00 si l'info est
+     absente, illisible ou incohérente (lever >= coucher). */
+  function parseHHMM(s) {
+    var m = /^(\d{1,2}):(\d{2})/.exec(String(s == null ? '' : s));
+    if (!m) return null;
+    var h = parseInt(m[1], 10);
+    var mi = parseInt(m[2], 10);
+    if (h > 23 || mi > 59) return null;
+    return h * 60 + mi;
+  }
+
+  function ambianceFromSun(now, sunrise, sunset) {
+    var cur = now.getHours() * 60 + now.getMinutes();
+    var rise = parseHHMM(sunrise);
+    var set = parseHHMM(sunset);
+    if (rise === null || set === null || rise >= set) {
+      rise = 7 * 60;
+      set = 19 * 60;
+    }
+    return (cur >= rise && cur < set) ? 'jour' : 'nuit';
+  }
+
+  function applyAmbiance() {
+    var sunrise = null;
+    var sunset = null;
+    var tiles = state.lastSnapshotTiles;
+    if (tiles && state.tilesById) {
+      for (var tileId in tiles) {
+        if (!tiles.hasOwnProperty(tileId)) continue;
+        var t = state.tilesById[tileId];
+        if (!t || t.type !== 'weather') continue;
+        var entry = tiles[tileId] || {};
+        var daily = entry.data && entry.data.daily;
+        if (daily) {
+          sunrise = daily.sunrise;
+          sunset = daily.sunset;
+        }
+        break;
+      }
+    }
+    var cls = ambianceFromSun(new Date(), sunrise, sunset) === 'jour'
+      ? 'theme-lin' : 'theme-marine';
     var html = document.documentElement;
     var classes = (html.className || '').split(/\s+/);
     var kept = [];
     for (var i = 0; i < classes.length; i++) {
       var c = classes[i];
-      if (!c) continue;
-      if (c.indexOf('theme-') === 0) continue;
+      if (!c || c.indexOf('theme-') === 0) continue;
       kept.push(c);
     }
-    if (themeId && themeId !== 'caractere') {
-      kept.push('theme-' + themeId);
-    }
-    html.className = kept.join(' ');
-    state.appliedThemeId = themeId || 'caractere';
-
-    /* Force re-render des compact tiles 'settings' qui affichent l'aperçu
-       du thème courant — sans ça l'aperçu reste figé. */
-    if (state.cellsByTileId && state.tilesById && window.FamilyHubRender) {
-      for (var tileId in state.cellsByTileId) {
-        if (!state.cellsByTileId.hasOwnProperty(tileId)) continue;
-        var tile = state.tilesById[tileId];
-        if (!tile || tile.type !== 'settings') continue;
-        var snapshotData = window.FamilyHubGetTileSnapshot
-          ? window.FamilyHubGetTileSnapshot(tileId)
-          : null;
-        window.FamilyHubRender.renderTile(
-          tile.type,
-          state.cellsByTileId[tileId],
-          snapshotData || {},
-          tile.config
-        );
-      }
-    }
+    kept.push(cls);
+    var next = kept.join(' ');
+    if (html.className !== next) html.className = next;
   }
-  window.FamilyHubApplyTheme = applyDisplayTheme;
 
   function loadDisplayAndTiles() {
     var hid = state.householdId;
@@ -561,8 +576,7 @@
       if (hSnap.exists) {
         var hData = hSnap.data() || {};
         state.householdConfig = hData;
-        var themeId = hData.parametres && hData.parametres.themeId;
-        applyDisplayTheme(themeId);
+        applyAmbiance();
       }
       return displayRef.get();
     }).then(function (snap) {
@@ -608,8 +622,8 @@
     listenerRetryIdx[name] = 0;
   }
 
-  /* Listener live sur le doc household — détecte changement de thème
-     pushé depuis le hub web. Re-applique sans reload. */
+  /* Listener live sur le doc household (garde householdConfig à jour).
+     N'applique plus aucun thème. */
   function attachHouseholdListener(householdRef) {
     if (state.householdUnsub) state.householdUnsub();
     state.householdUnsub = householdRef.onSnapshot(function (snap) {
@@ -617,10 +631,6 @@
       if (!snap.exists) return;
       var data = snap.data() || {};
       state.householdConfig = data;
-      var newThemeId = (data.parametres && data.parametres.themeId) || 'caractere';
-      if (newThemeId !== state.appliedThemeId) {
-        applyDisplayTheme(newThemeId);
-      }
     }, function (err) {
       if (window.console && window.console.error) window.console.error('household listener', err);
       /* Listener terminé par le SDK : on l'oublie et on le ré-attache. */
@@ -739,6 +749,7 @@
       var data = snap.data() || {};
       var tiles = data.tiles || {};
       state.lastSnapshotTiles = tiles;
+      applyAmbiance();
 
       /* Fraîcheur : lit le generatedAt top-level (Firestore Timestamp) et le
          ttlSeconds. generatedAt peut être absent ou pas encore résolu (write
@@ -876,6 +887,11 @@
     setupVisibilityRefresh();
 
     setupStalenessWatch();
+
+    /* Ambiance jour/nuit : au boot (repli 07-19h), puis toutes les 60 s.
+       Un seul interval, durée de vie = celle de la page (kiosque). */
+    applyAmbiance();
+    setInterval(applyAmbiance, 60000);
 
     if (window.FamilyHubBrightness) {
       window.FamilyHubBrightness.init();
