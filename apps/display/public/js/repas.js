@@ -50,12 +50,17 @@
     return { y: parseInt(p[0], 10), m: parseInt(p[1], 10), d: parseInt(p[2], 10) };
   }
 
-  /* Heure locale d'un repas pour un jour ISO AAAA-MM-JJ. */
+  /* Heure locale d'un repas pour un jour ISO AAAA-MM-JJ ; null si le repas
+     est inconnu (ni petitDej, ni dej, ni diner) ou la date illisible : les
+     appelants l'ignorent. */
   function heureDuRepas(dateISO, repas, heures) {
     var j = parseISO(dateISO);
+    if (isNaN(j.y) || isNaN(j.m) || isNaN(j.d)) return null;
     var jour = new Date(j.y, j.m - 1, j.d).getDay();
     var weekend = jour === 0 || jour === 6;
-    var hhmm = periode(heures, weekend ? 'weekend' : 'semaine')[repas].split(':');
+    var p = periode(heures, weekend ? 'weekend' : 'semaine');
+    if (!Object.prototype.hasOwnProperty.call(p, repas)) return null;
+    var hhmm = p[repas].split(':');
     return new Date(j.y, j.m - 1, j.d, parseInt(hhmm[0], 10), parseInt(hhmm[1], 10));
   }
 
@@ -73,6 +78,7 @@
       if (!slot || !slot.date || slot.annule) continue;
       if (!slot.recetteIds || slot.recetteIds.length === 0) continue;
       var heure = heureDuRepas(slot.date, slot.repas, heures);
+      if (!heure) continue; /* repas inconnu : ignoré */
       if (!repasEstPasse(heure, now)) res.push({ slot: slot, heure: heure, ordre: i });
     }
     res.sort(function (a, b) {
@@ -112,6 +118,7 @@
     var nom = NOMS_REPAS[repas] || '';
     if (dateISO === dateISOLocale(now)) {
       var h = heureDuRepas(dateISO, repas, heures);
+      if (!h) return nom;
       return nom + ' · ' + pad2(h.getHours()) + ':' + pad2(h.getMinutes());
     }
     var lendemain = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1);

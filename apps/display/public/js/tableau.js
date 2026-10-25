@@ -131,7 +131,8 @@
     var R = repasApi();
     if (!R) return '';
     if (dateISO === dateISOLocale(now) && CE_MOMENT[repas]) {
-      return CE_MOMENT[repas] + ' · ' + libelleHeure(R.heureDuRepas(dateISO, repas, heures));
+      var h = R.heureDuRepas(dateISO, repas, heures);
+      if (h) return CE_MOMENT[repas] + ' · ' + libelleHeure(h);
     }
     return R.libelleMoment(repas, dateISO, now, heures);
   }

@@ -82,6 +82,23 @@ describe("heureDuRepas", () => {
   });
 });
 
+describe("heureDuRepas — repas inconnu ou date illisible", () => {
+  const heure = r.heureDuRepas as (d: string, repas: string, h?: unknown) => Date | null;
+  it("renvoie null au lieu de planter", () => {
+    expect(heure("2026-10-26", "gouter")).toBeNull();
+    expect(heure("2026-10-26", "toString")).toBeNull();
+    expect(heure("pas-une-date", "dej")).toBeNull();
+  });
+  it("prochainsRepas ignore le créneau au repas inconnu", () => {
+    const liste = [s("2026-10-26", "gouter" as Repas), s("2026-10-26", "diner")];
+    const res = r.prochainsRepas(liste, at("2026-10-26T10:00:00"));
+    expect(res.map((x) => x.slot.repas)).toEqual(["diner"]);
+  });
+  it("libelleMoment du jour : le nom seul", () => {
+    expect(r.libelleMoment("gouter" as Repas, "2026-10-26", at("2026-10-26T10:00:00"))).toBe("");
+  });
+});
+
 describe("prochainsRepas", () => {
   const slots = [
     s("2026-10-26", "diner"),
