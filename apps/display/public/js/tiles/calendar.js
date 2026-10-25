@@ -280,6 +280,19 @@
     return pages;
   }
 
+  /* Étiquette d'une ligne de la vue semaine : « Aujourd'hui », « Demain » ou
+     le nom du jour. Ne pas passer par fmtRelativeDay : celle-ci renvoie
+     « Aujourd'hui » pour toute date passée (événement en cours), ce qui
+     étiquetait ainsi chaque jour déjà écoulé de la semaine. */
+  function libelleJourSemaine(date, now) {
+    var todayNoon = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 12, 0, 0);
+    var dayNoon = new Date(date.getFullYear(), date.getMonth(), date.getDate(), 12, 0, 0);
+    var diffDays = Math.round((dayNoon.getTime() - todayNoon.getTime()) / 86400000);
+    if (diffDays === 0) return "Aujourd'hui";
+    if (diffDays === 1) return 'Demain';
+    return DAYS_LONG_FR[date.getDay()];
+  }
+
   function renderDayRow(day, now) {
     var row = document.createElement('div');
     row.className = 'cal-day-row';
@@ -289,9 +302,7 @@
 
     var pill = document.createElement('div');
     pill.className = 'cal-day-pill';
-    var dayName = DAYS_LONG_FR[day.date.getDay()];
-    var rel = fmtRelativeDay(day.date, now);
-    var labelTop = (rel === "Aujourd'hui" || rel === 'Demain') ? rel : dayName;
+    var labelTop = libelleJourSemaine(day.date, now);
     pill.innerHTML =
       '<div class="cal-day-pill-name">' + escapeHtml(labelTop) + '</div>' +
       '<div class="cal-day-pill-date">' + day.date.getDate() + ' ' + MONTHS_FR[day.date.getMonth()] + '</div>';
@@ -538,6 +549,7 @@
     render: render,
     cleanup: cleanup,
     expand: expand,
-    collapse: collapse
+    collapse: collapse,
+    libelleJourSemaine: libelleJourSemaine
   };
 })(window);
