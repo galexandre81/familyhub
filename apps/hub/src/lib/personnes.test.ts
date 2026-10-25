@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { Household, Profil } from "@family-hub/types";
-import { couleurDuProfil, estParent, profilDuCompte, teinteLaPlusProche } from "./personnes";
+import {
+  couleurDuProfil,
+  estParent,
+  lierProfilLocalement,
+  profilDuCompte,
+  teinteLaPlusProche,
+} from "./personnes";
 
 describe("couleurDuProfil", () => {
   it("utilise la variable du design system quand couleurPersonne est présent", () => {
@@ -50,5 +56,24 @@ describe("teinteLaPlusProche", () => {
     expect(teinteLaPlusProche("rouge")).toBe("sapin");
     expect(teinteLaPlusProche(undefined)).toBe("sapin");
     expect(teinteLaPlusProche("")).toBe("sapin");
+  });
+});
+
+describe("lierProfilLocalement", () => {
+  it("pose le uid sur le profil choisi et le retire des autres", () => {
+    const profils = [
+      { id: "a", nom: "Léo", uid: "u1" },
+      { id: "g", nom: "Alex" },
+      { id: "j", nom: "Marie", uid: "u2" },
+    ];
+    const res = lierProfilLocalement(profils, "g", "u1");
+    expect(res.find((p) => p.id === "g")?.uid).toBe("u1");
+    expect("uid" in res.find((p) => p.id === "a")!).toBe(false);
+    expect(res.find((p) => p.id === "j")?.uid).toBe("u2");
+    expect(profils[0].uid).toBe("u1");
+  });
+  it("reprend un profil relié à un autre compte", () => {
+    const res = lierProfilLocalement([{ id: "j", uid: "u2" }], "j", "u1");
+    expect(res[0].uid).toBe("u1");
   });
 });

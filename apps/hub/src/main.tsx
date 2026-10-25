@@ -27,6 +27,13 @@ const queryClient = new QueryClient({
       staleTime: 30_000,
       refetchOnWindowFocus: false,
       retry: 1,
+      // Firestore gère lui-même le hors-ligne (cache local, écritures en
+      // attente) : React Query ne doit pas mettre requêtes et mutations en
+      // pause quand le navigateur se croit hors ligne.
+      networkMode: "always",
+    },
+    mutations: {
+      networkMode: "always",
     },
   },
   queryCache: new QueryCache({

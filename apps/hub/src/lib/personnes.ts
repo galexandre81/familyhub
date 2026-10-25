@@ -49,3 +49,23 @@ export function estParent(household: Household, uid: string): boolean {
   if (household.roles) return household.roles[uid] === "parent";
   return household.membres.includes(uid);
 }
+
+/**
+ * Liste des profils après « C'est moi » : `uid` posé sur `profilId` et retiré
+ * des autres profils qui le portaient (mise à jour optimiste du cache).
+ */
+export function lierProfilLocalement<T extends Pick<Profil, "uid"> & { id: string }>(
+  profils: T[],
+  profilId: string,
+  uid: string,
+): T[] {
+  return profils.map((p) => {
+    if (p.id === profilId) return { ...p, uid };
+    if (p.uid === uid) {
+      const { uid: _retire, ...reste } = p;
+      void _retire;
+      return reste as T;
+    }
+    return p;
+  });
+}

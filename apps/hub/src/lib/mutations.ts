@@ -15,6 +15,8 @@ import {
 import { httpsCallable } from "firebase/functions";
 import { db, functions } from "./firebase";
 import { isValidIcalUrl } from "./calendarUrl";
+import { lierProfilLocalement } from "./personnes";
+import { toast } from "../components/Toast";
 import type {
   DisplayDeviceType,
   DisplayLayoutEntry,
@@ -1093,7 +1095,13 @@ export function useToggleBatchSessionDone() {
   });
 }
 
-/** « C'est moi » : relie le profil choisi au compte et l'enlève de tout autre profil du même compte. */
+/**
+ * « C'est moi » : relie le profil choisi au compte et l'enlève de tout autre
+ * profil du même compte. Optimiste : le cache `["profils", hid]` change tout
+ * de suite et l'écriture part sans attendre le serveur (hors ligne, Firestore
+ * la garde et l'envoie au retour du réseau). Un refus est affiché quand il
+ * arrive, et le cache est alors relu.
+ */
 export function useLierProfilAuCompte() {
   const qc = useQueryClient();
   return useMutation({
@@ -1121,10 +1129,17 @@ export function useLierProfilAuCompte() {
         uid,
         updatedAt: serverTimestamp(),
       });
-      await batch.commit();
+      // Pas d'await : la promesse ne se résout qu'à l'accusé du serveur.
+      batch.commit().catch((err: unknown) => {
+        console.error("[c'est moi]", err);
+        toast("Ton profil n'a pas pu être enregistré — réessaie.", { type: "error" });
+        void qc.invalidateQueries({ queryKey: ["profils", householdId] });
+      });
     },
-    onSuccess: (_d, v) => {
-      qc.invalidateQueries({ queryKey: ["profils", v.householdId] });
+    onMutate: ({ householdId, profilId, uid }) => {
+      qc.setQueryData<Array<Profil & { id: string }>>(["profils", householdId], (avant) =>
+        avant ? lierProfilLocalement(avant, profilId, uid) : avant,
+      );
     },
   });
 }
