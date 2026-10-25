@@ -193,7 +193,10 @@
 .fh-mr-minuteur {
   -webkit-flex: 0 1 auto;
   flex: 0 1 auto;
-  max-height: 62%;
+  /* Plafond en px : Safari 9 ignore un max-height en % dans une colonne
+     flex sans hauteur explicite. 330 px sur ~690 px utiles (iPad mini,
+     paysage) : les ingrédients gardent la moitié de la colonne. */
+  max-height: 330px;
   min-height: 0;
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
