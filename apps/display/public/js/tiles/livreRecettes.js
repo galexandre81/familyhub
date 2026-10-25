@@ -4,15 +4,18 @@
    Logique contextuelle : petit-déj seul affiche Sucré/Salé + Type au lieu
    de ingrédient/accompagnement/inspiration.
    ES5 vanilla, Firebase JS SDK v8 compat (iOS 9.3.6 OK).
-   Toutes les icônes sont en SVG inline laiton (#D9A05B) pour éviter les
-   tofus d'emojis Unicode > 8.0 sur Safari 9. */
+   Toutes les icônes sont en SVG inline (couleur du texte) pour éviter les
+   tofus d'emojis Unicode > 8.0 sur Safari 9. Plein écran au design
+   « Alpage + Veillée » : css/plein-ecran.css, classes fh-lv-*. */
 (function (global) {
   'use strict';
 
   var cache = { recettes: null, fetchedAt: 0, promise: null };
   var STALE_MS = 60 * 60 * 1000;
-  var BRASS = '#D9A05B';
-  var DARK = '#1C1815';
+  /* Icônes à la couleur du texte (design « Alpage + Veillée », jour et nuit) :
+     les anciens tracés laiton gardent leurs opacités via fill-opacity. */
+  var BRASS = 'currentColor';
+  var DARK = 'currentColor';
 
   function escapeHTML(s) {
     if (s == null) return '';
@@ -33,13 +36,18 @@
     return (+r.tempsPrepMinutes || 0) + (+r.tempsCuissonMinutes || 0);
   }
 
-  /* ---------- SVG icons (laiton, viewBox 50x50, taille via CSS) ----------
+  /* ---------- SVG icons (couleur du texte, viewBox 50x50, taille via CSS) ----------
      Le wrapper svg() retourne un <svg> sans width/height inline ; les tailles
-     sont contrôlées par .wiz-icon-svg svg / .wiz-icon-btn-sm .wiz-icon-svg svg
+     sont contrôlées par .fh-lv-choix-icone svg / .fh-lv-choix-petit-btn .fh-lv-choix-icone svg
      dans le CSS, ce qui permet d'ajuster selon la grille (étape 1 vs étape 2). */
 
+  function teinte(svgHtml) {
+    return svgHtml.replace(/fill="rgba\((?:217,160,91|28,24,21),([0-9.]+)\)"/g,
+      'fill="currentColor" fill-opacity="$1"');
+  }
+
   function svg(inner) {
-    return '<svg viewBox="0 0 50 50" aria-hidden="true">' + inner + '</svg>';
+    return teinte('<svg viewBox="0 0 50 50" aria-hidden="true">' + inner + '</svg>');
   }
 
   /* === Tuile compacte : livre ouvert (plus large, avec dimensions inline) === */
@@ -316,10 +324,9 @@
       'fill="rgba(217,160,91,0.20)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>'
   );
 
-  /* === Dé pour "Surprends-moi" — couleur sombre car fond bouton laiton === */
-  var ICON_DICE =
-    '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" ' +
-      'style="vertical-align:-4px;margin-right:7px">' +
+  /* === Dé pour "Surprends-moi" (bouton de la barre, couleur du texte) === */
+  var ICON_DICE = teinte(
+    '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" class="fh-pe-icone">' +
       '<rect x="3.5" y="3.5" width="17" height="17" rx="3" ' +
         'fill="rgba(28,24,21,0.10)" stroke="' + DARK + '" stroke-width="2"/>' +
       '<circle cx="8" cy="8" r="1.6" fill="' + DARK + '"/>' +
@@ -327,16 +334,16 @@
       '<circle cx="16" cy="8" r="1.6" fill="' + DARK + '"/>' +
       '<circle cx="8" cy="16" r="1.6" fill="' + DARK + '"/>' +
       '<circle cx="12" cy="12" r="1.6" fill="' + DARK + '"/>' +
-    '</svg>';
+    '</svg>');
 
   /* === Empty state (au lieu de 🤔) === */
-  var ICON_EMPTY =
-    '<svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">' +
+  var ICON_EMPTY = teinte(
+    '<svg viewBox="0 0 64 64" width="72" height="72" aria-hidden="true">' +
       '<circle cx="32" cy="32" r="26" fill="rgba(217,160,91,0.10)" stroke="' + BRASS + '" stroke-width="2.5"/>' +
       '<path d="M22 24 Q22 16, 32 16 Q42 16, 42 24 Q42 30, 32 32 L32 38" ' +
         'fill="none" stroke="' + BRASS + '" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>' +
       '<circle cx="32" cy="46" r="2.5" fill="' + BRASS + '"/>' +
-    '</svg>';
+    '</svg>');
 
   /* ---------- Fetch & cache ---------- */
 
@@ -623,11 +630,37 @@
 
   function cleanup(_container) { /* rien d'asynchrone à arrêter */ }
 
-  /* ---------- Expand : wizard 2 étapes ---------- */
+  /* ---------- Expand : wizard 2 étapes ----------
+     Design « Alpage + Veillée » (css/plein-ecran.css, classes fh-lv-*) :
+     titre, retour et action principale dans la barre du plein écran
+     (overlay.js, tete()) ; le contenu défile (conteneur de l'overlay).
+     iOS 9 : jamais de flex sur un <button>, contenu dans un span ; toute
+     classe de bouton contient « btn ». */
+
+  var ICONE_GAUCHE =
+    '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" class="fh-pe-icone">' +
+      '<path d="M15 5 L8 12 L15 19" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '</svg>';
+  var ICONE_DROITE =
+    '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" class="fh-lv-icone-apres">' +
+      '<path d="M9 5 L16 12 L9 19" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '</svg>';
+  var ICONE_CUISINER =
+    '<svg viewBox="0 0 24 24" width="24" height="24" aria-hidden="true" class="fh-pe-icone">' +
+      '<path d="M8 5 L19 12 L8 19 Z" fill="currentColor"/></svg>';
+  var ICONE_COCHE =
+    '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" class="fh-lv-coche">' +
+      '<path d="M5 12.5 L10 17 L19 7" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/>' +
+    '</svg>';
+  var ICONE_CROIX =
+    '<svg viewBox="0 0 24 24" width="22" height="22" aria-hidden="true" style="display:block">' +
+      '<path d="M6 6 L18 18 M18 6 L6 18" fill="none" stroke="currentColor" stroke-width="2.8" stroke-linecap="round"/>' +
+    '</svg>';
 
   function expand(container, _data, config, _tileId) {
-    container.className = 'tile-overlay-content tile-overlay-content--full tile-livre-expand';
-    container.innerHTML = '<div class="livre-wizard" data-role="wizard">Chargement…</div>';
+    container.className = 'tile-overlay-content tile-overlay-content--full fh-lv';
+    container.innerHTML = '<div class="fh-lv-page" data-role="wizard">' +
+      '<p class="fh-lv-aide fh-texte-doux">Chargement des recettes…</p></div>';
     var wrap = container.querySelector('[data-role="wizard"]');
 
     var pickedRepas = {};
@@ -652,34 +685,77 @@
       return keys.length === 1 && keys[0] === 'petit-dej';
     }
 
+    /* --- Tête (barre du plein écran) ---
+       Zone de l'overlay, sinon (appel direct) une tête au-dessus du wizard. */
+    function tete() {
+      var O = global.FamilyHubOverlay;
+      var t = O && typeof O.tete === 'function' ? O.tete() : null;
+      if (!t) {
+        t = container.querySelector('.fh-pe-tete-repli');
+        if (!t) {
+          t = document.createElement('div');
+          t.className = 'fh-pe-tete-repli fh-carte fh-bordure';
+          container.insertBefore(t, wrap);
+        }
+      }
+      t.innerHTML = '';
+      return t;
+    }
+
+    function boutonTete(t, classes, html, act, aria) {
+      var b = document.createElement('button');
+      b.type = 'button';
+      b.className = 'fh-pe-btn fh-corps ' + classes;
+      b.innerHTML = '<span class="fh-pe-dedans">' + html + '</span>';
+      b.setAttribute('data-act', act);
+      if (aria) b.setAttribute('aria-label', aria);
+      t.appendChild(b);
+      return b;
+    }
+
+    function titresTete(t, sousTitre) {
+      var d = document.createElement('div');
+      d.className = 'fh-pe-titres';
+      d.innerHTML = '<div class="fh-pe-titre fh-titre fh-texte">Livre de recettes</div>' +
+        (sousTitre ? '<div class="fh-pe-sous-titre fh-texte-doux">' + escapeHTML(sousTitre) + '</div>' : '');
+      t.appendChild(d);
+    }
+
+    /* Bouton de choix (repas, envie) : icône + mot ; coché = aplat « action ». */
+    function boutonChoix(classes, attrs, actif, it) {
+      return '<button type="button" class="fh-lv-choix-btn fh-carte fh-texte fh-bordure fh-corps' +
+        classes + (actif ? ' is-active' : '') + '"' + attrs +
+        ' aria-pressed="' + (actif ? 'true' : 'false') + '">' +
+        '<span class="fh-lv-choix-icone">' + it.svg + '</span>' +
+        '<span class="fh-lv-choix-mot">' + ICONE_COCHE + escapeHTML(it.label) + '</span>' +
+        '</button>';
+    }
+
     /* ===== Étape 1 — choisir le(s) repas ===== */
 
     function goStep1() {
+      var t = tete();
+      titresTete(t, 'Étape 1 sur 2 · ' + allRecettes.length +
+        (allRecettes.length > 1 ? ' recettes' : ' recette'));
+
       var html = '' +
-        '<div class="wiz-bar">' +
-          '<button type="button" class="wiz-back" data-act="cancel">✕ Annuler</button>' +
-          '<div class="wiz-step">Étape 1 / 2</div>' +
-        '</div>' +
-        '<h1 class="wiz-question">Quel repas&nbsp;?</h1>' +
-        '<p class="wiz-hint">Tu peux en choisir plusieurs, ou aucun pour tout voir</p>' +
-        '<div class="wiz-icon-grid wiz-cols-2">';
+        '<h1 class="fh-lv-question fh-titre fh-texte">Quel repas&nbsp;?</h1>' +
+        '<p class="fh-lv-aide fh-texte-doux">Tu peux en choisir plusieurs, ou aucun pour tout voir.</p>' +
+        '<div class="fh-lv-choix fh-lv-cols-4">';
       for (var i = 0; i < REPAS.length; i++) {
         var r = REPAS[i];
-        var active = pickedRepas[r.key] ? ' is-active' : '';
-        html += '<button type="button" class="wiz-icon-btn' + active + '" data-key="' + r.key + '"' +
-          ' aria-pressed="' + (pickedRepas[r.key] ? 'true' : 'false') + '">' +
-          '<span class="wiz-icon-svg">' + r.svg + '</span>' +
-          '<span class="wiz-icon-label">' + escapeHTML(r.label) + '</span>' +
-          '</button>';
+        html += boutonChoix(' fh-lv-choix-grand-btn', ' data-key="' + r.key + '"', !!pickedRepas[r.key], r);
       }
       html += '</div>' +
-        '<div class="wiz-actions">' +
-          '<button type="button" class="wiz-secondary" data-act="all">Voir tout (' + allRecettes.length + ')</button>' +
-          '<button type="button" class="wiz-primary" data-act="next">Suivant →</button>' +
+        '<div class="fh-lv-actions">' +
+          '<button type="button" class="fh-pe-btn fh-lv-tout-btn fh-carte fh-texte fh-bordure fh-corps" data-act="all">' +
+            'Voir toutes les recettes (' + allRecettes.length + ')</button>' +
+          '<button type="button" class="fh-pe-btn fh-lv-suivant-btn fh-action fh-corps" data-act="next">' +
+            '<span class="fh-pe-dedans"><span>Suivant</span>' + ICONE_DROITE + '</span></button>' +
         '</div>';
       wrap.innerHTML = html;
 
-      var btns = wrap.querySelectorAll('.wiz-icon-btn');
+      var btns = wrap.querySelectorAll('.fh-lv-choix-btn');
       for (var b = 0; b < btns.length; b++) {
         btns[b].addEventListener('click', (function (btn, key) {
           return function () {
@@ -695,9 +771,6 @@
           };
         })(btns[b], btns[b].getAttribute('data-key')));
       }
-      wrap.querySelector('[data-act="cancel"]').addEventListener('click', function () {
-        if (global.FamilyHubOverlay && global.FamilyHubOverlay.close) global.FamilyHubOverlay.close();
-      });
       wrap.querySelector('[data-act="all"]').addEventListener('click', function () {
         pickedRepas = {}; pickedIng = {}; pickedAcc = {}; pickedInsp = {};
         pickedGout = {}; pickedType = {};
@@ -717,57 +790,57 @@
         pickedGout = {}; pickedType = {};
       }
 
+      var t = tete();
+      boutonTete(t, 'fh-pe-retour-btn fh-carte fh-texte fh-bordure',
+        ICONE_GAUCHE + '<span>Le repas</span>', 'back', 'Modifier le repas');
+      titresTete(t, 'Étape 2 sur 2');
+      boutonTete(t, 'fh-pe-action-btn fh-carte fh-texte fh-bordure',
+        ICON_DICE + '<span>Surprends-moi</span>', 'surprise');
+
       var html = '' +
-        '<div class="wiz-bar">' +
-          '<button type="button" class="wiz-back" data-act="back">← Modifier le repas</button>' +
-        '</div>' +
-        '<h1 class="wiz-question">Quelle envie&nbsp;?</h1>' +
-        '<p class="wiz-hint">' +
-          (petitDej ? 'Choisis le profil de ton petit-déj, ou laisse vide pour tout voir'
-                    : 'Combine ingrédient, accompagnement et inspiration') +
+        '<h1 class="fh-lv-question fh-titre fh-texte">Quelle envie&nbsp;?</h1>' +
+        '<p class="fh-lv-aide fh-texte-doux">' +
+          (petitDej ? 'Choisis le profil de ton petit-déj, ou laisse vide pour tout voir.'
+                    : 'Combine ingrédient, accompagnement et inspiration.') +
         '</p>' +
-        '<div class="wiz-surprise-bar">' +
-          '<button type="button" class="wiz-mini-surprise" data-act="surprise">' +
-          ICON_DICE + 'Surprends-moi</button>' +
-        '</div>' +
-        '<div class="wiz-frigo">' +
-          '<div class="wiz-frigo-title">Ce que j\'ai au frigo</div>' +
-          '<p class="wiz-frigo-hint">Tape un ingrédient et valide (Entrée ou virgule). Les recettes utilisant tes ingrédients passent en haut.</p>' +
-          '<div class="wiz-frigo-input-row">' +
-            '<input type="text" class="wiz-frigo-input" data-role="frigo-input" ' +
+        '<div class="fh-lv-frigo fh-carte fh-bordure">' +
+          '<div class="fh-lv-frigo-titre fh-titre fh-texte">Ce que j\'ai au frigo</div>' +
+          '<p class="fh-lv-frigo-aide fh-texte-doux">Tape un ingrédient et valide (Entrée, virgule ou « Ajouter ») : les recettes qui l\'utilisent passent en haut.</p>' +
+          '<div class="fh-lv-frigo-ligne">' +
+            '<input type="text" class="fh-lv-frigo-champ fh-carte fh-texte fh-bordure fh-corps" data-role="frigo-input" ' +
               'aria-label="Ajouter un ingrédient que tu as au frigo" ' +
-              'placeholder="ex: tomate, oignon, pâtes…" ' +
+              'placeholder="ex. : tomate, oignon, pâtes…" ' +
               'autocapitalize="off" autocorrect="off" spellcheck="false" />' +
-            '<button type="button" class="wiz-frigo-add" data-act="frigo-add">Ajouter</button>' +
+            '<button type="button" class="fh-pe-btn fh-lv-ajouter-btn fh-action fh-corps" data-act="frigo-add">Ajouter</button>' +
           '</div>' +
-          '<div class="wiz-frigo-chips" data-role="frigo-chips"></div>' +
+          '<div class="fh-lv-puces" data-role="frigo-chips"></div>' +
         '</div>';
 
       if (petitDej) {
-        html += renderSection('gout',  'Sucré ou salé', PETIT_DEJ_GOUT, pickedGout, 'wiz-cols-2');
-        html += renderSection('type',  'Par type',      PETIT_DEJ_TYPE, pickedType, 'wiz-cols-4');
+        html += renderSection('gout',  'Sucré ou salé', PETIT_DEJ_GOUT, pickedGout, 'fh-lv-cols-2');
+        html += renderSection('type',  'Par type',      PETIT_DEJ_TYPE, pickedType, 'fh-lv-cols-4');
       } else {
-        html += renderSection('ing',   'Par ingrédient',     INGREDIENTS,     pickedIng,  'wiz-cols-3');
-        html += renderSection('acc',   'Par accompagnement', ACCOMPAGNEMENTS, pickedAcc,  'wiz-cols-5');
-        html += renderSection('insp',  'Par inspiration',    INSPIRATIONS,    pickedInsp, 'wiz-cols-4');
+        html += renderSection('ing',   'Par ingrédient',     INGREDIENTS,     pickedIng,  'fh-lv-cols-3');
+        html += renderSection('acc',   'Par accompagnement', ACCOMPAGNEMENTS, pickedAcc,  'fh-lv-cols-5');
+        html += renderSection('insp',  'Par inspiration',    INSPIRATIONS,    pickedInsp, 'fh-lv-cols-4');
       }
 
-      html += '<div class="wiz-actions wiz-actions-mid">' +
-          '<button type="button" class="wiz-secondary wiz-btn-clear" data-act="clear">Effacer les envies</button>' +
+      html += '<div class="fh-lv-actions fh-lv-actions-droite">' +
+          '<button type="button" class="fh-pe-btn fh-lv-effacer-btn fh-carte fh-texte fh-bordure fh-corps" data-act="clear">Effacer les envies</button>' +
         '</div>';
 
-      html += '<div class="wiz-results" data-role="results"></div>';
+      html += '<div class="fh-lv-resultats" data-role="results"></div>';
 
       wrap.innerHTML = html;
 
-      wrap.querySelector('[data-act="back"]').addEventListener('click', goStep1);
+      t.querySelector('[data-act="back"]').addEventListener('click', goStep1);
       wrap.querySelector('[data-act="clear"]').addEventListener('click', function () {
         pickedIng = {}; pickedAcc = {}; pickedInsp = {};
         pickedGout = {}; pickedType = {};
         pickedFrigo = [];
         goStep2();
       });
-      wrap.querySelector('[data-act="surprise"]').addEventListener('click', function () {
+      t.querySelector('[data-act="surprise"]').addEventListener('click', function () {
         var list = filteredRecettes();
         if (list.length === 0) return;
         showDetail(list[Math.floor(Math.random() * list.length)].recette);
@@ -847,12 +920,13 @@
       }
       var html = '';
       for (var i = 0; i < pickedFrigo.length; i++) {
-        html += '<span class="wiz-frigo-chip" data-idx="' + i + '">' +
-          escapeHTML(pickedFrigo[i]) +
-          '<button type="button" class="wiz-frigo-chip-x" data-act="frigo-rm" data-idx="' + i + '" aria-label="Retirer">×</button>' +
+        html += '<span class="fh-lv-puce fh-carte fh-texte fh-bordure" data-idx="' + i + '">' +
+          '<span class="fh-lv-puce-mot">' + escapeHTML(pickedFrigo[i]) + '</span>' +
+          '<button type="button" class="fh-lv-puce-x-btn fh-texte" data-act="frigo-rm" data-idx="' + i + '"' +
+            ' aria-label="Retirer ' + escapeHTML(pickedFrigo[i]) + '">' + ICONE_CROIX + '</button>' +
           '</span>';
       }
-      html += '<button type="button" class="wiz-frigo-clear" data-act="frigo-clear">Vider</button>';
+      html += '<button type="button" class="fh-pe-btn fh-lv-vider-btn fh-carte fh-texte fh-bordure fh-corps" data-act="frigo-clear">Vider</button>';
       chipsEl.innerHTML = html;
 
       var rmBtns = chipsEl.querySelectorAll('[data-act="frigo-rm"]');
@@ -885,21 +959,16 @@
       }
       var toggleLabel = allOn ? 'Tout décocher' : 'Tout cocher';
 
-      var html = '<div class="wiz-section-row">' +
-        '<div class="wiz-section-title">' + escapeHTML(title) + '</div>' +
-        '<button type="button" class="wiz-toggle-all" data-section="' + name + '">' + toggleLabel + '</button>' +
+      var html = '<div class="fh-lv-section">' +
+        '<h2 class="fh-lv-section-titre fh-titre fh-texte">' + escapeHTML(title) + '</h2>' +
+        '<button type="button" class="fh-pe-btn fh-lv-basculer-btn fh-carte fh-texte fh-bordure fh-corps" data-section="' + name + '">' + toggleLabel + '</button>' +
         '</div>';
 
-      html += '<div class="wiz-icon-grid ' + colsClass + '">';
+      html += '<div class="fh-lv-choix ' + colsClass + '">';
       for (var j = 0; j < items.length; j++) {
         var it = items[j];
-        var act = dict[it.key] ? ' is-active' : '';
-        html += '<button type="button" class="wiz-icon-btn wiz-icon-btn-sm' + act + '"' +
-          ' data-section="' + name + '" data-key="' + it.key + '"' +
-          ' aria-pressed="' + (dict[it.key] ? 'true' : 'false') + '">' +
-          '<span class="wiz-icon-svg">' + it.svg + '</span>' +
-          '<span class="wiz-icon-label">' + escapeHTML(it.label) + '</span>' +
-          '</button>';
+        html += boutonChoix(' fh-lv-choix-petit-btn',
+          ' data-section="' + name + '" data-key="' + it.key + '"', !!dict[it.key], it);
       }
       html += '</div>';
       return html;
@@ -923,7 +992,7 @@
     }
 
     function bindSectionHandlers() {
-      var btns = wrap.querySelectorAll('.wiz-icon-btn');
+      var btns = wrap.querySelectorAll('.fh-lv-choix-btn');
       for (var b = 0; b < btns.length; b++) {
         btns[b].addEventListener('click', (function (btn) {
           return function () {
@@ -945,7 +1014,7 @@
           };
         })(btns[b]));
       }
-      var togs = wrap.querySelectorAll('.wiz-toggle-all');
+      var togs = wrap.querySelectorAll('.fh-lv-basculer-btn');
       for (var t = 0; t < togs.length; t++) {
         togs[t].addEventListener('click', (function (btn) {
           return function () {
@@ -977,14 +1046,14 @@
       for (var i = 0; i < items.length; i++) {
         if (!dict[items[i].key]) { allOn = false; break; }
       }
-      var btn = wrap.querySelector('.wiz-toggle-all[data-section="' + name + '"]');
+      var btn = wrap.querySelector('.fh-lv-basculer-btn[data-section="' + name + '"]');
       if (btn) btn.innerHTML = allOn ? 'Tout décocher' : 'Tout cocher';
     }
 
     function refreshSectionVisuals(name) {
       var dict = dictForSection(name);
       if (!dict) return;
-      var btns = wrap.querySelectorAll('.wiz-icon-btn[data-section="' + name + '"]');
+      var btns = wrap.querySelectorAll('.fh-lv-choix-btn[data-section="' + name + '"]');
       for (var i = 0; i < btns.length; i++) {
         var key = btns[i].getAttribute('data-key');
         var has = !!dict[key];
@@ -1117,23 +1186,21 @@
       if (frigoActive && list.length > 0) {
         countLabel += ' avec au moins 1 ingrédient du frigo';
       }
-      var html = '<div class="wiz-results-bar">' +
-        '<span class="wiz-results-count">' + escapeHTML(countLabel) + '</span>' +
-      '</div>';
+      var html = '<h2 class="fh-lv-compte fh-titre fh-texte">' + escapeHTML(countLabel) + '</h2>';
 
       if (list.length === 0) {
         var emptyMsg = frigoActive
-          ? 'Aucune recette ne contient un de tes ingrédients. Retire des chips ou élargis les filtres.'
+          ? 'Aucune recette ne contient un de tes ingrédients. Retire des ingrédients ou élargis les filtres.'
           : 'Aucune recette ne correspond. Essaie de retirer un filtre.';
-        html += '<div class="wiz-empty">' +
-          '<div class="wiz-empty-icon">' + ICON_EMPTY + '</div>' +
+        html += '<div class="fh-lv-vide fh-texte-doux">' +
+          '<div class="fh-lv-vide-icone">' + ICON_EMPTY + '</div>' +
           '<p>' + escapeHTML(emptyMsg) + '</p>' +
           '</div>';
       } else {
         var shuffled = list.slice();
         if (shuffled.length > 60) shuffled = shuffled.slice(0, 60);
 
-        html += '<div class="livre-grid">';
+        html += '<div class="fh-lv-cartes">';
         for (var i = 0; i < shuffled.length; i++) {
           var entry = shuffled[i];
           var r = entry.recette;
@@ -1142,25 +1209,25 @@
           if (r.portions) meta.push(r.portions + ' pers.');
           var badgeHtml = '';
           if (frigoActive) {
-            badgeHtml = '<div class="livre-card-frigo">' +
+            badgeHtml = '<span class="fh-lv-carte-frigo fh-texte">' +
               entry.matched + ' du frigo · ' + entry.missing + ' à acheter' +
-              '</div>';
+              '</span>';
           }
-          html += '<button type="button" class="livre-card" data-rid="' + escapeHTML(r.id) + '">' +
-            '<div class="livre-card-name">' + escapeHTML(r.nom) + '</div>' +
+          html += '<button type="button" class="fh-lv-carte-btn fh-carte fh-texte fh-bordure fh-corps" data-rid="' + escapeHTML(r.id) + '">' +
+            '<span class="fh-lv-carte-nom">' + escapeHTML(r.nom) + '</span>' +
             badgeHtml +
-            '<div class="livre-card-meta">' + meta.join(' · ') + '</div>' +
+            '<span class="fh-lv-carte-meta fh-texte-doux">' + meta.join(' · ') + '</span>' +
             '</button>';
         }
         html += '</div>';
         if (list.length > 60) {
-          html += '<p class="wiz-results-more">… affine les filtres pour voir plus précis (' +
+          html += '<p class="fh-lv-plus fh-texte-doux">… affine les filtres pour voir plus précis (' +
             (list.length - 60) + ' autres)</p>';
         }
       }
       resultsEl.innerHTML = html;
 
-      var cards = resultsEl.querySelectorAll('.livre-card');
+      var cards = resultsEl.querySelectorAll('.fh-lv-carte-btn');
       for (var c = 0; c < cards.length; c++) {
         cards[c].addEventListener('click', (function (rid) {
           return function () {
@@ -1172,7 +1239,10 @@
       }
     }
 
-    /* ===== Détail recette ===== */
+    /* ===== Détail recette =====
+       Barre : « La liste » (retour) et « Cuisiner » (mode recette).
+       Contenu : nom, temps, description ; ingrédients à gauche, étapes
+       numérotées à droite (mêmes pastilles que le mode recette). */
 
     function showDetail(r) {
       /* Mémorise la position de scroll de la liste pour la restaurer au retour. */
@@ -1180,17 +1250,20 @@
       var ingHtml = '';
       for (var i = 0; i < r.ingredients.length; i++) {
         var ing = r.ingredients[i];
-        var qty = (ing.quantite || '') + (ing.unite ? ' ' + ing.unite : '');
-        ingHtml += '<li><strong>' + escapeHTML(qty.replace(/^\s+|\s+$/g, '')) + '</strong> ' +
+        var qty = ((ing.quantite || '') + (ing.unite ? ' ' + ing.unite : '')).replace(/^\s+|\s+$/g, '');
+        ingHtml += '<li class="fh-lv-ing fh-texte">' +
+          (qty ? '<strong class="fh-lv-ing-qte">' + escapeHTML(qty) + '</strong> ' : '') +
           escapeHTML(ing.libelle || '') + '</li>';
       }
       var stepHtml = '';
       var steps = (r.etapes || []).slice().sort(function (a, b) { return (a.ordre || 0) - (b.ordre || 0); });
       for (var s = 0; s < steps.length; s++) {
         var st = steps[s];
-        stepHtml += '<li>' + escapeHTML(st.description || '') +
-          (st.dureeMinutes ? ' <span class="livre-step-time">(' + st.dureeMinutes + ' min)</span>' : '') +
-          '</li>';
+        stepHtml += '<li class="fh-lv-etape fh-carte fh-bordure">' +
+          '<span class="fh-lv-etape-num fh-titre fh-action">' + (s + 1) + '</span>' +
+          '<span class="fh-lv-etape-texte fh-texte">' + escapeHTML(st.description || '') +
+          (st.dureeMinutes ? ' <span class="fh-lv-etape-duree fh-texte-doux">(' + st.dureeMinutes + ' min)</span>' : '') +
+          '</span></li>';
       }
       var meta = [];
       var t = tempsTotal(r); if (t > 0) meta.push(t + ' min');
@@ -1198,32 +1271,42 @@
       var difStr = ['', 'Facile', 'Moyen', 'Difficile'][r.difficulte] || '';
       if (difStr) meta.push(difStr);
 
+      var tt = tete();
+      boutonTete(tt, 'fh-pe-retour-btn fh-carte fh-texte fh-bordure',
+        ICONE_GAUCHE + '<span>La liste</span>', 'back-detail', 'Retour à la liste');
+      titresTete(tt, 'Fiche recette');
+      if (global.FamilyHubModeRecette) {
+        boutonTete(tt, 'fh-pe-action-btn fh-lv-cuisiner-btn fh-action',
+          ICONE_CUISINER + '<span>Cuisiner</span>', 'cuisiner');
+      }
+
       wrap.innerHTML = '' +
-        '<div class="wiz-bar">' +
-          '<button type="button" class="wiz-back" data-act="back-detail">← Retour à la liste</button>' +
-          (global.FamilyHubModeRecette
-            ? '<button type="button" class="fh-mr-btn fh-action fh-corps" data-act="cuisiner">' +
-                '<span class="fh-mr-dedans">Cuisiner</span></button>'
-            : '') +
-        '</div>' +
-        '<h2 class="livre-detail-name">' + escapeHTML(r.nom) + '</h2>' +
-        '<div class="livre-detail-meta">' + meta.join(' · ') + '</div>' +
-        (r.description ? '<p class="livre-detail-desc">' + escapeHTML(r.description) + '</p>' : '') +
-        '<h3 class="livre-detail-h3">Ingrédients</h3>' +
-        '<ul class="livre-detail-ing">' + ingHtml + '</ul>' +
-        '<h3 class="livre-detail-h3">Étapes</h3>' +
-        '<ol class="livre-detail-steps">' + stepHtml + '</ol>';
+        '<h1 class="fh-lv-fiche-nom fh-titre fh-texte">' + escapeHTML(r.nom) + '</h1>' +
+        (meta.length ? '<div class="fh-lv-fiche-meta fh-texte-doux">' + meta.join(' · ') + '</div>' : '') +
+        (r.description ? '<p class="fh-lv-fiche-desc fh-texte">' + escapeHTML(r.description) + '</p>' : '') +
+        '<div class="fh-lv-fiche-corps">' +
+          '<div class="fh-lv-fiche-ing fh-carte fh-bordure">' +
+            '<h2 class="fh-lv-fiche-h2 fh-titre fh-texte">Ingrédients</h2>' +
+            (ingHtml ? '<ul class="fh-lv-ing-liste">' + ingHtml + '</ul>'
+                     : '<p class="fh-lv-aide fh-texte-doux">Aucun ingrédient.</p>') +
+          '</div>' +
+          '<div class="fh-lv-fiche-etapes">' +
+            '<h2 class="fh-lv-fiche-h2 fh-titre fh-texte">Étapes</h2>' +
+            (stepHtml ? '<ol class="fh-lv-etapes-liste">' + stepHtml + '</ol>'
+                      : '<p class="fh-lv-aide fh-texte-doux">Pas d\'étapes pour cette recette.</p>') +
+          '</div>' +
+        '</div>';
 
       /* Même mode recette que depuis le tableau et le menu ; la recette déjà
          lue est confiée à son cache (pas de relecture, marche hors ligne). */
-      var cuisiner = wrap.querySelector('[data-act="cuisiner"]');
+      var cuisiner = tt.querySelector('[data-act="cuisiner"]');
       if (cuisiner) {
         cuisiner.addEventListener('click', function () {
           global.FamilyHubModeRecette.memoriser(r.id, r);
           global.FamilyHubModeRecette.ouvrir({ recetteIds: [r.id], titre: r.nom });
         });
       }
-      wrap.querySelector('[data-act="back-detail"]').addEventListener('click', function () {
+      tt.querySelector('[data-act="back-detail"]').addEventListener('click', function () {
         goStep2();
         /* Restaure la position de scroll de la liste après le re-render. */
         container.scrollTop = savedListScrollTop;

@@ -99,23 +99,28 @@ describe("resumeAujourdhui", () => {
     expect(r.prochain?.accompagnements).toEqual(["Salade verte"]);
   });
 
-  it("renvoie les batchs du jour, tous s'il y en a plusieurs", () => {
+  it("renvoie les batchs du jour (tous) puis ceux de demain", () => {
     const now = new Date(2026, 9, 27, 10, 0);
     const batch = [
       { id: "b0", date: "2026-10-25", recetteIds: [], done: true },
+      { id: "b3", date: "2026-10-28", recetteIds: ["r2"], done: false },
       { id: "b1", date: JOUR, recetteIds: ["r6"], done: false },
       { id: "b2", date: JOUR, recetteIds: ["r5"], done: true },
     ];
     const r = resumeAujourdhui(slots, recettes, batch, now, HEURES_REPAS_DEFAUT);
-    expect(r.batchsDuJour.map((b) => b.id)).toEqual(["b1", "b2"]);
-    expect(resumeAujourdhui(slots, recettes, [batch[0]], now, HEURES_REPAS_DEFAUT).batchsDuJour).toEqual([]);
+    expect(r.batchsProches.map((b) => [b.batch.id, b.quand])).toEqual([
+      ["b1", "aujourdhui"],
+      ["b2", "aujourdhui"],
+      ["b3", "demain"],
+    ]);
+    expect(resumeAujourdhui(slots, recettes, [batch[0]], now, HEURES_REPAS_DEFAUT).batchsProches).toEqual([]);
   });
 
   it("sans plan (aucun slot) : rien à afficher", () => {
     const r = resumeAujourdhui([], {}, [], new Date(2026, 9, 27, 10, 0), HEURES_REPAS_DEFAUT);
     expect(r.prochain).toBeUndefined();
     expect(r.autresDuJour).toEqual([]);
-    expect(r.batchsDuJour).toEqual([]);
+    expect(r.batchsProches).toEqual([]);
   });
 
   it("utilise les heures du week-end", () => {

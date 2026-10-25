@@ -8,6 +8,15 @@
   <meta name="apple-mobile-web-app-title" content="Family Hub">
   <meta name="format-detection" content="telephone=no">
   <title>Family Hub</title>
+  <!-- Téléphone (petit côté d'écran < 600 px ; iPad mini : 768) : l'écran de
+       cuisine n'est pas fait pour lui, la version téléphone est à la racine
+       du site (connexion Google). Évite les anciens raccourcis vers /display. -->
+  <script>
+    (function () {
+      var s = window.screen || {};
+      if (Math.min(s.width || 9999, s.height || 9999) < 600) window.location.replace('/');
+    })();
+  </script>
   <!-- Cache buster ?v=__DISPLAY_VERSION__ : remplacé à CHAQUE build par
        scripts/copy-display-into-hub-dist.mjs (horodatage UTC YYYYMMDDHHmmss),
        pour TOUS les assets à la fois (pas de skew vieux core.js / nouveau
@@ -19,6 +28,8 @@
   <link rel="stylesheet" href="css/minuteurs.css?v=__DISPLAY_VERSION__">
   <link rel="stylesheet" href="css/mode-recette.css?v=__DISPLAY_VERSION__">
   <link rel="stylesheet" href="css/tableau.css?v=__DISPLAY_VERSION__">
+  <!-- Vues plein écran ouvertes depuis le tableau (agenda, menu de la semaine, livre de recettes) : APRÈS styles.css, dont elles remplacent l'ancien habillage. -->
+  <link rel="stylesheet" href="css/plein-ecran.css?v=__DISPLAY_VERSION__">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="manifest" href="manifest.json">
 </head>

@@ -341,11 +341,12 @@ export function useRecette(
 
 /**
  * Recettes référencées par le plan (jointure côté client : on lit les IDs
- * référencés par les slots, puis on charge les docs correspondants).
+ * référencés par les slots — ou par une session batch — puis on charge les
+ * docs correspondants).
  */
 export function usePlanRecettes(
   householdId: string | undefined,
-  slots: MealPlanSlotWithId[] | undefined,
+  slots: Array<{ recetteIds: string[] }> | undefined,
 ) {
   const recetteIds = Array.from(new Set((slots ?? []).flatMap((s) => s.recetteIds)));
   return useQuery({

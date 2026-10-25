@@ -1,8 +1,11 @@
 /* mode-recette.js — mode recette de l'iPad : tout le repas d'un coup.
    ES5 strict (syntaxe ET fonctions intégrées), Safari 9 / iOS 9.3.6.
 
-   API : FamilyHubModeRecette.ouvrir({ recetteIds, titre?, portions?, noms? })
+   API : FamilyHubModeRecette.ouvrir({ recetteIds, titre?, portions?, noms?, portionsPropres? })
            titre : sinon le nom de la première recette ;
+           portionsPropres : chaque recette à ses propres portions, sans
+             réglage −/+ (batch cooking : les recettes nourrissent des repas
+             différents) ;
            noms : { id: nom } connus de l'appelant (ex. recetteNoms du menu),
              affichés si la recette est indisponible.
          FamilyHubModeRecette.fermer() / estOuvert()
@@ -353,6 +356,7 @@
 
   /* --- Colonne droite : ingrédients --- */
 
+  /* portions null : chaque recette à ses propres portions (batch). */
   function rendreIngredients(zone, repas, portions) {
     zone.innerHTML = '';
     var p = repas.presentes;
@@ -364,7 +368,11 @@
     for (var i = 0; i < p.length; i++) {
       var r = p[i].recette;
       var base = +r.portions || 0;
-      if (p.length > 1) zone.appendChild(el('h3', 'fh-mr-ing-titre fh-titre fh-texte', echapper(r.nom || 'Recette')));
+      var pour = portions == null ? base : portions;
+      if (p.length > 1) {
+        zone.appendChild(el('h3', 'fh-mr-ing-titre fh-titre fh-texte', echapper(r.nom || 'Recette') +
+          (portions == null && base > 0 ? ' · ' + base + ' pers.' : '')));
+      }
       var ings = r.ingredients || [];
       if (ings.length === 0) {
         zone.appendChild(el('p', 'fh-mr-vide fh-texte-doux', 'Aucun ingrédient.'));
@@ -373,7 +381,7 @@
       var ul = el('ul', 'fh-mr-ing-liste');
       for (var k = 0; k < ings.length; k++) {
         var ing = ings[k] || {};
-        var q = texteSeul(quantiteAjusteeEs5(ing.quantite, base, portions));
+        var q = texteSeul(quantiteAjusteeEs5(ing.quantite, base, pour));
         var qte = texteSeul(q + (ing.unite ? ' ' + ing.unite : ''));
         ul.appendChild(el('li', 'fh-mr-ing fh-texte',
           (qte ? '<strong class="fh-mr-ing-qte">' + echapper(qte) + '</strong> ' : '') +
@@ -447,7 +455,7 @@
     e.valeurPortions.textContent = libellePortions(e.portions);
     e.moins.disabled = e.portions <= PORTIONS_MIN;
     e.plus.disabled = e.portions >= PORTIONS_MAX;
-    if (e.repas) rendreIngredients(e.zoneIngredients, e.repas, e.portions);
+    if (e.repas) rendreIngredients(e.zoneIngredients, e.repas, e.portionsPropres ? null : e.portions);
   }
 
   function fermer() {
@@ -471,6 +479,7 @@
     var e = {
       portions: portionsInitialesEs5(opts.portions, []),
       portionsImposees: +opts.portions > 0,
+      portionsPropres: !!opts.portionsPropres,
       repas: null,
       minuteur: null,
       retour: null,
@@ -503,7 +512,7 @@
     portionsEl.appendChild(e.moins);
     portionsEl.appendChild(e.valeurPortions);
     portionsEl.appendChild(e.plus);
-    barre.appendChild(portionsEl);
+    if (!e.portionsPropres) barre.appendChild(portionsEl);
     e.racine.appendChild(barre);
 
     /* Deux colonnes */

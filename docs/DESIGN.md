@@ -94,3 +94,6 @@ Après le déploiement, **une fois dans le hub** : Écrans → l'écran de la cu
 - [ ] Mode recette ouvert sur un repas à **2 recettes**, avec **2 minuteurs** lancés : étapes des deux recettes, ingrédients encore visibles sous le panneau des minuteurs ; « Lancer N min » répond sur tout le bouton.
 - [ ] Mode recette en mode avion, recette jamais ouverte : « Recette indisponible sans réseau » après quelques secondes, les minuteurs restent utilisables.
 - [ ] Alarme d'un minuteur **par-dessus le mode recette**, puis **par-dessus le menu de la semaine** : bandeau visible, « OK » arrête la sonnerie.
+- [ ] Carte **batch cooking** du tableau la veille puis le jour même ; toucher → mode recette de toutes les recettes du batch, chacune à ses propres quantités (pas de −/+).
+- [ ] Écrans plein écran au nouveau design, **de jour puis de nuit** : agenda (passer d'une semaine à l'autre au doigt), menu de la semaine (s'ouvre sur aujourd'hui, plats longs coupés à 2 lignes avec « … »), vue batch, livre de recettes (étapes 1 et 2, fiche) ; « Fermer » toujours en haut à gauche, rien ne déborde, le défilement au doigt ne fait pas bouger toute la page.
+- [ ] Un téléphone qui ouvre l'ancienne adresse de l'écran de cuisine arrive sur la version téléphone.

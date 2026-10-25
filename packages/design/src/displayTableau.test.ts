@@ -60,6 +60,15 @@ interface ApiTableau {
     ensuite: null | { libelle: string; plat: string; accompagnements: string };
   };
   meteoResume(data: unknown, config: unknown): null | { temp: string; ciel: string; ville: string };
+  resumeBatch(data: unknown, now: Date): null | {
+    titre: string;
+    duree: string;
+    noms: string;
+    recetteIds: string[];
+    nomsParId: Record<string, string>;
+    fait: boolean;
+    cle: string;
+  };
 }
 
 const lire = (rel: string) => readFileSync(fileURLToPath(new URL(rel, import.meta.url)), "utf8");
@@ -289,5 +298,55 @@ describe("meteoResume", () => {
     expect(t.meteoResume({}, config)).toBeNull();
     expect(t.meteoResume(data, {})).toBeNull();
     expect(t.meteoResume(null, null)).toBeNull();
+  });
+});
+
+describe("resumeBatch (carte batch cooking du tableau)", () => {
+  const session = (date: string, extra: Record<string, unknown> = {}) => ({
+    id: "b-" + date,
+    date,
+    dureeEstimeeMinutes: 150,
+    recetteIds: ["r1", "r2"],
+    recetteNoms: ["Chili", "Soupe"],
+    done: false,
+    ...extra,
+  });
+  // Dimanche 25 octobre 2026, 17:18.
+  const now = new Date(2026, 9, 25, 17, 18);
+
+  it("session du jour : titre, durée, recettes, ids et noms pour le mode recette", () => {
+    const r = t.resumeBatch({ batchSessions: [session("2026-10-25")] }, now);
+    expect(r).toMatchObject({
+      titre: "Batch cooking aujourd'hui",
+      duree: "2 h 30",
+      noms: "Chili · Soupe",
+      recetteIds: ["r1", "r2"],
+      nomsParId: { r1: "Chili", r2: "Soupe" },
+      fait: false,
+    });
+  });
+
+  it("session de demain annoncée la veille ; une session du jour passe avant", () => {
+    expect(t.resumeBatch({ batchSessions: [session("2026-10-26")] }, now)?.titre).toBe("Batch cooking demain");
+    expect(
+      t.resumeBatch({ batchSessions: [session("2026-10-26"), session("2026-10-25")] }, now)?.titre,
+    ).toBe("Batch cooking aujourd'hui");
+  });
+
+  it("session du jour déjà faite : affichée comme faite ; celle de demain faite : masquée", () => {
+    expect(t.resumeBatch({ batchSessions: [session("2026-10-25", { done: true })] }, now)?.fait).toBe(true);
+    expect(t.resumeBatch({ batchSessions: [session("2026-10-26", { done: true })] }, now)).toBeNull();
+  });
+
+  it("rien à annoncer : passée, lointaine, ou pas de données", () => {
+    expect(t.resumeBatch({ batchSessions: [session("2026-10-24"), session("2026-10-28")] }, now)).toBeNull();
+    expect(t.resumeBatch({}, now)).toBeNull();
+    expect(t.resumeBatch(null, now)).toBeNull();
+  });
+
+  it("durée inconnue : pas de durée ; plan lu dans data.plans si présent", () => {
+    const r = t.resumeBatch({ plans: [{ batchSessions: [session("2026-10-25", { dureeEstimeeMinutes: 45 })] }] }, now);
+    expect(r?.duree).toBe("45 min");
+    expect(t.resumeBatch({ batchSessions: [session("2026-10-25", { dureeEstimeeMinutes: 0 })] }, now)?.duree).toBe("");
   });
 });

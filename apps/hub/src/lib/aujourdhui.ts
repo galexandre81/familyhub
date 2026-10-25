@@ -1,6 +1,6 @@
 /**
  * Onglet « Aujourd'hui » (téléphone) — logique pure : prochain repas,
- * autres repas du jour (passés effacés), batch du jour.
+ * autres repas du jour (passés effacés), batch d'aujourd'hui et de demain.
  */
 import {
   heureDuRepas,
@@ -11,6 +11,7 @@ import {
   type HeuresRepas,
   type Repas,
 } from "@family-hub/types";
+import { batchsProches, type QuandBatch } from "./batch";
 
 /** La barre de temps est pleine 3 h avant le repas, vide à l'heure du repas. */
 export const MINUTES_BARRE_PLEINE = 180;
@@ -54,8 +55,8 @@ export interface AutreRepas<S> {
 export interface ResumeAujourdhui<S, B> {
   prochain?: ProchainRepas<S>;
   autresDuJour: AutreRepas<S>[];
-  /** Sessions de batch du jour (souvent une seule). */
-  batchsDuJour: B[];
+  /** Sessions de batch d'aujourd'hui puis de demain (souvent une seule). */
+  batchsProches: Array<{ batch: B; quand: QuandBatch }>;
 }
 
 /** Date locale `AAAA-MM-JJ`. */
@@ -134,7 +135,5 @@ export function resumeAujourdhui<S extends SlotAujourdhui, B extends BatchAujour
     })
     .sort((a, b) => a.heure.getTime() - b.heure.getTime());
 
-  const batchsDuJour = batchSessions.filter((b) => b.date === aujourdhui);
-
-  return { prochain, autresDuJour, batchsDuJour };
+  return { prochain, autresDuJour, batchsProches: batchsProches(batchSessions, now) };
 }

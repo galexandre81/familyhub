@@ -219,6 +219,48 @@ html.amb-nuit .tab-pastille-neutre { background: #A8B6C8; }
 }
 .tab-icone { display: block; margin-right: 10px; -webkit-flex-shrink: 0; flex-shrink: 0; }
 
+/* --- Batch cooking du jour ou du lendemain (toucher → mode recette) --- */
+.tab-batch {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  padding: 12px 22px;
+  margin-bottom: 16px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+.tab-batch:active { opacity: 0.8; }
+.tab-batch-fait { opacity: 0.6; }
+.tab-batch-texte { -webkit-flex: 1 1 auto; flex: 1 1 auto; min-width: 0; }
+.tab-batch-titre {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  font-size: 26px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.tab-batch-noms {
+  font-size: 20px;
+  line-height: 1.3;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tab-batch-aller {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  margin-left: 16px;
+  font-size: 22px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
 /* --- Agenda de la semaine --- */
 .tab-agenda {
   -webkit-flex: 0 0 auto;
@@ -248,10 +290,13 @@ html.amb-nuit .tab-pastille-neutre { background: #A8B6C8; }
 }
 .tab-evt-jour { font-weight: 700; }
 
-/* --- Minuteurs (panneau partagé js/minuteurs-panneau.js) --- */
+/* --- Minuteurs (panneau partagé js/minuteurs-panneau.js) ---
+   Taille du contenu : la carte ne grandit qu'avec les minuteurs en cours ;
+   s'ils débordent, seule leur liste défile (la carte « PC des enfants » garde
+   sa hauteur minimale). */
 .tab-minuteurs {
-  -webkit-flex: 1 1 auto;
-  flex: 1 1 auto;
+  -webkit-flex: 0 1 auto;
+  flex: 0 1 auto;
   min-height: 0;
   display: -webkit-flex;
   display: flex;
@@ -302,6 +347,25 @@ html.amb-nuit .tab-pastille-neutre { background: #A8B6C8; }
   overflow-y: auto;
   -webkit-overflow-scrolling: touch;
 }
+
+/* --- PC des enfants (place réservée au temps d'écran) --- */
+.tab-pc {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-height: 96px;
+  padding: 14px 22px 16px;
+  margin-bottom: 16px;
+}
+.tab-pc-titre {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  font-size: 24px;
+  font-weight: 700;
+  line-height: 1.2;
+}
+.tab-pc-texte { font-size: 20px; line-height: 1.3; margin: 6px 0 0; }
 
 /* --- Ensuite --- */
 .tab-ensuite {

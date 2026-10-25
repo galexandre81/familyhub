@@ -1,49 +1,46 @@
+/**
+ * Fiche d'une recette du livre (design « Alpage + Veillée »).
+ *
+ * Téléphone d'abord : une colonne, gros textes, cibles de 48 px ; en haut le
+ * bouton « Cuisiner » (mode recette), puis les portions, les ingrédients
+ * (rangés par rayon, quantités ajustées) et les étapes. Favorite / exclure en
+ * boutons avec un mot, « Supprimer » relégué tout en bas.
+ * PC (≥ 768 px) : même contenu, ingrédients à gauche et étapes à droite.
+ */
 import { useEffect, useMemo, useState } from "react";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import {
   ArrowLeft,
   ChefHat,
   Clock,
+  CookingPot,
   Flame,
   Heart,
   Minus,
   Plus,
+  RotateCcw,
   ThumbsDown,
-  ThumbsUp,
   Trash2,
   Users,
 } from "lucide-react";
-import type { RecetteIngredient } from "@family-hub/types";
 import { useAuth } from "../lib/auth";
 import { useActiveHouseholdId, useRecette } from "../lib/queries";
 import {
   useDeleteRecette,
   useDownvoteRecette,
+  useRestoreRecette,
   useUpvoteRecette,
 } from "../lib/mutations";
 import { PORTIONS_MAX, PORTIONS_MIN, clampPortions } from "../lib/recipeConstants";
+import { etapesTriees, quantiteAjustee } from "../lib/repasCuisine";
+import { ingredientsParRayon } from "../lib/ficheRecette";
+import { LoadingState } from "../components/states";
+import { toast } from "../components/Toast";
 
-const RAYON_LABELS: Record<string, string> = {
-  "frais-fruits-legumes": "Fruits & légumes",
-  "frais-laitier": "Crèmerie",
-  "frais-boucherie": "Boucherie",
-  "frais-poissonnerie": "Poissonnerie",
-  "sec-epicerie": "Épicerie",
-  "surgele": "Surgelé",
-  "boulangerie": "Boulangerie",
-  "autre": "Autre",
-};
-
-const RAYON_ORDER = [
-  "frais-fruits-legumes",
-  "frais-boucherie",
-  "frais-poissonnerie",
-  "frais-laitier",
-  "boulangerie",
-  "sec-epicerie",
-  "surgele",
-  "autre",
-];
+const BOUTON =
+  "min-h-12 inline-flex items-center justify-center gap-2 rounded-xl px-4 text-base font-semibold transition disabled:opacity-40";
+const CARTE = "rounded-2xl bg-ebony-card border border-hairline p-4 md:p-5";
+const ERREUR_RESEAU = "Impossible d'enregistrer, réessaie avec du réseau";
 
 export default function RecetteDetail() {
   const { recetteId } = useParams<{ recetteId: string }>();
@@ -53,6 +50,7 @@ export default function RecetteDetail() {
   const navigate = useNavigate();
   const upvote = useUpvoteRecette();
   const downvote = useDownvoteRecette();
+  const restore = useRestoreRecette();
   const del = useDeleteRecette();
 
   const [searchParams] = useSearchParams();
@@ -71,273 +69,279 @@ export default function RecetteDetail() {
     // portionsFromUrl est dérivé de searchParams ; on dépend de sa valeur.
   }, [portionsFromUrl]);
 
-  const targetPortions = portions ?? recette?.portions ?? 4;
-  const ratio = recette ? targetPortions / recette.portions : 1;
+  const groupes = useMemo(() => (recette ? ingredientsParRayon(recette.ingredients) : []), [recette]);
 
-  const ingredientsByRayon = useMemo(() => {
-    if (!recette) return [];
-    const groups = new Map<string, RecetteIngredient[]>();
-    for (const ing of recette.ingredients) {
-      const arr = groups.get(ing.rayon) ?? [];
-      arr.push(ing);
-      groups.set(ing.rayon, arr);
-    }
-    return RAYON_ORDER.filter((r) => groups.has(r)).map((rayon) => ({
-      rayon,
-      label: RAYON_LABELS[rayon] ?? rayon,
-      items: groups.get(rayon)!,
-    }));
-  }, [recette]);
+  /** Retour : page précédente (livre, menu…), sinon le livre. */
+  const retour = () => {
+    const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
+    if (idx > 0) navigate(-1);
+    else navigate("/livre-recettes");
+  };
 
-  if (isLoading) return <p className="text-text-secondaire">Chargement…</p>;
+  if (isLoading) return <LoadingState />;
   if (!recette || !householdId) {
     return (
-      <div className="space-y-3">
-        <p className="text-text-secondaire">Recette introuvable.</p>
-        <Link to="/livre-recettes" className="btn-secondary">
+      <div className="flex flex-col gap-4">
+        <p className="text-lg text-cream">Recette introuvable.</p>
+        <Link
+          to="/livre-recettes"
+          className={`${BOUTON} self-start bg-ebony-card border border-hairline text-cream`}
+        >
+          <ArrowLeft size={20} aria-hidden="true" />
           Retour au livre
         </Link>
       </div>
     );
   }
 
+  const targetPortions = portions ?? (recette.portions || 4);
   const tempsTotal = recette.tempsPrepMinutes + recette.tempsCuissonMinutes;
   const isFav = recette.statut === "favorite" && !recette.excluded;
   const isExcluded = !!recette.excluded;
+  const ref = { householdId, recetteId: recette.id };
+  const surErreur = { onError: () => toast(ERREUR_RESEAU, { type: "error" }) };
+  const etapes = etapesTriees(recette.etapes);
+  const pastilles = [
+    recette.seedTags?.styleCulinaire,
+    recette.seedTags?.proteinePrincipale !== "aucune" ? recette.seedTags?.proteinePrincipale : undefined,
+    recette.seedTags?.repas,
+    ...recette.tags,
+  ].filter((t): t is string => !!t);
+
+  const supprimer = async () => {
+    if (!confirm(`Supprimer définitivement "${recette.nom}" ?`)) return;
+    try {
+      await del.mutateAsync(ref);
+      navigate("/livre-recettes");
+    } catch {
+      toast(ERREUR_RESEAU, { type: "error" });
+    }
+  };
 
   return (
-    <div className="space-y-6 max-w-4xl">
-      <div className="flex items-center gap-3">
-        <Link to="/livre-recettes" className="text-text-secondaire hover:text-text-principal">
-          <ArrowLeft size={20} />
-        </Link>
-        <div className="flex-1">
-          <h1 className="text-3xl font-serif leading-tight">{recette.nom}</h1>
+    <div className="flex flex-col gap-5 pb-4 md:max-w-5xl md:gap-6">
+      <button
+        type="button"
+        onClick={retour}
+        className="self-start min-h-12 -ml-2 px-2 inline-flex items-center gap-2 rounded-xl text-base text-cream-mute hover:text-cream"
+      >
+        <ArrowLeft size={20} aria-hidden="true" />
+        Retour
+      </button>
+
+      {/* Titre, description, repères */}
+      <header className="flex flex-col gap-3">
+        <div>
+          <h1 className="font-serif text-2xl md:text-3xl text-cream leading-tight">
+            {recette.nom}
+            {isFav && (
+              <>
+                <Heart
+                  size={22}
+                  className="inline-block align-baseline ml-2 text-brass"
+                  fill="currentColor"
+                  aria-hidden="true"
+                />
+                <span className="sr-only"> (favorite)</span>
+              </>
+            )}
+          </h1>
           {recette.description && (
-            <p className="text-text-secondaire mt-1">{recette.description}</p>
+            <p className="mt-1 text-base text-cream-mute leading-relaxed">{recette.description}</p>
           )}
         </div>
-      </div>
-
-      {/* Métadonnées */}
-      <section className="tile-card flex flex-wrap items-center gap-4">
-        <Meta icon={Clock} label={`${tempsTotal} min`} sub={`prep ${recette.tempsPrepMinutes} + cuisson ${recette.tempsCuissonMinutes}`} />
-        <Meta icon={Flame} label={`Diff. ${recette.difficulte}/3`} />
-        {recette.estBatch && <Tag color="brass">BATCH COOKING</Tag>}
-        {recette.seedTags?.styleCulinaire && <Tag>{recette.seedTags.styleCulinaire}</Tag>}
-        {recette.seedTags?.proteinePrincipale && recette.seedTags.proteinePrincipale !== "aucune" && (
-          <Tag>{recette.seedTags.proteinePrincipale}</Tag>
+        <ul className="flex flex-wrap gap-x-4 gap-y-1 text-base text-cream">
+          {tempsTotal > 0 && (
+            <li className="inline-flex items-center gap-2">
+              <Clock size={18} aria-hidden="true" className="text-cream-mute" />
+              {tempsTotal} min
+              <span className="text-[15px] text-cream-mute">
+                (préparation {recette.tempsPrepMinutes}, cuisson {recette.tempsCuissonMinutes})
+              </span>
+            </li>
+          )}
+          <li className="inline-flex items-center gap-2">
+            <Flame size={18} aria-hidden="true" className="text-cream-mute" />
+            Difficulté {recette.difficulte}/3
+          </li>
+          {recette.estBatch && (
+            <li className="inline-flex items-center gap-2">
+              <CookingPot size={18} aria-hidden="true" className="text-brass" />
+              Batch cooking
+            </li>
+          )}
+        </ul>
+        {pastilles.length > 0 && (
+          <ul className="flex flex-wrap gap-2" aria-label="Étiquettes">
+            {pastilles.map((t, i) => (
+              <li
+                key={`${t}-${i}`}
+                className="rounded-full bg-ebony-ridge px-3 py-1 text-[15px] leading-tight text-cream"
+              >
+                {t}
+              </li>
+            ))}
+          </ul>
         )}
-        {recette.seedTags?.repas && <Tag>{recette.seedTags.repas}</Tag>}
-        {recette.tags.map((t) => (
-          <Tag key={t} muted>{t}</Tag>
-        ))}
-      </section>
+      </header>
 
-      {/* Sélecteur portions + actions */}
-      <section className="tile-card flex flex-wrap items-center justify-between gap-3">
-        <div className="flex items-center gap-3">
-          <Users size={18} className="text-text-secondaire" />
-          <span className="text-sm text-text-secondaire">Portions</span>
+      {isExcluded && (
+        <div className={`${CARTE} flex flex-wrap items-center justify-between gap-3`}>
+          <p className="flex items-center gap-2 text-base text-cream">
+            <ThumbsDown size={20} aria-hidden="true" className="text-cream-mute" />
+            Exclue : n'est plus proposée dans les plans.
+          </p>
           <button
             type="button"
-            onClick={() => setPortions((p) => Math.max(PORTIONS_MIN, (p ?? recette.portions) - 1))}
-            className="w-9 h-9 rounded-md border border-bordure hover:bg-bordure flex items-center justify-center"
-            aria-label="Moins de portions"
+            onClick={() => restore.mutate(ref, surErreur)}
+            disabled={restore.isPending}
+            className={`${BOUTON} border-2 border-brass text-cream`}
           >
-            <Minus size={14} />
+            <RotateCcw size={20} aria-hidden="true" />
+            Restaurer
           </button>
-          <span className="text-2xl font-semibold w-12 text-center">{targetPortions}</span>
+        </div>
+      )}
+
+      {/* Action principale + portions */}
+      <section aria-label="Cuisiner" className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-2" role="group" aria-label="Portions">
+          <Users size={20} aria-hidden="true" className="text-cream-mute" />
+          <span className="text-base text-cream-mute">Portions</span>
           <button
             type="button"
-            onClick={() => setPortions((p) => Math.min(PORTIONS_MAX, (p ?? recette.portions) + 1))}
-            className="w-9 h-9 rounded-md border border-bordure hover:bg-bordure flex items-center justify-center"
-            aria-label="Plus de portions"
+            onClick={() => setPortions(Math.max(PORTIONS_MIN, targetPortions - 1))}
+            disabled={targetPortions <= PORTIONS_MIN}
+            className={`${BOUTON} px-0 w-12 bg-ebony-card border border-hairline text-cream`}
+            aria-label="Une portion de moins"
           >
-            <Plus size={14} />
+            <Minus size={20} aria-hidden="true" />
           </button>
-          {targetPortions !== recette.portions && (
+          <span className="min-w-16 text-center text-lg font-semibold tabular-nums text-cream" aria-live="polite">
+            {targetPortions} pers.
+          </span>
+          <button
+            type="button"
+            onClick={() => setPortions(Math.min(PORTIONS_MAX, targetPortions + 1))}
+            disabled={targetPortions >= PORTIONS_MAX}
+            className={`${BOUTON} px-0 w-12 bg-ebony-card border border-hairline text-cream`}
+            aria-label="Une portion de plus"
+          >
+            <Plus size={20} aria-hidden="true" />
+          </button>
+          {recette.portions > 0 && targetPortions !== recette.portions && (
             <button
               type="button"
               onClick={() => setPortions(null)}
-              className="text-xs text-text-secondaire underline ml-1"
+              className="min-h-12 px-2 text-[15px] text-cream-mute underline"
             >
-              Réinitialiser ({recette.portions})
+              Remettre {recette.portions}
             </button>
           )}
         </div>
-
-        <div className="flex items-center gap-2">
-          {!isExcluded && (
-            <>
-              <button
-                onClick={() => upvote.mutate({ householdId, recetteId: recette.id })}
-                className={`p-2 transition ${isFav ? "text-accent-chaud" : "text-text-secondaire hover:text-accent-chaud"}`}
-                title={isFav ? "Déjà favorite" : "Marquer favorite"}
-              >
-                {isFav ? <Heart size={16} fill="currentColor" /> : <ThumbsUp size={16} />}
-              </button>
-              <button
-                onClick={() => downvote.mutate({ householdId, recetteId: recette.id })}
-                className="p-2 text-text-secondaire hover:text-accent-chaud transition"
-                title="Exclure (ne plus piocher dans les plans)"
-              >
-                <ThumbsDown size={16} />
-              </button>
-            </>
-          )}
-          <button
-            onClick={async () => {
-              if (!confirm(`Supprimer définitivement "${recette.nom}" ?`)) return;
-              await del.mutateAsync({ householdId, recetteId: recette.id });
-              navigate("/livre-recettes");
-            }}
-            className="p-2 text-text-secondaire hover:text-accent-chaud transition"
-            title="Supprimer définitivement"
-          >
-            <Trash2 size={16} />
-          </button>
-          <Link
-            to={`/livre-recettes/${recette.id}/cuisine?portions=${targetPortions}`}
-            className="btn-primary flex items-center gap-2 ml-2"
-          >
-            <ChefHat size={16} />
-            Mode cuisine
-          </Link>
-        </div>
+        <Link
+          to={`/livre-recettes/${recette.id}/cuisine?portions=${targetPortions}`}
+          className={`${BOUTON} w-full md:w-auto md:px-6 bg-brass text-ebony text-lg`}
+        >
+          <ChefHat size={22} aria-hidden="true" />
+          Cuisiner
+        </Link>
       </section>
 
-      {/* Ingrédients */}
-      <section className="tile-card space-y-4">
-        <h2 className="text-xl">Ingrédients</h2>
-        {ingredientsByRayon.map((group) => (
-          <div key={group.rayon}>
-            <h3 className="text-sm uppercase tracking-widest text-text-secondaire mb-2">
-              {group.label}
-            </h3>
-            <ul className="space-y-1">
-              {group.items.map((ing, i) => (
-                <li key={`${ing.libelle}-${i}`} className="flex items-baseline gap-2">
-                  <span className="font-medium tabular-nums w-28 shrink-0 text-right">
-                    {scaleQuantite(ing.quantite, ratio)}{" "}
-                    <span className="text-text-secondaire text-sm">{ing.unite}</span>
+      {!isExcluded && (
+        <div className="grid grid-cols-2 gap-2 md:flex md:gap-3">
+          <button
+            type="button"
+            onClick={() => upvote.mutate(ref, surErreur)}
+            disabled={upvote.isPending}
+            aria-pressed={isFav}
+            className={`${BOUTON} border-2 ${isFav ? "border-brass text-brass" : "border-hairline text-cream"}`}
+          >
+            <Heart size={20} aria-hidden="true" fill={isFav ? "currentColor" : "none"} />
+            {isFav ? "Favorite" : "J'aime"}
+          </button>
+          <button
+            type="button"
+            onClick={() => downvote.mutate(ref, surErreur)}
+            disabled={downvote.isPending}
+            title="Ne plus proposer cette recette dans les plans"
+            className={`${BOUTON} border-2 border-hairline text-cream`}
+          >
+            <ThumbsDown size={20} aria-hidden="true" />
+            Exclure
+          </button>
+        </div>
+      )}
+
+      <div className="flex flex-col gap-5 md:grid md:grid-cols-5 md:items-start md:gap-6">
+        {/* Ingrédients */}
+        <section aria-labelledby="fiche-ingredients" className={`${CARTE} md:col-span-2 flex flex-col gap-4`}>
+          <h2 id="fiche-ingredients" className="text-lg font-semibold text-cream">
+            Ingrédients · {targetPortions} pers.
+          </h2>
+          {groupes.length === 0 ? (
+            <p className="text-base text-cream-mute">Aucun ingrédient indiqué.</p>
+          ) : (
+            groupes.map((g) => (
+              <div key={g.rayon}>
+                <h3 className="text-[15px] font-semibold text-cream-mute mb-1">{g.libelle}</h3>
+                <ul className="space-y-1">
+                  {g.items.map((ing, i) => (
+                    <li key={`${ing.libelle}-${i}`} className="flex gap-3 text-base leading-snug text-cream">
+                      <span className="shrink-0 min-w-20 text-right font-semibold tabular-nums">
+                        {quantiteAjustee(ing.quantite, recette.portions, targetPortions)}
+                        {ing.unite ? ` ${ing.unite}` : ""}
+                      </span>
+                      <span className="min-w-0">{ing.libelle}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            ))
+          )}
+        </section>
+
+        {/* Étapes */}
+        <section aria-labelledby="fiche-etapes" className={`${CARTE} md:col-span-3 flex flex-col gap-4`}>
+          <h2 id="fiche-etapes" className="text-lg font-semibold text-cream">
+            Étapes
+          </h2>
+          {etapes.length === 0 ? (
+            <p className="text-base text-cream-mute">Pas d'étapes détaillées pour cette recette.</p>
+          ) : (
+            <ol className="space-y-4">
+              {etapes.map((etape, i) => (
+                <li key={`${etape.ordre}-${i}`} className="flex gap-3">
+                  <span className="shrink-0 w-9 h-9 rounded-full bg-ebony border border-hairline flex items-center justify-center text-base font-semibold text-cream">
+                    {i + 1}
                   </span>
-                  <span>{ing.libelle}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-base md:text-lg leading-relaxed text-cream">{etape.description}</p>
+                    {etape.dureeMinutes && etape.dureeMinutes > 0 ? (
+                      <p className="mt-1 flex items-center gap-1 text-[15px] text-cream-mute">
+                        <Clock size={16} aria-hidden="true" />
+                        {etape.dureeMinutes} min
+                      </p>
+                    ) : null}
+                  </div>
                 </li>
               ))}
-            </ul>
-          </div>
-        ))}
-      </section>
+            </ol>
+          )}
+        </section>
+      </div>
 
-      {/* Étapes */}
-      <section className="tile-card space-y-3">
-        <h2 className="text-xl">Étapes</h2>
-        <ol className="space-y-3">
-          {[...recette.etapes]
-            .sort((a, b) => a.ordre - b.ordre)
-            .map((etape) => (
-              <li key={etape.ordre} className="flex gap-3">
-                <span className="shrink-0 w-8 h-8 rounded-full bg-bordure flex items-center justify-center font-semibold text-sm">
-                  {etape.ordre}
-                </span>
-                <div className="flex-1">
-                  <p className="leading-relaxed">{etape.description}</p>
-                  {etape.dureeMinutes && etape.dureeMinutes > 0 && (
-                    <p className="text-text-secondaire text-sm mt-1 flex items-center gap-1">
-                      <Clock size={12} />
-                      {etape.dureeMinutes} min
-                    </p>
-                  )}
-                </div>
-              </li>
-            ))}
-        </ol>
-      </section>
-    </div>
-  );
-}
-
-function Meta({
-  icon: Icon,
-  label,
-  sub,
-}: {
-  icon: typeof Clock;
-  label: string;
-  sub?: string;
-}) {
-  return (
-    <div className="flex items-center gap-2">
-      <Icon size={16} className="text-text-secondaire" />
-      <div>
-        <div className="font-medium leading-none">{label}</div>
-        {sub && <div className="text-xs text-text-secondaire mt-0.5">{sub}</div>}
+      <div className="pt-4 border-t border-hairline">
+        <button
+          type="button"
+          onClick={() => void supprimer()}
+          disabled={del.isPending}
+          className={`${BOUTON} text-copper hover:bg-copper/10`}
+        >
+          <Trash2 size={20} aria-hidden="true" />
+          Supprimer la recette
+        </button>
       </div>
     </div>
   );
-}
-
-function Tag({
-  children,
-  color,
-  muted,
-}: {
-  children: React.ReactNode;
-  color?: "brass";
-  muted?: boolean;
-}) {
-  const cls =
-    color === "brass"
-      ? "bg-accent-chaud/20 text-accent-chaud"
-      : muted
-        ? "bg-bordure/40 text-text-secondaire"
-        : "bg-bordure text-text-principal";
-  return (
-    <span className={`text-xs uppercase tracking-widest px-2 py-1 rounded-sm ${cls}`}>
-      {children}
-    </span>
-  );
-}
-
-/**
- * Multiplie la quantité par le ratio. La quantité est une string libre :
- *   "200" → "300" si ratio=1.5
- *   "1 botte" → "2 botte" si ratio=2
- *   "qsp" → "qsp" inchangé
- *   "1/2" → "1" si ratio=2
- *   "0.5" → "0.75" si ratio=1.5
- *
- * Stratégie : on extrait le préfixe numérique (entier, décimal ou fraction),
- * on le multiplie, on garde le reste tel quel. Si pas de nombre détecté, on
- * laisse la string inchangée.
- */
-export function scaleQuantite(q: string, ratio: number): string {
-  if (ratio === 1) return q;
-  const trimmed = q.trim();
-  if (!trimmed) return q;
-
-  // Fraction "1/2", "3/4"
-  const frac = trimmed.match(/^(\d+)\s*\/\s*(\d+)(.*)$/);
-  if (frac) {
-    const num = (parseInt(frac[1], 10) / parseInt(frac[2], 10)) * ratio;
-    return formatNum(num) + frac[3];
-  }
-
-  // Décimal ou entier "200", "1.5", "0,75"
-  const dec = trimmed.match(/^(\d+[.,]?\d*)(.*)$/);
-  if (dec) {
-    const n = parseFloat(dec[1].replace(",", "."));
-    if (!isNaN(n)) {
-      return formatNum(n * ratio) + dec[2];
-    }
-  }
-  return q;
-}
-
-function formatNum(n: number): string {
-  if (n >= 100) return Math.round(n).toString();
-  if (n >= 10) return (Math.round(n * 2) / 2).toString().replace(".", ",");
-  if (n >= 1) return (Math.round(n * 4) / 4).toString().replace(".", ",");
-  return (Math.round(n * 100) / 100).toString().replace(".", ",");
 }

@@ -1,7 +1,8 @@
 /**
  * Téléphone — onglet « Semaine » : rangée des jours du plan (le plan peut
  * commencer n'importe quel jour et durer plus de 7 jours), les 3 repas du
- * jour choisi (passés effacés, le prochain encadré avec « Cuisiner »),
+ * jour choisi (passés effacés, le prochain encadré avec « Cuisiner ») et
+ * sa session de batch cooking s'il y en a une,
  * « Pourquoi ce menu ? » replié en bas, flèches vers les plans voisins.
  */
 import { useMemo, useState } from "react";
@@ -23,6 +24,7 @@ import {
   useActivePlan,
   useAllPlans,
   useHouseholds,
+  usePlanBatchSessions,
   usePlanRecettes,
   usePlanSlots,
   useProfils,
@@ -32,6 +34,7 @@ import { dateISOLocale } from "../lib/aujourdhui";
 import { joursDuPlan, jourInitial, planVoisins, repasPasse } from "../lib/semaine";
 import { titreRepas } from "../lib/repasCuisine";
 import { useMaintenant } from "../lib/useMaintenant";
+import CarteBatch from "../components/CarteBatch";
 import ProfilBadge from "../components/ProfilBadge";
 import { LoadingState } from "../components/states";
 
@@ -57,6 +60,7 @@ export default function Semaine() {
   const plan = plans?.find((p) => p.id === planId) ?? (planActif?.id === planId ? planActif : undefined);
 
   const { data: slots, isLoading: slotsLoading } = usePlanSlots(householdId, plan?.id);
+  const { data: batchSessions } = usePlanBatchSessions(householdId, plan?.id);
   const { data: recettes } = usePlanRecettes(householdId, slots);
   const { data: profils } = useProfils(householdId);
 
@@ -171,6 +175,12 @@ export default function Semaine() {
           </ul>
         )
       )}
+
+      {(batchSessions ?? [])
+        .filter((b) => b.date === jourChoisi)
+        .map((b) => (
+          <CarteBatch key={b.id} planId={plan.id} batch={b} titre="Batch cooking ce jour-là" recettes={recettes ?? {}} />
+        ))}
 
       {plan.commentaireImport?.trim() && (
         <details className="rounded-xl bg-ebony-card border border-hairline">

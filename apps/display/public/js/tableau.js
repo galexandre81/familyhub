@@ -19,9 +19,13 @@
    - en-tête : date, heure en très grand, météo à droite (toucher → météo) ;
    - carte du prochain repas (≈ 60 %) : « Dîner · 19:00 », « dans 1 h 30 »,
      barre qui se vide, plat, accompagnements, présents, « Commencer » → mode
-     recette ; dessous, l'agenda de la semaine (toucher → agenda) ;
-   - colonne droite : minuteurs (1 / 5 / 10 min, Autre, en cours) puis
-     « Ensuite » (le repas d'après) ;
+     recette ; dessous, le batch cooking du jour ou du lendemain s'il y en a
+     un (toucher → mode recette avec toutes ses recettes), puis l'agenda de la
+     semaine (toucher → agenda) ;
+   - colonne droite : minuteurs (1 / 5 / 10 min, Autre, en cours ; la carte
+     ne grandit qu'avec les minuteurs en cours), « PC des enfants » (place
+     réservée au temps d'écran, projet à venir) puis « Ensuite » (le repas
+     d'après) ;
    - rangée « plus » : Recettes, Menu de la semaine, Radio, Réglages.
 
    iOS 9 : jamais de flex sur un <button> (contenu dans un <span> intérieur).
@@ -265,6 +269,56 @@
     return { prochain: prochain, ensuite: ensuite };
   }
 
+  /* « 2 h 30 », « 2 h », « 45 min » ; '' si la durée n'est pas connue. */
+  function dureeTexte(minutes) {
+    var m = +minutes;
+    if (!(m > 0)) return '';
+    var h = Math.floor(m / 60);
+    var r = Math.round(m % 60);
+    if (h === 0) return r + ' min';
+    return r ? h + ' h ' + pad2(r) : h + ' h';
+  }
+
+  /* Carte « batch cooking » : la session du jour (même faite, marquée « fait »),
+     sinon celle de demain si elle reste à faire ; null sinon. Données du menu
+     de la semaine (WeeklyMenuData : batchSessions du plan actif, ou du premier
+     plan de data.plans). */
+  function resumeBatch(data, now) {
+    if (!data || typeof data !== 'object') return null;
+    var sessions = data.batchSessions;
+    if (!sessions && data.plans && data.plans.length > 0) sessions = data.plans[0].batchSessions;
+    if (!sessions || !sessions.length) return null;
+    var auj = dateISOLocale(now);
+    var dem = dateISOLocale(new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1));
+    var choisie = null;
+    var quand = '';
+    for (var i = 0; i < sessions.length; i++) {
+      var s = sessions[i] || {};
+      if (s.date === auj) { choisie = s; quand = "aujourd'hui"; break; }
+      if (s.date === dem && !s.done && !choisie) { choisie = s; quand = 'demain'; }
+    }
+    if (!choisie) return null;
+    var ids = (choisie.recetteIds || []).slice();
+    var bruts = choisie.recetteNoms || [];
+    var noms = [];
+    var nomsParId = {};
+    for (var k = 0; k < bruts.length; k++) if (bruts[k]) noms.push(String(bruts[k]));
+    if (bruts.length === ids.length) {
+      for (var j = 0; j < ids.length; j++) if (bruts[j]) nomsParId[ids[j]] = String(bruts[j]);
+    }
+    var duree = dureeTexte(choisie.dureeEstimeeMinutes);
+    var titre = 'Batch cooking ' + quand;
+    return {
+      titre: titre,
+      duree: duree,
+      noms: noms.join(' · '),
+      recetteIds: ids,
+      nomsParId: nomsParId,
+      fait: !!choisie.done,
+      cle: [choisie.id, titre, duree, noms.join(','), ids.join(','), choisie.done ? 1 : 0].join('|')
+    };
+  }
+
   /* Météo de l'en-tête : ville choisie dans la config de la tuile (sinon la
      première), { temp: '12°', ciel, ville } ou null. */
   function meteoResume(data, config) {
@@ -302,7 +356,9 @@
     radio: '<rect x="3" y="8" width="18" height="12" rx="2"' + TRAIT + '/>' +
       '<circle cx="15.5" cy="14" r="3"' + TRAIT + '/><path d="M6 12 H10 M6 16 H10 M5 8 L16 3"' + TRAIT + '/>',
     reglages: '<circle cx="12" cy="12" r="3"' + TRAIT + '/>' +
-      '<path d="M12 2.5 V5 M12 19 V21.5 M2.5 12 H5 M19 12 H21.5 M5.3 5.3 L7 7 M17 17 L18.7 18.7 M5.3 18.7 L7 17 M17 7 L18.7 5.3"' + TRAIT + '/>'
+      '<path d="M12 2.5 V5 M12 19 V21.5 M2.5 12 H5 M19 12 H21.5 M5.3 5.3 L7 7 M17 17 L18.7 18.7 M5.3 18.7 L7 17 M17 7 L18.7 5.3"' + TRAIT + '/>',
+    marmite: '<path d="M4 10 H20 V17 Q20 20 17 20 H7 Q4 20 4 17 Z M2 10 H22 M9 6 Q8 4.5 9 3 M13 6 Q12 4.5 13 3"' + TRAIT + '/>',
+    ecran: '<rect x="3" y="4" width="18" height="12" rx="2"' + TRAIT + '/><path d="M12 16 V20 M8 20 H16"' + TRAIT + '/>'
   };
 
   var PLUS = [
@@ -378,6 +434,12 @@
     var gauche = el('div', 'tab-gauche');
     var repasEl = el('div', 'tab-repas tab-carte fh-carte fh-bordure');
     gauche.appendChild(repasEl);
+    var batchEl = el('div', 'tab-batch tab-carte fh-carte fh-bordure');
+    batchEl.setAttribute('role', 'button');
+    batchEl.style.display = 'none';
+    batchEl.addEventListener('click', cuisinerBatch);
+    gauche.appendChild(batchEl);
+    var batchCourant = null;
     var agendaEl = el('div', 'tab-agenda tab-carte fh-carte fh-bordure');
     agendaEl.setAttribute('role', 'button');
     agendaEl.addEventListener('click', function () { ouvrirOverlay('calendar'); });
@@ -390,6 +452,12 @@
     var minuteursCorps = el('div', 'tab-minuteurs-corps');
     minuteursEl.appendChild(minuteursCorps);
     droite.appendChild(minuteursEl);
+    /* Place réservée : le temps d'écran du PC des enfants (projet à venir). */
+    var pcEl = el('div', 'tab-pc tab-carte fh-carte fh-bordure');
+    pcEl.innerHTML =
+      '<div class="tab-pc-titre fh-texte">' + svg(ICONES.ecran, 24) + '<span>PC des enfants</span></div>' +
+      '<p class="tab-pc-texte fh-texte-doux">Bientôt : le temps d’écran</p>';
+    droite.appendChild(pcEl);
     var ensuiteEl = el('div', 'tab-ensuite tab-carte fh-carte fh-bordure');
     droite.appendChild(ensuiteEl);
     milieu.appendChild(droite);
@@ -486,6 +554,32 @@
       var rt = sources()['recipe-today'];
       if (rt && rt.data && rt.data.recettes && mr.memoriserListe) mr.memoriserListe(rt.data.recettes);
       mr.ouvrir({ recetteIds: p.recetteIds, titre: p.titre, portions: p.portions, noms: p.noms });
+    }
+
+    function cuisinerBatch() {
+      var b = batchCourant;
+      var mr = root.FamilyHubModeRecette;
+      if (!b || !mr || !b.recetteIds.length) return;
+      mr.ouvrir({ recetteIds: b.recetteIds, titre: 'Batch cooking', noms: b.nomsParId, portionsPropres: true });
+    }
+
+    function rendreBatch(src, now) {
+      var b = src && src.data ? resumeBatch(src.data, now) : null;
+      batchCourant = b;
+      var cle = b ? b.cle : '';
+      if (cles.batch === cle) return;
+      cles.batch = cle;
+      if (!b) { batchEl.style.display = 'none'; batchEl.innerHTML = ''; return; }
+      batchEl.style.display = '';
+      batchEl.className = 'tab-batch tab-carte fh-carte fh-bordure' + (b.fait ? ' tab-batch-fait' : '');
+      batchEl.innerHTML =
+        '<div class="tab-batch-texte">' +
+          '<div class="tab-batch-titre fh-titre fh-texte">' + svg(ICONES.marmite, 28) +
+            '<span>' + echapper(b.titre) + (b.duree ? ' · ' + echapper(b.duree) : '') + (b.fait ? ' · fait' : '') +
+            '</span></div>' +
+          (b.noms ? '<div class="tab-batch-noms fh-texte-doux">' + echapper(b.noms) + '</div>' : '') +
+        '</div>' +
+        '<div class="tab-batch-aller fh-texte">Cuisiner ›</div>';
     }
 
     function rendreRepasMessage(titre, message) {
@@ -592,6 +686,7 @@
       majHeure(now);
       try { rendreMeteo(s.weather); } catch (e1) { journal('météo', e1); }
       try { rendreRepasEtEnsuite(s['weekly-menu'], now); } catch (e2) { journal('repas', e2); }
+      try { rendreBatch(s['weekly-menu'], now); } catch (e4) { journal('batch', e4); }
       try { rendreAgenda(s.calendar, now); } catch (e3) { journal('agenda', e3); }
     }
 
@@ -635,6 +730,7 @@
     formatPlat: formatPlat,
     resumeRepas: resumeRepas,
     meteoResume: meteoResume,
+    resumeBatch: resumeBatch,
     monter: monter
   };
 
