@@ -4,9 +4,9 @@ import { randomBytes } from "node:crypto";
 import { admin, auth, db } from "../lib/admin";
 import { assertHouseholdMember } from "../lib/household";
 import { requireId } from "../lib/validate";
+import { prochaineExpiration } from "./tokenExpiry";
 
 const SETUP_TOKEN_TTL_SECONDS = 30 * 60; // 30 min
-const AUTH_TOKEN_TTL_SECONDS = 90 * 24 * 60 * 60; // 90 jours
 
 /** Alphabet sans caractères confusables (0/O, 1/I/L) — facilite la saisie sur iPad. */
 const SHORT_ID_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
@@ -152,7 +152,7 @@ export const exchangeSetupToken = onCall(
 
     const authToken = generateToken();
     const authTokenExpiresAt = admin.firestore.Timestamp.fromMillis(
-      Date.now() + AUTH_TOKEN_TTL_SECONDS * 1000,
+      prochaineExpiration(Date.now()),
     );
 
     // Consume atomique : tout (résolution shortId, validation token, écriture
@@ -301,6 +301,12 @@ export const refreshDisplayToken = onCall(
     if (!expiresAt || expiresAt.toMillis() < Date.now()) {
       throw new HttpsError("deadline-exceeded", "Token expiré, reconfigurez le display");
     }
+
+    // Expiration glissante : chaque rafraîchissement réussi repousse l'échéance
+    // à maintenant + 90 jours. Un écran allumé ne perd donc jamais son appairage.
+    await displaySnap.ref.update({
+      authTokenExpiresAt: admin.firestore.Timestamp.fromMillis(prochaineExpiration(Date.now())),
+    });
 
     const displayUid = `display:${displayId}`;
     const customToken = await auth.createCustomToken(displayUid, {

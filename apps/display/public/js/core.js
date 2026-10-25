@@ -10,11 +10,40 @@
     customTokenIssuedAt: 'familyHub.customTokenIssuedAt'
   };
 
-  var CUSTOM_TOKEN_REFRESH_MS = 50 * 60 * 1000; /* 50 min — Firebase custom tokens valent 1h */
+  /* 24 h. La session Firebase est persistante (LOCAL) et le SDK renouvelle
+     seul ses ID tokens : ce rafraîchissement ne sert plus qu'à faire glisser
+     l'expiration de l'authToken (90 jours, prolongée côté serveur à chaque
+     refreshDisplayToken réussi). */
+  var CUSTOM_TOKEN_REFRESH_MS = 24 * 60 * 60 * 1000;
   var REFRESH_RETRY_DELAYS_MS = [5 * 1000, 30 * 1000, 2 * 60 * 1000]; /* 5s, 30s, 2min */
 
+  /* Devient true quand refreshDisplayToken répond par une erreur définitive
+     (écran appairé sur un autre appareil, révoqué, supprimé ou expiré).
+     Plus AUCUN appel à refreshDisplayToken ensuite pendant la vie de la page :
+     retenter ne changerait rien et bouclait à l'infini. L'écran garde ses
+     données (la session Firebase peut rester valide) et affiche un badge
+     « à reconfigurer ». */
+  var authPermanentlyFailed = false;
+  var PERMANENT_AUTH_ERRORS = [
+    'functions/permission-denied', 'permission-denied',
+    'functions/deadline-exceeded', 'deadline-exceeded',
+    'functions/not-found', 'not-found'
+  ];
+
+  /* Erreur de refreshDisplayToken qui ne se résoudra pas en retentant :
+     authToken remplacé (appairage ailleurs) ou écran révoqué
+     (permission-denied), authToken expiré (deadline-exceeded), écran
+     supprimé (not-found). Accepte le code préfixé (SDK v8) ou nu. */
+  function isPermanentAuthError(code) {
+    var c = code ? String(code) : '';
+    for (var i = 0; i < PERMANENT_AUTH_ERRORS.length; i++) {
+      if (PERMANENT_AUTH_ERRORS[i] === c) return true;
+    }
+    return false;
+  }
+
   /* Guard contre les refresh concurrents. Trois sources peuvent firer
-     refreshCustomToken(0) en parallèle : setInterval 50min,
+     refreshCustomToken(0) en parallèle : setInterval 24 h,
      visibilitychange, onAuthStateChanged(null). Sans guard, deux
      signInWithCustomToken concurrents → la 2e invalide la 1ère →
      onAuthStateChanged(null) → encore un refresh = cascade. Le flag
@@ -137,6 +166,9 @@
    */
   function refreshCustomToken(attemptIdx) {
     attemptIdx = attemptIdx || 0;
+    /* Erreur définitive déjà reçue : on ne rappelle plus jamais le serveur
+       (couvre l'interval 24 h, visibilitychange et onAuthStateChanged). */
+    if (authPermanentlyFailed) return;
     /* Guard concurrent refreshes — uniquement au premier appel (attempt 0).
        Les retries internes (attempt >= 1) sont chaînés depuis le catch
        du précédent, le flag est déjà à true. */
@@ -191,6 +223,17 @@
         if (window.console && window.console.warn) {
           window.console.warn('[auth] refresh attempt ' + (attemptIdx + 1) + ' failed', err);
         }
+        if (isPermanentAuthError(code)) {
+          /* Écran appairé ailleurs / révoqué / supprimé / expiré : retenter
+             ne sert à rien. On arrête tout, on garde le grid et ses données,
+             et on invite à reconfigurer. Pas de reload (il relancerait la
+             boucle). */
+          authPermanentlyFailed = true;
+          refreshInFlight = false;
+          setAuthBadge('paired-elsewhere');
+          setStatus('Écran appairé ailleurs — <a href="setup.html">à reconfigurer</a>');
+          return;
+        }
         if (attemptIdx < REFRESH_RETRY_DELAYS_MS.length) {
           /* Retry programmé — on garde refreshInFlight = true pendant la
              chaîne pour que les triggers concurrents (visibilitychange,
@@ -229,28 +272,23 @@
 
   /**
    * iPad PWA standalone : quand l'iPad sort de veille (visibilitychange →
-   * visible), si le customToken stocké approche de l'expiration, force un
-   * refresh immédiat plutôt que d'attendre le tick setInterval. Ça évite
-   * le scénario "timer fire pendant que le WiFi iPad n'est pas encore
-   * réveillé après le sleep" qui causait des cycles de retry à répétition.
+   * visible), si la session Firebase a été perdue, force un refresh
+   * immédiat plutôt que d'attendre le tick setInterval (24 h).
    */
   function setupVisibilityRefresh() {
     if (!document || !document.addEventListener) return;
     document.addEventListener('visibilitychange', function () {
       if (document.hidden) return;
       if (!state.auth || !state.householdId || !state.functions) return;
-      var issuedAtRaw = getStored(STORAGE.customTokenIssuedAt);
-      var issuedAt = issuedAtRaw ? parseInt(issuedAtRaw, 10) : 0;
-      if (!issuedAt) return;
-      var ageMs = Date.now() - issuedAt;
-      /* customToken Firebase = 1h de validité. Si > 40min on refresh
-         proactivement (10min de marge avant expiration). */
-      if (ageMs > 40 * 60 * 1000) {
-        if (window.console && window.console.log) {
-          window.console.log('[auth] visibilitychange wake : token age ' + Math.round(ageMs / 60000) + 'min, refresh');
-        }
-        refreshCustomToken(0);
+      if (authPermanentlyFailed) return;
+      /* Session Firebase persistante : tant qu'un utilisateur est présent,
+         le SDK renouvelle seul ses ID tokens, rien à faire. On ne relance
+         un refresh au réveil que si la session a été perdue. */
+      if (state.auth.currentUser) return;
+      if (window.console && window.console.log) {
+        window.console.log('[auth] visibilitychange wake : pas de session, refresh');
       }
+      refreshCustomToken(0);
     });
   }
 
@@ -265,9 +303,12 @@
   /**
    * Affiche un petit badge en haut à droite de l'écran avec l'état auth.
    * Visible uniquement quand pas "ok" — pour ne pas polluer le grid normal.
-   * states: 'ok' | 'refreshing' | 'retrying' | 'error'
+   * states: 'ok' | 'refreshing' | 'retrying' | 'error' | 'paired-elsewhere'
+   * 'paired-elsewhere' est définitif : une fois affiché, plus aucun autre
+   * état ne le remplace (ni le fondu de 'ok').
    */
   function setAuthBadge(stateName, detail) {
+    if (authPermanentlyFailed && stateName !== 'paired-elsewhere') return;
     var el = document.getElementById('fh-auth-badge');
     if (!el) {
       el = document.createElement('div');
@@ -285,9 +326,11 @@
       el.style.background = 'rgba(125,159,118,0.85)';
       el.innerHTML = '✓ connecté';
       setTimeout(function () {
+        if (authPermanentlyFailed) return;
         if (el && el.parentNode) {
           el.style.opacity = '0';
           setTimeout(function () {
+            if (authPermanentlyFailed) return;
             if (el && el.parentNode) el.parentNode.removeChild(el);
           }, 500);
         }
@@ -304,6 +347,11 @@
     } else if (stateName === 'error') {
       el.style.background = 'rgba(200,85,61,0.90)';
       el.innerHTML = '⚠ ' + (detail || 'auth perdue');
+    } else if (stateName === 'paired-elsewhere') {
+      /* Texte fixe, jamais err.message : le badge est visible dans la cuisine. */
+      el.style.background = 'rgba(200,85,61,0.90)';
+      el.innerHTML = '⚠ <a href="setup.html" style="color:#fff; text-decoration:underline;">' +
+        'Écran appairé ailleurs — à reconfigurer</a>';
     }
   }
 
