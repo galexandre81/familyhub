@@ -2,12 +2,13 @@ import { onCall, HttpsError, type CallableRequest } from "firebase-functions/v2/
 import { logger } from "firebase-functions";
 import { randomBytes } from "node:crypto";
 import { admin, db } from "../lib/admin";
-import { assertHouseholdMember } from "../lib/household";
 import { requireId } from "../lib/validate";
 import { SHORT_ID_ALPHABET } from "../auth/displayToken";
 import {
   DUREE_INVITATION_MS,
+  peutInviter,
   rolesApresArrivee,
+  utilisateurApresArrivee,
   validerInvitation,
   type RoleFoyer,
   type InvitationDoc,
@@ -58,8 +59,9 @@ function exigerPersonne(req: CallableRequest): string {
 }
 
 /**
- * Appelé depuis le hub (Paramètres) par un membre : crée un lien d'invitation
+ * Appelé depuis le hub (Paramètres) par un parent : crée un lien d'invitation
  * à usage unique, valable 7 jours, qui fait entrer la personne comme parent.
+ * Un enfant ne peut pas inviter (il ferait entrer un parent).
  */
 export const createInvitation = onCall(
   { region: "europe-west1", invoker: "public" },
@@ -68,7 +70,13 @@ export const createInvitation = onCall(
     const input = (req.data ?? {}) as { householdId?: unknown };
     const householdId = requireId(input.householdId, "householdId");
 
-    await assertHouseholdMember(uid, householdId);
+    const householdSnap = await db.doc(`households/${householdId}`).get();
+    if (!householdSnap.exists) {
+      throw new HttpsError("not-found", `Household ${householdId} introuvable`);
+    }
+    if (!peutInviter(householdSnap.data(), uid)) {
+      throw new HttpsError("permission-denied", "Seul un parent du foyer peut inviter");
+    }
 
     const expiresAt = admin.firestore.Timestamp.fromMillis(Date.now() + DUREE_INVITATION_MS);
     for (let attempt = 0; attempt < 8; attempt++) {
@@ -121,8 +129,6 @@ export const acceptInvitation = onCall(
       const membres = (household.membres as string[] | undefined) ?? [];
 
       const userRef = db.doc(`users/${uid}`);
-      const userSnap = await tx.get(userRef);
-
       const verdict = validerInvitation(inv, uid, membres, Date.now());
       if (!verdict.ok) throw refus(verdict.raison);
 
@@ -143,7 +149,8 @@ export const acceptInvitation = onCall(
         userRef,
         {
           householdsIds: admin.firestore.FieldValue.arrayUnion(householdId),
-          ...(userSnap.data()?.defaultHouseholdId ? {} : { defaultHouseholdId: householdId }),
+          // Le foyer rejoint devient celui qu'ouvre le hub (useHouseholds le met en tête).
+          ...utilisateurApresArrivee(householdId),
         },
         { merge: true },
       );

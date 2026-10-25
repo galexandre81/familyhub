@@ -8,6 +8,7 @@ import { heureValide, heuresRepasValides, type HeuresRepas, type HouseholdParame
 import HouseholdForm from "../components/HouseholdForm";
 import InviterMembre from "../components/InviterMembre";
 import { useInvitationEnAttente } from "../lib/invitationContext";
+import { estParent } from "../lib/personnes";
 
 const REPAS_CHAMPS: Array<{ repas: Repas; label: string }> = [
   { repas: "petitDej", label: "Petit-déjeuner" },
@@ -175,7 +176,11 @@ export default function Parametres() {
       </section>
 
       {households && households.length > 0 && (
-        <InviterMembre householdId={households[0].id} nomFoyer={households[0].nom} />
+        <InviterMembre
+          householdId={households[0].id}
+          nomFoyer={households[0].nom}
+          parent={estParent(households[0], user.uid)}
+        />
       )}
 
       {households && households.length > 0 && (

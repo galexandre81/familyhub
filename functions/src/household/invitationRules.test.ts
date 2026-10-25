@@ -1,5 +1,11 @@
 import { describe, it, expect } from "vitest";
-import { rolesApresArrivee, validerInvitation, type InvitationDoc } from "./invitationRules";
+import {
+  peutInviter,
+  rolesApresArrivee,
+  utilisateurApresArrivee,
+  validerInvitation,
+  type InvitationDoc,
+} from "./invitationRules";
 
 const NOW = 1_800_000_000_000;
 
@@ -92,5 +98,32 @@ describe("rolesApresArrivee", () => {
       marie: "parent",
     });
     expect(avant).toEqual({ alex: "parent", leo: "enfant" });
+  });
+});
+
+describe("peutInviter", () => {
+  it("un parent peut inviter", () => {
+    expect(peutInviter({ membres: ["g", "a"], roles: { g: "parent", a: "enfant" } }, "g")).toBe(true);
+  });
+  it("un enfant ne peut pas inviter", () => {
+    expect(peutInviter({ membres: ["g", "a"], roles: { g: "parent", a: "enfant" } }, "a")).toBe(false);
+  });
+  it("avec une carte roles, un membre sans rôle ne peut pas inviter", () => {
+    expect(peutInviter({ membres: ["g", "x"], roles: { g: "parent" } }, "x")).toBe(false);
+  });
+  it("foyer ancien sans roles : tout membre est parent", () => {
+    expect(peutInviter({ membres: ["g"] }, "g")).toBe(true);
+    expect(peutInviter({ membres: ["g"], roles: null }, "g")).toBe(true);
+  });
+  it("non-membre ou foyer absent : refusé", () => {
+    expect(peutInviter({ membres: ["g"] }, "marie")).toBe(false);
+    expect(peutInviter(undefined, "g")).toBe(false);
+    expect(peutInviter({}, "g")).toBe(false);
+  });
+});
+
+describe("utilisateurApresArrivee", () => {
+  it("le foyer rejoint devient le foyer par défaut", () => {
+    expect(utilisateurApresArrivee("h2")).toEqual({ defaultHouseholdId: "h2" });
   });
 });

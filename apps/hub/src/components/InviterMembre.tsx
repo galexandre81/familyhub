@@ -6,13 +6,16 @@ import { lienInvitation } from "../lib/invitations";
 interface Props {
   householdId: string;
   nomFoyer: string;
+  /** Seul un parent peut inviter (la fonction `createInvitation` le vérifie aussi). */
+  parent: boolean;
 }
 
 /**
- * Paramètres → « Inviter quelqu'un dans le foyer » : crée un lien à usage
- * unique (7 jours) que la personne ouvre avec son propre compte Google.
+ * Paramètres → « Inviter un parent » : crée un lien à usage unique (7 jours)
+ * que la personne ouvre avec son propre compte Google ; elle entre dans le
+ * foyer comme parent. Pas encore d'invitation d'enfant.
  */
-export default function InviterMembre({ householdId, nomFoyer }: Props) {
+export default function InviterMembre({ householdId, nomFoyer, parent }: Props) {
   const creer = useCreateInvitation();
   const [lien, setLien] = useState<string | null>(null);
   const [etat, setEtat] = useState<"idle" | "copie" | "echec">("idle");
@@ -57,14 +60,21 @@ export default function InviterMembre({ householdId, nomFoyer }: Props) {
 
   return (
     <section className="space-y-3">
-      <h2 className="text-xl">Inviter quelqu'un dans le foyer</h2>
+      <h2 className="text-xl">Inviter un parent</h2>
       <div className="tile-card space-y-4">
         <p className="text-text-secondaire text-base">
-          La personne ouvre le lien et se connecte avec son compte Google. Lien valable 7 jours,
-          une seule fois.
+          La personne ouvre le lien et se connecte avec son compte Google : elle entre dans le
+          foyer comme parent, avec les mêmes droits que toi. Lien valable 7 jours, une seule fois.
         </p>
 
-        {!lien && (
+        {!parent && (
+          <p className="flex items-center gap-2 text-base">
+            <AlertCircle aria-hidden="true" className="h-5 w-5 shrink-0 text-brass" />
+            <span>Seul un parent du foyer peut inviter.</span>
+          </p>
+        )}
+
+        {parent && !lien && (
           <button
             type="button"
             onClick={() => void genererLien()}
@@ -72,7 +82,7 @@ export default function InviterMembre({ householdId, nomFoyer }: Props) {
             className="btn-primary inline-flex min-h-[48px] items-center gap-2"
           >
             <UserPlus aria-hidden="true" size={16} />
-            {creer.isPending ? "Création…" : "Créer un lien d'invitation"}
+            {creer.isPending ? "Création…" : "Inviter un parent"}
           </button>
         )}
 

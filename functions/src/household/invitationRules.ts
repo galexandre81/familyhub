@@ -67,3 +67,28 @@ export function rolesApresArrivee(
   out[uid] = role;
   return out;
 }
+
+/**
+ * Seul un parent peut inviter (l'invité entre comme parent). Même règle que
+ * `estParent` côté hub (apps/hub/src/lib/personnes.ts) : rôle explicite si
+ * la carte `roles` existe, sinon (foyer ancien) tout membre est parent.
+ */
+export function peutInviter(
+  household: { membres?: unknown; roles?: unknown } | undefined,
+  uid: string,
+): boolean {
+  if (!household) return false;
+  const roles = household.roles;
+  if (typeof roles === "object" && roles !== null && !Array.isArray(roles)) {
+    return (roles as Record<string, unknown>)[uid] === "parent";
+  }
+  return Array.isArray(household.membres) && household.membres.includes(uid);
+}
+
+/**
+ * Champs du doc `users/{uid}` (hors `householdsIds`) après l'arrivée : le foyer
+ * rejoint devient le foyer par défaut, pour que le hub l'ouvre tout de suite.
+ */
+export function utilisateurApresArrivee(householdId: string): { defaultHouseholdId: string } {
+  return { defaultHouseholdId: householdId };
+}
