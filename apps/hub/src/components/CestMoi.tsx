@@ -34,14 +34,20 @@ export default function CestMoi() {
             <button
               type="button"
               disabled={lier.isPending}
-              onClick={() =>
+              onClick={() => {
+                if (
+                  p.uid &&
+                  p.uid !== user.uid &&
+                  !window.confirm("Ce profil est déjà relié à un autre compte. Le reprendre ?")
+                )
+                  return;
                 lier.mutate({
                   householdId,
                   profilId: p.id,
                   uid: user.uid,
                   autresProfilIds: dejaLies,
-                })
-              }
+                });
+              }}
               className="w-full min-h-12 flex items-center gap-3 rounded-xl bg-ebony-card border border-hairline px-4 py-2 text-left text-cream text-lg"
             >
               <ProfilBadge

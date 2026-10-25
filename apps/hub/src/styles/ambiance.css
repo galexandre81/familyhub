@@ -10,6 +10,7 @@
   --c-wood-dark: 201 214 198;
   --c-maintenant: 245 194 66;
   --c-bordure: 30 43 34;
+  --c-p-texte: 255 255 255;
   --c-p-sapin: 43 122 75;
   --c-p-toleRouge: 200 70 43;
   --c-p-lilas: 138 85 208;
@@ -28,6 +29,7 @@ html.amb-jour {
   --c-wood-dark: 201 214 198;
   --c-maintenant: 245 194 66;
   --c-bordure: 30 43 34;
+  --c-p-texte: 255 255 255;
   --c-p-sapin: 43 122 75;
   --c-p-toleRouge: 200 70 43;
   --c-p-lilas: 138 85 208;
@@ -46,6 +48,7 @@ html.amb-nuit {
   --c-wood-dark: 44 63 92;
   --c-maintenant: 255 181 71;
   --c-bordure: 44 63 92;
+  --c-p-texte: 15 27 45;
   --c-p-sapin: 91 192 138;
   --c-p-toleRouge: 242 131 106;
   --c-p-lilas: 185 148 242;

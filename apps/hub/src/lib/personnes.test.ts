@@ -29,5 +29,7 @@ describe("estParent", () => {
   it("parent explicite", () => expect(estParent(h({ u1: "parent" }), "u1")).toBe(true));
   it("enfant", () => expect(estParent(h({ u1: "parent", u2: "enfant" }), "u2")).toBe(false));
   it("roles absent : membre = parent", () => expect(estParent(h(undefined), "u2")).toBe(true));
+  it("roles présent, uid absent : false", () =>
+    expect(estParent(h({ u1: "parent" }), "u2")).toBe(false));
   it("roles absent : non-membre", () => expect(estParent(h(undefined), "u9")).toBe(false));
 });

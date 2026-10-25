@@ -16,5 +16,9 @@ describe("hubCss", () => {
     expect(css).toContain("--c-ebony: 15 27 45;");
     expect(css).toContain("--c-p-toleRouge: 242 131 106;");
     expect(css).toContain("--c-p-sapin: 43 122 75;");
+    const jour = css.slice(css.indexOf("html.amb-jour {"), css.indexOf("html.amb-nuit {"));
+    const nuit = css.slice(css.indexOf("html.amb-nuit {"));
+    expect(jour).toContain("--c-p-texte: 255 255 255;");
+    expect(nuit).toContain("--c-p-texte: 15 27 45;");
   });
 });

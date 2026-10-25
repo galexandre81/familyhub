@@ -66,9 +66,7 @@ export default function Profils() {
                     initiale={p.initiale}
                     couleur={p.couleur}
                     couleurPersonne={p.couleurPersonne}
-                    emoji={p.emoji}
                     size="lg"
-                    showEmojiBeside
                   />
                   <div className="flex-1 min-w-0">
                     <p className="font-semibold text-lg">{p.nom}</p>

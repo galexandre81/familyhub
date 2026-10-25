@@ -116,7 +116,6 @@ export default function SlotCard({
                 initiale={p.initiale}
                 couleur={p.couleur}
                 couleurPersonne={p.couleurPersonne}
-                emoji={p.emoji}
                 size="sm"
               />
             );

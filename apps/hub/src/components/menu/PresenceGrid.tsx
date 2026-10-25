@@ -132,7 +132,6 @@ export default function PresenceGrid({
                                 initiale={p.initiale}
                                 couleur={p.couleur}
                                 couleurPersonne={p.couleurPersonne}
-                                emoji={p.emoji}
                                 size="sm"
                               />
                             </button>

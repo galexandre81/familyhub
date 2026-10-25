@@ -15,6 +15,7 @@ function bloc(selecteur: string, a: Ambiance): string {
     ["--c-maintenant", t(j.maintenant)],
     ["--c-bordure", t(j.bordure)],
   ];
+  lignes.push(["--c-p-texte", a === "jour" ? "255 255 255" : t("#0F1B2D")]);
   for (const [nom, couleurs] of Object.entries(PERSONNES)) {
     lignes.push([`--c-p-${nom}`, t(couleurs[a])]);
   }

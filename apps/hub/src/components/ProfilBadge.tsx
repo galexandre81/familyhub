@@ -7,11 +7,7 @@ interface ProfilBadgeProps {
   couleur?: string;
   /** Couleur de personne du design system. */
   couleurPersonne?: CouleurPersonne;
-  /** Conservé pour compatibilité : l'emoji n'est plus affiché (un seul repère : la pastille). */
-  emoji?: string;
   size?: "sm" | "md" | "lg";
-  /** Conservé pour compatibilité, sans effet. */
-  showEmojiBeside?: boolean;
 }
 
 const SIZES = {
@@ -28,7 +24,11 @@ export default function ProfilBadge({
 }: ProfilBadgeProps) {
   const s = SIZES[size];
   const fond = couleurDuProfil({ couleurPersonne, couleur: couleur ?? "#888888" });
-  const textColor = couleurPersonne || !isLightColor(fond) ? "#ffffff" : "#1a1a1a";
+  const textColor = couleurPersonne
+    ? "rgb(var(--c-p-texte))"
+    : isLightColor(fond)
+      ? "#1a1a1a"
+      : "#ffffff";
 
   return (
     <span className="inline-flex items-center gap-1.5">

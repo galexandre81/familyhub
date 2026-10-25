@@ -454,7 +454,6 @@ function StepAttendance({
                     initiale={p.initiale}
                     couleur={p.couleur}
                     couleurPersonne={p.couleurPersonne}
-                    emoji={p.emoji}
                     size="md"
                   />
                 </div>
