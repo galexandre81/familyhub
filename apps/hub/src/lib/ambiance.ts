@@ -5,14 +5,18 @@ import { parseOpenMeteoSun, type SunTimes } from "./sunTimes";
 /**
  * Ambiance jour/nuit du hub (design system Alpage + Veillée).
  *
- * - Sans localisation (racine de l'app : login, écrans de chargement) : on
- *   lit le lever/coucher du jour en cache s'il existe, sinon repli 07–19.
- * - Avec localisation (Layout) : on récupère lever/coucher via Open-Meteo,
- *   mis en cache `localStorage` sous `fh.sun.<YYYY-MM-DD>` (date locale).
+ * Deux appels au plus :
+ * - racine de l'app, sans localisation (login, écrans de chargement) :
+ *   repli 07–19 uniquement ;
+ * - Layout, avec la localisation du foyer : lever/coucher via Open-Meteo,
+ *   cache `localStorage` sous `fh.sun.<YYYY-MM-DD>.<lat>,<lon>` (2 décimales).
+ *
+ * Priorité : tant qu'un appel « localisé » est monté, il est seul à poser la
+ * classe ; l'appel de la racine s'abstient (compteur module). Au démontage du
+ * dernier appel localisé (déconnexion), le repli est réappliqué aussitôt.
  *
  * Recalcul chaque minute ; pose `amb-jour` / `amb-nuit` sur <html> et met à
- * jour `<meta name="theme-color">`. Les deux appels convergent : celui de la
- * racine relit le cache écrit par celui du Layout à la minute suivante.
+ * jour `<meta name="theme-color">`.
  */
 
 interface LocalisationSoleil {
@@ -23,11 +27,14 @@ interface LocalisationSoleil {
 
 const PREFIXE_CACHE = "fh.sun.";
 
-function cleDuJour(d: Date): string {
+/** Nombre d'appels localisés montés (Layout) : ils ont priorité sur la racine. */
+let appelsLocalises = 0;
+
+function cleDuJour(d: Date, lat: number, lon: number): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const j = String(d.getDate()).padStart(2, "0");
-  return `${PREFIXE_CACHE}${y}-${m}-${j}`;
+  return `${PREFIXE_CACHE}${y}-${m}-${j}.${lat.toFixed(2)},${lon.toFixed(2)}`;
 }
 
 function lireCache(cle: string): SunTimes | null {
@@ -59,14 +66,21 @@ function appliquer(a: Ambiance): void {
   if (meta) meta.content = AMBIANCES[a].fond;
 }
 
-export function useAmbiance(localisation?: LocalisationSoleil): Ambiance {
-  const [maintenant, setMaintenant] = useState(() => new Date());
-  const [sun, setSun] = useState<SunTimes | null>(() => lireCache(cleDuJour(new Date())));
+function memeSoleil(a: SunTimes | null, b: SunTimes | null): boolean {
+  return a?.sunrise === b?.sunrise && a?.sunset === b?.sunset;
+}
 
-  const cle = cleDuJour(maintenant);
+export function useAmbiance(localisation?: LocalisationSoleil): Ambiance {
   const lat = localisation?.lat;
   const lon = localisation?.lon;
   const timezone = localisation?.timezone;
+  const localise = lat !== undefined && lon !== undefined && !!timezone;
+
+  const [maintenant, setMaintenant] = useState(() => new Date());
+  const [sun, setSun] = useState<SunTimes | null>(null);
+
+  const cle =
+    lat !== undefined && lon !== undefined && timezone ? cleDuJour(maintenant, lat, lon) : null;
 
   /* Horloge : recalcul chaque minute. */
   useEffect(() => {
@@ -74,16 +88,27 @@ export function useAmbiance(localisation?: LocalisationSoleil): Ambiance {
     return () => window.clearInterval(id);
   }, []);
 
-  /* Chaque minute : relecture du cache (l'autre appel a pu l'écrire). */
+  /* Priorité de l'appel localisé ; au démontage du dernier, repli 07–19. */
   useEffect(() => {
-    const enCache = lireCache(cle);
-    if (enCache) setSun(enCache);
-  }, [cle, maintenant]);
+    if (!localise) return;
+    appelsLocalises += 1;
+    return () => {
+      appelsLocalises -= 1;
+      if (appelsLocalises === 0) appliquer(ambianceAt(new Date(), null));
+    };
+  }, [localise]);
 
-  /* Une requête Open-Meteo par jour et par localisation, si rien en cache. */
+  /* Lever / coucher : cache du jour, sinon une requête Open-Meteo par clé. */
   useEffect(() => {
-    if (lireCache(cle)) return;
-    if (lat === undefined || lon === undefined || !timezone) return;
+    if (!cle || lat === undefined || lon === undefined || !timezone) {
+      setSun((prev) => (prev === null ? prev : null));
+      return;
+    }
+    const enCache = lireCache(cle);
+    if (enCache) {
+      setSun((prev) => (memeSoleil(prev, enCache) ? prev : enCache));
+      return;
+    }
     const ctrl = new AbortController();
     const url =
       "https://api.open-meteo.com/v1/forecast" +
@@ -95,7 +120,7 @@ export function useAmbiance(localisation?: LocalisationSoleil): Ambiance {
         const lu = parseOpenMeteoSun(json);
         if (!lu) return;
         ecrireCache(cle, lu);
-        setSun(lu);
+        setSun((prev) => (memeSoleil(prev, lu) ? prev : lu));
       })
       .catch(() => {
         /* hors ligne ou annulé : repli 07–19 via ambianceAt */
@@ -106,8 +131,10 @@ export function useAmbiance(localisation?: LocalisationSoleil): Ambiance {
   const ambiance = ambianceAt(maintenant, sun);
 
   useEffect(() => {
+    /* La racine s'abstient tant qu'un appel localisé est monté. */
+    if (!localise && appelsLocalises > 0) return;
     appliquer(ambiance);
-  }, [ambiance]);
+  }, [ambiance, localise]);
 
   return ambiance;
 }

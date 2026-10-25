@@ -72,9 +72,6 @@
     @apply bg-ebony-card rounded-tile p-7 relative;
     border: 1px solid theme(colors.wood.dark);
     box-shadow: theme(boxShadow.tile);
-    background-image:
-      linear-gradient(180deg, rgba(217, 160, 91, 0.04), transparent 60%),
-      linear-gradient(90deg, rgba(0,0,0,0.04) 0px, transparent 1px, transparent 40px, rgba(0,0,0,0.03) 41px, transparent 42px);
   }
 
   /* Brass ornament top-right */
@@ -138,7 +135,7 @@
   .input:focus {
     @apply outline-none;
     border-color: theme(colors.brass.DEFAULT);
-    box-shadow: 0 0 0 3px rgba(217, 160, 91, 0.15);
+    box-shadow: 0 0 0 3px rgb(var(--c-brass) / 0.15);
   }
 
   /* Hairline divider with brass diamond */
