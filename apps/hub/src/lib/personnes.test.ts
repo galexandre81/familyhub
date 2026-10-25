@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Household, Profil } from "@family-hub/types";
-import { couleurDuProfil, estParent, profilDuCompte } from "./personnes";
+import { couleurDuProfil, estParent, profilDuCompte, teinteLaPlusProche } from "./personnes";
 
 describe("couleurDuProfil", () => {
   it("utilise la variable du design system quand couleurPersonne est présent", () => {
@@ -32,4 +32,23 @@ describe("estParent", () => {
   it("roles présent, uid absent : false", () =>
     expect(estParent(h({ u1: "parent" }), "u2")).toBe(false));
   it("roles absent : non-membre", () => expect(estParent(h(undefined), "u9")).toBe(false));
+});
+
+describe("teinteLaPlusProche", () => {
+  it("retrouve la teinte exacte de la palette (jour ou nuit)", () => {
+    expect(teinteLaPlusProche("#2B7A4B")).toBe("sapin");
+    expect(teinteLaPlusProche("#B994F2")).toBe("lilas");
+  });
+  it("rapproche les anciens hex libres de la teinte la plus proche", () => {
+    expect(teinteLaPlusProche("#81B29A")).toBe("sapin");
+    expect(teinteLaPlusProche("#E07A5F")).toBe("toleRouge");
+    expect(teinteLaPlusProche("#F2CC8F")).toBe("miel");
+    expect(teinteLaPlusProche("#4A6F8F")).toBe("ardoise");
+    expect(teinteLaPlusProche("#abc")).toBeTypeOf("string");
+  });
+  it("hex illisible ou absent → sapin", () => {
+    expect(teinteLaPlusProche("rouge")).toBe("sapin");
+    expect(teinteLaPlusProche(undefined)).toBe("sapin");
+    expect(teinteLaPlusProche("")).toBe("sapin");
+  });
 });

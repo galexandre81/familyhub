@@ -3,6 +3,7 @@ import { Plus, X } from "lucide-react";
 import type { Profil, Absence, RepasKey, CouleurPersonne } from "@family-hub/types";
 import { useCreateProfil, useUpdateProfil } from "../lib/mutations";
 import ProfilBadge from "./ProfilBadge";
+import { teinteLaPlusProche } from "../lib/personnes";
 
 type ContrainteMedicale = NonNullable<Profil["contraintesMedicales"]>[number];
 type Tolerance = NonNullable<Profil["tolerances"]>[number];
@@ -57,9 +58,18 @@ export default function ProfilForm({
 
   const [nom, setNom] = useState(existing?.nom ?? "");
   const [initiale, setInitiale] = useState(existing?.initiale ?? "");
-  const [couleurPersonne, setCouleurPersonne] = useState<CouleurPersonne>(
-    existing?.couleurPersonne ?? "sapin",
+  /**
+   * Teinte choisie. Un ancien profil (hex libre, sans `couleurPersonne`) part
+   * sur la teinte la plus proche, affichée mais PAS enregistrée : seule une
+   * teinte touchée (ou déjà présente) est écrite, sinon on garde l'ancienne
+   * couleur telle quelle. Un nouveau profil enregistre la teinte affichée.
+   */
+  const [couleurChoisie, setCouleurPersonne] = useState<CouleurPersonne | undefined>(
+    existing?.couleurPersonne,
   );
+  const couleurPersonne: CouleurPersonne =
+    couleurChoisie ?? (existing ? teinteLaPlusProche(existing.couleur) : "sapin");
+  const couleurProposee = !!existing && !couleurChoisie;
   const [emoji, setEmoji] = useState<string | undefined>(existing?.emoji);
   const [regimes, setRegimes] = useState<string[]>(existing?.regimes ?? []);
   const [aversions, setAversions] = useState<string[]>(existing?.aversions ?? []);
@@ -129,7 +139,7 @@ export default function ProfilForm({
         nom: nom.trim(),
         initiale: initiale.trim(),
         couleur: existing?.couleur ?? "#81B29A",
-        couleurPersonne,
+        ...(isEdit ? (couleurChoisie ? { couleurPersonne: couleurChoisie } : {}) : { couleurPersonne }),
         emoji,
         regimes,
         aversions,
@@ -217,6 +227,11 @@ export default function ProfilForm({
             </button>
           ))}
         </div>
+        {couleurProposee && (
+          <p className="mt-2 text-sm text-text-secondaire">
+            Teinte la plus proche de l'ancienne couleur. Touche une teinte pour l'enregistrer.
+          </p>
+        )}
       </Field>
 
       <Field label="Emoji (optionnel)">
