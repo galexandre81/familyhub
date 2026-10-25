@@ -193,6 +193,13 @@ describe("vues", () => {
     expect(v.tries.map((a) => a.id)).toEqual(["lait", "poivre", "pain"]);
   });
 
+  it("vueTri : un article est « placard » si son drapeau est vrai OU si le prédicat le dit", () => {
+    const liste = [art("farine", { ordre: 0 }), art("poireau", { ordre: 1 }), art("sel", { placard: true, ordre: 2 })];
+    const v = vueTri(liste, (a) => a.nom === "farine");
+    expect(v.placard.map((a) => a.id)).toEqual(["farine", "sel"]);
+    expect(v.aTrier.map((a) => a.id)).toEqual(["poireau"]);
+  });
+
   it("vueMagasin : magasin + non triés, jamais « déjà » ni drive", () => {
     expect(vueMagasin(articles).map((a) => a.id)).toEqual(["ail", "poireau", "pain", "sel"]);
   });

@@ -148,11 +148,14 @@ export function grouperParRayon<T extends ArticleAvecId>(articles: T[]): GroupeR
  */
 export function vueTri<T extends ArticleAvecId>(
   articles: T[],
+  /** Statut « placard » calculé à la lecture (liste du foyer) ; s'ajoute au drapeau stocké. */
+  estPlacard: (article: T) => boolean = () => false,
 ): { placard: T[]; aTrier: T[]; tries: T[] } {
   const tries = [...articles].sort(parOrdre);
+  const placard = (a: T) => a.placard || estPlacard(a);
   return {
-    placard: tries.filter((a) => a.destination === "a-trier" && a.placard),
-    aTrier: tries.filter((a) => a.destination === "a-trier" && !a.placard),
+    placard: tries.filter((a) => a.destination === "a-trier" && placard(a)),
+    aTrier: tries.filter((a) => a.destination === "a-trier" && !placard(a)),
     tries: tries.filter((a) => a.destination !== "a-trier"),
   };
 }

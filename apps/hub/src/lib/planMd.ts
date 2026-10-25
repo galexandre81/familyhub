@@ -355,6 +355,7 @@ CONSIGNES JSON :
 5. Génère la liste de courses agrégée, groupée par rayon, en sommant les ingrédients communs entre recettes ET en EXCLUANT ceux marqués \`noteFrigo: true\`.
 6. Si batch cooking : les slots qui consomment ce batch ont \`source: "batch"\` et \`batchSessionTempId\` correspondant.
 7. \`profilsPresentsNoms\` : copie EXACTEMENT les noms du tableau de présence (case + accents importants).
+8. Produits de placard : pour les produits qu'on a en général à la maison (sel, poivre, farine, sucre, huiles, vinaigres, moutarde, épices, levure, bouillon, etc.), ajoute \`"placard": true\` sur l'article de la liste de courses, **sans les retirer de la liste** : ils restent dans \`shoppingList.items\`, l'application les range à part (« à vérifier dans le placard »). Omets le champ pour tous les autres articles.
 
 SCHÉMA JSON DE SORTIE ATTENDU :
 \`\`\`
@@ -413,7 +414,8 @@ SCHÉMA JSON DE SORTIE ATTENDU :
         "quantite": number,
         "unite": "string",
         "rayon": "string",                            // mêmes valeurs que ingredient.rayon
-        "recetteTempIds": ["r1", "r2"]                // de quelles recettes vient cet item
+        "recetteTempIds": ["r1", "r2"],               // de quelles recettes vient cet item
+        "placard": true                               // optionnel — voir consigne 8
       }
     ]
   },

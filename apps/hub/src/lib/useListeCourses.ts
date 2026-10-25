@@ -62,12 +62,17 @@ export interface ListeCoursesApi {
   cocher(id: string, coche: boolean): void;
   ajouterOubli(nom: string): void;
   supprimer(id: string): void;
+  /**
+   * Article « placard » : drapeau stocké OU nom reconnu par la liste du foyer
+   * (calculé à la lecture, pour les listes déjà migrées). À passer à `vueTri`.
+   */
+  estPlacardArticle(article: ArticleCourses): boolean;
 }
 
 export interface ListeCoursesOptions {
   /**
-   * Produit de placard ? Utilisé à la migration. Par défaut aucun (la vraie
-   * liste du foyer arrive avec les produits de placard).
+   * Produit de placard (selon la liste du foyer) ? Utilisé à la migration et
+   * à la lecture. Par défaut aucun.
    */
   estPlacard?: (nom: string) => boolean;
 }
@@ -281,5 +286,10 @@ export function useListeCourses(
     [refArticle],
   );
 
-  return { liste, articles, chargement, trier, cocher, ajouterOubli, supprimer };
+  const estPlacardArticle = useCallback(
+    (article: ArticleCourses) => article.placard === true || estPlacardRef.current(article.nom),
+    [],
+  );
+
+  return { liste, articles, chargement, trier, cocher, ajouterOubli, supprimer, estPlacardArticle };
 }

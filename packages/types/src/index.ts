@@ -24,3 +24,4 @@ export * from "./courseItem";
 export * from "./shoppingList";
 export * from "./heuresRepas";
 export * from "./texte";
+export * from "./placard";

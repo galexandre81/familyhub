@@ -7,6 +7,8 @@ export interface HouseholdParametres {
   systemeUnites: UnitSystem;
   /** Heures des repas ; absent = HEURES_REPAS_DEFAUT. */
   heuresRepas?: HeuresRepas;
+  /** Produits de placard du foyer ; absent = PLACARD_DEFAUT. */
+  placard?: string[];
 }
 
 /** Rôle d'une personne dans le foyer. Copie dans functions/src/household/invitationRules.ts. */

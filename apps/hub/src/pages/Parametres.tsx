@@ -1,10 +1,18 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { Check, ChevronRight, Pencil, Users } from "lucide-react";
+import { Check, ChevronRight, Pencil, Users, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useHouseholds } from "../lib/queries";
 import { useUpdateHousehold } from "../lib/mutations";
-import { heureValide, heuresRepasValides, type HeuresRepas, type HouseholdParametres, type Repas } from "@family-hub/types";
+import {
+  heureValide,
+  heuresRepasValides,
+  normaliserNom,
+  PLACARD_DEFAUT,
+  type HeuresRepas,
+  type HouseholdParametres,
+  type Repas,
+} from "@family-hub/types";
 import HouseholdForm from "../components/HouseholdForm";
 import InviterMembre from "../components/InviterMembre";
 import { useInvitationEnAttente } from "../lib/invitationContext";
@@ -88,6 +96,93 @@ function HeuresRepasSection({
             <Check size={14} /> Enregistré
           </span>
         )}
+        {update.isError && <span className="text-sm text-red-600">Échec de l'enregistrement.</span>}
+      </div>
+    </section>
+  );
+}
+
+function ProduitsPlacardSection({
+  uid,
+  householdId,
+  parametres,
+}: {
+  uid: string;
+  householdId: string;
+  parametres: HouseholdParametres;
+}) {
+  const update = useUpdateHousehold();
+  const liste = parametres.placard ?? PLACARD_DEFAUT;
+  const [saisie, setSaisie] = useState("");
+
+  function enregistrer(placard: string[]) {
+    update.mutate({ uid, householdId, patch: { parametres: { ...parametres, placard } } });
+  }
+
+  function ajouter() {
+    const nom = saisie.trim();
+    if (!nom) return;
+    setSaisie("");
+    const cle = normaliserNom(nom);
+    if (liste.some((p) => normaliserNom(p) === cle)) return;
+    enregistrer([...liste, nom]);
+  }
+
+  return (
+    <section className="tile-card space-y-3">
+      <h2 className="text-xl">Produits de placard</h2>
+      <p className="text-text-secondaire text-sm">
+        Les produits que tu as en général à la maison : ils sont rangés à part dans la liste de courses,
+        « Sûrement dans le placard — à vérifier ».
+      </p>
+      {liste.length === 0 ? (
+        <p className="text-text-secondaire text-sm">Aucun produit de placard.</p>
+      ) : (
+        <ul className="flex flex-wrap gap-2">
+          {liste.map((produit) => (
+            <li
+              key={produit}
+              className="flex items-center gap-1 rounded-full border border-bordure pl-3 pr-1 py-1 text-sm"
+            >
+              <span>{produit}</span>
+              <button
+                type="button"
+                onClick={() => enregistrer(liste.filter((p) => p !== produit))}
+                aria-label={`Retirer ${produit}`}
+                className="p-1 rounded-full hover:bg-bordure/60"
+              >
+                <X size={14} />
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+      <form
+        className="flex items-center gap-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          ajouter();
+        }}
+      >
+        <input
+          value={saisie}
+          onChange={(e) => setSaisie(e.target.value)}
+          className="input flex-1"
+          placeholder="Ajouter un produit"
+          aria-label="Nouveau produit de placard"
+        />
+        <button type="submit" disabled={!saisie.trim()} className="btn-primary text-sm">
+          Ajouter
+        </button>
+      </form>
+      <div className="flex items-center gap-3">
+        <button
+          type="button"
+          onClick={() => enregistrer([...PLACARD_DEFAUT])}
+          className="btn-secondary text-sm"
+        >
+          Remettre la liste par défaut
+        </button>
         {update.isError && <span className="text-sm text-red-600">Échec de l'enregistrement.</span>}
       </div>
     </section>
@@ -185,6 +280,15 @@ export default function Parametres() {
 
       {households && households.length > 0 && (
         <HeuresRepasSection
+          key={households[0].id}
+          uid={user.uid}
+          householdId={households[0].id}
+          parametres={households[0].parametres}
+        />
+      )}
+
+      {households && households.length > 0 && (
+        <ProduitsPlacardSection
           key={households[0].id}
           uid={user.uid}
           householdId={households[0].id}
