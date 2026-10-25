@@ -22,3 +22,4 @@ export * from "./recette";
 export * from "./mealPlan";
 export * from "./courseItem";
 export * from "./shoppingList";
+export * from "./heuresRepas";

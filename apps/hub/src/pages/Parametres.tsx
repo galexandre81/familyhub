@@ -1,11 +1,91 @@
 import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
-import { ChevronRight, Pencil, Users } from "lucide-react";
+import { Check, ChevronRight, Pencil, Users } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useHouseholds } from "../lib/queries";
+import { useUpdateHousehold } from "../lib/mutations";
+import { HEURES_REPAS_DEFAUT, type HeuresRepas, type HouseholdParametres, type Repas } from "@family-hub/types";
 import HouseholdForm from "../components/HouseholdForm";
 import InviterMembre from "../components/InviterMembre";
 import { useInvitationEnAttente } from "../lib/invitationContext";
+
+const REPAS_CHAMPS: Array<{ repas: Repas; label: string }> = [
+  { repas: "petitDej", label: "Petit-déjeuner" },
+  { repas: "dej", label: "Déjeuner" },
+  { repas: "diner", label: "Dîner" },
+];
+
+function HeuresRepasSection({
+  uid,
+  householdId,
+  parametres,
+}: {
+  uid: string;
+  householdId: string;
+  parametres: HouseholdParametres;
+}) {
+  const update = useUpdateHousehold();
+  const [heures, setHeures] = useState<HeuresRepas>(parametres.heuresRepas ?? HEURES_REPAS_DEFAUT);
+  const [enregistre, setEnregistre] = useState(false);
+
+  function set(periode: keyof HeuresRepas, repas: Repas, valeur: string) {
+    setEnregistre(false);
+    setHeures((h) => ({ ...h, [periode]: { ...h[periode], [repas]: valeur } }));
+  }
+
+  function enregistrer() {
+    update.mutate(
+      { uid, householdId, patch: { parametres: { ...parametres, heuresRepas: heures } } },
+      { onSuccess: () => setEnregistre(true) },
+    );
+  }
+
+  return (
+    <section className="tile-card space-y-3">
+      <h2 className="text-xl">Heures des repas</h2>
+      <p className="text-text-secondaire text-sm">
+        Sert à afficher le prochain repas sur le téléphone.
+      </p>
+      <div className="grid grid-cols-[1fr_auto_auto] gap-x-3 gap-y-2 items-center">
+        <span />
+        <span className="text-sm font-medium">Semaine</span>
+        <span className="text-sm font-medium">Week-end</span>
+        {REPAS_CHAMPS.map(({ repas, label }) => (
+          <div key={repas} className="contents">
+            <label htmlFor={`semaine-${repas}`}>{label}</label>
+            <input
+              id={`semaine-${repas}`}
+              type="time"
+              value={heures.semaine[repas]}
+              onChange={(e) => set("semaine", repas, e.target.value)}
+              className="input"
+              aria-label={`${label}, semaine`}
+            />
+            <input
+              id={`weekend-${repas}`}
+              type="time"
+              value={heures.weekend[repas]}
+              onChange={(e) => set("weekend", repas, e.target.value)}
+              className="input"
+              aria-label={`${label}, week-end`}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="flex items-center gap-3">
+        <button onClick={enregistrer} disabled={update.isPending} className="btn-primary text-sm">
+          {update.isPending ? "Enregistrement…" : "Enregistrer"}
+        </button>
+        {enregistre && (
+          <span className="text-sm flex items-center gap-1">
+            <Check size={14} /> Enregistré
+          </span>
+        )}
+        {update.isError && <span className="text-sm text-red-600">Échec de l'enregistrement.</span>}
+      </div>
+    </section>
+  );
+}
 
 export default function Parametres() {
   const { user } = useAuth();
@@ -90,6 +170,15 @@ export default function Parametres() {
 
       {households && households.length > 0 && (
         <InviterMembre householdId={households[0].id} nomFoyer={households[0].nom} />
+      )}
+
+      {households && households.length > 0 && (
+        <HeuresRepasSection
+          key={households[0].id}
+          uid={user.uid}
+          householdId={households[0].id}
+          parametres={households[0].parametres}
+        />
       )}
 
       {households && households.length > 0 && (

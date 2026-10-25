@@ -35,6 +35,8 @@ jobs:
       # Inclut displayAmbiance.test.ts : fonctions pures de l'iPad (apps/display/public/js/ambiance.js).
       - name: Test (design)
         run: npm test --workspace=@family-hub/design
+      - name: Test (types)
+        run: npm test --workspace=@family-hub/types
       - name: Test (functions)
         run: npm test --workspace=functions --if-present
       - name: Test (hub)

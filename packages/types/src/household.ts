@@ -1,9 +1,12 @@
+import type { HeuresRepas } from "./heuresRepas";
 import type { Language, Localisation, Timestamp, UnitSystem } from "./common";
 
 export interface HouseholdParametres {
   localisation: Localisation;
   langue: Language;
   systemeUnites: UnitSystem;
+  /** Heures des repas ; absent = HEURES_REPAS_DEFAUT. */
+  heuresRepas?: HeuresRepas;
 }
 
 /** Rôle d'une personne dans le foyer. Copie dans functions/src/household/invitationRules.ts. */
