@@ -143,6 +143,17 @@
   function getStored(key) {
     try { return localStorage.getItem(key); } catch (e) { return null; }
   }
+  /* Efface l'appairage local (écran supprimé, révoqué, appairé ailleurs ou
+     expiré). La session Firebase en cours n'est pas touchée : le tableau
+     garde ses données jusqu'au nouvel appairage. */
+  function oublierAppairage() {
+    var cles = [STORAGE.householdId, STORAGE.displayId, STORAGE.authToken,
+      STORAGE.customToken, STORAGE.customTokenIssuedAt, 'familyHub.authTokenExpiresAt'];
+    for (var i = 0; i < cles.length; i++) {
+      try { window.localStorage.removeItem(cles[i]); } catch (e) { /* stockage indisponible */ }
+    }
+  }
+
   function setStored(key, val) {
     try { localStorage.setItem(key, val); } catch (e) { /* noop */ }
   }
@@ -239,9 +250,13 @@
              boucle). */
           authPermanentlyFailed = true;
           refreshInFlight = false;
+          /* Ces identifiants ne serviront plus jamais : on les oublie, pour
+             que le prochain code soit bien échangé (setup.html les prenait
+             sinon pour une configuration valide). */
+          oublierAppairage();
           var reasonLabel = pairingReasonLabel(err.details.reason);
           setAuthBadge('paired-elsewhere', err.details.reason);
-          setStatus(reasonLabel + ' — <a href="setup.html">à reconfigurer</a>');
+          setStatus(reasonLabel + ' — <a href="setup.html?reconfigurer=1">à reconfigurer</a>');
           return;
         }
         if (attemptIdx < REFRESH_RETRY_DELAYS_MS.length) {
@@ -377,7 +392,7 @@
       /* Texte fixe par raison serveur (detail = details.reason), jamais
          err.message : le badge est visible dans la cuisine. */
       el.style.background = 'rgba(200,85,61,0.90)';
-      el.innerHTML = '⚠ <a href="setup.html" style="color:#fff; text-decoration:underline;">' +
+      el.innerHTML = '⚠ <a href="setup.html?reconfigurer=1" style="color:#fff; text-decoration:underline;">' +
         pairingReasonLabel(detail) + ' — à reconfigurer</a>';
     }
   }

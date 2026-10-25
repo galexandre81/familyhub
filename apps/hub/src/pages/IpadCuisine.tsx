@@ -46,7 +46,8 @@ export default function IpadCuisine() {
   const { user } = useAuth();
   const householdId = useActiveHouseholdId(user?.uid);
   const { data: households } = useHouseholds(user?.uid);
-  const { data: ecrans, isLoading, isError, refetch } = useDisplays(householdId);
+  // Relu toutes les 15 s : l'appairage se fait sur l'iPad, pas ici.
+  const { data: ecrans, isLoading, isError, refetch } = useDisplays(householdId, 15_000);
   const { data: tiles } = useTiles(householdId);
   const createDisplay = useCreateDisplay();
   const createTile = useCreateTile();
@@ -265,7 +266,10 @@ export default function IpadCuisine() {
           householdId={householdId}
           displayId={ipad.id}
           displayNom={ipad.nom}
-          onClose={() => setAppairageOuvert(false)}
+          onClose={() => {
+            setAppairageOuvert(false);
+            void refetch();
+          }}
         />
       )}
     </div>
