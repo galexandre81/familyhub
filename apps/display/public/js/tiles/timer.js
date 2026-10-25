@@ -196,7 +196,8 @@
     racine.appendChild(pas);
 
     var valeurEl = pas.querySelector('.fh-min-pas-valeur');
-    var lancerEl = pas.querySelector('.fh-min-pas-lancer .fh-min-dedans');
+    var lancerBtn = pas.querySelector('.fh-min-pas-lancer');
+    var lancerEl = lancerBtn.querySelector('.fh-min-dedans');
     function maj() {
       valeurEl.textContent = minutes + ' min';
       lancerEl.textContent = 'Lancer ' + minutes + ' min';
@@ -209,7 +210,8 @@
         maj();
       });
     }
-    lancerEl.addEventListener('click', function () { lancer(minutes); });
+    /* Écouteur sur le <button> (toute sa surface), pas sur le span intérieur. */
+    lancerBtn.addEventListener('click', function () { lancer(minutes); });
     maj();
 
     return {
