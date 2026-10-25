@@ -54,6 +54,9 @@ const SS = {
   nbTelephone: "livre.nbTelephone",
 } as const;
 
+/** Carte du nouveau design (PC). */
+const CARTE_PC = "rounded-2xl bg-ebony-card border border-hairline p-4";
+
 /** Téléphone : nombre de cartes rendues d'un coup (puis « Voir plus »). */
 const PAS_TELEPHONE = 40;
 const AUCUN_FRIGO: string[] = [];
@@ -276,72 +279,80 @@ export default function LivreRecettes() {
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center gap-3">
-        <h1 className="text-3xl flex items-center gap-3">
-          <BookOpen size={26} className="text-brass" />
-          Livre de recettes
-        </h1>
-      </div>
+    <div className="flex flex-col gap-5">
+      <h1 className="font-serif text-3xl text-cream leading-tight flex items-center gap-3">
+        <BookOpen size={28} className="text-brass" aria-hidden="true" />
+        Livre de recettes
+      </h1>
 
-      <div className="tile-card flex flex-wrap items-center gap-3">
-        <div className="flex items-center gap-2 flex-1 min-w-[200px]">
-          <Search size={14} className="text-cream-mute" />
+      <div className={`${CARTE_PC} flex flex-wrap items-center gap-3`}>
+        <label className="flex items-center gap-2 flex-1 min-w-[240px] min-h-12 rounded-xl bg-ebony border border-hairline px-3 focus-within:border-brass">
+          <Search size={20} className="text-cream-mute shrink-0" aria-hidden="true" />
+          <span className="sr-only">Chercher une recette</span>
           <input
-            type="text"
+            type="search"
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            placeholder="Chercher par nom, tag, style…"
-            className="input !py-2 flex-1"
+            placeholder="Chercher par nom, étiquette, style…"
+            className="flex-1 min-w-0 bg-transparent text-base text-cream placeholder:text-cream-mute outline-none"
           />
-        </div>
-        <div className="flex items-center gap-1">
-          <Filter size={14} className="text-cream-mute mr-1" />
+          {search && (
+            <button
+              type="button"
+              onClick={() => setSearch("")}
+              className="min-h-10 min-w-10 -mr-2 inline-flex items-center justify-center rounded-lg text-cream-mute hover:text-cream"
+              aria-label="Effacer la recherche"
+            >
+              <XIcon size={18} aria-hidden="true" />
+            </button>
+          )}
+        </label>
+        <div className="flex items-center gap-2" role="group" aria-label="Filtrer">
+          <Filter size={18} className="text-cream-mute" aria-hidden="true" />
           {(["tous", "favoris", "exclus"] as const).map((mode) => (
             <button
               key={mode}
+              type="button"
               onClick={() => setFilter(mode)}
-              className={`px-3 py-1.5 text-xs uppercase tracking-widest rounded-sm transition ${
+              aria-pressed={filter === mode}
+              className={`min-h-11 px-4 rounded-xl text-[15px] font-semibold transition ${
                 filter === mode
                   ? "bg-brass text-ebony"
-                  : "text-cream-mute hover:text-cream"
+                  : "border border-hairline text-cream-mute hover:text-cream"
               }`}
             >
               {mode === "tous" ? "Actives" : mode === "favoris" ? "Favorites" : "Exclues"}
-              <span className="ml-1.5 opacity-60">
-                {counts[mode]}
-              </span>
+              <span className="ml-1.5 font-normal opacity-70 tabular-nums">{counts[mode]}</span>
             </button>
           ))}
         </div>
       </div>
 
       {/* Recherche par frigo */}
-      <div className="tile-card space-y-3">
-        <div className="flex items-center gap-2">
-          <Refrigerator size={16} className="text-brass" />
-          <h2 className="text-sm uppercase tracking-widest text-cream-mute">
-            Que faire avec ce qu'on a ?
-          </h2>
-        </div>
-        <p className="text-xs text-cream-mute">
+      <div className={`${CARTE_PC} flex flex-col gap-3`}>
+        <h2 className="flex items-center gap-2 text-lg font-semibold text-cream">
+          <Refrigerator size={20} className="text-brass" aria-hidden="true" />
+          Que faire avec ce qu'on a ?
+        </h2>
+        <p className="text-[15px] text-cream-mute leading-snug">
           Tape ce que tu as au frigo (un ingrédient à la fois, valide avec
           Entrée). Le livre te propose les recettes qui utilisent au moins
-          un de ces ingrédients, triées par nombre de match.
+          un de ces ingrédients, triées par nombre de correspondances.
         </p>
         <div className="flex flex-wrap items-center gap-2">
           {frigo.map((f, i) => (
             <span
               key={`${f}-${i}`}
-              className="inline-flex items-center gap-1 px-2 py-1 bg-brass/15 text-brass border border-brass/40 rounded-sm text-xs"
+              className="inline-flex items-center gap-1 pl-3 pr-1 min-h-9 rounded-full bg-ebony-ridge text-cream text-[15px]"
             >
               {f}
               <button
+                type="button"
                 onClick={() => removeFrigo(i)}
-                className="hover:text-cream"
+                className="min-h-8 min-w-8 inline-flex items-center justify-center rounded-full text-cream-mute hover:text-cream"
                 aria-label={`Retirer ${f}`}
               >
-                <XIcon size={11} />
+                <XIcon size={16} aria-hidden="true" />
               </button>
             </span>
           ))}
@@ -357,30 +368,32 @@ export default function LivreRecettes() {
                 removeFrigo(frigo.length - 1);
               }
             }}
+            aria-label="Ingrédient du frigo"
             placeholder={
               frigo.length === 0
-                ? "ex: tomates, mozzarella, basilic…"
+                ? "ex : tomates, mozzarella, basilic…"
                 : "+ ajouter"
             }
-            className="input !py-1.5 !px-2 flex-1 min-w-[160px] text-sm"
+            className="flex-1 min-w-[200px] min-h-11 rounded-xl bg-ebony border border-hairline px-3 text-base text-cream placeholder:text-cream-mute outline-none focus:border-brass"
           />
           {frigo.length > 0 && (
             <button
+              type="button"
               onClick={() => setFrigo([])}
-              className="text-xs text-cream-mute hover:text-copper underline"
+              className="min-h-11 px-3 rounded-xl text-[15px] text-cream-mute hover:text-cream underline"
             >
-              vider
+              Vider
             </button>
           )}
         </div>
         {frigo.length > 0 && (
-          <p className="text-[11px] text-cream-mute italic">
+          <p className="text-[15px] text-cream-mute">
             {filtered.length} recette{filtered.length > 1 ? "s" : ""} trouvée{filtered.length > 1 ? "s" : ""} avec au moins un ingrédient du frigo.
           </p>
         )}
       </div>
 
-      {isLoading && <p className="text-cream-mute">Chargement…</p>}
+      {isLoading && <LoadingState />}
 
       {isError && (
         <ErrorState
@@ -390,11 +403,11 @@ export default function LivreRecettes() {
       )}
 
       {!isLoading && !isError && filtered.length === 0 && (
-        <div className="tile-card text-center py-10 text-cream-mute">
+        <div className={`${CARTE_PC} text-center py-10 text-base text-cream-mute`}>
           {recettes && recettes.length === 0 ? (
             <>
-              <p className="mb-2">Aucune recette dans le livre pour l'instant.</p>
-              <p className="text-sm">
+              <p className="mb-2 text-cream">Aucune recette dans le livre pour l'instant.</p>
+              <p>
                 Les recettes apparaîtront ici dès que tu auras généré et importé
                 un plan de repas.
               </p>
@@ -435,6 +448,7 @@ export default function LivreRecettes() {
   );
 }
 
+/** Carte du livre (PC) : nom, description, repères, actions. */
 function RecetteCard({
   recette,
   busy,
@@ -460,105 +474,109 @@ function RecetteCard({
   const isExcluded = !!recette.excluded;
   const tt = recette.tempsPrepMinutes + recette.tempsCuissonMinutes;
   const showFrigoBadge = frigoMatched > 0;
+  const details = [
+    tt > 0 ? `${tt} min` : null,
+    recette.portions ? `${recette.portions} pers.` : null,
+    recette.seedTags?.proteinePrincipale && recette.seedTags.proteinePrincipale !== "aucune"
+      ? recette.seedTags.proteinePrincipale
+      : null,
+    recette.seedTags?.styleCulinaire,
+  ].filter(Boolean);
+  const ACTION =
+    "min-h-10 min-w-10 inline-flex items-center justify-center gap-1 rounded-lg transition disabled:opacity-40";
 
   return (
-    <div className={`tile-card !p-4 flex flex-col gap-2 ${isExcluded ? "opacity-50" : ""}`}>
+    <div className={`${CARTE_PC} flex flex-col gap-2 ${isExcluded ? "opacity-60" : ""}`}>
       {showFrigoBadge && (
-        <div className="flex items-center gap-2 -mb-1">
-          <span className="inline-flex items-center gap-1 text-[10px] uppercase tracking-widest text-brass bg-brass/15 px-2 py-0.5 rounded-sm">
-            <Refrigerator size={10} />
+        <p className="flex flex-wrap items-center gap-2 text-[13px]">
+          <span className="inline-flex items-center gap-1 rounded-full bg-ebony-ridge px-2 py-0.5 font-semibold text-brass">
+            <Refrigerator size={14} aria-hidden="true" />
             {frigoMatched} du frigo utilisé{frigoMatched > 1 ? "s" : ""}
           </span>
-          {frigoMissing > 0 && (
-            <span className="text-[10px] uppercase tracking-widest text-cream-mute">
-              · {frigoMissing} à acheter
-            </span>
-          )}
-        </div>
+          {frigoMissing > 0 && <span className="text-cream-mute">{frigoMissing} à acheter</span>}
+        </p>
       )}
-      <Link to={`/livre-recettes/${recette.id}`} className="space-y-2 hover:opacity-90 transition">
-        <div className="flex items-start justify-between gap-2">
-          <h3 className="font-serif text-lg leading-tight flex-1">{recette.nom}</h3>
-          {isFav && <Heart size={14} className="text-brass shrink-0 mt-1" fill="currentColor" />}
-        </div>
-
+      <Link
+        to={`/livre-recettes/${recette.id}`}
+        className="flex flex-col gap-1 rounded-lg hover:opacity-90 transition"
+      >
+        <span className="flex items-start justify-between gap-2">
+          <span className="font-serif text-lg text-cream leading-tight flex-1">{recette.nom}</span>
+          {isFav && (
+            <>
+              <Heart size={18} className="text-brass shrink-0 mt-0.5" fill="currentColor" aria-hidden="true" />
+              <span className="sr-only">favorite</span>
+            </>
+          )}
+        </span>
         {recette.description && (
-          <p className="text-cream-mute text-xs leading-snug line-clamp-3">{recette.description}</p>
+          <span className="text-[15px] text-cream-mute leading-snug line-clamp-3">{recette.description}</span>
         )}
       </Link>
 
-      <div className="flex flex-wrap gap-1 mt-1">
-        {recette.tags.slice(0, 4).map((t) => (
-          <span key={t} className="text-[9px] uppercase tracking-widest text-cream-mute bg-ebony-ridge px-2 py-0.5 rounded-sm">
-            {t}
-          </span>
-        ))}
-        {recette.estBatch && (
-          <span className="text-[9px] uppercase tracking-widest text-brass bg-brass-soft px-2 py-0.5 rounded-sm">
-            BATCH
-          </span>
-        )}
-      </div>
+      {(recette.tags.length > 0 || recette.estBatch) && (
+        <div className="flex flex-wrap gap-1">
+          {recette.estBatch && (
+            <span className="text-[13px] font-semibold text-brass bg-ebony-ridge px-2 py-0.5 rounded-full">
+              Batch
+            </span>
+          )}
+          {recette.tags.slice(0, 4).map((t) => (
+            <span key={t} className="text-[13px] text-cream-mute bg-ebony-ridge px-2 py-0.5 rounded-full">
+              {t}
+            </span>
+          ))}
+        </div>
+      )}
 
-      <div className="text-[10px] text-cream-mute flex flex-wrap gap-2 mt-1">
-        <span>{tt} min</span>
-        <span>·</span>
-        <span>{recette.portions} pers</span>
-        {recette.seedTags?.proteinePrincipale && (
-          <>
-            <span>·</span>
-            <span>{recette.seedTags.proteinePrincipale}</span>
-          </>
-        )}
-        {recette.seedTags?.styleCulinaire && (
-          <>
-            <span>·</span>
-            <span>{recette.seedTags.styleCulinaire}</span>
-          </>
-        )}
-      </div>
+      {details.length > 0 && <p className="text-[15px] text-cream-mute">{details.join(" · ")}</p>}
 
-      <div className="flex items-center justify-end gap-1 pt-2 border-t border-wood-dark mt-1">
+      <div className="flex items-center justify-end gap-1 pt-2 mt-auto border-t border-hairline">
         {!isExcluded && (
           <>
             <button
+              type="button"
               onClick={onUpvote}
               disabled={busy}
-              className={`p-1.5 transition ${
-                isFav ? "text-brass" : "text-cream-mute hover:text-brass"
-              }`}
+              aria-pressed={isFav}
+              className={`${ACTION} ${isFav ? "text-brass" : "text-cream-mute hover:text-brass"}`}
               title={isFav ? "Déjà favorite" : "Marquer favorite"}
+              aria-label={isFav ? "Déjà favorite" : "Marquer favorite"}
             >
-              <ThumbsUp size={14} fill={isFav ? "currentColor" : "none"} />
+              <ThumbsUp size={18} fill={isFav ? "currentColor" : "none"} aria-hidden="true" />
             </button>
             <button
+              type="button"
               onClick={onDownvote}
               disabled={busy}
-              className="p-1.5 text-cream-mute hover:text-copper transition"
+              className={`${ACTION} text-cream-mute hover:text-copper`}
               title="Exclure (ne plus piocher dans les plans)"
+              aria-label="Exclure (ne plus piocher dans les plans)"
             >
-              <ThumbsDown size={14} />
+              <ThumbsDown size={18} aria-hidden="true" />
             </button>
           </>
         )}
         {isExcluded && (
           <button
+            type="button"
             onClick={onRestore}
             disabled={busy}
-            className="p-1.5 text-cream-mute hover:text-sage transition flex items-center gap-1 text-xs"
-            title="Restaurer"
+            className={`${ACTION} px-2 text-[15px] text-cream-mute hover:text-sage`}
           >
-            <RotateCcw size={12} />
+            <RotateCcw size={16} aria-hidden="true" />
             Restaurer
           </button>
         )}
         <button
+          type="button"
           onClick={onDelete}
           disabled={busy}
-          className="p-1.5 text-cream-mute hover:text-copper transition"
+          className={`${ACTION} text-cream-mute hover:text-copper`}
           title="Supprimer définitivement"
+          aria-label="Supprimer définitivement"
         >
-          <Trash2 size={14} />
+          <Trash2 size={18} aria-hidden="true" />
         </button>
       </div>
     </div>
@@ -622,6 +640,12 @@ function LivreTelephone({
 
       {chargement && <LoadingState />}
       {erreur && <ErrorState message="Impossible de charger le livre de recettes." onRetry={onRetry} />}
+      {!chargement && !erreur && recettes.length > 0 && (
+        <p className="text-[15px] text-cream-mute" aria-live="polite">
+          {recettes.length} recette{recettes.length > 1 ? "s" : ""}
+          {search.trim() ? ` trouvée${recettes.length > 1 ? "s" : ""}` : ""}
+        </p>
+      )}
       {!chargement && !erreur && recettes.length === 0 && (
         <p className="py-8 text-center text-base text-cream-mute">
           {livreVide ? "Aucune recette dans le livre pour l'instant." : "Aucune recette ne correspond."}
