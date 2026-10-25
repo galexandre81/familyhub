@@ -255,6 +255,30 @@ export const refreshWeatherTile = onCall(
   },
 );
 
+/**
+ * Rafraîchit des tuiles météo d'un foyer (documents `tiles/{id}` déjà lus).
+ * Chaque tuile en échec est journalisée et sautée : ne jette jamais.
+ * Utilisé par le cron et par `refreshHouseholdDisplays`.
+ */
+export async function rafraichirMeteoDuFoyer(
+  householdId: string,
+  docs: FirebaseFirestore.QueryDocumentSnapshot[],
+): Promise<void> {
+  for (const doc of docs) {
+    try {
+      const config = normalizeWeatherConfig(doc.data().config as Record<string, unknown>);
+      const tileData = await buildWeatherDataForConfig(config);
+      if (Object.keys(tileData.byLocation).length === 0) {
+        logger.warn(`Aucune location fetched pour tile ${doc.ref.path}, skip snapshot update`);
+        continue;
+      }
+      await rebuildSnapshotForTile(householdId, doc.id, "weather", tileData);
+    } catch (err) {
+      logger.error(`Échec refresh weather tile ${doc.ref.path}`, err);
+    }
+  }
+}
+
 export const scheduledWeatherRefresh = onSchedule(
   { schedule: "every 30 minutes", region: "europe-west1", timeZone: "Europe/Paris" },
   async () => {
@@ -262,20 +286,9 @@ export const scheduledWeatherRefresh = onSchedule(
     logger.info(`scheduledWeatherRefresh: ${tilesSnap.size} tuile(s) météo à rafraîchir`);
 
     for (const doc of tilesSnap.docs) {
-      try {
-        const tileId = doc.id;
-        const householdId = doc.ref.parent.parent?.id;
-        if (!householdId) continue;
-        const config = normalizeWeatherConfig(doc.data().config as Record<string, unknown>);
-        const tileData = await buildWeatherDataForConfig(config);
-        if (Object.keys(tileData.byLocation).length === 0) {
-          logger.warn(`Aucune location fetched pour tile ${doc.ref.path}, skip snapshot update`);
-          continue;
-        }
-        await rebuildSnapshotForTile(householdId, tileId, "weather", tileData);
-      } catch (err) {
-        logger.error(`Échec refresh weather tile ${doc.ref.path}`, err);
-      }
+      const householdId = doc.ref.parent.parent?.id;
+      if (!householdId) continue;
+      await rafraichirMeteoDuFoyer(householdId, [doc]);
     }
   },
 );

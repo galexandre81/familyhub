@@ -17,10 +17,15 @@ import { assertHouseholdMember } from "../lib/household";
 import { requireId } from "../lib/validate";
 import { rebuildSnapshotForTile } from "../snapshot/builder";
 import { buildRecipeTodayData } from "./recipeToday";
+import { rafraichirMeteoDuFoyer } from "./weather";
+import { rafraichirAgendaDuFoyer } from "./calendar";
 import type {
+  CouleurPersonne,
+  HeuresRepasFoyer,
   Repas,
   WeeklyMenuBatchSnapshot,
   WeeklyMenuData,
+  WeeklyMenuProfil,
   WeeklyMenuSlotSnapshot,
   WeeklyPlanSnapshot,
 } from "../types";
@@ -77,6 +82,88 @@ function daysBetweenISO(startISO: string, endISO: string): number {
   const a = new Date(`${startISO}T12:00:00Z`).getTime();
   const b = new Date(`${endISO}T12:00:00Z`).getTime();
   return Math.round((b - a) / 86_400_000);
+}
+
+function listeDeChaines(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : [];
+}
+
+/**
+ * Snapshot d'un créneau (date, repas) à partir du document slot (ou de son
+ * absence). Pur : testé directement.
+ */
+export function construireSlotSnapshot(
+  data: Record<string, unknown> | undefined,
+  ctx: {
+    jour: number;
+    repas: Repas;
+    date: string;
+    todayISO: string;
+    nomById: Map<string, string>;
+  },
+): WeeklyMenuSlotSnapshot {
+  const profilsPresents = listeDeChaines(data?.profilsPresents);
+  const invitesNoms = listeDeChaines(data?.invitesNoms);
+  const recetteIds = listeDeChaines(data?.recetteIds);
+  const recetteNoms = recetteIds
+    .map((rid) => ctx.nomById.get(rid))
+    .filter((n): n is string => !!n);
+  return {
+    jour: ctx.jour,
+    repas: ctx.repas,
+    date: ctx.date,
+    recetteIds,
+    recetteNoms,
+    profilsCount: profilsPresents.length,
+    invitesCount: invitesNoms.length,
+    isBatchConsumer: data?.source === "batch",
+    isToday: ctx.date === ctx.todayISO,
+    isPast: ctx.date < ctx.todayISO,
+    profilsPresents,
+    annule: data?.annule === true,
+  };
+}
+
+const COULEURS_PERSONNE: readonly CouleurPersonne[] = [
+  "sapin",
+  "toleRouge",
+  "lilas",
+  "miel",
+  "ardoise",
+];
+
+/** Profils du foyer indexés par id, réduits à ce qu'affiche l'iPad. Pur. */
+export function profilsDuFoyer(
+  docs: Array<{ id: string; data: Record<string, unknown> }>,
+): Record<string, WeeklyMenuProfil> {
+  const out: Record<string, WeeklyMenuProfil> = {};
+  for (const { id, data } of docs) {
+    const nom = typeof data.nom === "string" ? data.nom : "";
+    const initiale =
+      typeof data.initiale === "string" && data.initiale
+        ? data.initiale
+        : nom.charAt(0).toUpperCase();
+    const profil: WeeklyMenuProfil = { initiale, nom };
+    if (COULEURS_PERSONNE.includes(data.couleurPersonne as CouleurPersonne)) {
+      profil.couleurPersonne = data.couleurPersonne as CouleurPersonne;
+    }
+    if (typeof data.couleur === "string" && data.couleur) profil.couleur = data.couleur;
+    out[id] = profil;
+  }
+  return out;
+}
+
+/**
+ * `parametres.heuresRepas` du foyer copié tel quel (l'iPad normalise champ
+ * par champ avec les défauts). Seule vérification : c'est un objet.
+ */
+export function heuresRepasDuFoyer(
+  foyer: Record<string, unknown> | undefined,
+): HeuresRepasFoyer | undefined {
+  const parametres = foyer?.parametres as Record<string, unknown> | undefined;
+  const h = parametres?.heuresRepas;
+  if (!h || typeof h !== "object" || Array.isArray(h)) return undefined;
+  return h as HeuresRepasFoyer;
 }
 
 /**
@@ -140,25 +227,15 @@ async function buildPlanSnapshot(
     const slotDateISO = addDaysISO(dateDebutISO, i);
     for (const repas of REPAS_ORDER) {
       const data = slotMap.get(`${slotDateISO}|${repas}`);
-      const profilsPresents = (data?.profilsPresents as string[]) || [];
-      const invitesNoms = (data?.invitesNoms as string[]) || [];
-      const recetteIdsLocal = (data?.recetteIds as string[]) || [];
-      const source = data?.source as "fresh" | "batch" | undefined;
-      const recetteNoms = recetteIdsLocal
-        .map((rid) => nomById.get(rid))
-        .filter((n): n is string => !!n);
-      semaine.push({
-        jour: i,
-        repas,
-        date: slotDateISO,
-        recetteIds: recetteIdsLocal,
-        recetteNoms,
-        profilsCount: profilsPresents.length,
-        invitesCount: invitesNoms.length,
-        isBatchConsumer: source === "batch",
-        isToday: slotDateISO === todayISO,
-        isPast: slotDateISO < todayISO,
-      });
+      semaine.push(
+        construireSlotSnapshot(data, {
+          jour: i,
+          repas,
+          date: slotDateISO,
+          todayISO,
+          nomById,
+        }),
+      );
     }
   }
 
@@ -197,12 +274,22 @@ export async function buildWeeklyMenuData(householdId: string): Promise<WeeklyMe
   const todayISO = getNowParisDateISO();
 
   // Récupère tous les plans non-draft. Tri par `dateDebut` desc côté serveur.
-  const allPlansSnap = await db
-    .collection(`households/${householdId}/mealPlans`)
-    .where("statut", "in", ["active", "archived"])
-    .orderBy("dateDebut", "desc")
-    .limit(MAX_ARCHIVED_PLANS + 1) // 1 actif + jusqu'à 12 archivés
-    .get();
+  // Profils et heures des repas du foyer (tableau iPad, plan 4) en parallèle.
+  const [allPlansSnap, profilsSnap, foyerSnap] = await Promise.all([
+    db
+      .collection(`households/${householdId}/mealPlans`)
+      .where("statut", "in", ["active", "archived"])
+      .orderBy("dateDebut", "desc")
+      .limit(MAX_ARCHIVED_PLANS + 1) // 1 actif + jusqu'à 12 archivés
+      .get(),
+    db.collection(`households/${householdId}/profils`).get(),
+    db.doc(`households/${householdId}`).get(),
+  ]);
+  const profils = profilsDuFoyer(
+    profilsSnap.docs.map((d) => ({ id: d.id, data: d.data() as Record<string, unknown> })),
+  );
+  const heuresRepas = heuresRepasDuFoyer(foyerSnap.data() as Record<string, unknown> | undefined);
+  const extras = { profils, ...(heuresRepas ? { heuresRepas } : {}) };
 
   if (allPlansSnap.empty) {
     return {
@@ -210,6 +297,7 @@ export async function buildWeeklyMenuData(householdId: string): Promise<WeeklyMe
       semaine: [],
       batchSessions: [],
       plans: [],
+      ...extras,
       generatedAtISO,
     };
   }
@@ -283,6 +371,7 @@ export async function buildWeeklyMenuData(householdId: string): Promise<WeeklyMe
         }
       : { semaine: [], batchSessions: [] }),
     plans,
+    ...extras,
     generatedAtISO,
   };
 }
@@ -379,12 +468,17 @@ interface RefreshHouseholdResponse {
   success: true;
   weeklyMenuTiles: number;
   recipeTodayTiles: number;
+  weatherTiles: number;
+  calendarTiles: number;
 }
 
 /**
- * Bouton « Mettre à jour les écrans » du hub : reconstruit TOUTES les tuiles
- * `weekly-menu` et `recipe-today` du foyer (le cron du menu ne passe plus
- * qu'une fois par jour). Chaque donnée est calculée une seule fois par foyer.
+ * Bouton « Mettre à jour les écrans » du hub, et appel sans attente après un
+ * import de plan ou une modification de créneau : reconstruit TOUTES les
+ * tuiles `weekly-menu`, `recipe-today`, `weather` et `calendar` du foyer (le
+ * cron du menu ne passe qu'une fois par jour). Chaque donnée est calculée une
+ * seule fois par foyer. Météo et agenda dépendent de services externes : leur
+ * échec est journalisé sans faire échouer l'appel (le menu est déjà écrit).
  */
 export const refreshHouseholdDisplays = onCall<
   RefreshHouseholdInput,
@@ -402,7 +496,7 @@ export const refreshHouseholdDisplays = onCall<
 
     const tilesSnap = await db
       .collection(`households/${householdId}/tiles`)
-      .where("type", "in", ["weekly-menu", "recipe-today"])
+      .where("type", "in", ["weekly-menu", "recipe-today", "weather", "calendar"])
       .get();
     const weeklyMenuIds = tilesSnap.docs
       .filter((d) => d.data().type === "weekly-menu")
@@ -410,6 +504,8 @@ export const refreshHouseholdDisplays = onCall<
     const recipeTodayIds = tilesSnap.docs
       .filter((d) => d.data().type === "recipe-today")
       .map((d) => d.id);
+    const weatherDocs = tilesSnap.docs.filter((d) => d.data().type === "weather");
+    const calendarDocs = tilesSnap.docs.filter((d) => d.data().type === "calendar");
 
     if (weeklyMenuIds.length > 0) {
       const data = await buildWeeklyMenuData(householdId);
@@ -423,16 +519,25 @@ export const refreshHouseholdDisplays = onCall<
         await rebuildSnapshotForTile(householdId, tileId, "recipe-today", data);
       }
     }
+    // Météo et agenda en parallèle ; chacun avale ses propres erreurs.
+    await Promise.all([
+      weatherDocs.length > 0 ? rafraichirMeteoDuFoyer(householdId, weatherDocs) : null,
+      calendarDocs.length > 0 ? rafraichirAgendaDuFoyer(householdId, calendarDocs) : null,
+    ]);
 
     logger.info("refreshHouseholdDisplays DONE", {
       householdId,
       weeklyMenuTiles: weeklyMenuIds.length,
       recipeTodayTiles: recipeTodayIds.length,
+      weatherTiles: weatherDocs.length,
+      calendarTiles: calendarDocs.length,
     });
     return {
       success: true,
       weeklyMenuTiles: weeklyMenuIds.length,
       recipeTodayTiles: recipeTodayIds.length,
+      weatherTiles: weatherDocs.length,
+      calendarTiles: calendarDocs.length,
     };
   },
 );

@@ -39,6 +39,7 @@ import {
 } from "firebase/firestore";
 import { db } from "./firebase";
 import { ecrireParLots } from "./ecritureParLots";
+import { rafraichirEcransSansAttendre } from "./rafraichirEcrans";
 import {
   articlesDuPlan,
   champsDuPlan,
@@ -532,6 +533,9 @@ export async function importPlanFromJson(args: {
     await ecrireParLots(() => writeBatch(db), opsArticles, MAX_OPS_LOT);
     await batch.commit();
   }
+
+  // Import réussi : l'iPad affiche le nouveau plan sans attendre le cron.
+  rafraichirEcransSansAttendre(householdId);
 
   return {
     recettesCreated: recettesToCreate.length,

@@ -21,6 +21,9 @@ export {
   refreshHouseholdDisplays,
 } from "./tiles/weeklyMenu";
 
+// Minuteurs partagés : nettoyage horaire (plan 4)
+export { scheduledTimersCleanup } from "./timers/cleanup";
+
 // Meal planner (Phase 3)
 export {
   createMealPlan,

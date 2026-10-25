@@ -294,26 +294,38 @@ export const scheduledCalendarRefresh = onSchedule(
     }
 
     for (const [householdId, docs] of byHousehold) {
-      let url: string | null;
-      try {
-        url = await lireIcalUrlFoyer(householdId);
-      } catch (err) {
-        logger.error(`Lecture URL iCal impossible pour le foyer ${householdId}`, err);
-        continue;
-      }
-      if (!url) {
-        logger.info(`Foyer ${householdId} : URL iCal non configurée, skip`);
-        continue;
-      }
-      for (const doc of docs) {
-        try {
-          const config = normalizeCalendarConfig(doc.data().config as Record<string, unknown>);
-          const data = await buildCalendarData(config, url);
-          await rebuildSnapshotForTile(householdId, doc.id, "calendar", data);
-        } catch (err) {
-          logger.error(`Échec refresh calendar tile ${doc.ref.path}`, err);
-        }
-      }
+      await rafraichirAgendaDuFoyer(householdId, docs);
     }
   },
 );
+
+/**
+ * Rafraîchit des tuiles agenda d'un foyer (documents `tiles/{id}` déjà lus) ;
+ * l'URL iCal est lue une seule fois. Ne jette jamais : chaque échec est
+ * journalisé. Utilisé par le cron et par `refreshHouseholdDisplays`.
+ */
+export async function rafraichirAgendaDuFoyer(
+  householdId: string,
+  docs: FirebaseFirestore.QueryDocumentSnapshot[],
+): Promise<void> {
+  let url: string | null;
+  try {
+    url = await lireIcalUrlFoyer(householdId);
+  } catch (err) {
+    logger.error(`Lecture URL iCal impossible pour le foyer ${householdId}`, err);
+    return;
+  }
+  if (!url) {
+    logger.info(`Foyer ${householdId} : URL iCal non configurée, skip`);
+    return;
+  }
+  for (const doc of docs) {
+    try {
+      const config = normalizeCalendarConfig(doc.data().config as Record<string, unknown>);
+      const data = await buildCalendarData(config, url);
+      await rebuildSnapshotForTile(householdId, doc.id, "calendar", data);
+    } catch (err) {
+      logger.error(`Échec refresh calendar tile ${doc.ref.path}`, err);
+    }
+  }
+}

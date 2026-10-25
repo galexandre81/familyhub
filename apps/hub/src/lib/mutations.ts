@@ -16,6 +16,7 @@ import { httpsCallable } from "firebase/functions";
 import { db, functions } from "./firebase";
 import { isValidIcalUrl } from "./calendarUrl";
 import { lierProfilLocalement } from "./personnes";
+import { rafraichirEcransSansAttendre } from "./rafraichirEcrans";
 import { toast } from "../components/Toast";
 import type {
   DisplayDeviceType,
@@ -230,6 +231,9 @@ interface RefreshHouseholdDisplaysResponse {
   success: true;
   weeklyMenuTiles: number;
   recipeTodayTiles: number;
+  /** Ajoutés au plan 4 (absents d'un serveur pas encore redéployé). */
+  weatherTiles?: number;
+  calendarTiles?: number;
 }
 
 /**
@@ -548,6 +552,7 @@ function makeSlotMutation(name: "acceptSlot" | "refuseSlot") {
       onSuccess: (_data, vars) => {
         void qc.invalidateQueries({ queryKey: ["planSlots", vars.householdId, vars.planId] });
         void qc.invalidateQueries({ queryKey: ["plan", vars.householdId, vars.planId] });
+        rafraichirEcransSansAttendre(vars.householdId);
       },
     });
   };
@@ -582,6 +587,7 @@ export function useUpdateSlot() {
     },
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["planSlots", vars.householdId, vars.planId] });
+      rafraichirEcransSansAttendre(vars.householdId);
     },
   });
 }
@@ -595,6 +601,7 @@ export function useUpdateSlotPresence() {
     },
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["planSlots", vars.householdId, vars.planId] });
+      rafraichirEcransSansAttendre(vars.householdId);
     },
   });
 }
@@ -857,6 +864,8 @@ export function useToggleBatchSessionDone() {
       void qc.invalidateQueries({
         queryKey: ["planBatchSessions", vars.householdId, vars.planId],
       });
+      // `done` figure dans le snapshot du menu affiché par l'iPad.
+      rafraichirEcransSansAttendre(vars.householdId);
     },
   });
 }

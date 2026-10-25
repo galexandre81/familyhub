@@ -219,6 +219,13 @@ export interface WeeklyMenuSlotSnapshot {
   isBatchConsumer: boolean;
   isToday: boolean;
   isPast: boolean;
+  /**
+   * Ids des profils présents (plan 4, tableau iPad). Toujours écrit ; les
+   * snapshots antérieurs n'ont pas ce champ (l'iPad doit le tolérer absent).
+   */
+  profilsPresents: string[];
+  /** Créneau annulé (plan 4). Même remarque. */
+  annule: boolean;
 }
 
 export interface WeeklyMenuBatchSnapshot {
@@ -259,5 +266,34 @@ export interface WeeklyMenuData {
    * snapshots qui n'ont pas encore été rebuildés.
    */
   plans?: WeeklyPlanSnapshot[];
+  /**
+   * Profils du foyer indexés par id (plan 4) : l'iPad affiche les pastilles
+   * des présents. Aligné sur `Profil` de packages/types/src/profil.ts.
+   * Toujours écrit ; absent des snapshots antérieurs.
+   */
+  profils: Record<string, WeeklyMenuProfil>;
+  /**
+   * Copie BRUTE de `parametres.heuresRepas` du foyer (peut être partielle ou
+   * invalide : l'iPad normalise avec les défauts). Forme de `HeuresRepas`,
+   * packages/types/src/heuresRepas.ts.
+   */
+  heuresRepas?: HeuresRepasFoyer;
   generatedAtISO: string;
+}
+
+/** Couleur de personne du design system — aligné sur packages/types/src/profil.ts. */
+export type CouleurPersonne = "sapin" | "toleRouge" | "lilas" | "miel" | "ardoise";
+
+export interface WeeklyMenuProfil {
+  initiale: string;
+  nom: string;
+  couleurPersonne?: CouleurPersonne;
+  /** Couleur héritée (hex). */
+  couleur?: string;
+}
+
+/** Aligné sur `HeuresRepas` de packages/types/src/heuresRepas.ts. */
+export interface HeuresRepasFoyer {
+  semaine: Record<Repas, string>;
+  weekend: Record<Repas, string>;
 }
