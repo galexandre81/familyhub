@@ -11,6 +11,14 @@
  * (transaction). Une transaction échoue hors ligne : dans ce cas on sonne
  * quand même localement (estEnAlarme) et on ne réessaie qu'au retour du réseau
  * (événement `online`), une seule fois. Aucune erreur affichée pour ce cas.
+ *
+ * Un seul abonnement par page : `useMinuteursAbonnement` n'est appelé que par
+ * `MinuteursProvider` (lib/MinuteursContext.tsx), monté dans le Layout (PC et
+ * téléphone). Les composants lisent `useMinuteurs()` dans ce contexte.
+ *
+ * Écritures : jamais d'attente de l'accusé du serveur pour l'interface
+ * (Firestore applique l'écriture au cache local tout de suite, hors ligne
+ * compris) ; une erreur éventuelle s'affiche quand elle arrive.
  */
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
@@ -177,8 +185,12 @@ export interface MinuteursApi {
   minuteurs: Minuteur[];
   /** Heure locale (ms), rafraîchie chaque seconde tant qu'il y a des minuteurs. */
   nowMs: number;
-  /** true si le minuteur a été créé (sinon un message d'erreur est déjà affiché). */
-  lancer(label: string | null, secondes: number): Promise<boolean>;
+  /**
+   * Lance un minuteur : écriture locale immédiate, sans attendre le serveur.
+   * false si rien n'a été lancé (pas de foyer, durée invalide). Un refus du
+   * serveur arrive plus tard sous forme de message d'erreur.
+   */
+  lancer(label: string | null, secondes: number): boolean;
   ajouterUneMinute(m: Minuteur): Promise<void>;
   pause(m: Minuteur): Promise<void>;
   reprendre(m: Minuteur): Promise<void>;
@@ -186,7 +198,7 @@ export interface MinuteursApi {
   acquitter(m: Minuteur): Promise<void>;
 }
 
-export function useMinuteurs(householdId?: string): MinuteursApi {
+export function useMinuteursAbonnement(householdId?: string): MinuteursApi {
   const [minuteurs, setMinuteurs] = useState<Minuteur[]>([]);
   const [nowMs, setNowMs] = useState(() => Date.now());
   /** Minuteurs pour lesquels on a déjà tenté le passage à `ended` depuis cet appareil. */
@@ -271,24 +283,22 @@ export function useMinuteurs(householdId?: string): MinuteursApi {
   );
 
   const lancer = useCallback(
-    async (label: string | null, secondes: number) => {
+    (label: string | null, secondes: number): boolean => {
       if (!householdId || !(secondes > 0)) return false;
       const debut = Date.now();
-      try {
-        await addDoc(colTimers(householdId), {
-          label: label?.trim() || libelleParDefaut(secondes),
-          durationSeconds: secondes,
-          startedAt: new Date(debut),
-          endsAt: new Date(debut + secondes * 1000),
-          status: "running",
-          createdAt: serverTimestamp(),
-          updatedAt: serverTimestamp(),
-        });
-        return true;
-      } catch (err) {
-        signalerErreur(err, "Le minuteur n'a pas pu être lancé.");
-        return false;
-      }
+      // Pas d'await : la promesse ne se résout qu'à l'accusé du serveur (jamais
+      // hors ligne). Le document est déjà dans le cache local et l'abonnement
+      // l'affiche aussitôt.
+      addDoc(colTimers(householdId), {
+        label: label?.trim() || libelleParDefaut(secondes),
+        durationSeconds: secondes,
+        startedAt: new Date(debut),
+        endsAt: new Date(debut + secondes * 1000),
+        status: "running",
+        createdAt: serverTimestamp(),
+        updatedAt: serverTimestamp(),
+      }).catch((err) => signalerErreur(err, "Le minuteur n'a pas pu être lancé."));
+      return true;
     },
     [householdId],
   );

@@ -1,18 +1,18 @@
 /**
  * Panneau des minuteurs partagés avec l'iPad cuisine.
  *
- * Autonome : il s'abonne lui-même (useMinuteurs) ; on peut le poser dans une
- * page, la colonne droite du mode recette (PC) ou une feuille en bas d'écran
- * (téléphone). Le son ne joue qu'une fois, même si plusieurs panneaux sont
- * ouverts.
+ * Lit l'abonnement partagé du Layout (useMinuteurs, MinuteursContext) ; on
+ * peut le poser dans une page, la colonne droite du mode recette (PC) ou une
+ * feuille en bas d'écran (téléphone). Le son est joué par l'abonnement
+ * partagé : une seule boucle, même si plusieurs panneaux sont ouverts.
  */
 import { useState, type FormEvent } from "react";
 import { BellRing, Check, Pause, Play, Plus, Square, Timer, X } from "lucide-react";
-import { useMinuteurs, type Minuteur } from "../lib/useMinuteurs";
+import { type Minuteur } from "../lib/useMinuteurs";
+import { useMinuteurs } from "../lib/MinuteursContext";
 import { estEnAlarme, formatMinuteur, lireMinutesSaisies, tempsRestantMs } from "../lib/minuteurs";
 
 export interface MinuteurPanneauProps {
-  householdId: string;
   /** Nom donné aux minuteurs lancés depuis ce panneau (ex. l'étape de recette). Sinon : « 5 min ». */
   libelleParDefaut?: string;
   /** Sans titre, marges resserrées : colonne étroite ou feuille du bas. */
@@ -27,13 +27,12 @@ const BOUTON_ACTION = `${BOUTON} bg-brass text-ebony hover:opacity-90`;
 const BOUTON_DOUX = `${BOUTON} bg-ebony border border-hairline text-cream hover:border-brass`;
 
 export function MinuteurPanneau({
-  householdId,
   libelleParDefaut,
   compact = false,
   className = "",
 }: MinuteurPanneauProps): JSX.Element {
   const { minuteurs, nowMs, lancer, ajouterUneMinute, pause, reprendre, arreter, acquitter } =
-    useMinuteurs(householdId);
+    useMinuteurs();
   const [autreOuvert, setAutreOuvert] = useState(false);
   const [saisie, setSaisie] = useState("");
   const [saisieInvalide, setSaisieInvalide] = useState(false);

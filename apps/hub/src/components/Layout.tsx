@@ -6,6 +6,8 @@ import { useAmbiance } from "../lib/ambiance";
 import clsx from "clsx";
 import { useEstTelephone } from "../lib/useEstTelephone";
 import TelephoneLayout from "./TelephoneLayout";
+import VeilleurMinuteurs from "./VeilleurMinuteurs";
+import { MinuteursProvider } from "../lib/MinuteursContext";
 
 const navItems = [
   { to: "/", icon: Home, label: "Accueil", end: true },
@@ -17,7 +19,7 @@ const navItems = [
 ];
 
 export default function Layout() {
-  const { user, signOut } = useAuth();
+  const { user } = useAuth();
   const householdId = useActiveHouseholdId(user?.uid);
   const { data: households } = useHouseholds(user?.uid);
   const household = households?.find((h) => h.id === householdId);
@@ -25,10 +27,20 @@ export default function Layout() {
   /* Ambiance jour/nuit selon le lever/coucher du soleil du foyer. */
   useAmbiance(household?.parametres?.localisation);
 
-  /* Téléphone (< 768 px) : onglets en bas au lieu de l'en-tête PC. */
+  /* Téléphone (< 768 px) : onglets en bas au lieu de l'en-tête PC.
+     Minuteurs : un seul abonnement pour la page, et le veilleur fait sonner
+     un minuteur terminé quelle que soit la page ouverte. */
   const telephone = useEstTelephone();
-  if (telephone) return <TelephoneLayout />;
+  return (
+    <MinuteursProvider householdId={householdId}>
+      {telephone ? <TelephoneLayout /> : <PcLayout />}
+      <VeilleurMinuteurs />
+    </MinuteursProvider>
+  );
+}
 
+function PcLayout() {
+  const { user, signOut } = useAuth();
   const today = new Date().toLocaleDateString("fr-FR", {
     weekday: "long",
     day: "numeric",

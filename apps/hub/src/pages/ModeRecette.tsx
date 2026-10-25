@@ -35,7 +35,7 @@ import {
   titreRepas,
   type RepasAssemble,
 } from "../lib/repasCuisine";
-import { useMinuteurs } from "../lib/useMinuteurs";
+import { useMinuteurs } from "../lib/MinuteursContext";
 import { estEnAlarme } from "../lib/minuteurs";
 import { MinuteurPanneau } from "../components/MinuteurPanneau";
 import { toast } from "../components/Toast";
@@ -156,14 +156,16 @@ export default function ModeRecette() {
     window.addEventListener("keydown", onKey);
     return () => window.removeEventListener("keydown", onKey);
   }, [fermer, feuilleOuverte]);
-  const { minuteurs, nowMs, lancer } = useMinuteurs(householdId);
+  // Abonnement partagé du Layout (pas de second abonnement ici).
+  const { minuteurs, nowMs, lancer } = useMinuteurs();
   const nbMinuteurs = minuteurs.filter((m) => m.status !== "acknowledged").length;
   const alarme = minuteurs.some((m) => estEnAlarme(m, nowMs));
 
-  const lancerEtape = async (description: string, minutes: number) => {
+  const lancerEtape = (description: string, minutes: number) => {
     const label = libelleEtape(description);
-    // En cas d'échec, lancer() affiche déjà le message d'erreur.
-    if (await lancer(label, minutes * 60)) toast(`Minuteur lancé : ${label}`, { type: "success" });
+    // Écriture locale immédiate : confirmé tout de suite, même hors ligne.
+    // Un refus du serveur s'affichera plus tard (lancer s'en charge).
+    if (lancer(label, minutes * 60)) toast(`Minuteur lancé : ${label}`, { type: "success" });
   };
 
   const introuvable = !chargement && repas.presentes.length === 0 && repas.manquantes.length === 0;
@@ -272,7 +274,7 @@ export default function ModeRecette() {
                     Fermer
                   </button>
                 </div>
-                <MinuteurPanneau householdId={householdId} compact />
+                <MinuteurPanneau compact />
               </div>
             </div>
           )}
@@ -288,7 +290,7 @@ export default function ModeRecette() {
             <div className="shrink-0 max-h-[50vh] overflow-y-auto rounded-2xl">
               <Ingredients repas={repas} portions={portions} />
             </div>
-            {householdId && <MinuteurPanneau householdId={householdId} compact className="shrink-0" />}
+            {householdId && <MinuteurPanneau compact className="shrink-0" />}
           </aside>
         </div>
       )}
@@ -338,7 +340,7 @@ function Etapes({
   onLancer,
 }: {
   repas: RepasAssemble;
-  onLancer: (description: string, minutes: number) => Promise<void>;
+  onLancer: (description: string, minutes: number) => void;
 }) {
   const plusieurs = repas.presentes.length + repas.manquantes.length > 1;
   return (
@@ -362,7 +364,7 @@ function Etapes({
                       {etape.dureeMinutes && etape.dureeMinutes > 0 ? (
                         <button
                           type="button"
-                          onClick={() => void onLancer(etape.description, etape.dureeMinutes!)}
+                          onClick={() => onLancer(etape.description, etape.dureeMinutes!)}
                           className={`${BOUTON} bg-ebony-card border border-brass text-brass hover:bg-brass hover:text-ebony`}
                         >
                           <Timer aria-hidden className="h-5 w-5" />
