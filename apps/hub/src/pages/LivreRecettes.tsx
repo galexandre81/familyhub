@@ -649,7 +649,7 @@ function LivreTelephone({
                     {fav && (
                       <>
                         <Heart size={16} className="text-brass shrink-0" fill="currentColor" aria-hidden="true" />
-                        <span className="sr-only">favorite</span>
+                        <span className="sr-only">favori</span>
                       </>
                     )}
                   </span>

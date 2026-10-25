@@ -11,6 +11,8 @@ import clsx from "clsx";
 import {
   heureDuRepas,
   heuresRepasValides,
+  libelleDans,
+  minutesAvant,
   prochainsRepas,
   type Profil,
   type Repas,
@@ -61,7 +63,9 @@ export default function Semaine() {
   const heures = heuresRepasValides(household?.parametres?.heuresRepas);
   const jours = useMemo(() => (plan ? joursDuPlan(slots ?? [], plan) : []), [plan, slots]);
   const voisins = planVoisins(plans ?? [], plan?.id);
-  const prochainId = prochainsRepas(slots ?? [], now, heures, 1)[0]?.slot.id;
+  const prochain = prochainsRepas(slots ?? [], now, heures, 1)[0];
+  const prochainId = prochain?.slot.id;
+  const dansProchain = prochain ? libelleDans(minutesAvant(prochain.heure, now)) : "";
 
   /** Jour choisi, propre à chaque plan ; sinon aujourd'hui ou le premier jour. */
   const [choix, setChoix] = useState<{ planId?: string; jour: string }>({ jour: "" });
@@ -131,7 +135,8 @@ export default function Semaine() {
               className={clsx(
                 "shrink-0 min-h-14 min-w-12 px-2 rounded-xl flex flex-col items-center justify-center leading-tight border",
                 choisi
-                  ? "bg-[rgb(var(--c-maintenant))] text-[rgb(var(--c-bordure))] border-transparent font-semibold"
+                  ? /* Pas de jaune : le seul jaune de l'écran est le prochain repas. */
+                    "bg-ebony-ridge text-brass border-transparent font-semibold"
                   : "bg-ebony-card text-cream border-hairline",
                 !choisi && estAujourdhui && "border-brass",
               )}
@@ -155,6 +160,7 @@ export default function Semaine() {
                 slot={slot}
                 planId={plan.id}
                 prochain={!!slot && slot.id === prochainId}
+                dans={dansProchain}
                 passe={repasPasse(jour.dateISO, repas, now, heures)}
                 heure={heureTexte(heureDuRepas(jour.dateISO, repas, heures))}
                 recettes={recettes ?? {}}
@@ -210,6 +216,7 @@ function CarteRepas({
   slot,
   planId,
   prochain,
+  dans,
   passe,
   heure,
   recettes,
@@ -219,6 +226,8 @@ function CarteRepas({
   slot?: MealPlanSlotWithId;
   planId: string;
   prochain: boolean;
+  /** « dans 1 h 30 » — affiché seulement sur le prochain repas. */
+  dans: string;
   passe: boolean;
   heure: string;
   recettes: Record<string, { nom: string } | undefined>;
@@ -238,74 +247,86 @@ function CarteRepas({
     <li
       aria-label={prochain ? `${nom}, prochain repas` : nom}
       className={clsx(
-        "rounded-xl bg-ebony-card px-4 py-3 flex flex-col gap-2",
-        prochain ? "border-2 border-brass" : "border border-hairline",
+        "rounded-xl bg-ebony-card border border-hairline overflow-hidden",
         passe && !prochain && "opacity-50",
       )}
     >
-      <div
-        className={clsx(
-          "flex items-baseline justify-between gap-2 text-base text-cream",
-          ((passe && !prochain) || annule) && "line-through decoration-1 decoration-cream-mute/60",
-        )}
-      >
-        <span className="font-semibold">
-          {nom}
-          {prochain && <span className="font-normal text-brass"> · prochain</span>}
-        </span>
-        <span className="text-cream-mute whitespace-nowrap">{heure}</span>
-      </div>
-
-      {annule ? (
-        <p className="text-[15px] text-cream-mute">Annulé</p>
-      ) : vide ? (
-        <p className="text-[15px] text-cream-mute">Rien de prévu</p>
+      {prochain ? (
+        /* Le seul jaune de l'écran : même bandeau que la carte « prochain repas » d'Aujourd'hui. */
+        <div className="bg-[rgb(var(--c-maintenant))] text-[rgb(var(--c-bordure))] px-4 py-2 flex items-baseline justify-between gap-2">
+          <h2 className="text-lg font-semibold leading-tight">
+            {nom} · {heure}
+          </h2>
+          <span className="text-base whitespace-nowrap">{dans}</span>
+        </div>
       ) : (
-        <div>
-          <p className="text-base text-cream leading-snug line-clamp-1">{plat ?? "Repas prévu"}</p>
-          {accompagnements.length > 0 && (
-            <p className="text-[15px] text-cream-mute leading-snug line-clamp-1">
-              avec {accompagnements.join(", ")}
-            </p>
+        <div
+          className={clsx(
+            "px-4 pt-3 flex items-baseline justify-between gap-2 text-base text-cream",
+            (passe || annule) && "line-through decoration-1 decoration-cream-mute/60",
           )}
-        </div>
-      )}
-
-      {!vide && (presents.length > 0 || invites > 0) && (
-        <div className="flex items-center gap-1.5 flex-wrap" aria-label="Pour qui">
-          {presents.map((p) => (
-            <span key={p.id} title={p.nom}>
-              <ProfilBadge initiale={p.initiale} couleur={p.couleur} couleurPersonne={p.couleurPersonne} size="sm" />
-              <span className="sr-only">{p.nom}</span>
-            </span>
-          ))}
-          {invites > 0 && (
-            <span className="text-[15px] text-cream-mute">
-              + {invites} invité{invites > 1 ? "s" : ""}
-            </span>
-          )}
-        </div>
-      )}
-
-      {slot?.notes?.trim() && (
-        <details>
-          <summary className="min-h-12 -my-1 flex items-center gap-2 text-[15px] text-cream-mute cursor-pointer">
-            <StickyNote size={18} aria-hidden="true" />
-            Note
-          </summary>
-          <p className="pb-1 text-[15px] text-cream whitespace-pre-line">{slot.notes.trim()}</p>
-        </details>
-      )}
-
-      {prochain && slot && (
-        <Link
-          to={`/menu/${planId}/${slot.id}/cuisine`}
-          className="min-h-12 inline-flex items-center justify-center gap-2 rounded-xl px-5 text-base font-semibold bg-brass text-ebony"
         >
-          <ChefHat size={20} aria-hidden="true" />
-          Cuisiner
-        </Link>
+          <span className="font-semibold">{nom}</span>
+          <span className="text-cream-mute whitespace-nowrap">{heure}</span>
+        </div>
       )}
+
+      <div className={clsx("px-4 pb-3 flex flex-col gap-2", prochain ? "pt-3" : "pt-1")}>
+        {annule ? (
+          <p className="text-[15px] text-cream-mute">Annulé</p>
+        ) : vide ? (
+          <p className="text-[15px] text-cream-mute">Rien de prévu</p>
+        ) : (
+          <div>
+            <p className="text-base text-cream leading-snug line-clamp-1">{plat ?? "Repas prévu"}</p>
+            {accompagnements.length > 0 && (
+              <p className="text-[15px] text-cream-mute leading-snug line-clamp-1">
+                avec {accompagnements.join(", ")}
+              </p>
+            )}
+          </div>
+        )}
+
+        {!vide && (presents.length > 0 || invites > 0) && (
+          <div className="flex items-center gap-1.5 flex-wrap" aria-label="Pour qui">
+            {presents.map((p) => (
+              <span key={p.id} title={p.nom}>
+                <ProfilBadge initiale={p.initiale} couleur={p.couleur} couleurPersonne={p.couleurPersonne} size="sm" />
+                <span className="sr-only">{p.nom}</span>
+              </span>
+            ))}
+            {invites > 0 && (
+              <span className="text-[15px] text-cream-mute">
+                + {invites} invité{invites > 1 ? "s" : ""}
+              </span>
+            )}
+          </div>
+        )}
+
+        {slot?.notes?.trim() && (
+          <details>
+            <summary className="min-h-12 -my-1 flex items-center gap-2 text-[15px] text-cream-mute cursor-pointer">
+              <StickyNote size={18} aria-hidden="true" />
+              Note
+            </summary>
+            <p className="pb-1 text-[15px] text-cream whitespace-pre-line">{slot.notes.trim()}</p>
+          </details>
+        )}
+
+        {/* On cuisine aussi à l'avance (batch) : chaque repas avec recettes a « Cuisiner ». */}
+        {slot && !vide && !annule && (
+          <Link
+            to={`/menu/${planId}/${slot.id}/cuisine`}
+            className={clsx(
+              "min-h-12 inline-flex items-center justify-center gap-2 rounded-xl px-5 text-base font-semibold",
+              prochain ? "bg-brass text-ebony" : "border border-hairline bg-ebony-ridge text-brass",
+            )}
+          >
+            <ChefHat size={20} aria-hidden="true" />
+            Cuisiner
+          </Link>
+        )}
+      </div>
     </li>
   );
 }
