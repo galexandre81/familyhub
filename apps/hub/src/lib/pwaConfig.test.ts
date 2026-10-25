@@ -10,12 +10,15 @@ describe("pwaOptions", () => {
   it("le service worker ne prend jamais la main sur l'écran de l'iPad ni sur la connexion", () => {
     expect(estExclue("/display/")).toBe(true);
     expect(estExclue("/display/index.html")).toBe(true);
+    expect(estExclue("/display")).toBe(true);
     expect(estExclue("/d/ABC123")).toBe(true);
     expect(estExclue("/__/auth/handler")).toBe(true);
   });
 
   it("les pages du hub retombent sur l'application hors ligne", () => {
     expect(estExclue("/menu")).toBe(false);
+    expect(estExclue("/displays")).toBe(false);
+    expect(estExclue("/displays/abc")).toBe(false);
     expect(estExclue("/")).toBe(false);
     expect(pwaOptions.workbox?.navigateFallback).toBe("/index.html");
   });

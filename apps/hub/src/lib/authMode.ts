@@ -1,14 +1,23 @@
 /**
  * Choix du mode de connexion Google.
  *
- * La fenêtre surgissante (popup) ne marche pas dans une application installée
- * sur l'écran d'accueil, ni de façon fiable sur iPhone/iPad (Safari bloque ou
- * perd la fenêtre). Dans ces cas, on passe par une redirection pleine page.
+ * Par défaut : fenêtre surgissante (popup), y compris dans Safari sur iPhone.
+ * Redirection pleine page seulement quand les deux conditions sont réunies :
+ *  - l'app tourne installée sur l'écran d'accueil (la popup n'y marche pas) ;
+ *  - l'authentification passe par le domaine du site lui-même
+ *    (VITE_FIREBASE_AUTH_DOMAIN = domaine du site). Sinon, avec
+ *    `…firebaseapp.com`, Safari cloisonne le stockage et le retour de
+ *    redirection échoue. Voir docs/DESIGN.md, section « Téléphone ».
  *
- * @param estStandalone vrai si l'app tourne installée (display-mode: standalone)
- * @param userAgent navigator.userAgent
+ * @param estStandalone vrai si display-mode: standalone
+ * @param authDomain domaine d'authentification configuré (auth.config.authDomain)
+ * @param hote location.hostname
  */
-export function doitUtiliserRedirection(estStandalone: boolean, userAgent: string): boolean {
-  if (estStandalone) return true;
-  return /iPhone|iPad|iPod/i.test(userAgent);
+export function doitUtiliserRedirection(
+  estStandalone: boolean,
+  authDomain: string,
+  hote: string,
+): boolean {
+  if (!estStandalone || !authDomain) return false;
+  return authDomain.toLowerCase() === hote.toLowerCase();
 }

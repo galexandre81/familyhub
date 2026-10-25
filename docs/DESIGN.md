@@ -36,15 +36,18 @@ Il n'y a plus de choix de thème (ni `parametres.themeId`, ni champ `theme` sur 
 
 Le hub s'installe sur l'écran d'accueil du téléphone (manifest + service worker générés par `vite-plugin-pwa`, réglages dans `apps/hub/src/lib/pwaConfig.ts`). Les données Firestore déjà vues restent lisibles hors ligne (cache IndexedDB, `apps/hub/src/lib/firebase.ts`).
 
-- Le service worker ne contrôle jamais `/display/`, `/d/…` (écran de l'iPad) ni `/__/…` (pages de connexion servies par Firebase Hosting).
+- Le service worker ne contrôle jamais `/display`, `/display/…`, `/d/…` (écran de l'iPad) ni `/__/…` (pages de connexion servies par Firebase Hosting). Les pages `/displays` du hub restent disponibles hors ligne.
 - Icônes : `node scripts/generate-hub-icons.mjs` régénère `apps/hub/public/icons/` (PNG versionnés).
-- Connexion Google : fenêtre surgissante sur ordinateur ; **redirection pleine page** quand l'app est installée ou sur iPhone/iPad (`apps/hub/src/lib/authMode.ts`).
+- Connexion Google (`apps/hub/src/lib/authMode.ts`) : fenêtre surgissante partout, y compris dans Safari sur iPhone. La **redirection pleine page** ne s'active que si l'app est installée sur l'écran d'accueil **et** que `VITE_FIREBASE_AUTH_DOMAIN` est le domaine du site lui-même. Tant que ce réglage vaut `…firebaseapp.com`, rien ne change par rapport à aujourd'hui (mais la connexion depuis l'app installée peut échouer : la fenêtre surgissante n'y marche pas bien). Un échec s'affiche sur l'écran de connexion : « La connexion n'a pas abouti — réessaie. »
 
-**À faire par Alex avant le premier déploiement de ce lot** (sinon la connexion par redirection échoue sur iPhone, Safari bloquant les cookies tiers) :
+**À faire par Alex pour activer la connexion depuis l'app installée** (la redirection s'active alors toute seule, sans changer le code) :
 
 1. Dans `apps/hub/.env.local`, mettre `VITE_FIREBASE_AUTH_DOMAIN` sur le **domaine du site** (par exemple `<PROJECT_ID>.web.app`) au lieu de `…firebaseapp.com`.
 2. Dans la console Google Cloud (API et services → Identifiants → client OAuth « Web client » du projet), ajouter l'URI de redirection autorisée `https://<site>/__/auth/handler` (par exemple `https://<PROJECT_ID>.web.app/__/auth/handler`).
 3. Dans la console Firebase (Authentication → Paramètres → Domaines autorisés), vérifier que ce domaine figure dans la liste.
+4. Rebâtir et redéployer l'hébergement.
+
+Effet de bord sans conséquence : `scripts/copy-display-into-hub-dist.mjs` recopie la même variable dans `dist/display/js/firebase-config.js` (configuration de l'iPad). L'iPad s'authentifie par jeton, pas par Google : changer `authDomain` ne le gêne pas.
 
 ## Déployer ce lot
 

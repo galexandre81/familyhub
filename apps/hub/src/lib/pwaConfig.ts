@@ -7,8 +7,9 @@ import type { VitePWAOptions } from "vite-plugin-pwa";
  * (Node) et par son test (vitest, environnement node).
  *
  * Règle d'or : le service worker ne contrôle jamais l'écran de l'iPad
- * (/display/, /d/…) ni les pages de connexion servies par Firebase Hosting
- * (/__/auth/…). D'où la liste d'exclusion de la navigation, doublée d'un
+ * (/display, /display/…, /d/…) ni les pages de connexion servies par
+ * Firebase Hosting (/__/auth/…). Les pages /displays du hub, elles, restent
+ * couvertes (d'où le `(\/|$)` dans le motif). D'où la liste d'exclusion de la navigation, doublée d'un
  * globIgnores sur display/** (l'app display est copiée dans dist/ après le
  * build Vite, mais on se protège quand même).
  */
@@ -36,7 +37,7 @@ export const pwaOptions: Partial<VitePWAOptions> = {
   },
   workbox: {
     navigateFallback: "/index.html",
-    navigateFallbackDenylist: [/^\/display/, /^\/d\//, /^\/__/],
+    navigateFallbackDenylist: [/^\/display(\/|$)/, /^\/d\//, /^\/__/],
     globPatterns: ["**/*.{js,css,html,woff,woff2,png,svg}"],
     globIgnores: ["display/**"],
   },

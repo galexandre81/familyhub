@@ -1,9 +1,10 @@
 import { useEffect } from "react";
 import { useNavigate } from "react-router-dom";
+import { AlertCircle } from "lucide-react";
 import { useAuth } from "../lib/auth";
 
 export default function Login() {
-  const { user, signIn, loading } = useAuth();
+  const { user, signIn, loading, erreur } = useAuth();
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -39,6 +40,13 @@ export default function Login() {
         >
           {loading ? "Chargement…" : "Entrer avec Google"}
         </button>
+
+        {erreur && (
+          <p role="alert" className="mt-4 flex items-center justify-center gap-2 text-cream">
+            <AlertCircle aria-hidden="true" className="h-5 w-5 shrink-0 text-brass" />
+            <span>{erreur}</span>
+          </p>
+        )}
 
         <div className="mt-10 flex items-center gap-3 text-cream-mute">
           <span className="h-px flex-1 bg-wood-dark" />

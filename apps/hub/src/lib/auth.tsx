@@ -14,8 +14,18 @@ import { doitUtiliserRedirection } from "./authMode";
 interface AuthContextValue {
   user: User | null;
   loading: boolean;
+  /** Message à afficher si la dernière connexion a échoué, sinon null. */
+  erreur: string | null;
   signIn: () => Promise<void>;
   signOut: () => Promise<void>;
+}
+
+const MESSAGE_ECHEC = "La connexion n'a pas abouti — réessaie.";
+
+/** Fermer soi-même la fenêtre Google n'est pas une erreur à signaler. */
+function estAnnulation(err: unknown): boolean {
+  const code = (err as { code?: string } | null)?.code;
+  return code === "auth/popup-closed-by-user" || code === "auth/cancelled-popup-request";
 }
 
 const AuthContext = createContext<AuthContextValue | undefined>(undefined);
@@ -40,9 +50,18 @@ function estAppInstallee(): boolean {
     && window.matchMedia("(display-mode: standalone)").matches;
 }
 
+function utiliserRedirection(): boolean {
+  return doitUtiliserRedirection(
+    estAppInstallee(),
+    auth.config.authDomain ?? "",
+    window.location.hostname,
+  );
+}
+
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null);
   const [loading, setLoading] = useState(true);
+  const [erreur, setErreur] = useState<string | null>(null);
 
   useEffect(() => {
     // Retour d'une connexion par redirection (app installée, iPhone/iPad) :
@@ -50,6 +69,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     // l'utilisateur et écrit users/{uid} comme pour la fenêtre surgissante.
     getRedirectResult(auth).catch((err: unknown) => {
       console.error("[auth] échec de la connexion par redirection", err);
+      setErreur(MESSAGE_ECHEC);
     });
 
     return onAuthStateChanged(auth, (u) => {
@@ -62,11 +82,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const value: AuthContextValue = {
     user,
     loading,
+    erreur,
     signIn: async () => {
-      if (doitUtiliserRedirection(estAppInstallee(), navigator.userAgent)) {
-        await signInWithRedirect(auth, googleProvider);
-      } else {
-        await signInWithPopup(auth, googleProvider);
+      setErreur(null);
+      try {
+        if (utiliserRedirection()) {
+          await signInWithRedirect(auth, googleProvider);
+        } else {
+          await signInWithPopup(auth, googleProvider);
+        }
+      } catch (err) {
+        if (estAnnulation(err)) return;
+        console.error("[auth] échec de la connexion", err);
+        setErreur(MESSAGE_ECHEC);
       }
     },
     signOut: async () => {
