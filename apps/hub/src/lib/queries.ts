@@ -58,10 +58,15 @@ export function useHouseholds(uid: string | undefined) {
   });
 }
 
-export function useDisplays(householdId: string | undefined) {
+/**
+ * Écrans du foyer. `relireToutesLesMs` : relecture périodique (page « iPad de
+ * cuisine » : l'appairage se fait sur l'iPad, la page doit le voir arriver).
+ */
+export function useDisplays(householdId: string | undefined, relireToutesLesMs?: number) {
   return useQuery({
     enabled: !!householdId,
     queryKey: ["displays", householdId],
+    refetchInterval: relireToutesLesMs ?? false,
     queryFn: async (): Promise<Array<Display & { id: string }>> => {
       if (!householdId) return [];
       const snap = await getDocs(collection(db, `households/${householdId}/displays`));
