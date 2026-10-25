@@ -38,7 +38,13 @@ function formatFr(n: number): string {
  * éventuellement d'un texte (« 2 gousses ») ; le reste est rendu tel quel.
  * Arrondi à 1 décimale, virgule française.
  */
-export function quantiteAjustee(quantite: string, portionsBase: number, portions: number): string {
+export function quantiteAjustee(
+  brute: string | number | null | undefined,
+  portionsBase: number,
+  portions: number,
+): string {
+  // Les recettes importées peuvent porter un nombre (ou rien) au lieu d'un texte.
+  const quantite = String(brute ?? "");
   if (!(portionsBase > 0) || !(portions > 0)) return quantite;
   const texte = quantite.trim();
   if (!texte) return quantite;

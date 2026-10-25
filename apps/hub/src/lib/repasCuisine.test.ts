@@ -33,6 +33,13 @@ describe("assemblerRepas", () => {
 });
 
 describe("quantiteAjustee", () => {
+  it("accepte un nombre, null ou undefined sans planter", () => {
+    expect(quantiteAjustee(200, 4, 2)).toBe("100");
+    expect(quantiteAjustee(1.5, 4, 6)).toBe("2,3");
+    expect(quantiteAjustee(null, 4, 2)).toBe("");
+    expect(quantiteAjustee(undefined, 4, 2)).toBe("");
+    expect(quantiteAjustee(undefined, 0, 2)).toBe("");
+  });
   it("fraction simple", () => {
     expect(quantiteAjustee("1/2", 2, 4)).toBe("1");
   });
