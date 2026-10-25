@@ -30,10 +30,29 @@ const MESSAGES: Record<string, string> = {
 
 const MESSAGE_GENERIQUE = "L'invitation n'a pas pu être acceptée — rouvre le lien pour réessayer";
 
+/** Raison du refus renvoyée par `acceptInvitation` (`details.raison`), sinon `null`. */
+function raisonRefus(err: unknown): string | null {
+  const raison = (err as { details?: { raison?: unknown } } | null)?.details?.raison;
+  return typeof raison === "string" && raison.length > 0 ? raison : null;
+}
+
+/**
+ * Refus définitif (le serveur a répondu avec une raison) : l'invitation gardée
+ * peut être oubliée. Sans raison (réseau coupé, serveur injoignable…), on la
+ * garde pour réessayer plus tard.
+ */
+export function estRefusDefinitif(err: unknown): boolean {
+  return raisonRefus(err) !== null;
+}
+
+/** Échec sans réponse du serveur : l'invitation est gardée et sera réessayée. */
+export const MESSAGE_INVITATION_EN_ATTENTE =
+  "L'invitation n'a pas encore pu être acceptée — elle sera réessayée dès que la connexion revient";
+
 /** Traduit l'erreur de `acceptInvitation` (`details.raison`) en phrase à afficher. */
 export function messageErreurInvitation(err: unknown): string {
-  const raison = (err as { details?: { raison?: unknown } } | null)?.details?.raison;
-  return (typeof raison === "string" && MESSAGES[raison]) || MESSAGE_GENERIQUE;
+  const raison = raisonRefus(err);
+  return (raison && MESSAGES[raison]) || MESSAGE_GENERIQUE;
 }
 
 export function messageBienvenue(nom: string): string {

@@ -10,6 +10,7 @@ import {
   where,
 } from "firebase/firestore";
 import { db } from "./firebase";
+import { ordonnerFoyers } from "./foyerActif";
 import type {
   BatchSession,
   CourseItem,
@@ -43,8 +44,17 @@ export function useHouseholds(uid: string | undefined) {
     queryFn: async (): Promise<Array<Household & { id: string }>> => {
       if (!uid) return [];
       const q = query(collection(db, "households"), where("membres", "array-contains", uid));
-      const snap = await getDocs(q);
-      return snap.docs.map((d) => ({ id: d.id, ...(d.data() as Household) }));
+      // Foyer par défaut (users/{uid}) lu en parallèle ; s'il manque, l'ordre reste celui de Firestore.
+      const [snap, defaut] = await Promise.all([
+        getDocs(q),
+        getDoc(doc(db, `users/${uid}`))
+          .then((u) => (u.data() as Partial<User> | undefined)?.defaultHouseholdId)
+          .catch(() => undefined),
+      ]);
+      return ordonnerFoyers(
+        snap.docs.map((d) => ({ id: d.id, ...(d.data() as Household) })),
+        defaut,
+      );
     },
   });
 }
@@ -116,8 +126,9 @@ export function useCalendarConfigured(householdId: string | undefined) {
 }
 
 /**
- * Convenience hook for "the current household" — Phase 1, on prend le premier
- * (chaque user en a typiquement un seul). À étendre plus tard avec un sélecteur.
+ * Foyer courant : `users/{uid}.defaultHouseholdId` s'il fait partie des foyers
+ * du compte (useHouseholds le place en tête, cf. ordonnerFoyers), sinon le
+ * premier. Après une invitation acceptée, c'est le foyer rejoint.
  */
 export function useActiveHouseholdId(uid: string | undefined): string | undefined {
   const { data } = useHouseholds(uid);

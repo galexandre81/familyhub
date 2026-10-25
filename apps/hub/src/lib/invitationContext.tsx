@@ -10,7 +10,12 @@ import {
 import { useAuth } from "./auth";
 import { useAcceptInvitation } from "./mutations";
 import { lireInvitationEnAttente, oublierInvitationEnAttente } from "./invitationEnAttente";
-import { messageBienvenue, messageErreurInvitation } from "./invitations";
+import {
+  estRefusDefinitif,
+  messageBienvenue,
+  messageErreurInvitation,
+  MESSAGE_INVITATION_EN_ATTENTE,
+} from "./invitations";
 
 export interface ResultatInvitation {
   ok: boolean;
@@ -32,28 +37,50 @@ const InvitationContext = createContext<InvitationContextValue>({
 
 /**
  * Traite, dès l'arrivée dans l'arbre connecté, l'invitation gardée par
- * `/rejoindre/:code` (avant ou après la connexion Google), puis l'oublie.
+ * `/rejoindre/:code` (avant ou après la connexion Google). Le code n'est
+ * oublié qu'en cas de succès ou de refus définitif (raison renvoyée par le
+ * serveur) ; sur une panne réseau il est gardé et réessayé au retour de la
+ * connexion (événement `online`) ou à la prochaine ouverture.
  */
 export function InvitationEnAttenteProvider({ children }: { children: ReactNode }) {
   const { user } = useAuth();
   const accepter = useAcceptInvitation();
-  const [code] = useState(() => lireInvitationEnAttente());
+  const [code, setCode] = useState(() => lireInvitationEnAttente());
   const [enCours, setEnCours] = useState(code !== null);
   const [resultat, setResultat] = useState<ResultatInvitation | null>(null);
-  const lance = useRef(false);
+  const [essai, setEssai] = useState(0);
+  const lance = useRef<number | null>(null);
   const { mutateAsync } = accepter;
 
   useEffect(() => {
-    if (!user || !code || lance.current) return;
-    lance.current = true;
+    if (!user || !code || lance.current === essai) return;
+    lance.current = essai;
+    setEnCours(true);
     mutateAsync({ code, uid: user.uid })
-      .then((r) => setResultat({ ok: true, message: messageBienvenue(r.nom) }))
-      .catch((err: unknown) => setResultat({ ok: false, message: messageErreurInvitation(err) }))
-      .finally(() => {
+      .then((r) => {
         oublierInvitationEnAttente();
-        setEnCours(false);
-      });
-  }, [user, code, mutateAsync]);
+        setCode(null);
+        setResultat({ ok: true, message: messageBienvenue(r.nom) });
+      })
+      .catch((err: unknown) => {
+        if (estRefusDefinitif(err)) {
+          oublierInvitationEnAttente();
+          setCode(null);
+          setResultat({ ok: false, message: messageErreurInvitation(err) });
+        } else {
+          setResultat({ ok: false, message: MESSAGE_INVITATION_EN_ATTENTE });
+        }
+      })
+      .finally(() => setEnCours(false));
+  }, [user, code, essai, mutateAsync]);
+
+  // Code gardé après une panne : nouvel essai quand la connexion revient.
+  useEffect(() => {
+    if (!code) return;
+    const auRetour = () => setEssai((n) => n + 1);
+    window.addEventListener("online", auRetour);
+    return () => window.removeEventListener("online", auRetour);
+  }, [code]);
 
   const fermer = useCallback(() => setResultat(null), []);
 

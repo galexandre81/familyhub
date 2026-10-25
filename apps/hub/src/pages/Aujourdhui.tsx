@@ -29,6 +29,7 @@ import { useInvitationEnAttente } from "../lib/invitationContext";
 import { useMaintenant } from "../lib/useMaintenant";
 import { titreRepas } from "../lib/repasCuisine";
 import ProfilBadge from "../components/ProfilBadge";
+import ResultatInvitation from "../components/ResultatInvitation";
 import { LoadingState } from "../components/states";
 
 const CARTE = "rounded-2xl bg-ebony-card border border-hairline overflow-hidden flex flex-col";
@@ -69,10 +70,8 @@ export default function Aujourdhui() {
   if (!householdId) {
     return (
       <div className="flex flex-col items-center text-center gap-3 py-12">
+        <ResultatInvitation telephone />
         <p className="text-lg text-cream">Rejoins ou crée ton foyer sur l'ordinateur</p>
-        {invitation.resultat && !invitation.resultat.ok && (
-          <p className="text-base text-cream-mute">{invitation.resultat.message}</p>
-        )}
       </div>
     );
   }
@@ -84,6 +83,7 @@ export default function Aujourdhui() {
 
   return (
     <div className="flex flex-col gap-5">
+      <ResultatInvitation telephone />
       <h1 className="font-serif text-2xl text-cream">
         Aujourd'hui <span className="text-base text-cream-mute">· {date}</span>
       </h1>
