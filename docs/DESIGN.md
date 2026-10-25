@@ -77,3 +77,20 @@ Puis **recharger l'iPad une fois à la main** : l'ancien `core.js` ne surveille 
 - [ ] Deux téléphones en mode avion cochent chacun des articles, puis se reconnectent : toutes les coches arrivent, aucune n'est écrasée.
 - [ ] Un oubli ajouté à la main et non acheté est reporté dans la liste du plan suivant.
 - [ ] Plan 4 déployé avec ce lot : la tuile courses de l'iPad affiche la liste.
+
+**Écran de cuisine de l'iPad (Plan 4) — même ordre, fonctions → règles → hébergement :**
+
+Les **fonctions d'abord** : c'est le serveur qui écrit dans l'instantané de l'iPad l'indication des repas annulés. Si le nouvel iPad (hébergement) arrivait avant les nouvelles fonctions, il lirait un instantané sans cette indication et pourrait afficher un repas annulé comme prochain repas. Puis les règles, puis l'hébergement ; recharger l'iPad une fois à la main.
+
+Après le déploiement, **une fois dans le hub** : Écrans → l'écran de la cuisine → « Préparer l'écran de cuisine » (ajoute les tuiles qui manquent au tableau).
+
+**Vérifications sur l'iPad (iPad mini, iOS 9) :**
+
+- [ ] « Préparer l'écran de cuisine » fait une fois dans le hub : le tableau n'affiche plus « À configurer dans le hub » pour la météo, l'agenda ni le menu.
+- [ ] Tableau de jour, puis de nuit (couleurs jour / nuit lisibles partout, y compris les recettes d'un batch dans le menu de la semaine).
+- [ ] Jour → nuit → jour **sans recharger la page** : l'ambiance change à chaque fois (elle ne reste pas bloquée en nuit).
+- [ ] Carte des minuteurs du tableau avec **0**, **1** et **3** minuteurs (la liste défile seule, rien ne déborde).
+- [ ] Prochain repas avec un **nom de plat court** puis un **nom long** (pas de débordement, « Commencer » reste visible).
+- [ ] Mode recette ouvert sur un repas à **2 recettes**, avec **2 minuteurs** lancés : étapes des deux recettes, ingrédients encore visibles sous le panneau des minuteurs ; « Lancer N min » répond sur tout le bouton.
+- [ ] Mode recette en mode avion, recette jamais ouverte : « Recette indisponible sans réseau » après quelques secondes, les minuteurs restent utilisables.
+- [ ] Alarme d'un minuteur **par-dessus le mode recette**, puis **par-dessus le menu de la semaine** : bandeau visible, « OK » arrête la sonnerie.
