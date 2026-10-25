@@ -11,6 +11,30 @@ export const HEURES_REPAS_DEFAUT: HeuresRepas = {
   weekend: { petitDej: "08:00", dej: "12:15", diner: "19:00" },
 };
 
+const FORMAT_HEURE = /^([01]\d|2[0-3]):[0-5]\d$/;
+
+/** Heure "HH:MM" valide ? */
+export function heureValide(v: unknown): v is string {
+  return typeof v === "string" && FORMAT_HEURE.test(v);
+}
+
+/** Complète/corrige des heures partielles ou invalides, champ par champ, avec les défauts. */
+export function heuresRepasValides(h?: {
+  semaine?: Partial<Record<Repas, string>>;
+  weekend?: Partial<Record<Repas, string>>;
+}): HeuresRepas {
+  const periode = (k: "semaine" | "weekend"): Record<Repas, string> => {
+    const def = HEURES_REPAS_DEFAUT[k];
+    const src = h?.[k];
+    return {
+      petitDej: heureValide(src?.petitDej) ? src.petitDej : def.petitDej,
+      dej: heureValide(src?.dej) ? src.dej : def.dej,
+      diner: heureValide(src?.diner) ? src.diner : def.diner,
+    };
+  };
+  return { semaine: periode("semaine"), weekend: periode("weekend") };
+}
+
 /** Un repas reste « le prochain » jusqu'à une heure après son heure. */
 const DUREE_REPAS_MIN = 60;
 
@@ -18,12 +42,14 @@ const DUREE_REPAS_MIN = 60;
 export function heureDuRepas(
   dateISO: string,
   repas: Repas,
-  heures: HeuresRepas = HEURES_REPAS_DEFAUT,
+  heures?: Partial<HeuresRepas>,
 ): Date {
   const [y, m, d] = dateISO.split("-").map(Number);
   const jour = new Date(y, m - 1, d).getDay();
   const weekend = jour === 0 || jour === 6;
-  const [hh, mm] = (weekend ? heures.weekend : heures.semaine)[repas].split(":").map(Number);
+  const [hh, mm] = heuresRepasValides(heures)[weekend ? "weekend" : "semaine"][repas]
+    .split(":")
+    .map(Number);
   return new Date(y, m - 1, d, hh, mm);
 }
 

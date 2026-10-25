@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   HEURES_REPAS_DEFAUT,
+  heuresRepasValides,
   heureDuRepas,
   libelleDans,
   minutesAvant,
@@ -96,5 +97,28 @@ describe("minutesAvant / libelleDans", () => {
     expect(libelleDans(65)).toBe("dans 1 h 05");
     expect(libelleDans(0)).toBe("maintenant");
     expect(libelleDans(-20)).toBe("maintenant");
+  });
+});
+
+describe("heures invalides ou absentes", () => {
+  it("retombe sur les défauts champ par champ", () => {
+    const bad = {
+      semaine: { petitDej: "", dej: "25:00", diner: "19:30" },
+    } as unknown as Parameters<typeof heureDuRepas>[2];
+    expect(heureDuRepas("2026-10-27", "petitDej", bad)).toEqual(new Date(2026, 9, 27, 7, 0));
+    expect(heureDuRepas("2026-10-27", "dej", bad)).toEqual(new Date(2026, 9, 27, 12, 15));
+    expect(heureDuRepas("2026-10-27", "diner", bad)).toEqual(new Date(2026, 9, 27, 19, 30));
+    expect(heureDuRepas("2026-10-24", "petitDej", bad)).toEqual(new Date(2026, 9, 24, 8, 0));
+  });
+  it("heuresRepasValides normalise", () => {
+    expect(heuresRepasValides(undefined)).toEqual(HEURES_REPAS_DEFAUT);
+    expect(heuresRepasValides({ weekend: { diner: "20:00" } } as never).weekend).toEqual({
+      ...HEURES_REPAS_DEFAUT.weekend,
+      diner: "20:00",
+    });
+  });
+  it("changement d'heure (dimanche 25 octobre 2026) : dîner 19:00 local", () => {
+    const d = heureDuRepas("2026-10-25", "diner");
+    expect([d.getHours(), d.getMinutes(), d.getDate()]).toEqual([19, 0, 25]);
   });
 });

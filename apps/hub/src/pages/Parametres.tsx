@@ -4,7 +4,7 @@ import { Check, ChevronRight, Pencil, Users } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useHouseholds } from "../lib/queries";
 import { useUpdateHousehold } from "../lib/mutations";
-import { HEURES_REPAS_DEFAUT, type HeuresRepas, type HouseholdParametres, type Repas } from "@family-hub/types";
+import { heureValide, heuresRepasValides, type HeuresRepas, type HouseholdParametres, type Repas } from "@family-hub/types";
 import HouseholdForm from "../components/HouseholdForm";
 import InviterMembre from "../components/InviterMembre";
 import { useInvitationEnAttente } from "../lib/invitationContext";
@@ -25,7 +25,7 @@ function HeuresRepasSection({
   parametres: HouseholdParametres;
 }) {
   const update = useUpdateHousehold();
-  const [heures, setHeures] = useState<HeuresRepas>(parametres.heuresRepas ?? HEURES_REPAS_DEFAUT);
+  const [heures, setHeures] = useState<HeuresRepas>(heuresRepasValides(parametres.heuresRepas));
   const [enregistre, setEnregistre] = useState(false);
 
   function set(periode: keyof HeuresRepas, repas: Repas, valeur: string) {
@@ -33,7 +33,10 @@ function HeuresRepasSection({
     setHeures((h) => ({ ...h, [periode]: { ...h[periode], [repas]: valeur } }));
   }
 
+  const toutValide = [...Object.values(heures.semaine), ...Object.values(heures.weekend)].every(heureValide);
+
   function enregistrer() {
+    if (!toutValide) return;
     update.mutate(
       { uid, householdId, patch: { parametres: { ...parametres, heuresRepas: heures } } },
       { onSuccess: () => setEnregistre(true) },
@@ -73,9 +76,12 @@ function HeuresRepasSection({
         ))}
       </div>
       <div className="flex items-center gap-3">
-        <button onClick={enregistrer} disabled={update.isPending} className="btn-primary text-sm">
+        <button onClick={enregistrer} disabled={update.isPending || !toutValide} className="btn-primary text-sm">
           {update.isPending ? "Enregistrement…" : "Enregistrer"}
         </button>
+        {!toutValide && (
+          <span className="text-sm text-red-600">Toutes les heures doivent être remplies</span>
+        )}
         {enregistre && (
           <span className="text-sm flex items-center gap-1">
             <Check size={14} /> Enregistré
