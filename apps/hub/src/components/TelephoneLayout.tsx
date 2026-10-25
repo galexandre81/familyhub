@@ -12,7 +12,8 @@ const onglets = [
 ];
 
 /**
- * Coque téléphone (< 768 px) : en-tête compact, contenu, onglets fixés en bas.
+ * Coque téléphone (< 768 px) : en-tête compact, contenu, onglets fixés en bas
+ * (libellés 13 px sous 360 px de large pour que « Aujourd'hui » tienne).
  * Le mode recette (plein écran, z-50) recouvre les onglets (z-30).
  * « C'est moi » s'affiche tant que le compte n'est relié à aucun profil.
  */
@@ -53,10 +54,9 @@ export default function TelephoneLayout() {
                 end={end}
                 className={({ isActive }) =>
                   clsx(
-                    "min-h-14 flex flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 text-[15px] leading-tight",
-                    isActive
-                      ? "bg-[rgb(var(--c-maintenant))] text-[rgb(var(--c-bordure))] font-semibold"
-                      : "text-cream-mute",
+                    "min-h-14 flex flex-col items-center justify-center gap-0.5 rounded-xl px-0.5 text-[13px] min-[360px]:text-[15px] leading-tight",
+                    /* Pas de jaune ici : le seul jaune de l'écran est le prochain repas. */
+                    isActive ? "bg-ebony-ridge text-brass font-semibold" : "text-cream-mute",
                   )
                 }
               >

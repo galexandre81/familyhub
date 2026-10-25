@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import { HEURES_REPAS_DEFAUT, type Repas } from "@family-hub/types";
-import { dateISOLocale, remplissageBarre, resumeAujourdhui, texteDuJour } from "./aujourdhui";
+import { dateISOLocale, millisecondesAvantMinute, remplissageBarre, resumeAujourdhui, texteDuJour } from "./aujourdhui";
 
 type S = {
   id: string;
@@ -99,22 +99,23 @@ describe("resumeAujourdhui", () => {
     expect(r.prochain?.accompagnements).toEqual(["Salade verte"]);
   });
 
-  it("renvoie le batch du jour s'il existe", () => {
+  it("renvoie les batchs du jour, tous s'il y en a plusieurs", () => {
     const now = new Date(2026, 9, 27, 10, 0);
     const batch = [
       { id: "b0", date: "2026-10-25", recetteIds: [], done: true },
       { id: "b1", date: JOUR, recetteIds: ["r6"], done: false },
+      { id: "b2", date: JOUR, recetteIds: ["r5"], done: true },
     ];
     const r = resumeAujourdhui(slots, recettes, batch, now, HEURES_REPAS_DEFAUT);
-    expect(r.batchDuJour?.id).toBe("b1");
-    expect(resumeAujourdhui(slots, recettes, [batch[0]], now, HEURES_REPAS_DEFAUT).batchDuJour).toBeUndefined();
+    expect(r.batchsDuJour.map((b) => b.id)).toEqual(["b1", "b2"]);
+    expect(resumeAujourdhui(slots, recettes, [batch[0]], now, HEURES_REPAS_DEFAUT).batchsDuJour).toEqual([]);
   });
 
   it("sans plan (aucun slot) : rien à afficher", () => {
     const r = resumeAujourdhui([], {}, [], new Date(2026, 9, 27, 10, 0), HEURES_REPAS_DEFAUT);
     expect(r.prochain).toBeUndefined();
     expect(r.autresDuJour).toEqual([]);
-    expect(r.batchDuJour).toBeUndefined();
+    expect(r.batchsDuJour).toEqual([]);
   });
 
   it("utilise les heures du week-end", () => {
@@ -148,5 +149,12 @@ describe("texteDuJour", () => {
     expect(texteDuJour("2026-10-27", now)).toBeUndefined();
     expect(texteDuJour("2026-10-28", now)).toBe("Demain");
     expect(texteDuJour("2026-10-29", now)).toBe("Jeudi");
+  });
+});
+
+describe("millisecondesAvantMinute", () => {
+  it("temps restant jusqu'à la prochaine minute pleine", () => {
+    expect(millisecondesAvantMinute(new Date(2026, 9, 27, 10, 0, 45, 500))).toBe(14_500);
+    expect(millisecondesAvantMinute(new Date(2026, 9, 27, 10, 0, 0, 0))).toBe(60_000);
   });
 });

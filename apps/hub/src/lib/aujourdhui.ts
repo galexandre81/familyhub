@@ -56,7 +56,8 @@ export interface AutreRepas<S> {
 export interface ResumeAujourdhui<S, B> {
   prochain?: ProchainRepas<S>;
   autresDuJour: AutreRepas<S>[];
-  batchDuJour?: B;
+  /** Sessions de batch du jour (souvent une seule). */
+  batchsDuJour: B[];
 }
 
 /** Date locale `AAAA-MM-JJ`. */
@@ -64,6 +65,11 @@ export function dateISOLocale(d: Date): string {
   const m = String(d.getMonth() + 1).padStart(2, "0");
   const j = String(d.getDate()).padStart(2, "0");
   return `${d.getFullYear()}-${m}-${j}`;
+}
+
+/** Délai jusqu'à la prochaine minute pleine (horloge alignée sur les minutes). */
+export function millisecondesAvantMinute(now: Date): number {
+  return 60_000 - (now.getSeconds() * 1000 + now.getMilliseconds());
 }
 
 export function remplissageBarre(minutes: number): number {
@@ -131,7 +137,7 @@ export function resumeAujourdhui<S extends SlotAujourdhui, B extends BatchAujour
     })
     .sort((a, b) => a.heure.getTime() - b.heure.getTime());
 
-  const batchDuJour = batchSessions.find((b) => b.date === aujourdhui);
+  const batchsDuJour = batchSessions.filter((b) => b.date === aujourdhui);
 
-  return { prochain, autresDuJour, batchDuJour };
+  return { prochain, autresDuJour, batchsDuJour };
 }

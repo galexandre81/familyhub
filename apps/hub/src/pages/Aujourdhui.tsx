@@ -20,7 +20,13 @@ import {
   type MealPlanSlotWithId,
 } from "../lib/queries";
 import { estParent } from "../lib/personnes";
-import { resumeAujourdhui, type AutreRepas, type ProchainRepas } from "../lib/aujourdhui";
+import {
+  millisecondesAvantMinute,
+  resumeAujourdhui,
+  type AutreRepas,
+  type ProchainRepas,
+} from "../lib/aujourdhui";
+import { useInvitationEnAttente } from "../lib/invitationContext";
 import { titreRepas } from "../lib/repasCuisine";
 import ProfilBadge from "../components/ProfilBadge";
 import { LoadingState } from "../components/states";
@@ -29,8 +35,16 @@ import { LoadingState } from "../components/states";
 function useMaintenant(): Date {
   const [now, setNow] = useState(() => new Date());
   useEffect(() => {
-    const id = window.setInterval(() => setNow(new Date()), 60_000);
-    return () => window.clearInterval(id);
+    // Aligné sur les minutes pleines : « dans 1 h 30 » change pile à la minute.
+    let id: number;
+    const planifier = () => {
+      id = window.setTimeout(() => {
+        setNow(new Date());
+        planifier();
+      }, millisecondesAvantMinute(new Date()));
+    };
+    planifier();
+    return () => window.clearTimeout(id);
   }, []);
   return now;
 }
@@ -40,11 +54,12 @@ const CARTE = "rounded-2xl bg-ebony-card border border-hairline overflow-hidden 
 export default function Aujourdhui() {
   const { user } = useAuth();
   const householdId = useActiveHouseholdId(user?.uid);
-  const { data: households } = useHouseholds(user?.uid);
+  const { data: households, isLoading: householdsLoading } = useHouseholds(user?.uid);
+  const invitation = useInvitationEnAttente();
   const household = households?.find((h) => h.id === householdId);
   const { data: plan, isLoading: planLoading } = useActivePlan(householdId);
-  const { data: slots } = usePlanSlots(householdId, plan?.id);
-  const { data: recettes } = usePlanRecettes(householdId, slots);
+  const { data: slots, isLoading: slotsLoading } = usePlanSlots(householdId, plan?.id);
+  const { data: recettes, isLoading: recettesLoading } = usePlanRecettes(householdId, slots);
   const { data: batchSessions } = usePlanBatchSessions(householdId, plan?.id);
   const { data: profils } = useProfils(householdId);
   const now = useMaintenant();
@@ -68,7 +83,20 @@ export default function Aujourdhui() {
     [profils],
   );
 
-  if (!householdId || planLoading) return <LoadingState />;
+  if (householdsLoading || invitation.enCours) return <LoadingState />;
+  if (!householdId) {
+    return (
+      <div className="flex flex-col items-center text-center gap-3 py-12">
+        <p className="text-lg text-cream">Rejoins ou crée ton foyer sur l'ordinateur</p>
+        {invitation.resultat && !invitation.resultat.ok && (
+          <p className="text-base text-cream-mute">{invitation.resultat.message}</p>
+        )}
+      </div>
+    );
+  }
+  if (planLoading) return <LoadingState />;
+  /* Tant que le repas et ses recettes chargent, on n'affirme pas qu'il n'y a plus rien. */
+  const repasEnChargement = !!plan && (slotsLoading || recettesLoading);
 
   const date = now.toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
 
@@ -81,6 +109,7 @@ export default function Aujourdhui() {
       <div className="grid grid-cols-1 min-[560px]:grid-cols-2 auto-rows-fr gap-4">
         {plan ? (
           <CarteProchainRepas
+            chargement={repasEnChargement}
             planId={plan.id}
             prochain={resume.prochain}
             profilsParId={profilsParId}
@@ -106,22 +135,37 @@ export default function Aujourdhui() {
         </section>
       )}
 
-      {resume.batchDuJour && (
-        <CarteBatch batch={resume.batchDuJour} recettes={recettes ?? {}} />
+      {resume.batchsDuJour.length > 0 && (
+        <ul aria-label="Batch du jour" className="flex flex-col gap-2">
+          {resume.batchsDuJour.map((b) => (
+            <li key={b.id}>
+              <CarteBatch batch={b} recettes={recettes ?? {}} />
+            </li>
+          ))}
+        </ul>
       )}
     </div>
   );
 }
 
 function CarteProchainRepas({
+  chargement,
   planId,
   prochain,
   profilsParId,
 }: {
+  chargement: boolean;
   planId: string;
   prochain?: ProchainRepas<MealPlanSlotWithId>;
   profilsParId: Record<string, Profil>;
 }) {
+  if (chargement) {
+    return (
+      <section className={`${CARTE} p-4 justify-center`} aria-busy="true">
+        <p className="text-base text-cream-mute">Chargement du prochain repas…</p>
+      </section>
+    );
+  }
   if (!prochain) {
     return (
       <section className={`${CARTE} p-4 justify-center`}>
@@ -208,15 +252,10 @@ function CarteProchainRepas({
 function CartePcLéo() {
   return (
     <section className={`${CARTE} p-4 gap-3`} aria-label="PC d'Léo">
-      <div className="flex items-center justify-between gap-2">
-        <h2 className="flex items-center gap-2 text-lg font-semibold text-cream">
-          <Monitor size={20} aria-hidden="true" />
-          PC d'Léo
-        </h2>
-        <span className="text-[15px] text-cream-mute border border-hairline rounded-full px-2.5 py-0.5">
-          Bientôt
-        </span>
-      </div>
+      <h2 className="flex items-center gap-2 text-lg font-semibold text-cream">
+        <Monitor size={20} aria-hidden="true" />
+        PC d'Léo
+      </h2>
       <p className="flex-1 flex items-center text-base text-cream-mute">
         Bientôt : couper ou remettre le wifi du PC d'Léo
       </p>
@@ -267,7 +306,6 @@ function CarteBatch({
       : null;
   return (
     <section
-      aria-label="Batch du jour"
       className={"rounded-xl bg-ebony-card border border-hairline px-4 py-3 " + (batch.done ? "opacity-50" : "")}
     >
       <h2 className="flex items-center gap-2 text-base font-semibold text-cream">
