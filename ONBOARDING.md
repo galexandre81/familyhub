@@ -836,6 +836,8 @@ Le display est créé côté serveur, mais l'iPad ne sait pas encore qu'il est c
 5. La page affiche le code et un bouton **Associer cet appareil comme écran** : appuie dessus.
 6. L'iPad se charge, et hop, il affiche maintenant les tuiles configurées.
 
+> ⚠️ **Un appareil = un écran : appairer un deuxième appareil sur le même écran déconnecte le premier.** Le premier affiche alors « Écran appairé ailleurs — à reconfigurer ».
+
 > ⚠️ **Le code s'utilise une seule fois.** L'appareil qui appuie sur « Associer » devient l'écran. Si tu te trompes d'appareil, supprime l'écran dans **Écrans** (ça déconnecte l'appareil immédiatement), recrée-le et recommence.
 
 > 💡 **Astuce iPad** : sur l'iPad cuisine, ajoute le site à l'**écran d'accueil** (Safari → Partager → Sur l'écran d'accueil). Ça donne une icône comme une vraie app, sans la barre d'adresse.
