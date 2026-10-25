@@ -3,7 +3,7 @@
  * peut commencer n'importe quel jour et durer plus de 7 jours), jour affiché
  * au départ, repas passés, plans voisins pour les flèches.
  */
-import { heureDuRepas, type HeuresRepas, type Repas } from "@family-hub/types";
+import { heureDuRepas, repasEstPasse, type HeuresRepas, type Repas } from "@family-hub/types";
 import { dateISOLocale } from "./aujourdhui";
 
 export const ORDRE_REPAS: Repas[] = ["petitDej", "dej", "diner"];
@@ -12,9 +12,6 @@ const JOURS_COURTS = ["dim", "lun", "mar", "mer", "jeu", "ven", "sam"];
 
 /** Garde-fou : un plan ne dépasse pas 31 jours à l'écran. */
 const JOURS_MAX = 31;
-
-/** Un repas est « passé » une heure après son heure (même règle que `prochainsRepas`). */
-const DUREE_REPAS_MIN = 60;
 
 export interface JourDuPlan<S> {
   dateISO: string;
@@ -93,7 +90,7 @@ export function jourInitial(jours: Array<{ dateISO: string }>, now: Date): strin
 }
 
 export function repasPasse(dateISO: string, repas: Repas, now: Date, heures: HeuresRepas): boolean {
-  return heureDuRepas(dateISO, repas, heures).getTime() < now.getTime() - DUREE_REPAS_MIN * 60_000;
+  return repasEstPasse(heureDuRepas(dateISO, repas, heures), now);
 }
 
 /** Plans triés par début décroissant (`useAllPlans`) : précédent = plus ancien. */

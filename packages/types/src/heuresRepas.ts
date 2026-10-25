@@ -36,7 +36,12 @@ export function heuresRepasValides(h?: {
 }
 
 /** Un repas reste « le prochain » jusqu'à une heure après son heure. */
-const DUREE_REPAS_MIN = 60;
+export const DUREE_REPAS_MIN = 60;
+
+/** Vrai quand le repas prévu à `heure` est fini : plus de DUREE_REPAS_MIN minutes après son heure. */
+export function repasEstPasse(heure: Date, now: Date): boolean {
+  return heure.getTime() < now.getTime() - DUREE_REPAS_MIN * 60_000;
+}
 
 /** Heure locale d'un repas pour un jour ISO `YYYY-MM-DD`. */
 export function heureDuRepas(
@@ -62,12 +67,11 @@ export function prochainsRepas<
   heures: HeuresRepas = HEURES_REPAS_DEFAUT,
   n = 2,
 ): Array<{ slot: S; heure: Date }> {
-  const limite = now.getTime() - DUREE_REPAS_MIN * 60_000;
   const res: Array<{ slot: S; heure: Date }> = [];
   for (const slot of slots) {
     if (!slot.date || slot.annule || slot.recetteIds.length === 0) continue;
     const heure = heureDuRepas(slot.date, slot.repas, heures);
-    if (heure.getTime() >= limite) res.push({ slot, heure });
+    if (!repasEstPasse(heure, now)) res.push({ slot, heure });
   }
   res.sort((a, b) => a.heure.getTime() - b.heure.getTime());
   return res.slice(0, n);

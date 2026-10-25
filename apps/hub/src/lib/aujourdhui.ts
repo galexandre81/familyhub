@@ -7,15 +7,13 @@ import {
   libelleDans,
   minutesAvant,
   prochainsRepas,
+  repasEstPasse,
   type HeuresRepas,
   type Repas,
 } from "@family-hub/types";
 
 /** La barre de temps est pleine 3 h avant le repas, vide à l'heure du repas. */
 export const MINUTES_BARRE_PLEINE = 180;
-
-/** Un repas est « passé » une heure après son heure (même règle que `prochainsRepas`). */
-const DUREE_REPAS_MIN = 60;
 
 type SlotAujourdhui = {
   id: string;
@@ -119,7 +117,6 @@ export function resumeAujourdhui<S extends SlotAujourdhui, B extends BatchAujour
     };
   }
 
-  const limitePasse = now.getTime() - DUREE_REPAS_MIN * 60_000;
   const autresDuJour = slots
     .filter(
       (s) => s.date === aujourdhui && s.recetteIds.length > 0 && s.id !== prochain?.slot.id,
@@ -130,7 +127,7 @@ export function resumeAujourdhui<S extends SlotAujourdhui, B extends BatchAujour
         slot: s,
         heure,
         heureTexte: heureTexte(heure),
-        passe: heure.getTime() < limitePasse,
+        passe: repasEstPasse(heure, now),
         annule: !!s.annule,
         noms: noms(s.recetteIds),
       };

@@ -1,11 +1,13 @@
 import { describe, expect, it } from "vitest";
 import {
+  DUREE_REPAS_MIN,
   HEURES_REPAS_DEFAUT,
   heuresRepasValides,
   heureDuRepas,
   libelleDans,
   minutesAvant,
   prochainsRepas,
+  repasEstPasse,
 } from "./heuresRepas";
 import type { Repas } from "./mealPlan";
 
@@ -120,5 +122,18 @@ describe("heures invalides ou absentes", () => {
   it("changement d'heure (dimanche 25 octobre 2026) : dîner 19:00 local", () => {
     const d = heureDuRepas("2026-10-25", "diner");
     expect([d.getHours(), d.getMinutes(), d.getDate()]).toEqual([19, 0, 25]);
+  });
+});
+
+describe("repasEstPasse", () => {
+  const heure = new Date(2026, 9, 26, 12, 0);
+  it("un repas reste en cours pendant DUREE_REPAS_MIN minutes", () => {
+    expect(DUREE_REPAS_MIN).toBe(60);
+    expect(repasEstPasse(heure, new Date(2026, 9, 26, 11, 0))).toBe(false);
+    expect(repasEstPasse(heure, new Date(2026, 9, 26, 12, 59))).toBe(false);
+    expect(repasEstPasse(heure, new Date(2026, 9, 26, 13, 0))).toBe(false);
+  });
+  it("passé au-delà d'une heure après son heure", () => {
+    expect(repasEstPasse(heure, new Date(2026, 9, 26, 13, 0, 1))).toBe(true);
   });
 });
