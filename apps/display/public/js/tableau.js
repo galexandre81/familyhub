@@ -19,13 +19,13 @@
    - en-tête : date, heure en très grand, météo à droite (toucher → météo) ;
    - carte du prochain repas (≈ 60 %) : « Dîner · 19:00 », « dans 1 h 30 »,
      barre qui se vide, plat, accompagnements, présents, « Commencer » → mode
-     recette ; dessous, le batch cooking du jour ou du lendemain s'il y en a
-     un (toucher → mode recette avec toutes ses recettes), puis l'agenda de la
-     semaine (toucher → agenda) ;
+     recette ; dessous, l'agenda de la semaine (toucher → agenda) ;
    - colonne droite : minuteurs (1 / 5 / 10 min, Autre, en cours ; la carte
      ne grandit qu'avec les minuteurs en cours), « PC des enfants » (place
-     réservée au temps d'écran, projet à venir) puis « Ensuite » (le repas
-     d'après) ;
+     réservée au temps d'écran, projet à venir ; remplacée par le batch
+     cooking du jour ou du lendemain s'il y en a un : toucher → mode recette
+     avec toutes ses recettes — à gauche, il écrasait le plat du repas) puis « Menu de la semaine »
+     avec le repas d'après (toucher → menu de la semaine) ;
    - rangée « plus » : Recettes, Menu de la semaine, Radio, Réglages.
 
    iOS 9 : jamais de flex sur un <button> (contenu dans un <span> intérieur).
@@ -434,11 +434,6 @@
     var gauche = el('div', 'tab-gauche');
     var repasEl = el('div', 'tab-repas tab-carte fh-carte fh-bordure');
     gauche.appendChild(repasEl);
-    var batchEl = el('div', 'tab-batch tab-carte fh-carte fh-bordure');
-    batchEl.setAttribute('role', 'button');
-    batchEl.style.display = 'none';
-    batchEl.addEventListener('click', cuisinerBatch);
-    gauche.appendChild(batchEl);
     var batchCourant = null;
     var agendaEl = el('div', 'tab-agenda tab-carte fh-carte fh-bordure');
     agendaEl.setAttribute('role', 'button');
@@ -458,7 +453,15 @@
       '<div class="tab-pc-titre fh-texte">' + svg(ICONES.ecran, 24) + '<span>PC des enfants</span></div>' +
       '<p class="tab-pc-texte fh-texte-doux">Bientôt : le temps d’écran</p>';
     droite.appendChild(pcEl);
+    var batchEl = el('div', 'tab-batch tab-carte fh-carte fh-bordure');
+    batchEl.setAttribute('role', 'button');
+    batchEl.style.display = 'none';
+    batchEl.addEventListener('click', cuisinerBatch);
+    droite.appendChild(batchEl);
     var ensuiteEl = el('div', 'tab-ensuite tab-carte fh-carte fh-bordure');
+    ensuiteEl.setAttribute('role', 'button');
+    ensuiteEl.setAttribute('aria-label', 'Menu de la semaine');
+    ensuiteEl.addEventListener('click', function () { ouvrirOverlay('weekly-menu'); });
     droite.appendChild(ensuiteEl);
     milieu.appendChild(droite);
     racine.appendChild(milieu);
@@ -569,17 +572,18 @@
       var cle = b ? b.cle : '';
       if (cles.batch === cle) return;
       cles.batch = cle;
-      if (!b) { batchEl.style.display = 'none'; batchEl.innerHTML = ''; return; }
+      if (!b) { batchEl.style.display = 'none'; batchEl.innerHTML = ''; pcEl.style.display = ''; return; }
+      pcEl.style.display = 'none';
       batchEl.style.display = '';
       batchEl.className = 'tab-batch tab-carte fh-carte fh-bordure' + (b.fait ? ' tab-batch-fait' : '');
+      var details = [];
+      if (b.duree) details.push(echapper(b.duree).replace(/ /g, '&nbsp;'));
+      if (b.recetteIds.length) details.push(b.recetteIds.length + '&nbsp;recette' + (b.recetteIds.length > 1 ? 's' : ''));
       batchEl.innerHTML =
-        '<div class="tab-batch-texte">' +
-          '<div class="tab-batch-titre fh-titre fh-texte">' + svg(ICONES.marmite, 28) +
-            '<span>' + echapper(b.titre) + (b.duree ? ' · ' + echapper(b.duree) : '') + (b.fait ? ' · fait' : '') +
-            '</span></div>' +
-          (b.noms ? '<div class="tab-batch-noms fh-texte-doux">' + echapper(b.noms) + '</div>' : '') +
-        '</div>' +
-        '<div class="tab-batch-aller fh-texte">Cuisiner ›</div>';
+        '<div class="tab-batch-titre fh-titre fh-texte">' + svg(ICONES.marmite, 26) +
+          '<span>' + echapper(b.titre) + (b.fait ? ' · fait' : '') + '</span></div>' +
+        '<div class="tab-batch-detail fh-texte-doux">' + details.join(' · ') +
+          (b.fait ? '' : '<span class="tab-batch-aller fh-texte"> · Cuisiner&nbsp;›</span>') + '</div>';
     }
 
     function rendreRepasMessage(titre, message) {
@@ -639,13 +643,14 @@
     }
 
     function rendreEnsuite(src, e) {
-      var html = '<div class="tab-carte-titre fh-texte-doux">Ensuite</div>';
+      /* Titre fixe : la carte ouvre le menu de la semaine ; dessous, le repas d'après. */
+      var html = '<div class="tab-ensuite-menu fh-titre fh-texte">Menu de la semaine ›</div>';
       if (!src) {
         html += '<p class="tab-message fh-texte-doux">' + A_CONFIGURER + '</p>';
       } else if (!e) {
         html += '<p class="tab-message fh-texte-doux">Rien de prévu après.</p>';
       } else {
-        html = '<div class="tab-carte-titre fh-texte-doux">' + echapper(e.libelle) + '</div>' +
+        html += '<div class="tab-carte-titre fh-texte-doux">' + echapper(e.libelle) + '</div>' +
           '<div class="tab-ensuite-plat fh-titre fh-texte">' + echapper(e.plat) + '</div>' +
           (e.accompagnements ? '<div class="tab-ensuite-acc fh-texte-doux">' + echapper(e.accompagnements) + '</div>' : '');
       }
