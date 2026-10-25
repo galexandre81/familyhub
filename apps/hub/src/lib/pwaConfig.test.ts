@@ -38,7 +38,7 @@ describe("pwaOptions", () => {
       lang: "fr",
       start_url: "/",
       display: "standalone",
-      background_color: "#EEF4EA",
+      background_color: "#0F1B2D",
       theme_color: "#EEF4EA",
     });
     const tailles = (manifest.icons ?? []).map((i) => i.sizes);
