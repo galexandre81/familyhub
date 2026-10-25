@@ -34,11 +34,19 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
   return <>{children}</>;
 }
 
-export default function App() {
-  /* Ambiance hors Layout (login, chargements) : cache du jour ou repli 07–19. */
+/**
+ * Ambiance hors Layout (login, chargements) : repli 07–19. Composant frère
+ * qui ne rend rien : son recalcul chaque minute ne re-rend pas toute l'app.
+ */
+function AmbianceRacine() {
   useAmbiance();
+  return null;
+}
+
+export default function App() {
   return (
     <AuthProvider>
+      <AmbianceRacine />
       <Suspense fallback={<LoadingState />}>
       <Routes>
         <Route path="/login" element={<Login />} />

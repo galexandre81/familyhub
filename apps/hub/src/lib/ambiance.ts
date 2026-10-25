@@ -15,8 +15,8 @@ import { parseOpenMeteoSun, type SunTimes } from "./sunTimes";
  * classe ; l'appel de la racine s'abstient (compteur module). Au démontage du
  * dernier appel localisé (déconnexion), le repli est réappliqué aussitôt.
  *
- * Recalcul chaque minute ; pose `amb-jour` / `amb-nuit` sur <html> et met à
- * jour `<meta name="theme-color">`.
+ * Recalcul chaque minute ; pose `amb-jour` / `amb-nuit` et `color-scheme`
+ * (light / dark) sur <html> et met à jour `<meta name="theme-color">`.
  */
 
 interface LocalisationSoleil {
@@ -62,6 +62,8 @@ function appliquer(a: Ambiance): void {
   const html = document.documentElement;
   html.classList.toggle("amb-jour", a === "jour");
   html.classList.toggle("amb-nuit", a === "nuit");
+  /* Contrôles natifs (barres de défilement, champs, date pickers) assortis. */
+  html.style.colorScheme = a === "jour" ? "light" : "dark";
   const meta = document.querySelector<HTMLMetaElement>('meta[name="theme-color"]');
   if (meta) meta.content = AMBIANCES[a].fond;
 }
@@ -77,7 +79,13 @@ export function useAmbiance(localisation?: LocalisationSoleil): Ambiance {
   const localise = lat !== undefined && lon !== undefined && !!timezone;
 
   const [maintenant, setMaintenant] = useState(() => new Date());
-  const [sun, setSun] = useState<SunTimes | null>(null);
+  /* Initialisé depuis le cache du jour dès le premier rendu : évite un bref
+     passage par le repli 07–19 au montage quand le soleil est déjà connu. */
+  const [sun, setSun] = useState<SunTimes | null>(() =>
+    lat !== undefined && lon !== undefined && timezone
+      ? lireCache(cleDuJour(new Date(), lat, lon))
+      : null,
+  );
 
   const cle =
     lat !== undefined && lon !== undefined && timezone ? cleDuJour(maintenant, lat, lon) : null;
