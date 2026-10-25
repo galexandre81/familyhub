@@ -237,8 +237,8 @@ interface RefreshHouseholdDisplaysResponse {
 }
 
 /**
- * Recalcule tout de suite toutes les tuiles « Menu de la semaine » et
- * « Recette du jour » du foyer (sinon : une fois par nuit côté serveur).
+ * Bouton « Mettre à jour les écrans » : recalcule tout de suite les tuiles
+ * menu, recette du jour, météo et agenda du foyer (portée « tout »).
  */
 export function useRefreshHouseholdDisplays() {
   return useMutation({
@@ -247,11 +247,11 @@ export function useRefreshHouseholdDisplays() {
     }: {
       householdId: string;
     }): Promise<RefreshHouseholdDisplaysResponse> => {
-      const fn = httpsCallable<{ householdId: string }, RefreshHouseholdDisplaysResponse>(
-        functions,
-        "refreshHouseholdDisplays",
-      );
-      const res = await fn({ householdId });
+      const fn = httpsCallable<
+        { householdId: string; portee: "tout" },
+        RefreshHouseholdDisplaysResponse
+      >(functions, "refreshHouseholdDisplays");
+      const res = await fn({ householdId, portee: "tout" });
       return res.data;
     },
   });
@@ -552,7 +552,7 @@ function makeSlotMutation(name: "acceptSlot" | "refuseSlot") {
       onSuccess: (_data, vars) => {
         void qc.invalidateQueries({ queryKey: ["planSlots", vars.householdId, vars.planId] });
         void qc.invalidateQueries({ queryKey: ["plan", vars.householdId, vars.planId] });
-        rafraichirEcransSansAttendre(vars.householdId);
+        rafraichirEcransSansAttendre(vars.householdId, "menu");
       },
     });
   };
@@ -587,7 +587,7 @@ export function useUpdateSlot() {
     },
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["planSlots", vars.householdId, vars.planId] });
-      rafraichirEcransSansAttendre(vars.householdId);
+      rafraichirEcransSansAttendre(vars.householdId, "menu");
     },
   });
 }
@@ -601,7 +601,7 @@ export function useUpdateSlotPresence() {
     },
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["planSlots", vars.householdId, vars.planId] });
-      rafraichirEcransSansAttendre(vars.householdId);
+      rafraichirEcransSansAttendre(vars.householdId, "menu");
     },
   });
 }
@@ -865,7 +865,7 @@ export function useToggleBatchSessionDone() {
         queryKey: ["planBatchSessions", vars.householdId, vars.planId],
       });
       // `done` figure dans le snapshot du menu affiché par l'iPad.
-      rafraichirEcransSansAttendre(vars.householdId);
+      rafraichirEcransSansAttendre(vars.householdId, "menu");
     },
   });
 }

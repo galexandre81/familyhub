@@ -40,6 +40,7 @@ import MealPlanGrid from "../components/menu/MealPlanGrid";
 import SectionCoursesPc from "../components/courses/SectionCoursesPc";
 import RecetteDetailModal from "../components/menu/RecetteDetailModal";
 import { ErrorState } from "../components/states";
+import { messageEcransMisAJour } from "../lib/rafraichissementGroupe";
 
 export default function Menu() {
   const { user } = useAuth();
@@ -280,9 +281,9 @@ export default function Menu() {
 // ───── Mise à jour manuelle des écrans ─────────────────────────────────
 
 /**
- * Le serveur ne recalcule plus les tuiles « Menu de la semaine » / « Recette
- * du jour » qu'une fois par nuit : ce bouton force la mise à jour tout de
- * suite, après la création ou la modification d'un menu.
+ * Le serveur ne recalcule le menu et la recette du jour qu'une fois par nuit
+ * (les créneaux modifiés le déclenchent aussi) : ce bouton force la mise à jour
+ * de tous les écrans tout de suite, météo et agenda compris.
  */
 function RefreshDisplaysBar({ householdId }: { householdId: string }) {
   const refresh = useRefreshHouseholdDisplays();
@@ -294,14 +295,7 @@ function RefreshDisplaysBar({ householdId }: { householdId: string }) {
     setStatus(null);
     try {
       const res = await refresh.mutateAsync({ householdId });
-      const n = res.weeklyMenuTiles + res.recipeTodayTiles;
-      setStatus({
-        kind: "success",
-        message:
-          n === 0
-            ? "Écrans mis à jour (aucune tuile menu ou recette du jour à rafraîchir)."
-            : `Écrans mis à jour · ${n} tuile${n > 1 ? "s" : ""} rafraîchie${n > 1 ? "s" : ""}.`,
-      });
+      setStatus({ kind: "success", message: messageEcransMisAJour(res) });
     } catch (err) {
       setStatus({
         kind: "error",

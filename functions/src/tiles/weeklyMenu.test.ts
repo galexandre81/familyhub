@@ -3,6 +3,7 @@ import {
   construireSlotSnapshot,
   dateISOFromTimestamp,
   heuresRepasDuFoyer,
+  porteeRafraichissement,
   profilsDuFoyer,
 } from "./weeklyMenu";
 
@@ -109,5 +110,22 @@ describe("heuresRepasDuFoyer", () => {
     expect(heuresRepasDuFoyer(undefined)).toBeUndefined();
     expect(heuresRepasDuFoyer({ parametres: {} })).toBeUndefined();
     expect(heuresRepasDuFoyer({ parametres: { heuresRepas: "x" } })).toBeUndefined();
+  });
+});
+
+describe("porteeRafraichissement", () => {
+  it("par défaut « tout » (anciens hubs)", () => {
+    expect(porteeRafraichissement(undefined)).toBe("tout");
+  });
+
+  it("accepte « menu » et « tout »", () => {
+    expect(porteeRafraichissement("menu")).toBe("menu");
+    expect(porteeRafraichissement("tout")).toBe("tout");
+  });
+
+  it("refuse toute autre valeur", () => {
+    expect(() => porteeRafraichissement("meteo")).toThrow();
+    expect(() => porteeRafraichissement(1)).toThrow();
+    expect(() => porteeRafraichissement(null)).toThrow();
   });
 });

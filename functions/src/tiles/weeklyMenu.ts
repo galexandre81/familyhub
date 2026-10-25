@@ -460,8 +460,22 @@ export const scheduledWeeklyMenuRefresh = onSchedule(
   },
 );
 
+/**
+ * Portée de `refreshHouseholdDisplays` : « menu » = menu + recette du jour
+ * (modifications de créneaux depuis le hub) ; « tout » = en plus météo et
+ * agenda (bouton, import de plan). Absente = « tout » (anciens hubs).
+ */
+export type PorteeRafraichissement = "menu" | "tout";
+
+export function porteeRafraichissement(v: unknown): PorteeRafraichissement {
+  if (v === undefined) return "tout";
+  if (v === "menu" || v === "tout") return v;
+  throw new HttpsError("invalid-argument", "portee doit valoir « menu » ou « tout »");
+}
+
 interface RefreshHouseholdInput {
   householdId: string;
+  portee?: PorteeRafraichissement;
 }
 
 interface RefreshHouseholdResponse {
@@ -473,10 +487,11 @@ interface RefreshHouseholdResponse {
 }
 
 /**
- * Bouton « Mettre à jour les écrans » du hub, et appel sans attente après un
- * import de plan ou une modification de créneau : reconstruit TOUTES les
- * tuiles `weekly-menu`, `recipe-today`, `weather` et `calendar` du foyer (le
- * cron du menu ne passe qu'une fois par jour). Chaque donnée est calculée une
+ * Reconstruit les tuiles du foyer (le cron du menu ne passe qu'une fois par
+ * jour). Portée « tout » (bouton « Mettre à jour les écrans », import de
+ * plan, défaut) : `weekly-menu`, `recipe-today`, `weather` et `calendar`.
+ * Portée « menu » (modification de créneau, appel regroupé sans attente) :
+ * `weekly-menu` et `recipe-today` seulement. Chaque donnée est calculée une
  * seule fois par foyer. Météo et agenda dépendent de services externes : leur
  * échec est journalisé sans faire échouer l'appel (le menu est déjà écrit).
  */
@@ -491,12 +506,17 @@ export const refreshHouseholdDisplays = onCall<
 
     const input = (req.data ?? {}) as Partial<RefreshHouseholdInput>;
     const householdId = requireId(input.householdId, "householdId");
+    const portee = porteeRafraichissement(input.portee);
 
     await assertHouseholdMember(uid, householdId);
 
+    const types =
+      portee === "tout"
+        ? ["weekly-menu", "recipe-today", "weather", "calendar"]
+        : ["weekly-menu", "recipe-today"];
     const tilesSnap = await db
       .collection(`households/${householdId}/tiles`)
-      .where("type", "in", ["weekly-menu", "recipe-today", "weather", "calendar"])
+      .where("type", "in", types)
       .get();
     const weeklyMenuIds = tilesSnap.docs
       .filter((d) => d.data().type === "weekly-menu")
@@ -527,6 +547,7 @@ export const refreshHouseholdDisplays = onCall<
 
     logger.info("refreshHouseholdDisplays DONE", {
       householdId,
+      portee,
       weeklyMenuTiles: weeklyMenuIds.length,
       recipeTodayTiles: recipeTodayIds.length,
       weatherTiles: weatherDocs.length,

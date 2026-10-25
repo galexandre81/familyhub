@@ -292,8 +292,12 @@ export interface WeeklyMenuProfil {
   couleur?: string;
 }
 
-/** Aligné sur `HeuresRepas` de packages/types/src/heuresRepas.ts. */
+/**
+ * Copie BRUTE de `parametres.heuresRepas` : forme visée `HeuresRepas`
+ * (packages/types/src/heuresRepas.ts), mais rien n'est garanti — champs
+ * manquants ou valeurs non « HH:MM » possibles. L'iPad normalise.
+ */
 export interface HeuresRepasFoyer {
-  semaine: Record<Repas, string>;
-  weekend: Record<Repas, string>;
+  semaine?: Partial<Record<Repas, unknown>>;
+  weekend?: Partial<Record<Repas, unknown>>;
 }

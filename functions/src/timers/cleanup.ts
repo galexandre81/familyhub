@@ -4,7 +4,8 @@
  * Toutes les 60 min : supprime les minuteurs terminés (`ended`) ou acquittés
  * (`acknowledged`) dont la fin date de plus d'1 h, et les minuteurs restés
  * `running` dont la fin date de plus de 24 h (oubliés : aucun écran ne les a
- * passés en `ended`). Les minuteurs en pause ne sont jamais supprimés.
+ * passés en `ended`), et les minuteurs en pause depuis plus de 7 jours
+ * (d'après `pausedAt`).
  *
  * Choix de la requête : on parcourt les foyers puis leur sous-collection
  * `timers`, plutôt qu'un `collectionGroup("timers")` filtré (qui exigerait un
@@ -20,6 +21,7 @@ import { db } from "../lib/admin";
 const UNE_HEURE_MS = 3_600_000;
 const DELAI_TERMINE_MS = UNE_HEURE_MS;
 const DELAI_OUBLIE_MS = 24 * UNE_HEURE_MS;
+const DELAI_PAUSE_OUBLIEE_MS = 7 * 24 * UNE_HEURE_MS;
 
 /** Millisecondes d'un horodatage Firestore (Timestamp, Date, forme brute, nombre). */
 function versMs(v: unknown): number | null {
@@ -47,13 +49,18 @@ function versMs(v: unknown): number | null {
 
 /**
  * Le minuteur doit-il être supprimé à `nowMs` ? Pur. Strict : un minuteur
- * terminé depuis exactement 1 h (ou en cours depuis exactement 24 h après sa
- * fin) est encore conservé. Fin absente ou illisible : conservé.
+ * terminé depuis exactement 1 h (en cours depuis exactement 24 h après sa
+ * fin, en pause depuis exactement 7 jours) est encore conservé. Horodatage
+ * de référence absent ou illisible : conservé.
  */
 export function minuteurASupprimer(
-  t: { status?: unknown; endsAt?: unknown },
+  t: { status?: unknown; endsAt?: unknown; pausedAt?: unknown },
   nowMs: number,
 ): boolean {
+  if (t.status === "paused") {
+    const pause = versMs(t.pausedAt);
+    return pause !== null && pause < nowMs - DELAI_PAUSE_OUBLIEE_MS;
+  }
   const fin = versMs(t.endsAt);
   if (fin === null) return false;
   if (t.status === "ended" || t.status === "acknowledged") {

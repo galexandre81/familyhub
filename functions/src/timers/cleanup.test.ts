@@ -19,7 +19,15 @@ describe("minuteurASupprimer", () => {
     expect(minuteurASupprimer({ status: "running", endsAt: new Date(NOW - 2 * H) }, NOW)).toBe(false);
   });
 
-  it("en pause : jamais supprimé", () => {
+  it("en pause : supprimé seulement après 7 jours de pause (pausedAt)", () => {
+    const J7 = 7 * 24 * H;
+    expect(minuteurASupprimer({ status: "paused", endsAt: new Date(NOW - 48 * H), pausedAt: new Date(NOW - J7 - 1) }, NOW)).toBe(true);
+    expect(minuteurASupprimer({ status: "paused", endsAt: new Date(NOW - 48 * H), pausedAt: new Date(NOW - J7) }, NOW)).toBe(false);
+    expect(minuteurASupprimer({ status: "paused", endsAt: new Date(NOW - 48 * H), pausedAt: new Date(NOW - 2 * H) }, NOW)).toBe(false);
+    expect(minuteurASupprimer({ status: "paused", pausedAt: { seconds: (NOW - J7 - 1000) / 1000 } }, NOW)).toBe(true);
+  });
+
+  it("en pause sans pausedAt lisible : conservé", () => {
     expect(minuteurASupprimer({ status: "paused", endsAt: new Date(NOW - 48 * H) }, NOW)).toBe(false);
   });
 

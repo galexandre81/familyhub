@@ -535,7 +535,7 @@ export async function importPlanFromJson(args: {
   }
 
   // Import réussi : l'iPad affiche le nouveau plan sans attendre le cron.
-  rafraichirEcransSansAttendre(householdId);
+  rafraichirEcransSansAttendre(householdId, "tout");
 
   return {
     recettesCreated: recettesToCreate.length,
