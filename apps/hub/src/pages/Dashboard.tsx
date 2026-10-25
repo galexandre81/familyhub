@@ -1,5 +1,7 @@
 import { Link } from "react-router-dom";
+import { AlertCircle, CheckCircle2, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
+import { useInvitationEnAttente } from "../lib/invitationContext";
 import { useDisplays, useHouseholds, useTiles } from "../lib/queries";
 import { ErrorState } from "../components/states";
 
@@ -12,6 +14,7 @@ export default function Dashboard() {
     refetch,
   } = useHouseholds(user?.uid);
   const household = households?.[0];
+  const invitation = useInvitationEnAttente();
   const { data: displays } = useDisplays(household?.id);
   const { data: tiles } = useTiles(household?.id);
 
@@ -35,8 +38,32 @@ export default function Dashboard() {
         </p>
       </header>
 
-      {isLoading && (
-        <p className="text-ink-mute italic font-serif">Chargement…</p>
+      {invitation.resultat && (
+        <div
+          role={invitation.resultat.ok ? "status" : "alert"}
+          className="tile-card flex items-center gap-3 text-base"
+        >
+          {invitation.resultat.ok ? (
+            <CheckCircle2 aria-hidden="true" className="h-5 w-5 shrink-0 text-brass" />
+          ) : (
+            <AlertCircle aria-hidden="true" className="h-5 w-5 shrink-0 text-brass" />
+          )}
+          <span className="flex-1 text-ink">{invitation.resultat.message}</span>
+          <button
+            type="button"
+            onClick={invitation.fermer}
+            className="btn-secondary inline-flex min-h-[48px] items-center gap-2"
+          >
+            <X aria-hidden="true" className="h-4 w-4" />
+            Fermer
+          </button>
+        </div>
+      )}
+
+      {(isLoading || invitation.enCours) && (
+        <p className="text-ink-mute italic font-serif">
+          {invitation.enCours ? "Arrivée dans le foyer…" : "Chargement…"}
+        </p>
       )}
 
       {isError && (
@@ -46,7 +73,7 @@ export default function Dashboard() {
         />
       )}
 
-      {!isLoading && !isError && households?.length === 0 && (
+      {!isLoading && !invitation.enCours && !isError && households?.length === 0 && (
         <div className="tile-card text-center py-12 max-w-xl mx-auto">
           <p className="font-serif italic text-2xl text-ink mb-2">
             Première étape

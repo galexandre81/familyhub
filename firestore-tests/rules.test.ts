@@ -72,9 +72,17 @@ beforeEach(async () => {
       nom: "Foyer Test",
       ownerUid: MEMBER_UID,
       membres: [MEMBER_UID],
+      roles: { [MEMBER_UID]: "parent" },
       parametres: { localisation: {}, langue: "fr", systemeUnites: "metric" },
       createdAt: 1,
       updatedAt: 1,
+    });
+    await setDoc(doc(db, "invitations", "ABCDEFGHJK"), {
+      householdId: HID,
+      createdBy: MEMBER_UID,
+      createdAt: 1,
+      expiresAt: 9_999_999_999_999,
+      role: "parent",
     });
     await setDoc(doc(db, "households", HID, "profils", "p1"), {
       nom: "Léo",
@@ -200,6 +208,20 @@ describe("member access", () => {
   it("cannot change membres via update", async () => {
     const db = memberDb();
     await assertFails(updateDoc(doc(db, "households", HID), { membres: [MEMBER_UID, OUTSIDER_UID] }));
+  });
+
+  it("cannot change roles via update (ajout d'un parent)", async () => {
+    const db = memberDb();
+    await assertFails(
+      updateDoc(doc(db, "households", HID), {
+        roles: { [MEMBER_UID]: "parent", [OUTSIDER_UID]: "parent" },
+      }),
+    );
+  });
+
+  it("cannot change roles via update (chemin pointé)", async () => {
+    const db = memberDb();
+    await assertFails(updateDoc(doc(db, "households", HID), { [`roles.${MEMBER_UID}`]: "enfant" }));
   });
 });
 
@@ -373,6 +395,50 @@ describe("création de foyer", () => {
     );
   });
 
+  it("accepte roles = { moi: parent }", async () => {
+    await assertSucceeds(
+      setDoc(doc(outsiderDb(), "households", "avecRoles"), {
+        ...base,
+        ownerUid: OUTSIDER_UID,
+        membres: [OUTSIDER_UID],
+        roles: { [OUTSIDER_UID]: "parent" },
+      }),
+    );
+  });
+
+  it("REFUSE roles = { autre: parent }", async () => {
+    await assertFails(
+      setDoc(doc(outsiderDb(), "households", "piegeRoles"), {
+        ...base,
+        ownerUid: OUTSIDER_UID,
+        membres: [OUTSIDER_UID],
+        roles: { [MEMBER_UID]: "parent" },
+      }),
+    );
+  });
+
+  it("REFUSE roles = { moi: parent, autre: parent }", async () => {
+    await assertFails(
+      setDoc(doc(outsiderDb(), "households", "piegeRoles2"), {
+        ...base,
+        ownerUid: OUTSIDER_UID,
+        membres: [OUTSIDER_UID],
+        roles: { [OUTSIDER_UID]: "parent", [MEMBER_UID]: "parent" },
+      }),
+    );
+  });
+
+  it("REFUSE roles = { moi: enfant }", async () => {
+    await assertFails(
+      setDoc(doc(outsiderDb(), "households", "piegeRoles3"), {
+        ...base,
+        ownerUid: OUTSIDER_UID,
+        membres: [OUTSIDER_UID],
+        roles: { [OUTSIDER_UID]: "enfant" },
+      }),
+    );
+  });
+
   it("REFUSE la création par un écran", async () => {
     await assertFails(
       setDoc(doc(displayDb(), "households", "piege3"), {
@@ -418,5 +484,32 @@ describe("adresse iCal privée du foyer", () => {
 
   it("un non-membre NE la lit PAS", async () => {
     await assertFails(getDoc(doc(outsiderDb(), "households", HID, "private", "calendar")));
+  });
+});
+
+describe("invitations (Functions uniquement)", () => {
+  it("un membre NE lit PAS une invitation", async () => {
+    await assertFails(getDoc(doc(memberDb(), "invitations", "ABCDEFGHJK")));
+  });
+
+  it("un non-membre NE lit PAS une invitation", async () => {
+    await assertFails(getDoc(doc(outsiderDb(), "invitations", "ABCDEFGHJK")));
+  });
+
+  it("personne N'écrit une invitation (ni création, ni marquage utilisé)", async () => {
+    await assertFails(
+      setDoc(doc(outsiderDb(), "invitations", "NOUVEAU234"), {
+        householdId: HID,
+        createdBy: OUTSIDER_UID,
+        role: "parent",
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(memberDb(), "invitations", "ABCDEFGHJK"), { usedBy: OUTSIDER_UID }),
+    );
+  });
+
+  it("un écran NE lit PAS une invitation", async () => {
+    await assertFails(getDoc(doc(displayDb(), "invitations", "ABCDEFGHJK")));
   });
 });

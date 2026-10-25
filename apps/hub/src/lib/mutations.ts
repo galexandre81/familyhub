@@ -38,6 +38,7 @@ export function useCreateHousehold() {
         nom,
         ownerUid: uid,
         membres: [uid],
+        roles: { [uid]: "parent" },
         parametres,
         createdAt: serverTimestamp(),
         updatedAt: serverTimestamp(),
@@ -58,6 +59,54 @@ export function useCreateHousehold() {
       void qc.invalidateQueries({ queryKey: ["households", vars.uid] });
       void qc.invalidateQueries({ queryKey: ["user", vars.uid] });
     },
+  });
+}
+
+interface CreateInvitationResponse {
+  code: string;
+  expiresAt: number;
+}
+
+/** Crée un lien d'invitation (usage unique, 7 jours) dans le foyer. */
+export function useCreateInvitation() {
+  return useMutation({
+    mutationFn: async ({ householdId }: { householdId: string }) => {
+      const fn = httpsCallable<{ householdId: string }, CreateInvitationResponse>(
+        functions,
+        "createInvitation",
+      );
+      const res = await fn({ householdId });
+      return res.data;
+    },
+  });
+}
+
+interface AcceptInvitationResponse {
+  householdId: string;
+  nom: string;
+}
+
+/**
+ * Accepte une invitation avec le compte connecté. Les foyers sont rechargés
+ * AVANT la fin de la mutation : sans ça, l'accueil afficherait un instant
+ * « Créer mon foyer » alors que la personne vient d'entrer dans un foyer.
+ */
+export function useAcceptInvitation() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ code }: { code: string; uid: string }) => {
+      const fn = httpsCallable<{ code: string }, AcceptInvitationResponse>(
+        functions,
+        "acceptInvitation",
+      );
+      const res = await fn({ code });
+      return res.data;
+    },
+    onSuccess: (_data, vars) =>
+      Promise.all([
+        qc.invalidateQueries({ queryKey: ["households", vars.uid] }),
+        qc.invalidateQueries({ queryKey: ["user", vars.uid] }),
+      ]),
   });
 }
 

@@ -15,7 +15,7 @@ function httpsErreurAppairage(reason: RaisonAppairage): HttpsError {
 const SETUP_TOKEN_TTL_SECONDS = 30 * 60; // 30 min
 
 /** Alphabet sans caractères confusables (0/O, 1/I/L) — facilite la saisie sur iPad. */
-const SHORT_ID_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+export const SHORT_ID_ALPHABET = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
 const SHORT_ID_LENGTH = 6;
 
 function generateToken(): string {

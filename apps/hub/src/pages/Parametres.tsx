@@ -4,12 +4,15 @@ import { ChevronRight, Pencil, Users } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { useHouseholds } from "../lib/queries";
 import HouseholdForm from "../components/HouseholdForm";
+import InviterMembre from "../components/InviterMembre";
+import { useInvitationEnAttente } from "../lib/invitationContext";
 
 export default function Parametres() {
   const { user } = useAuth();
   const { data: households, isLoading } = useHouseholds(user?.uid);
   const navigate = useNavigate();
   const [editingId, setEditingId] = useState<string | null>(null);
+  const invitation = useInvitationEnAttente();
 
   if (!user) return null;
 
@@ -73,13 +76,21 @@ export default function Parametres() {
           </ul>
         )}
 
-        {!isLoading && (!households || households.length === 0) && (
+        {invitation.enCours && (
+          <p className="text-text-secondaire">Arrivée dans le foyer…</p>
+        )}
+
+        {!isLoading && !invitation.enCours && (!households || households.length === 0) && (
           <HouseholdForm
             uid={user.uid}
             onSaved={() => navigate("/")}
           />
         )}
       </section>
+
+      {households && households.length > 0 && (
+        <InviterMembre householdId={households[0].id} nomFoyer={households[0].nom} />
+      )}
 
       {households && households.length > 0 && (
         <section className="space-y-3">

@@ -40,3 +40,6 @@ export {
   refreshDisplayToken,
   deleteDisplay,
 } from "./auth/displayToken";
+
+// Foyer : invitation d'un membre
+export { createInvitation, acceptInvitation } from "./household/invitations";

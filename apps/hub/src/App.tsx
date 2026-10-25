@@ -5,8 +5,10 @@ import Layout from "./components/Layout";
 import NotFound from "./components/NotFound";
 import { LoadingState } from "./components/states";
 import { useAmbiance } from "./lib/ambiance";
+import { InvitationEnAttenteProvider } from "./lib/invitationContext";
 
 const Login = lazy(() => import("./pages/Login"));
+const Rejoindre = lazy(() => import("./pages/Rejoindre"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
 const Displays = lazy(() => import("./pages/Displays"));
 const DisplayEditor = lazy(() => import("./pages/DisplayEditor"));
@@ -50,11 +52,14 @@ export default function App() {
       <Suspense fallback={<LoadingState />}>
       <Routes>
         <Route path="/login" element={<Login />} />
+        <Route path="/rejoindre/:code" element={<Rejoindre />} />
         <Route
           path="/"
           element={
             <RequireAuth>
-              <Layout />
+              <InvitationEnAttenteProvider>
+                <Layout />
+              </InvitationEnAttenteProvider>
             </RequireAuth>
           }
         >
