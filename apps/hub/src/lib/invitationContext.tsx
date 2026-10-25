@@ -11,6 +11,7 @@ import { useAuth } from "./auth";
 import { useAcceptInvitation } from "./mutations";
 import { lireInvitationEnAttente, oublierInvitationEnAttente } from "./invitationEnAttente";
 import {
+  decisionResultat,
   estRefusDefinitif,
   messageBienvenue,
   messageErreurInvitation,
@@ -50,28 +51,41 @@ export function InvitationEnAttenteProvider({ children }: { children: ReactNode 
   const [resultat, setResultat] = useState<ResultatInvitation | null>(null);
   const [essai, setEssai] = useState(0);
   const lance = useRef<number | null>(null);
+  const appelEnCours = useRef(false);
+  const succes = useRef<ResultatInvitation | null>(null);
   const { mutateAsync } = accepter;
 
   useEffect(() => {
     if (!user || !code || lance.current === essai) return;
+    // Un seul appel à la fois : un retour de réseau pendant l'appel ne relance rien.
+    if (appelEnCours.current) return;
     lance.current = essai;
+    appelEnCours.current = true;
     setEnCours(true);
+    const montrer = (nouveau: ResultatInvitation) => {
+      const retenu = decisionResultat(succes.current, nouveau);
+      if (retenu.ok) succes.current = retenu;
+      setResultat(retenu);
+    };
     mutateAsync({ code, uid: user.uid })
       .then((r) => {
         oublierInvitationEnAttente();
         setCode(null);
-        setResultat({ ok: true, message: messageBienvenue(r.nom) });
+        montrer({ ok: true, message: messageBienvenue(r.nom) });
       })
       .catch((err: unknown) => {
         if (estRefusDefinitif(err)) {
           oublierInvitationEnAttente();
           setCode(null);
-          setResultat({ ok: false, message: messageErreurInvitation(err) });
+          montrer({ ok: false, message: messageErreurInvitation(err) });
         } else {
-          setResultat({ ok: false, message: MESSAGE_INVITATION_EN_ATTENTE });
+          montrer({ ok: false, message: MESSAGE_INVITATION_EN_ATTENTE });
         }
       })
-      .finally(() => setEnCours(false));
+      .finally(() => {
+        appelEnCours.current = false;
+        setEnCours(false);
+      });
   }, [user, code, essai, mutateAsync]);
 
   // Code gardé après une panne : nouvel essai quand la connexion revient.

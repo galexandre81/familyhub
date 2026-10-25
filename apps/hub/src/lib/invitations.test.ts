@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  decisionResultat,
   estRefusDefinitif,
   lienInvitation,
   messageErreurInvitation,
@@ -58,5 +59,25 @@ describe("estRefusDefinitif", () => {
     expect(estRefusDefinitif(new Error("network"))).toBe(false);
     expect(estRefusDefinitif({ details: { raison: "" } })).toBe(false);
     expect(estRefusDefinitif(null)).toBe(false);
+  });
+});
+
+describe("decisionResultat", () => {
+  const bienvenue = { ok: true, message: "Bienvenue dans le foyer Gates" };
+  const dejaMembre = { ok: false, message: "Tu fais déjà partie de ce foyer" };
+  const attente = { ok: false, message: "pas encore" };
+
+  it("prend le nouveau résultat quand il n'y en a pas encore", () => {
+    expect(decisionResultat(null, dejaMembre)).toBe(dejaMembre);
+  });
+
+  it("garde « Bienvenue » si un refus arrive après le succès", () => {
+    expect(decisionResultat(bienvenue, dejaMembre)).toBe(bienvenue);
+    expect(decisionResultat(bienvenue, attente)).toBe(bienvenue);
+  });
+
+  it("remplace un échec par un succès ou par un autre échec", () => {
+    expect(decisionResultat(attente, bienvenue)).toBe(bienvenue);
+    expect(decisionResultat(attente, dejaMembre)).toBe(dejaMembre);
   });
 });

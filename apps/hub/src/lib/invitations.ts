@@ -58,3 +58,12 @@ export function messageErreurInvitation(err: unknown): string {
 export function messageBienvenue(nom: string): string {
   return nom ? `Bienvenue dans le foyer ${nom}` : "Bienvenue dans le foyer";
 }
+
+/**
+ * Quel résultat afficher quand un nouveau arrive ? Un succès déjà montré dans
+ * la session n'est jamais écrasé (un second appel concurrent échoue côté
+ * serveur avec `deja-utilisee` / `deja-membre`).
+ */
+export function decisionResultat<T extends { ok: boolean }>(precedent: T | null, nouveau: T): T {
+  return precedent?.ok ? precedent : nouveau;
+}
