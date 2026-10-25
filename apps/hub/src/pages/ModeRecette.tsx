@@ -119,14 +119,17 @@ export default function ModeRecette() {
   const [portionsChoisies, setPortions] = useState<number | null>(null);
   const portions = portionsChoisies ?? portionsInitiales;
 
+  const telephone = useEstTelephone();
   const fermer = useCallback(() => {
     const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
     if (idx > 0) navigate(-1);
+    // Ouvert directement (lien, appli relancée) : sur téléphone, /menu n'existe
+    // pas (page PC) → retour à « Aujourd'hui ».
+    else if (telephone) navigate("/");
     else navigate(modeRepas ? "/menu" : recetteId ? `/livre-recettes/${recetteId}` : "/livre-recettes");
-  }, [navigate, modeRepas, recetteId]);
+  }, [navigate, modeRepas, recetteId, telephone]);
 
   useEcranAllume();
-  const telephone = useEstTelephone();
   const [feuilleOuverte, setFeuilleOuverte] = useState(false);
   const declencheurRef = useRef<HTMLButtonElement | null>(null);
   const fermerFeuilleRef = useRef<HTMLButtonElement | null>(null);
