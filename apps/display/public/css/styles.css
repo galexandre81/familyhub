@@ -2,7 +2,12 @@
    Esthétique "Caractère" : noir mat, accents laiton/châtaignier, hairlines brass.
    Flexbox uniquement, pas de CSS Grid, pas de variables, pas de calc() avec virgules. */
 
-* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+* { box-sizing: border-box; -webkit-tap-highlight-color: transparent; -webkit-touch-callout: none; }
+
+/* iOS 9 : un toucher posé sur le dessin (svg) d'un bouton n'atteint pas
+   toujours le bouton — les boutons −/+ du minuteur, qui ne contiennent qu'un
+   dessin, semblaient ne pas répondre. Le dessin laisse passer le toucher. */
+button svg, [role="button"] svg { pointer-events: none; }
 
 /* Indicateur de focus clavier (a11y). :focus-visible n'existe pas sur Safari 9
    — sans support, la règle est simplement ignorée (pas de régression), et les

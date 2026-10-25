@@ -10,7 +10,8 @@ import { useState, type FormEvent } from "react";
 import { BellRing, Check, Pause, Play, Plus, Square, Timer, X } from "lucide-react";
 import { type Minuteur } from "../lib/useMinuteurs";
 import { useMinuteurs } from "../lib/MinuteursContext";
-import { estEnAlarme, formatMinuteur, lireMinutesSaisies, tempsRestantMs } from "../lib/minuteurs";
+import { identifiantAppareil } from "../lib/appareil";
+import { formatMinuteur, sonneIci, lireMinutesSaisies, tempsRestantMs } from "../lib/minuteurs";
 
 export interface MinuteurPanneauProps {
   /** Nom donné aux minuteurs lancés depuis ce panneau (ex. l'étape de recette). Sinon : « 5 min ». */
@@ -38,8 +39,11 @@ export function MinuteurPanneau({
   const [saisieInvalide, setSaisieInvalide] = useState(false);
 
   const visibles = minuteurs.filter((m) => m.status !== "acknowledged");
-  const enAlarme = visibles.filter((m) => estEnAlarme(m, nowMs));
-  const enCours = visibles.filter((m) => !estEnAlarme(m, nowMs));
+  // Seul l'appareil qui a lancé un minuteur affiche son alarme ; ailleurs il
+  // reste dans la liste (à zéro) sans sonner.
+  const appareil = identifiantAppareil();
+  const enAlarme = visibles.filter((m) => sonneIci(m, nowMs, appareil));
+  const enCours = visibles.filter((m) => !sonneIci(m, nowMs, appareil));
   const nom = libelleParDefaut?.trim() || null;
 
   const lancerAutre = (e: FormEvent) => {
@@ -184,6 +188,9 @@ function LigneMinuteur({
   onArreter: () => void;
 }): JSX.Element {
   const enPause = m.status === "paused";
+  // Terminé mais lancé sur un autre appareil : c'est lui qui sonne ; ici, on
+  // le dit et « Arrêter » le retire (plus de pause possible).
+  const fini = m.status === "ended" || (m.status === "running" && tempsRestantMs(m, nowMs) === 0);
   return (
     <li className="rounded-xl border border-hairline bg-ebony px-3 py-2">
       <div className="flex items-baseline gap-3">
@@ -193,12 +200,13 @@ function LigneMinuteur({
         </span>
       </div>
       {enPause && <p className="text-base text-cream-mute">En pause</p>}
+      {fini && <p className="text-base text-cream-mute">Prêt — sonne sur l'appareil qui l'a lancé</p>}
       <div className="mt-2 grid grid-cols-3 gap-2">
         <button type="button" onClick={onPlusUn} aria-label="Ajouter une minute" className={`${BOUTON_DOUX} px-2`}>
           <Plus aria-hidden className="h-4 w-4 shrink-0" />
           1 min
         </button>
-        <button type="button" onClick={onPauseReprise} className={`${BOUTON_DOUX} px-2`}>
+        <button type="button" onClick={onPauseReprise} disabled={fini} className={`${BOUTON_DOUX} px-2 disabled:opacity-40`}>
           {enPause ? <Play aria-hidden className="h-4 w-4 shrink-0" /> : <Pause aria-hidden className="h-4 w-4 shrink-0" />}
           {enPause ? "Reprendre" : "Pause"}
         </button>

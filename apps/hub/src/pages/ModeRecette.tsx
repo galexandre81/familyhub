@@ -37,7 +37,8 @@ import {
   type RepasAssemble,
 } from "../lib/repasCuisine";
 import { useMinuteurs } from "../lib/MinuteursContext";
-import { estEnAlarme } from "../lib/minuteurs";
+import { sonneIci } from "../lib/minuteurs";
+import { identifiantAppareil } from "../lib/appareil";
 import { MinuteurPanneau } from "../components/MinuteurPanneau";
 import { toast } from "../components/Toast";
 import { useEstTelephone } from "../lib/useEstTelephone";
@@ -178,7 +179,8 @@ export default function ModeRecette() {
   // Abonnement partagé du Layout (pas de second abonnement ici).
   const { minuteurs, nowMs, lancer } = useMinuteurs();
   const nbMinuteurs = minuteurs.filter((m) => m.status !== "acknowledged").length;
-  const alarme = minuteurs.some((m) => estEnAlarme(m, nowMs));
+  const appareil = identifiantAppareil();
+  const alarme = minuteurs.some((m) => sonneIci(m, nowMs, appareil));
 
   const lancerEtape = (description: string, minutes: number) => {
     const label = libelleEtape(description);

@@ -8,7 +8,7 @@ import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
 import { describe, expect, it } from "vitest";
-import { ajoutUneMinute, libelleParDefaut } from "../../../apps/hub/src/lib/minuteurs";
+import { ajoutUneMinute, libelleParDefaut, sonneIci } from "../../../apps/hub/src/lib/minuteurs";
 
 interface Patch {
   status?: "running";
@@ -20,6 +20,7 @@ interface ApiMinuteurs {
   libelleMinuteur(secondes: number): string;
   patchUneMinute(t: unknown, nowMs: number): Patch;
   versMs(ts: unknown): number | null;
+  sonneIci(t: unknown, nowMs: number, appareil: string): boolean;
 }
 
 const SOURCE = readFileSync(
@@ -109,5 +110,25 @@ describe("patchUneMinute", () => {
         plat(ajoutUneMinute(t as Parameters<typeof ajoutUneMinute>[0], now)),
       );
     }
+  });
+});
+
+describe("sonneIci (seul l'appareil qui a lancé le minuteur sonne) — parité hub", () => {
+  it("même réponse que le hub", () => {
+    const now = 1_000_000;
+    const cas = [
+      { status: "ended", endsAt: now, appareil: "ipad" },
+      { status: "ended", endsAt: now, appareil: "tel" },
+      { status: "ended", endsAt: now },
+      { status: "running", endsAt: new Date(now), appareil: "ipad" },
+      { status: "running", endsAt: new Date(now + 1000), appareil: "ipad" },
+      { status: "paused", endsAt: new Date(now), remainingSeconds: 5, appareil: "ipad" },
+      { status: "acknowledged", endsAt: now, appareil: "ipad" },
+    ] as const;
+    for (const t of cas) {
+      expect(m.sonneIci(t, now, "ipad")).toBe(sonneIci(t as Parameters<typeof sonneIci>[0], now, "ipad"));
+    }
+    expect(m.sonneIci({ status: "ended", endsAt: now, appareil: "tel" }, now, "ipad")).toBe(false);
+    expect(m.sonneIci({ status: "ended", endsAt: now }, now, "ipad")).toBe(true);
   });
 });
