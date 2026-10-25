@@ -177,7 +177,8 @@ export interface MinuteursApi {
   minuteurs: Minuteur[];
   /** Heure locale (ms), rafraîchie chaque seconde tant qu'il y a des minuteurs. */
   nowMs: number;
-  lancer(label: string | null, secondes: number): Promise<void>;
+  /** true si le minuteur a été créé (sinon un message d'erreur est déjà affiché). */
+  lancer(label: string | null, secondes: number): Promise<boolean>;
   ajouterUneMinute(m: Minuteur): Promise<void>;
   pause(m: Minuteur): Promise<void>;
   reprendre(m: Minuteur): Promise<void>;
@@ -271,7 +272,7 @@ export function useMinuteurs(householdId?: string): MinuteursApi {
 
   const lancer = useCallback(
     async (label: string | null, secondes: number) => {
-      if (!householdId || !(secondes > 0)) return;
+      if (!householdId || !(secondes > 0)) return false;
       const debut = Date.now();
       try {
         await addDoc(colTimers(householdId), {
@@ -283,8 +284,10 @@ export function useMinuteurs(householdId?: string): MinuteursApi {
           createdAt: serverTimestamp(),
           updatedAt: serverTimestamp(),
         });
+        return true;
       } catch (err) {
         signalerErreur(err, "Le minuteur n'a pas pu être lancé.");
+        return false;
       }
     },
     [householdId],

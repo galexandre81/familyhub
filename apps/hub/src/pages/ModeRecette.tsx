@@ -13,7 +13,7 @@
  * Plein écran opaque au-dessus de l'en-tête ; l'écran reste allumé tant que
  * la page est ouverte (Wake Lock, si le navigateur le permet).
  */
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { BellRing, Minus, Plus, Timer, Users, X } from "lucide-react";
 import type { Recette } from "@family-hub/types";
@@ -141,25 +141,42 @@ export default function ModeRecette() {
     else navigate(modeRepas ? "/menu" : recetteId ? `/livre-recettes/${recetteId}` : "/livre-recettes");
   }, [navigate, modeRepas, recetteId]);
 
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if (e.key === "Escape") fermer();
-    };
-    window.addEventListener("keydown", onKey);
-    return () => window.removeEventListener("keydown", onKey);
-  }, [fermer]);
-
   useEcranAllume();
   const telephone = useEstTelephone();
   const [feuilleOuverte, setFeuilleOuverte] = useState(false);
+  const declencheurRef = useRef<HTMLButtonElement | null>(null);
+  const fermerFeuilleRef = useRef<HTMLButtonElement | null>(null);
+  const feuilleDejaOuverte = useRef(false);
+
+  // Feuille des minuteurs : focus sur son « Fermer » à l'ouverture, retour au déclencheur à la fermeture.
+  useEffect(() => {
+    if (feuilleOuverte) {
+      feuilleDejaOuverte.current = true;
+      fermerFeuilleRef.current?.focus();
+    } else if (feuilleDejaOuverte.current) {
+      feuilleDejaOuverte.current = false;
+      declencheurRef.current?.focus();
+    }
+  }, [feuilleOuverte]);
+
+  // Échap : ferme la feuille si elle est ouverte, sinon quitte la page.
+  useEffect(() => {
+    const onKey = (e: KeyboardEvent) => {
+      if (e.key !== "Escape") return;
+      if (feuilleOuverte) setFeuilleOuverte(false);
+      else fermer();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [fermer, feuilleOuverte]);
   const { minuteurs, nowMs, lancer } = useMinuteurs(householdId);
   const nbMinuteurs = minuteurs.filter((m) => m.status !== "acknowledged").length;
   const alarme = minuteurs.some((m) => estEnAlarme(m, nowMs));
 
-  const lancerEtape = (description: string, minutes: number) => {
+  const lancerEtape = async (description: string, minutes: number) => {
     const label = libelleEtape(description);
-    void lancer(label, minutes * 60);
-    toast(`Minuteur lancé : ${label}`, { type: "success" });
+    // En cas d'échec, lancer() affiche déjà le message d'erreur.
+    if (await lancer(label, minutes * 60)) toast(`Minuteur lancé : ${label}`, { type: "success" });
   };
 
   const introuvable = !chargement && repas.presentes.length === 0 && repas.manquantes.length === 0;
@@ -184,7 +201,8 @@ export default function ModeRecette() {
         </button>
         <h1 className="flex-1 min-w-0 text-xl md:text-2xl font-serif leading-tight line-clamp-2">{titre}</h1>
         {!chargement && repas.presentes.length > 0 && (
-          <div className="flex items-center gap-2" aria-label="Portions">
+          <div className="flex items-center gap-2" role="group" aria-label="Portions">
+            <span className="text-base text-cream-mute">Portions</span>
             <button
               type="button"
               onClick={() => setPortions(Math.max(PORTIONS_MIN, portions - 1))}
@@ -225,6 +243,7 @@ export default function ModeRecette() {
           </div>
           <div className="fixed inset-x-0 bottom-0 z-[55] p-3 bg-ebony border-t border-hairline pb-[max(0.75rem,env(safe-area-inset-bottom))]">
             <button
+              ref={declencheurRef}
               type="button"
               onClick={() => setFeuilleOuverte(true)}
               className={`${BOUTON} w-full text-lg ${
@@ -257,6 +276,7 @@ export default function ModeRecette() {
                     Minuteurs
                   </h2>
                   <button
+                    ref={fermerFeuilleRef}
                     type="button"
                     onClick={() => setFeuilleOuverte(false)}
                     className={`${BOUTON} bg-ebony border border-hairline text-cream`}
@@ -275,8 +295,10 @@ export default function ModeRecette() {
           <div className="col-span-2 min-h-0 overflow-y-auto pr-2">
             <Etapes repas={repas} onLancer={lancerEtape} />
           </div>
-          <aside className="col-span-1 min-h-0 flex flex-col gap-4">
-            <div className="flex-1 min-h-0 overflow-y-auto">
+          {/* Colonne droite : défile d'un bloc si les minuteurs s'empilent ; les
+              ingrédients restent en haut, limités à la moitié de l'écran. */}
+          <aside className="col-span-1 min-h-0 overflow-y-auto flex flex-col gap-4 pr-1">
+            <div className="shrink-0 max-h-[50vh] overflow-y-auto rounded-2xl">
               <Ingredients repas={repas} portions={portions} />
             </div>
             {householdId && <MinuteurPanneau householdId={householdId} compact className="shrink-0" />}
@@ -329,7 +351,7 @@ function Etapes({
   onLancer,
 }: {
   repas: RepasAssemble;
-  onLancer: (description: string, minutes: number) => void;
+  onLancer: (description: string, minutes: number) => Promise<void>;
 }) {
   const plusieurs = repas.presentes.length + repas.manquantes.length > 1;
   return (
@@ -353,7 +375,7 @@ function Etapes({
                       {etape.dureeMinutes && etape.dureeMinutes > 0 ? (
                         <button
                           type="button"
-                          onClick={() => onLancer(etape.description, etape.dureeMinutes!)}
+                          onClick={() => void onLancer(etape.description, etape.dureeMinutes!)}
                           className={`${BOUTON} bg-ebony-card border border-brass text-brass hover:bg-brass hover:text-ebony`}
                         >
                           <Timer aria-hidden className="h-5 w-5" />

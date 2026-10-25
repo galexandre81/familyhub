@@ -172,7 +172,7 @@ export default function SlotCard({
               <Link
                 to={
                   editablePlanId
-                    ? `/menu/${editablePlanId}/${slot.id}/cuisine?portions=${targetPortions}`
+                    ? `/menu/${editablePlanId}/${slot.id}/cuisine`
                     : `/livre-recettes/${r.id}/cuisine?portions=${targetPortions}`
                 }
                 className="text-cream-mute hover:text-brass transition shrink-0 flex items-center justify-center min-h-11 min-w-11"
