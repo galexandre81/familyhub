@@ -775,48 +775,39 @@ Il n'y a rien à choisir : l'interface passe toute seule en ambiance de jour ou 
    - Notes libres (ex: "n'aime pas trop épicé")
 3. **Crée tous les membres présents aux repas**, c'est ce qui guidera Claude.ai pour le menu.
 
-## 8.4 Créer l'écran de cuisine (iPad)
+## 8.4 Ajouter l'iPad de cuisine
 
-Un « écran » est l'appareil de la cuisine (iPad, tablette) qui affiche le **tableau de cuisine**. Les téléphones, eux, ne sont **pas** des écrans : chacun s'y connecte avec son compte Google (voir 8.7).
+L'iPad de la cuisine affiche le **tableau de cuisine**. Les téléphones, eux, ne s'appairent pas : chacun s'y connecte avec son compte Google (voir 8.7).
 
-1. Dans la nav du haut, clique **Écrans**.
-2. Clique **+ Nouvel écran**.
-3. **Nom** : ex `iPad cuisine`
-4. **Type d'appareil** : choisis selon l'appareil
-   - `ipad-mini-1` : iPad mini 1ère génération (iOS 9, le cas prévu en priorité)
-   - `modern-tablet` : iPad récent, autre tablette
-5. **Résolution** : laisse les valeurs par défaut suggérées (les autres réglages du formulaire n'ont plus d'effet : la disposition du tableau est fixe).
-6. Clique **Créer**.
+1. Dans la nav du haut, clique **iPad de cuisine**.
+2. Clique **Ajouter l'iPad de cuisine**.
 
 ## 8.5 Préparer le tableau de cuisine
 
-Le tableau de l'iPad a une disposition **fixe** (en-tête avec l'heure et la météo, prochain repas, minuteurs, « Ensuite », agenda de la semaine, puis Recettes / Menu de la semaine / Radio / Réglages). Il se remplit à partir de **tuiles** qui servent de sources de données et de réglages (ville de la météo, lien de l'agenda, radios…).
+Le tableau de l'iPad a une disposition **fixe** (en-tête avec l'heure et la météo, prochain repas, minuteurs, batch cooking, « PC des enfants », « Menu de la semaine », agenda de la semaine, puis Recettes / Menu de la semaine / Radio / Réglages). Il se remplit à partir de sources de données (météo, agenda, menu, recettes, radios…).
 
-1. Dans **Écrans**, clique sur ton écran.
-2. La section **Tableau de cuisine** liste les sources nécessaires (météo, agenda, menu de la semaine, recette du jour, minuteur, radio, réglages, livre de recettes), chacune « Présente » ou « Manquante ».
-3. Clique **Préparer l'écran de cuisine** : le hub crée les tuiles qui manquent (avec des réglages par défaut, la météo sur la ville du foyer) et les rattache à l'écran.
-4. Pour ajuster une source (ville météo, radios, agenda), va dans **Tuiles** et ouvre la tuile concernée.
+1. Dans **iPad de cuisine**, la section **Ce qu'il affiche** liste ces sources, chacune « Prêt » ou « Manquant ».
+2. S'il en manque, clique **Préparer l'écran de cuisine** : le hub crée les sources manquantes (la météo sur la ville du foyer).
+3. L'adresse de l'**agenda Google** se règle dans la même page.
 
-## 8.6 Pairer ton display physique (l'iPad)
+## 8.6 Appairer l'iPad
 
-Le display est créé côté serveur, mais l'iPad ne sait pas encore qu'il est ce display-là. On va le "pairer".
+1. Dans **iPad de cuisine**, clique **Appairer l'iPad**.
+2. Une fenêtre s'ouvre avec un **code à 6 caractères**, un **QR code** et un **lien court** (`https://family-hub-TONNOM.web.app/d/XXXXXX`), valables 30 minutes et **utilisables une seule fois**.
+3. **Sur l'iPad lui-même**, dans **Safari** : tape le lien court (ou scanne le QR code), ou touche le bandeau « à reconfigurer » et tape le code.
+4. Appuie sur **Associer cet appareil comme écran** : l'iPad affiche le tableau de cuisine.
 
-1. Dans **Écrans**, clique sur ton display.
-2. Clique **Configurer cet écran** (en haut).
-3. Une fenêtre s'ouvre avec un **QR code** et un **lien court** (`https://family-hub-TONNOM.web.app/d/XXXXXX`), valables 30 minutes et **utilisables une seule fois**.
-4. **Sur l'iPad lui-même** (pas sur ton téléphone ni ton ordinateur) : scanne le QR code avec l'appareil photo, ou tape le lien court dans Safari.
-5. La page affiche le code et un bouton **Associer cet appareil comme écran** : appuie dessus.
-6. L'iPad se charge, et hop, il affiche maintenant le tableau de cuisine.
+L'appairage se renouvelle tout seul tant que l'iPad est allumé au moins une fois tous les 90 jours. La page **iPad de cuisine** indique son état (« Appairé », « Appairage expiré »).
 
-> ⚠️ **Un appareil = un écran : appairer un deuxième appareil sur le même écran déconnecte le premier.** Le premier affiche alors « Écran appairé ailleurs — à reconfigurer ».
+> ⚠️ **Un seul iPad à la fois** : appairer un autre appareil déconnecte le premier, qui affiche « Écran appairé ailleurs — à reconfigurer ».
 
-> ⚠️ **Le code s'utilise une seule fois.** L'appareil qui appuie sur « Associer » devient l'écran. Si tu te trompes d'appareil, supprime l'écran dans **Écrans** (ça déconnecte l'appareil immédiatement), recrée-le et recommence.
+> ⚠️ **Le code s'utilise une seule fois.** Si tu te trompes d'appareil, clique à nouveau **Appairer l'iPad** et recommence sur le bon.
 
 > 💡 **Astuce iPad** : sur l'iPad cuisine, ajoute le site à l'**écran d'accueil** (Safari → Partager → Sur l'écran d'accueil). Ça donne une icône comme une vraie app, sans la barre d'adresse.
 
 ## 8.7 Installer l'application sur les téléphones et inviter l'autre parent
 
-Sur un téléphone, le hub s'affiche en **version téléphone** (onglets en bas : **Aujourd'hui · Semaine · Courses · Recettes**). Les pages de préparation (Écrans, Tuiles, Paramètres, import de plan) restent sur l'ordinateur.
+Sur un téléphone, le hub s'affiche en **version téléphone** (onglets en bas : **Aujourd'hui · Semaine · Courses · Recettes**). Les pages de préparation (iPad de cuisine, Paramètres, import de plan) restent sur l'ordinateur.
 
 1. **Sur ton téléphone**, ouvre `https://family-hub-TONNOM.web.app` et connecte-toi avec ton compte Google.
 2. **Installe-la sur l'écran d'accueil** : Safari → Partager → « Sur l'écran d'accueil » (iPhone), ou menu ⋮ → « Installer l'application » (Android). Elle s'ouvre ensuite comme une vraie app, **même sans réseau** (pratique dans les magasins mal couverts).
@@ -940,18 +931,16 @@ Si tu veux que la **tuile Calendrier** affiche les événements de ton agenda Go
 
 > ⚠️ Cette URL est secrète : qui l'a peut voir tous tes événements. Ne la partage pas, ne la commit pas dans Git. Family Hub la range dans ton foyer, lisible par les membres du foyer seulement : les iPads ne la voient jamais, ils ne reçoivent que les événements.
 
-## 10.2 Configurer la tuile Calendrier
+## 10.2 Brancher l'agenda sur l'iPad
 
-Dans **Tuiles** sur ton hub :
-1. **+ Nouvelle tuile** → type **Calendrier** (ou ouvre ta tuile Calendrier existante).
-2. Colle l'URL dans **Adresse secrète iCal de ton agenda Google**.
-3. Configure le nombre de jours à afficher et le nombre max d'événements.
-4. Enregistre. Une synchronisation se fait tout de suite.
-5. Si l'écran de cuisine affiche encore « À configurer dans le hub » pour l'agenda : **Écrans** → ton écran → **Préparer l'écran de cuisine**.
+Dans **iPad de cuisine** sur ton hub :
+1. Si « Agenda » est marqué **Manquant** dans **Ce qu'il affiche**, clique d'abord **Préparer l'écran de cuisine**.
+2. Dans le bloc **Agenda Google**, colle l'URL dans **Adresse secrète iCal de ton agenda Google**.
+3. Enregistre. Une synchronisation se fait tout de suite.
 
 > Le scheduler Firebase rafraîchit l'agenda toutes les 15 minutes automatiquement.
 
-> ℹ️ **Tu avais installé une version plus ancienne ?** L'agenda était alors réglé par un secret `CALENDAR_ICAL_URL`. Ce secret n'est plus utilisé : recolle simplement ton URL dans la tuile Calendrier comme ci-dessus. Tu peux ensuite supprimer l'ancien secret avec `firebase functions:secrets:destroy CALENDAR_ICAL_URL`.
+> ℹ️ **Tu avais installé une version plus ancienne ?** L'agenda était alors réglé par un secret `CALENDAR_ICAL_URL`. Ce secret n'est plus utilisé : recolle simplement ton URL dans **iPad de cuisine** comme ci-dessus. Tu peux ensuite supprimer l'ancien secret avec `firebase functions:secrets:destroy CALENDAR_ICAL_URL`.
 
 ---
 
@@ -1039,7 +1028,7 @@ Firestore est chez Google donc déjà sauvegardé côté infra. Si tu veux une s
 ## 12.3 Sur l'iPad
 
 **« À configurer dans le hub » sur un bloc du tableau**
-→ La source de ce bloc manque à l'écran. Dans le hub : **Écrans** → ton écran → **Préparer l'écran de cuisine**.
+→ La source de ce bloc manque à l'écran. Dans le hub : **iPad de cuisine** → **Préparer l'écran de cuisine**.
 
 **L'iPad affiche une ancienne version après une mise à jour**
 → Il vérifie les nouvelles versions toutes les 10 minutes (et attend qu'aucune recette ne soit ouverte). Si ça persiste : recharge la page à la main, ou **Réglages iPad → Safari → Effacer historique et données**.

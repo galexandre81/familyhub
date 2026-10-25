@@ -12,10 +12,7 @@ import DisponibleSurOrdinateur from "./components/DisponibleSurOrdinateur";
 const Login = lazy(() => import("./pages/Login"));
 const Rejoindre = lazy(() => import("./pages/Rejoindre"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
-const Displays = lazy(() => import("./pages/Displays"));
-const DisplayEditor = lazy(() => import("./pages/DisplayEditor"));
-const Tiles = lazy(() => import("./pages/Tiles"));
-const TileEditor = lazy(() => import("./pages/TileEditor"));
+const IpadCuisine = lazy(() => import("./pages/IpadCuisine"));
 const Parametres = lazy(() => import("./pages/Parametres"));
 const Profils = lazy(() => import("./pages/Profils"));
 const Menu = lazy(() => import("./pages/Menu"));
@@ -83,10 +80,10 @@ export default function App() {
           <Route path="semaine" element={<Semaine />} />
           <Route path="courses" element={<Courses />} />
           <Route path="batch/:planId/:batchId" element={<BatchCooking />} />
-          <Route path="displays" element={<PcSeulement><Displays /></PcSeulement>} />
-          <Route path="displays/:displayId" element={<PcSeulement><DisplayEditor /></PcSeulement>} />
-          <Route path="tiles" element={<PcSeulement><Tiles /></PcSeulement>} />
-          <Route path="tiles/:tileId" element={<PcSeulement><TileEditor /></PcSeulement>} />
+          <Route path="ipad" element={<PcSeulement><IpadCuisine /></PcSeulement>} />
+          {/* Anciens onglets « Écrans » et « Tuiles » : regroupés dans « iPad de cuisine ». */}
+          <Route path="displays/*" element={<Navigate to="/ipad" replace />} />
+          <Route path="tiles/*" element={<Navigate to="/ipad" replace />} />
           <Route path="parametres" element={<PcSeulement><Parametres /></PcSeulement>} />
           <Route path="parametres/profils" element={<PcSeulement><Profils /></PcSeulement>} />
           <Route path="menu" element={<PcSeulement><Menu /></PcSeulement>} />
