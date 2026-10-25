@@ -279,6 +279,7 @@ html.amb-nuit .tab-pastille-neutre { background: #A8B6C8; }
 .tab-minuteurs {
   -webkit-flex: 0 1 auto;
   flex: 0 1 auto;
+  min-height: 136px; /* titre + rangée 1 / 5 / 10 / Autre, jamais écrasés */
   min-height: 0;
   display: -webkit-flex;
   display: flex;
@@ -306,22 +307,21 @@ html.amb-nuit .tab-pastille-neutre { background: #A8B6C8; }
   -webkit-flex-direction: column;
   flex-direction: column;
 }
-/* 1 / 5 / 10 min et Autre en 2 × 2 : la colonne est trop étroite pour 4. */
+/* 1 / 5 / 10 min et Autre sur UNE ligne (place pour le batch et « PC des
+   enfants » en dessous) : sans icône, texte seul, chacun ≥ 72 px de large. */
 .tab-minuteurs .fh-min-rapides {
   -webkit-flex: 0 0 auto;
   flex: 0 0 auto;
-  -webkit-flex-wrap: wrap;
-  flex-wrap: wrap;
-  margin: 0 -4px 4px;
+  margin: 0 -3px 4px;
 }
 .tab-minuteurs .fh-min-rapide {
-  -webkit-flex: 0 0 auto;
-  flex: 0 0 auto;
-  width: 46%;
-  width: -webkit-calc(50% - 8px);
-  width: calc(50% - 8px);
-  margin: 0 4px 8px;
+  -webkit-flex: 1 1 0%;
+  flex: 1 1 0%;
+  margin: 0 3px 6px;
+  padding: 0 2px;
+  font-size: 20px;
 }
+.tab-minuteurs .fh-min-rapide svg { display: none; }
 .tab-minuteurs .fh-min-liste {
   -webkit-flex: 1 1 auto;
   flex: 1 1 auto;
@@ -334,8 +334,8 @@ html.amb-nuit .tab-pastille-neutre { background: #A8B6C8; }
 .tab-pc {
   -webkit-flex: 1 1 auto;
   flex: 1 1 auto;
-  min-height: 96px;
-  padding: 14px 22px 16px;
+  min-height: 60px;
+  padding: 12px 18px;
   margin-bottom: 16px;
 }
 .tab-pc-titre {
@@ -347,7 +347,7 @@ html.amb-nuit .tab-pastille-neutre { background: #A8B6C8; }
   font-weight: 700;
   line-height: 1.2;
 }
-.tab-pc-texte { font-size: 20px; line-height: 1.3; margin: 6px 0 0; }
+.tab-pc-texte { font-size: 20px; font-weight: 400; white-space: nowrap; }
 
 /* --- Ensuite --- */
 .tab-ensuite {
