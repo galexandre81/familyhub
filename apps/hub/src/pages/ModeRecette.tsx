@@ -18,7 +18,6 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { BellRing, Minus, Plus, Timer, Users, X } from "lucide-react";
-import type { Recette } from "@family-hub/types";
 import { useAuth } from "../lib/auth";
 import {
   useActiveHouseholdId,
@@ -34,7 +33,6 @@ import {
   etapesTriees,
   libelleEtape,
   portionsParDefaut,
-  quantiteAjustee,
   titreRepas,
   type RepasAssemble,
 } from "../lib/repasCuisine";
@@ -43,6 +41,7 @@ import { estEnAlarme } from "../lib/minuteurs";
 import { MinuteurPanneau } from "../components/MinuteurPanneau";
 import { toast } from "../components/Toast";
 import { useEstTelephone } from "../lib/useEstTelephone";
+import ListeIngredients from "../components/recette/ListeIngredients";
 
 interface WakeLockSentinelLike {
   release(): Promise<void>;
@@ -349,25 +348,6 @@ function Ingredients({ repas, portions }: { repas: RepasAssemble; portions: numb
         <p key={id} className="text-base text-cream-mute">Recette introuvable</p>
       ))}
     </section>
-  );
-}
-
-function ListeIngredients({ recette, portions }: { recette: Recette; portions: number }) {
-  if (recette.ingredients.length === 0) {
-    return <p className="text-base text-cream-mute">Aucun ingrédient indiqué.</p>;
-  }
-  return (
-    <ul className="space-y-1">
-      {recette.ingredients.map((ing, i) => (
-        <li key={`${ing.libelle}-${i}`} className="flex gap-3 text-base leading-snug">
-          <span className="shrink-0 min-w-20 text-right font-semibold tabular-nums">
-            {quantiteAjustee(ing.quantite, recette.portions, portions)}
-            {ing.unite ? ` ${ing.unite}` : ""}
-          </span>
-          <span className="min-w-0">{ing.libelle}</span>
-        </li>
-      ))}
-    </ul>
   );
 }
 

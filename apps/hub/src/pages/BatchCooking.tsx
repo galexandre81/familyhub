@@ -1,11 +1,13 @@
 /**
  * Session de batch cooking (téléphone d'abord, marche aussi sur PC) : quand,
  * combien de temps, pour quels repas, les conseils d'organisation, les
- * recettes à préparer, « Cuisiner » (toutes les recettes en mode recette) et
+ * recettes à préparer (chacune se déplie : ingrédients et étapes, à ses
+ * propres portions), « Cuisiner » (toutes les recettes en mode recette) et
  * « C'est fait ».
  */
-import { Link, useNavigate, useParams } from "react-router-dom";
-import { ArrowLeft, Check, ChefHat, ChevronRight, Clock, Lightbulb } from "lucide-react";
+import { useNavigate, useParams } from "react-router-dom";
+import { ArrowLeft, Check, ChefHat, ChevronDown, Clock, Lightbulb, Timer } from "lucide-react";
+import type { Recette } from "@family-hub/types";
 import { useAuth } from "../lib/auth";
 import {
   useActiveHouseholdId,
@@ -15,7 +17,9 @@ import {
 } from "../lib/queries";
 import { useToggleBatchSessionDone } from "../lib/mutations";
 import { dureeTexte, jourDuBatch, repasDuBatch } from "../lib/batch";
-import { titreRepas } from "../lib/repasCuisine";
+import { etapesTriees, libelleEtape, titreRepas } from "../lib/repasCuisine";
+import { useMinuteurs } from "../lib/MinuteursContext";
+import ListeIngredients from "../components/recette/ListeIngredients";
 import { useMaintenant } from "../lib/useMaintenant";
 import { toast } from "../components/Toast";
 import { LoadingState } from "../components/states";
@@ -115,13 +119,7 @@ export default function BatchCooking() {
               }
               return (
                 <li key={id}>
-                  <Link
-                    to={`/livre-recettes/${id}/cuisine`}
-                    className="flex items-center gap-3 rounded-xl bg-ebony-card border border-hairline px-4 py-3 min-h-14"
-                  >
-                    <span className="flex-1 min-w-0 text-base text-cream">{recette.nom}</span>
-                    <ChevronRight size={22} aria-hidden="true" className="shrink-0 text-cream-mute" />
-                  </Link>
+                  <RecetteDepliable recette={recette} />
                 </li>
               );
             })}
@@ -165,5 +163,65 @@ function BoutonRetour({ onClick }: { onClick: () => void }) {
       <ArrowLeft size={20} aria-hidden="true" />
       Retour
     </button>
+  );
+}
+
+/** Une recette du batch : touchée, elle déplie ses ingrédients et ses étapes. */
+function RecetteDepliable({ recette }: { recette: Recette }) {
+  const { lancer } = useMinuteurs();
+  const etapes = etapesTriees(recette.etapes);
+  const lancerEtape = (description: string, minutes: number) => {
+    const label = libelleEtape(description);
+    if (lancer(label, minutes * 60)) toast(`Minuteur lancé : ${label}`, { type: "success" });
+  };
+  return (
+    <details className="group rounded-xl bg-ebony-card border border-hairline">
+      <summary className="flex items-center gap-3 px-4 py-3 min-h-14 cursor-pointer list-none [&::-webkit-details-marker]:hidden">
+        <span className="flex-1 min-w-0 text-base text-cream">
+          {recette.nom}
+          {recette.portions > 0 && <span className="text-cream-mute"> · {recette.portions} pers.</span>}
+        </span>
+        <ChevronDown
+          size={22}
+          aria-hidden="true"
+          className="shrink-0 text-cream-mute transition-transform group-open:rotate-180"
+        />
+      </summary>
+      <div className="px-4 pb-4 space-y-4 border-t border-hairline pt-3">
+        <section aria-label={`Ingrédients — ${recette.nom}`}>
+          <h3 className="text-base font-semibold text-cream mb-2">Ingrédients</h3>
+          <ListeIngredients recette={recette} portions={recette.portions} />
+        </section>
+        <section aria-label={`Étapes — ${recette.nom}`}>
+          <h3 className="text-base font-semibold text-cream mb-2">Étapes</h3>
+          {etapes.length === 0 ? (
+            <p className="text-base text-cream-mute">Pas d'étapes détaillées pour cette recette.</p>
+          ) : (
+            <ol className="space-y-4">
+              {etapes.map((etape, i) => (
+                <li key={`${etape.ordre}-${i}`} className="flex gap-3">
+                  <span className="shrink-0 w-8 h-8 rounded-full bg-ebony border border-hairline flex items-center justify-center text-[15px] font-semibold">
+                    {i + 1}
+                  </span>
+                  <div className="flex-1 min-w-0 space-y-2">
+                    <p className="text-base leading-relaxed text-cream">{etape.description}</p>
+                    {etape.dureeMinutes && etape.dureeMinutes > 0 ? (
+                      <button
+                        type="button"
+                        onClick={() => lancerEtape(etape.description, etape.dureeMinutes!)}
+                        className="min-h-12 inline-flex items-center gap-2 rounded-xl px-4 text-base font-semibold border border-brass text-brass"
+                      >
+                        <Timer size={20} aria-hidden="true" />
+                        Lancer {etape.dureeMinutes} min
+                      </button>
+                    ) : null}
+                  </div>
+                </li>
+              ))}
+            </ol>
+          )}
+        </section>
+      </div>
+    </details>
   );
 }
