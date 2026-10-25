@@ -311,7 +311,7 @@ function FullscreenWrapper({
       role={role}
       aria-modal={ariaModal}
       aria-label={ariaLabel}
-      className="fixed inset-0 bg-fond-principal text-text-principal flex flex-col p-6 md:p-10 z-50"
+      className="fixed inset-0 bg-ebony text-cream flex flex-col p-6 md:p-10 z-50"
     >
       {children}
     </div>

@@ -217,8 +217,6 @@ export default function LivreRecettes() {
     setFrigo(frigo.filter((_, i) => i !== idx));
   }
 
-  if (!householdId) return null;
-
   async function withBusy(id: string, fn: () => Promise<unknown>) {
     setBusyId(id);
     try {
@@ -236,6 +234,8 @@ export default function LivreRecettes() {
       exclus: recettes.filter((r) => r.excluded).length,
     };
   }, [recettes]);
+
+  if (!householdId) return null;
 
   return (
     <div className="space-y-6">
