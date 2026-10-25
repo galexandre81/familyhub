@@ -1,39 +1,43 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { Link, useParams } from "react-router-dom";
-import { ArrowLeft, Plus, RefreshCw, X } from "lucide-react";
-import type { DisplayLayoutEntry, TilePosition } from "@family-hub/types";
+import { ArrowLeft, Check, RefreshCw, TriangleAlert } from "lucide-react";
+import type { TileType } from "@family-hub/types";
 import { useAuth } from "../lib/auth";
 import {
   useActiveHouseholdId,
   useDisplay,
+  useHouseholds,
   useTiles,
 } from "../lib/queries";
 import {
-  useRefreshRecipeTodayTile,
+  useCreateTile,
   useRefreshWeatherTile,
-  useRefreshWeeklyMenuTile,
   useUpdateDisplayLayout,
 } from "../lib/mutations";
+import {
+  NOMS_SOURCES,
+  TYPES_TABLEAU,
+  layoutCuisine,
+  tuileParDefaut,
+  typesPresents,
+} from "../lib/ecranCuisine";
+import { rafraichirEcransSansAttendre } from "../lib/rafraichirEcrans";
 import SetupTokenModal from "../components/SetupTokenModal";
 
 export default function DisplayEditor() {
   const { displayId } = useParams();
   const { user } = useAuth();
   const householdId = useActiveHouseholdId(user?.uid);
+  const { data: households } = useHouseholds(user?.uid);
   const { data: display } = useDisplay(householdId, displayId);
   const { data: tiles } = useTiles(householdId);
   const updateLayout = useUpdateDisplayLayout();
+  const createTile = useCreateTile();
   const refreshWeather = useRefreshWeatherTile();
-  const refreshRecipeToday = useRefreshRecipeTodayTile();
-  const refreshWeeklyMenu = useRefreshWeeklyMenuTile();
 
-  const [layout, setLayout] = useState<DisplayLayoutEntry[]>([]);
   const [setupOpen, setSetupOpen] = useState(false);
-  const [refreshStatus, setRefreshStatus] = useState<string | null>(null);
-
-  useEffect(() => {
-    if (display?.layout) setLayout(display.layout);
-  }, [display?.layout]);
+  const [status, setStatus] = useState<string | null>(null);
+  const [preparing, setPreparing] = useState(false);
 
   if (!householdId) {
     return (
@@ -48,135 +52,70 @@ export default function DisplayEditor() {
     return <p className="text-text-secondaire">Chargement de l'écran…</p>;
   }
 
-  const cols = display.gridConfig.cols;
-  const rows = display.gridConfig.rows;
-  const tilesById = new Map(tiles?.map((t) => [t.id, t]) ?? []);
-  const usedTileIds = new Set(layout.map((e) => e.tileId));
-  const availableTiles = (tiles ?? []).filter((t) => !usedTileIds.has(t.id));
+  const layout = display.layout ?? [];
+  const tuiles = tiles ?? [];
+  const presents = typesPresents(layout, tuiles);
+  const manquantes = TYPES_TABLEAU.filter((t) => !presents.has(t));
+  const aRetirer = layoutCuisine(layout, tuiles).retirees.length;
+  const aJour = manquantes.length === 0 && aRetirer === 0;
+  const localisation = households?.find((h) => h.id === householdId)?.parametres
+    ?.localisation;
 
-  function addTileToLayout(tileId: string) {
-    const next = findFreeSpot(layout, cols, rows);
-    if (!next) {
-      window.alert("Plus de place dans la grille. Retire une tuile ou agrandis la grille.");
-      return;
-    }
-    setLayout([...layout, { tileId, position: next }]);
+  function afficherMessage(msg: string) {
+    setStatus(msg);
+    setTimeout(() => setStatus(null), 5000);
   }
 
-  function removeFromLayout(tileId: string) {
-    setLayout(layout.filter((e) => e.tileId !== tileId));
-  }
-
-  function updatePosition(tileId: string, patch: Partial<TilePosition>) {
-    setLayout(
-      layout.map((e) =>
-        e.tileId === tileId ? { ...e, position: { ...e.position, ...patch } } : e,
-      ),
-    );
-  }
-
-  async function save() {
-    const previousIds = new Set((display!.layout ?? []).map((e) => e.tileId));
-    const newWeatherTiles = layout
-      .map((e) => tilesById.get(e.tileId))
-      .filter((t): t is NonNullable<typeof t> =>
-        !!t && t.type === "weather" && !previousIds.has(t.id),
-      );
-    const newRecipeTodayTiles = layout
-      .map((e) => tilesById.get(e.tileId))
-      .filter((t): t is NonNullable<typeof t> =>
-        !!t && t.type === "recipe-today" && !previousIds.has(t.id),
-      );
-    const newWeeklyMenuTiles = layout
-      .map((e) => tilesById.get(e.tileId))
-      .filter((t): t is NonNullable<typeof t> =>
-        !!t && t.type === "weekly-menu" && !previousIds.has(t.id),
-      );
-
-    await updateLayout.mutateAsync({
-      householdId: householdId!,
-      displayId: display!.id,
-      layout,
-    });
-
-    const refreshTasks: Array<Promise<unknown>> = [];
-    const statusParts: string[] = [];
-
-    if (newWeatherTiles.length > 0) {
-      statusParts.push(
-        `${newWeatherTiles.length} météo`,
-      );
-      newWeatherTiles.forEach((t) =>
-        refreshTasks.push(
-          refreshWeather.mutateAsync({ householdId: householdId!, tileId: t.id }),
-        ),
-      );
-    }
-    if (newRecipeTodayTiles.length > 0) {
-      statusParts.push(
-        `${newRecipeTodayTiles.length} recette du jour`,
-      );
-      newRecipeTodayTiles.forEach((t) =>
-        refreshTasks.push(
-          refreshRecipeToday.mutateAsync({
-            householdId: householdId!,
-            tileId: t.id,
-          }),
-        ),
-      );
-    }
-    if (newWeeklyMenuTiles.length > 0) {
-      statusParts.push(
-        `${newWeeklyMenuTiles.length} menu de la semaine`,
-      );
-      newWeeklyMenuTiles.forEach((t) =>
-        refreshTasks.push(
-          refreshWeeklyMenu.mutateAsync({
-            householdId: householdId!,
-            tileId: t.id,
-          }),
-        ),
-      );
-    }
-
-    if (refreshTasks.length > 0) {
-      setRefreshStatus("Pré-chargement (" + statusParts.join(" + ") + ")…");
-      await Promise.allSettled(refreshTasks);
-      setRefreshStatus(
-        statusParts.join(" + ") + " pré-chargée(s).",
-      );
-      setTimeout(() => setRefreshStatus(null), 4000);
+  async function preparer() {
+    setPreparing(true);
+    setStatus(null);
+    try {
+      const { aCreer } = layoutCuisine(layout, tuiles);
+      const creees: Array<{ id: string; type: string }> = [];
+      for (const type of aCreer) {
+        const def = tuileParDefaut(type as TileType, localisation);
+        const id = await createTile.mutateAsync({
+          householdId: householdId!,
+          type: type as TileType,
+          ...def,
+        });
+        creees.push({ id, type });
+      }
+      const { layout: nouveau } = layoutCuisine(layout, [...tuiles, ...creees]);
+      await updateLayout.mutateAsync({
+        householdId: householdId!,
+        displayId: display!.id,
+        layout: nouveau,
+      });
+      rafraichirEcransSansAttendre(householdId!, "tout");
+      afficherMessage("L'écran de cuisine est prêt. Les données arrivent dans un instant.");
+    } catch {
+      afficherMessage("Impossible de préparer l'écran pour l'instant. Réessaie dans un moment.");
+    } finally {
+      setPreparing(false);
     }
   }
 
-  async function refreshTilesData() {
-    setRefreshStatus(null);
-    const weatherTilesInLayout = layout
-      .map((e) => tilesById.get(e.tileId))
+  async function rafraichir() {
+    setStatus(null);
+    const meteos = layout
+      .map((e) => tuiles.find((t) => t.id === e.tileId))
       .filter((t): t is NonNullable<typeof t> => !!t && t.type === "weather");
-    if (weatherTilesInLayout.length === 0) {
-      setRefreshStatus("Aucune tuile météo dans le layout.");
-      return;
-    }
-    let ok = 0;
-    let fail = 0;
-    for (const t of weatherTilesInLayout) {
+    let echecs = 0;
+    for (const t of meteos) {
       try {
         await refreshWeather.mutateAsync({ householdId: householdId!, tileId: t.id });
-        ok++;
       } catch {
-        fail++;
+        echecs++;
       }
     }
-    setRefreshStatus(
-      fail === 0
-        ? `${ok} tuile${ok > 1 ? "s" : ""} météo rafraîchie${ok > 1 ? "s" : ""}.`
-        : `${ok} OK, ${fail} échec(s).`,
+    rafraichirEcransSansAttendre(householdId!, "tout");
+    afficherMessage(
+      echecs === 0
+        ? "Mise à jour demandée : l'écran se met à jour dans un instant."
+        : "La météo n'a pas pu être mise à jour, le reste est demandé.",
     );
-    setTimeout(() => setRefreshStatus(null), 4000);
   }
-
-  const dirty = JSON.stringify(layout) !== JSON.stringify(display.layout);
 
   return (
     <div className="space-y-6">
@@ -192,105 +131,65 @@ export default function DisplayEditor() {
         <div>
           <h1 className="text-3xl">{display.nom}</h1>
           <p className="text-text-secondaire mt-1">
-            {display.type} · {display.resolution.w}×{display.resolution.h} ·{" "}
-            grille {cols}×{rows}
+            {display.type} · {display.resolution.w}×{display.resolution.h}
           </p>
         </div>
         <div className="flex gap-2">
           <button
-            onClick={refreshTilesData}
+            onClick={rafraichir}
             disabled={refreshWeather.isPending}
             className="btn-secondary flex items-center gap-1"
-            title="Force le pré-calcul météo (Open-Meteo)"
+            title="Demande une mise à jour des données de l'écran"
           >
             <RefreshCw size={14} className={refreshWeather.isPending ? "animate-spin" : ""} aria-hidden="true" />
             Rafraîchir
           </button>
-          <button
-            onClick={() => setSetupOpen(true)}
-            className="btn-secondary"
-          >
+          <button onClick={() => setSetupOpen(true)} className="btn-secondary">
             Configurer cet écran
-          </button>
-          <button
-            onClick={save}
-            disabled={!dirty || updateLayout.isPending}
-            className="btn-primary disabled:opacity-50"
-          >
-            {updateLayout.isPending ? "Sauvegarde…" : dirty ? "Enregistrer" : "À jour"}
           </button>
         </div>
       </header>
 
-      {refreshStatus && (
-        <p className="text-sm text-accent-secondaire">{refreshStatus}</p>
-      )}
+      {status && <p className="text-sm text-accent-secondaire">{status}</p>}
 
       <section className="space-y-3">
-        <h2 className="text-xl">Aperçu de la grille</h2>
-        <GridPreview cols={cols} rows={rows} layout={layout} tilesById={tilesById} />
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-xl">Tuiles dans le layout</h2>
-        {layout.length === 0 ? (
-          <p className="text-text-secondaire text-sm">Aucune tuile assignée.</p>
-        ) : (
-          <ul className="space-y-2">
-            {layout.map((entry) => {
-              const tile = tilesById.get(entry.tileId);
-              return (
-                <li key={entry.tileId} className="tile-card flex items-center gap-3">
-                  <div className="flex-1">
-                    <p className="font-semibold">{tile?.nom ?? "(tuile supprimée)"}</p>
-                    <p className="text-xs text-text-secondaire">{tile?.type}</p>
-                  </div>
-                  <PositionInputs
-                    cols={cols}
-                    rows={rows}
-                    position={entry.position}
-                    onChange={(patch) => updatePosition(entry.tileId, patch)}
-                  />
-                  <button
-                    onClick={() => removeFromLayout(entry.tileId)}
-                    className="text-text-secondaire hover:text-accent-chaud p-2.5 -m-2.5 min-h-11 min-w-11 flex items-center justify-center"
-                    aria-label={`Retirer ${tile?.nom ?? "cette tuile"} du layout`}
-                    title={`Retirer ${tile?.nom ?? "cette tuile"} du layout`}
-                  >
-                    <X size={18} aria-hidden="true" />
-                  </button>
-                </li>
-              );
-            })}
-          </ul>
-        )}
-      </section>
-
-      <section className="space-y-3">
-        <h2 className="text-xl">Tuiles disponibles</h2>
-        {availableTiles.length === 0 ? (
-          <p className="text-text-secondaire text-sm">
-            Toutes les tuiles sont déjà dans le layout.{" "}
-            <Link to="/tiles" className="text-accent-chaud">Crée-en une nouvelle</Link>.
-          </p>
-        ) : (
-          <ul className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
-            {availableTiles.map((t) => (
-              <li key={t.id} className="tile-card flex items-center justify-between">
-                <div>
-                  <p className="tile-title m-0">{t.type}</p>
-                  <p className="font-semibold">{t.nom}</p>
-                </div>
-                <button
-                  onClick={() => addTileToLayout(t.id)}
-                  className="btn-primary text-sm flex items-center gap-1"
+        <h2 className="text-xl">Tableau de cuisine</h2>
+        <p className="text-text-secondaire text-sm">
+          L'écran affiche toujours le même tableau. Il a besoin de ces sources pour se remplir.
+        </p>
+        <h3 className="text-base">Sources du tableau</h3>
+        <ul className="space-y-2">
+          {TYPES_TABLEAU.map((type) => {
+            const ok = presents.has(type);
+            return (
+              <li key={type} className="tile-card flex items-center justify-between">
+                <span className="font-semibold">{NOMS_SOURCES[type]}</span>
+                <span
+                  className={
+                    ok
+                      ? "flex items-center gap-1 text-sm text-accent-secondaire"
+                      : "flex items-center gap-1 text-sm text-accent-chaud"
+                  }
                 >
-                  <Plus size={14} aria-hidden="true" /> Ajouter
-                </button>
+                  {ok ? <Check size={14} aria-hidden="true" /> : <TriangleAlert size={14} aria-hidden="true" />}
+                  {ok ? "Présente" : "Manquante"}
+                </span>
               </li>
-            ))}
-          </ul>
+            );
+          })}
+        </ul>
+        {aRetirer > 0 && (
+          <p className="text-sm text-text-secondaire">
+            La liste de courses et l'horloge ne servent plus sur cet écran : elles seront retirées.
+          </p>
         )}
+        <button
+          onClick={preparer}
+          disabled={preparing || aJour}
+          className="btn-primary disabled:opacity-50"
+        >
+          {preparing ? "Préparation…" : aJour ? "L'écran de cuisine est prêt" : "Préparer l'écran de cuisine"}
+        </button>
       </section>
 
       {setupOpen && (
@@ -303,132 +202,4 @@ export default function DisplayEditor() {
       )}
     </div>
   );
-}
-
-function PositionInputs({
-  cols,
-  rows,
-  position,
-  onChange,
-}: {
-  cols: number;
-  rows: number;
-  position: TilePosition;
-  onChange: (patch: Partial<TilePosition>) => void;
-}) {
-  return (
-    <div className="grid grid-cols-4 gap-2 text-xs">
-      <Num label="col" max={cols - 1} value={position.col} onChange={(v) => onChange({ col: v })} />
-      <Num label="row" max={rows - 1} value={position.row} onChange={(v) => onChange({ row: v })} />
-      <Num label="w" min={1} max={cols} value={position.w} onChange={(v) => onChange({ w: v })} />
-      <Num label="h" min={1} max={rows} value={position.h} onChange={(v) => onChange({ h: v })} />
-    </div>
-  );
-}
-
-function Num({
-  label,
-  value,
-  onChange,
-  min = 0,
-  max,
-}: {
-  label: string;
-  value: number;
-  onChange: (v: number) => void;
-  min?: number;
-  max: number;
-}) {
-  return (
-    <label className="block">
-      <span className="block text-text-secondaire text-[10px] uppercase tracking-wider">{label}</span>
-      <input
-        type="number"
-        min={min}
-        max={max}
-        value={value}
-        onChange={(e) => onChange(Number(e.target.value))}
-        className="input w-16 px-2 py-2.5 text-sm"
-      />
-    </label>
-  );
-}
-
-function GridPreview({
-  cols,
-  rows,
-  layout,
-  tilesById,
-}: {
-  cols: number;
-  rows: number;
-  layout: DisplayLayoutEntry[];
-  tilesById: Map<string, { type: string; nom: string }>;
-}) {
-  return (
-    <div
-      className="relative bg-bg-card border border-bordure rounded-tile overflow-hidden"
-      style={{ aspectRatio: `${cols} / ${rows}` }}
-    >
-      {/* grid lines */}
-      {Array.from({ length: cols + 1 }, (_, i) => (
-        <div
-          key={`v-${i}`}
-          className="absolute top-0 bottom-0 border-l border-bordure/40"
-          style={{ left: `${(i / cols) * 100}%` }}
-        />
-      ))}
-      {Array.from({ length: rows + 1 }, (_, i) => (
-        <div
-          key={`h-${i}`}
-          className="absolute left-0 right-0 border-t border-bordure/40"
-          style={{ top: `${(i / rows) * 100}%` }}
-        />
-      ))}
-      {layout.map((entry) => {
-        const tile = tilesById.get(entry.tileId);
-        const p = entry.position;
-        return (
-          <div
-            key={entry.tileId}
-            className="absolute bg-accent-chaud/10 border border-accent-chaud rounded-md flex flex-col items-center justify-center text-center p-2"
-            style={{
-              left: `${(p.col / cols) * 100}%`,
-              top: `${(p.row / rows) * 100}%`,
-              width: `${(p.w / cols) * 100}%`,
-              height: `${(p.h / rows) * 100}%`,
-            }}
-          >
-            <p className="text-xs text-accent-chaud font-semibold truncate w-full">
-              {tile?.nom ?? "?"}
-            </p>
-            <p className="text-[10px] text-text-secondaire">{tile?.type}</p>
-          </div>
-        );
-      })}
-    </div>
-  );
-}
-
-function findFreeSpot(
-  layout: DisplayLayoutEntry[],
-  cols: number,
-  rows: number,
-): TilePosition | null {
-  const occupied = new Set<string>();
-  for (const e of layout) {
-    for (let c = e.position.col; c < e.position.col + e.position.w; c++) {
-      for (let r = e.position.row; r < e.position.row + e.position.h; r++) {
-        occupied.add(`${c},${r}`);
-      }
-    }
-  }
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      if (!occupied.has(`${c},${r}`)) {
-        return { col: c, row: r, w: 1, h: 1 };
-      }
-    }
-  }
-  return null;
 }
