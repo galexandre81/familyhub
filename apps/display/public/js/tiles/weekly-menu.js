@@ -401,11 +401,13 @@
             (function (rid, nom) {
               var btn = document.createElement('button');
               btn.type = 'button';
+              /* Couleurs du design system (jour comme nuit), pas de couleur en dur. */
+              btn.className = 'fh-carte fh-texte fh-bordure fh-corps';
               btn.style.cssText =
-                'text-align:left; padding:10px 14px; background:transparent; ' +
-                'border:1px solid rgba(217,160,91,0.25); border-radius:4px; ' +
-                'color:#FAFAF7; font-size:14px; cursor:pointer;';
-              btn.innerHTML = '<span style="color:#D9A05B; margin-right:8px">▸</span>' + escapeHtml(nom || rid);
+                'text-align:left; padding:10px 14px; ' +
+                'border-width:1px; border-style:solid; border-radius:4px; ' +
+                'font-size:14px; cursor:pointer;';
+              btn.innerHTML = '<span class="fh-texte-doux" style="margin-right:8px">▸</span>' + escapeHtml(nom || rid);
               btn.addEventListener('click', function () {
                 /* Pas de repas pour un batch : titre = nom de la recette. */
                 if (!global.FamilyHubModeRecette) return;
