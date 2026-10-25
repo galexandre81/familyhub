@@ -10,6 +10,7 @@ import {
   setDoc,
   updateDoc,
   arrayUnion,
+  type FieldValue,
 } from "firebase/firestore";
 import { httpsCallable } from "firebase/functions";
 import { db, functions } from "./firebase";
@@ -20,6 +21,7 @@ import type {
   DisplayDeviceType,
   DisplayLayoutEntry,
   GridConfig,
+  HeuresRepas,
   HouseholdParametres,
   Profil,
   Resolution,
@@ -115,9 +117,18 @@ export function useAcceptInvitation() {
 interface UpdateHouseholdInput {
   uid: string;
   householdId: string;
+  /**
+   * Champs à écrire. Les réglages isolés passent par un chemin pointé
+   * (`"parametres.placard"`…) : deux modifications rapprochées de réglages
+   * différents ne s'écrasent pas (les autres champs de `parametres` restent).
+   * `deleteField()` retire un réglage.
+   */
   patch: Partial<{
     nom: string;
     parametres: HouseholdParametres;
+    "parametres.placard": string[];
+    "parametres.heuresRepas": HeuresRepas;
+    "parametres.modeleRechercheDrive": string | FieldValue;
   }>;
 }
 

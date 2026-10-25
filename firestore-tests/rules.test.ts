@@ -13,7 +13,7 @@ import {
   setDoc,
   updateDoc,
 } from "firebase/firestore";
-import { afterAll, beforeAll, beforeEach, describe, it } from "vitest";
+import { afterAll, beforeAll, beforeEach, describe, expect, it } from "vitest";
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 const RULES_PATH = resolve(__dirname, "..", "firestore.rules");
@@ -236,6 +236,20 @@ describe("member access", () => {
   it("cannot change roles via update (chemin pointé)", async () => {
     const db = memberDb();
     await assertFails(updateDoc(doc(db, "households", HID), { [`roles.${MEMBER_UID}`]: "enfant" }));
+  });
+
+  it("can update one réglage via a dotted path (parametres.placard), the others stay", async () => {
+    const db = memberDb();
+    await assertSucceeds(
+      updateDoc(doc(db, "households", HID), { "parametres.placard": ["sel"], updatedAt: 2 }),
+    );
+    const snap = await getDoc(doc(db, "households", HID));
+    expect(snap.data()?.parametres).toEqual({
+      localisation: {},
+      langue: "fr",
+      systemeUnites: "metric",
+      placard: ["sel"],
+    });
   });
 });
 

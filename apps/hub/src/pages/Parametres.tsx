@@ -1,4 +1,5 @@
 import { useState } from "react";
+import { deleteField } from "firebase/firestore";
 import { Link, useNavigate } from "react-router-dom";
 import { Check, ChevronRight, Pencil, Users, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
@@ -48,7 +49,7 @@ function HeuresRepasSection({
   function enregistrer() {
     if (!toutValide) return;
     update.mutate(
-      { uid, householdId, patch: { parametres: { ...parametres, heuresRepas: heures } } },
+      { uid, householdId, patch: { "parametres.heuresRepas": heures } },
       { onSuccess: () => setEnregistre(true) },
     );
   }
@@ -122,7 +123,8 @@ function ProduitsPlacardSection({
   function enregistrer(placard: string[]) {
     setMessage(null);
     update.mutate(
-      { uid, householdId, patch: { parametres: { ...parametres, placard } } },
+      // Chemin pointé : ne réécrit que la liste de placard, pas tout `parametres`.
+      { uid, householdId, patch: { "parametres.placard": placard } },
       { onSuccess: () => setMessage("Enregistré") },
     );
   }
@@ -159,8 +161,11 @@ function ProduitsPlacardSection({
               <button
                 type="button"
                 onClick={() => enregistrer(liste.filter((p) => p !== produit))}
+                // Pendant l'enregistrement, la liste affichée est l'ancienne :
+                // un second retrait repartirait d'elle et annulerait le premier.
+                disabled={update.isPending}
                 aria-label={`Retirer ${produit}`}
-                className="p-1 rounded-full hover:bg-bordure/60"
+                className="p-1 rounded-full hover:bg-bordure/60 disabled:opacity-40"
               >
                 <X size={14} />
               </button>
@@ -193,6 +198,7 @@ function ProduitsPlacardSection({
         <button
           type="button"
           onClick={() => enregistrer([...PLACARD_DEFAUT])}
+          disabled={update.isPending}
           className="btn-secondary text-sm"
         >
           Remettre la liste par défaut
@@ -228,11 +234,10 @@ function RechercheDriveSection({
     if (nouveau !== "" && !modeleDriveValide(nouveau)) return;
     setEnregistre(false);
     // Vide ou égal au défaut : on retire le réglage (le défaut s'applique).
-    const { modeleRechercheDrive: _ancien, ...reste } = parametres;
-    const suivants: HouseholdParametres =
-      nouveau === "" || nouveau === RECHERCHE_DRIVE_DEFAUT ? reste : { ...reste, modeleRechercheDrive: nouveau };
+    // Chemin pointé : les autres réglages de `parametres` restent intacts.
+    const valeurEcrite = nouveau === "" || nouveau === RECHERCHE_DRIVE_DEFAUT ? deleteField() : nouveau;
     update.mutate(
-      { uid, householdId, patch: { parametres: suivants } },
+      { uid, householdId, patch: { "parametres.modeleRechercheDrive": valeurEcrite } },
       {
         onSuccess: () => {
           setEnregistre(true);
