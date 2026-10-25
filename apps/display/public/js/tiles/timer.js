@@ -1,4 +1,5 @@
-/* tiles/timer.js — vue compacte (timers actifs en mini) + vue plein écran (presets + custom + contrôles).
+/* tiles/timer.js — vue compacte (timers actifs en mini) + vue plein écran (choix « Autre » sans clavier,
+   minuteurs en cours via FamilyHubMinuteursPanneau, presets).
    ES5 vanilla. Lit l'état depuis window.FamilyHubTimers (singleton Firestore). */
 (function (global) {
   'use strict';
@@ -27,19 +28,6 @@
      s'affichaient en tofu / mal rendus sur iPad mini 1 (Safari 9). On suit
      le pattern déjà utilisé dans radio.js (STOP_ICON_SVG). aria-hidden car
      le bouton porte un aria-label. */
-  var ICON_PLAY_SM =
-    '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="display:block">' +
-      '<path d="M7 5 L19 12 L7 19 Z" fill="currentColor"/>' +
-    '</svg>';
-  var ICON_PAUSE_SM =
-    '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="display:block">' +
-      '<rect x="6" y="5" width="4" height="14" rx="1" fill="currentColor"/>' +
-      '<rect x="14" y="5" width="4" height="14" rx="1" fill="currentColor"/>' +
-    '</svg>';
-  var ICON_CLOSE_SM =
-    '<svg viewBox="0 0 24 24" width="16" height="16" aria-hidden="true" style="display:block">' +
-      '<path d="M6 6 L18 18 M18 6 L6 18" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>' +
-    '</svg>';
   var ICON_BELL_SM =
     '<svg viewBox="0 0 24 24" width="20" height="20" aria-hidden="true" style="display:inline-block; vertical-align:-4px; margin-right:6px">' +
       '<path d="M12 3 Q17 3, 17 10 L18 16 L6 16 L7 10 Q7 3, 12 3 Z" fill="none" stroke="currentColor" stroke-width="2" stroke-linejoin="round"/>' +
@@ -156,82 +144,124 @@
   }
 
   /* --- Vue PLEIN ÉCRAN --- */
+  /* Choix « Autre » : gros boutons de durées courantes (un toucher lance) et
+     un sélecteur −/+ en minutes. Pas de clavier, pas de nom à taper : le nom
+     est automatique (« 20 min ») ou celui passé par l'appelant. */
+  var CHOIX_MINUTES = [2, 3, 4, 15, 20, 30, 45, 60];
+  var PAS_MIN = 1, PAS_MAX = 180;
+  /* −/+ dessinés en SVG : les glyphes Unicode peuvent sortir en tofu sur Safari 9. */
+  var SVG_MOINS = '<svg viewBox="0 0 24 24" width="36" height="36" aria-hidden="true" style="display:block">' +
+    '<path d="M5 12 H19" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>';
+  var SVG_PLUS = '<svg viewBox="0 0 24 24" width="36" height="36" aria-hidden="true" style="display:block">' +
+    '<path d="M12 5 V19 M5 12 H19" fill="none" stroke="currentColor" stroke-width="3" stroke-linecap="round"/></svg>';
+
+  function monterChoix(conteneur, options) {
+    var opts = options || {};
+    var nom = opts.libelleParDefaut || null;
+    var minutes = 6;
+
+    function lancer(min) {
+      if (!global.FamilyHubTimers || min <= 0) return;
+      global.FamilyHubTimers.startTimer(nom, min * 60);
+      if (typeof opts.apresLancement === 'function') opts.apresLancement();
+    }
+
+    var racine = document.createElement('div');
+    racine.className = 'fh-min-choix fh-corps';
+    conteneur.appendChild(racine);
+
+    var rangee = document.createElement('div');
+    rangee.className = 'fh-min-choix-rangee';
+    racine.appendChild(rangee);
+    for (var i = 0; i < CHOIX_MINUTES.length; i++) {
+      (function (min) {
+        var b = document.createElement('button');
+        b.type = 'button';
+        b.className = 'fh-min-btn fh-min-choix-btn fh-action fh-corps';
+        b.setAttribute('aria-label', 'Lancer un minuteur de ' + min + ' minutes');
+        b.innerHTML = '<span class="fh-min-choix-nb fh-titre">' + min + '</span><span>min</span>';
+        b.addEventListener('click', function () { lancer(min); });
+        rangee.appendChild(b);
+      })(CHOIX_MINUTES[i]);
+    }
+
+    var pas = document.createElement('div');
+    pas.className = 'fh-min-pas';
+    pas.innerHTML =
+      '<button type="button" class="fh-min-btn fh-min-pas-btn fh-carte fh-texte fh-bordure fh-corps" data-pas="-1" aria-label="Une minute de moins">' + SVG_MOINS + '</button>' +
+      '<div class="fh-min-pas-valeur fh-titre fh-texte"></div>' +
+      '<button type="button" class="fh-min-btn fh-min-pas-btn fh-carte fh-texte fh-bordure fh-corps" data-pas="1" aria-label="Une minute de plus">' + SVG_PLUS + '</button>' +
+      '<button type="button" class="fh-min-btn fh-min-pas-lancer fh-action fh-corps"></button>';
+    racine.appendChild(pas);
+
+    var valeurEl = pas.querySelector('.fh-min-pas-valeur');
+    var lancerEl = pas.querySelector('.fh-min-pas-lancer');
+    function maj() {
+      valeurEl.textContent = minutes + ' min';
+      lancerEl.textContent = 'Lancer ' + minutes + ' min';
+    }
+    var boutonsPas = pas.querySelectorAll('[data-pas]');
+    for (var j = 0; j < boutonsPas.length; j++) {
+      boutonsPas[j].addEventListener('click', function () {
+        var d = parseInt(this.getAttribute('data-pas'), 10);
+        minutes = Math.min(PAS_MAX, Math.max(PAS_MIN, minutes + d));
+        maj();
+      });
+    }
+    lancerEl.addEventListener('click', function () { lancer(minutes); });
+    maj();
+
+    return {
+      demonter: function () {
+        if (racine.parentNode) racine.parentNode.removeChild(racine);
+      }
+    };
+  }
+
+  function section(container, titre) {
+    var s = document.createElement('div');
+    s.className = 'tile-timer-section';
+    var h = document.createElement('h2');
+    h.className = 'tile-timer-section-h2 fh-titre';
+    h.innerHTML = titre;
+    s.appendChild(h);
+    container.appendChild(s);
+    return s;
+  }
+
   function expand(container, _data, config) {
     container.innerHTML = '';
     container.className = 'tile-overlay-content tile-timer-expand';
 
-    var presets = (config && config.presets) ? config.presets : [];
+    var cfg = config || {};
+    var presets = cfg.presets ? cfg.presets : [];
+    var nom = cfg.libelleParDefaut || null;
 
     var headerEl = document.createElement('h1');
-    headerEl.className = 'tile-overlay-h1';
+    headerEl.className = 'tile-overlay-h1 fh-titre';
     headerEl.innerHTML = 'Minuteur';
     container.appendChild(headerEl);
 
-    /* 1. Section : minuteurs actifs (en haut, statut immédiat) */
-    var activeSection = document.createElement('div');
-    activeSection.className = 'tile-timer-section';
-    container.appendChild(activeSection);
-
-    var activeTitle = document.createElement('h2');
-    activeTitle.className = 'tile-timer-section-h2';
-    activeTitle.innerHTML = 'En cours';
-    activeSection.appendChild(activeTitle);
-
-    var activeListEl = document.createElement('div');
-    activeListEl.className = 'tile-timer-active-list';
-    activeSection.appendChild(activeListEl);
-
-    /* 2. Section : custom — action principale, juste sous l'état actif.
-       Deux <select> minutes / secondes : sur iOS Safari, <select> ouvre
-       nativement un picker à rouleaux. */
-    var customSection = document.createElement('div');
-    customSection.className = 'tile-timer-section';
-    container.appendChild(customSection);
-
-    var customTitle = document.createElement('h2');
-    customTitle.className = 'tile-timer-section-h2';
-    customTitle.innerHTML = 'Nouveau minuteur';
-    customSection.appendChild(customTitle);
-
-    function buildOptions(max, defaultVal) {
-      var html = '';
-      for (var i = 0; i <= max; i++) {
-        var s = i < 10 ? '0' + i : '' + i;
-        html += '<option value="' + i + '"' + (i === defaultVal ? ' selected' : '') + '>' + s + '</option>';
+    /* 1. Autre durée — c'est ce qu'on vient chercher ici (le panneau du
+       tableau a déjà 1 / 5 / 10 min). Lancer referme le plein écran. */
+    var choixSection = section(container, 'Choisis une durée');
+    var choix = monterChoix(choixSection, {
+      libelleParDefaut: nom,
+      apresLancement: function () {
+        if (global.FamilyHubOverlay) global.FamilyHubOverlay.close();
       }
-      return html;
+    });
+
+    /* 2. Minuteurs en cours + lancement rapide (panneau partagé). */
+    var panneau = null;
+    if (global.FamilyHubMinuteursPanneau) {
+      var enCours = section(container, 'En cours');
+      panneau = global.FamilyHubMinuteursPanneau.monter(enCours, { libelleParDefaut: nom, autre: false });
     }
 
-    var customForm = document.createElement('div');
-    customForm.className = 'tile-timer-custom';
-    customForm.innerHTML =
-      '<input type="text" id="custom-label" class="input-tile" placeholder="Label (ex: Tarte aux pommes)" />' +
-      '<label class="input-tile-label">Durée — touche pour faire défiler les rouleaux</label>' +
-      '<div class="timer-picker">' +
-      '<div class="timer-picker-col">' +
-      '<select id="custom-mins" class="timer-picker-select">' + buildOptions(120, 5) + '</select>' +
-      '<div class="timer-picker-unit">minutes</div>' +
-      '</div>' +
-      '<div class="timer-picker-sep">:</div>' +
-      '<div class="timer-picker-col">' +
-      '<select id="custom-secs" class="timer-picker-select">' + buildOptions(59, 0) + '</select>' +
-      '<div class="timer-picker-unit">secondes</div>' +
-      '</div>' +
-      '</div>' +
-      '<button type="button" id="custom-start" class="btn-tile-primary">Démarrer le minuteur</button>';
-    customSection.appendChild(customForm);
-
-    /* 3. Section : presets (suggestions, en bas) */
+    /* 3. Presets configurés dans le hub (suggestions, en bas) */
     if (presets.length > 0) {
-      var presetSection = document.createElement('div');
-      presetSection.className = 'tile-timer-section';
-      container.appendChild(presetSection);
-
-      var presetTitle = document.createElement('h2');
-      presetTitle.className = 'tile-timer-section-h2';
-      presetTitle.innerHTML = 'Démarrage rapide';
-      presetSection.appendChild(presetTitle);
-
+      var presetSection = section(container, 'Démarrage rapide');
       var presetGrid = document.createElement('div');
       presetGrid.className = 'tile-timer-preset-grid';
       presetSection.appendChild(presetGrid);
@@ -260,91 +290,15 @@
     });
     container.appendChild(testBtn);
 
-    customForm.querySelector('#custom-start').addEventListener('click', function () {
-      var label = customForm.querySelector('#custom-label').value || 'Minuteur';
-      var m = parseInt(customForm.querySelector('#custom-mins').value, 10) || 0;
-      var s = parseInt(customForm.querySelector('#custom-secs').value, 10) || 0;
-      var total = m * 60 + s;
-      if (total <= 0) return;
-      global.FamilyHubTimers.startTimer(label, total);
-      customForm.querySelector('#custom-label').value = '';
-      customForm.querySelector('#custom-mins').value = '5';
-      customForm.querySelector('#custom-secs').value = '0';
-    });
-
-    /* Subscribe pour mise à jour des timers actifs. Même mémo que la vue
-       compacte : on ne reconstruit la liste que si son rendu change (un
-       minuteur en pause ou terminé ne bouge plus d'une seconde à l'autre,
-       et reconstruire ferait sauter un tap en cours sur ses boutons). */
-    var lastActiveKey = null;
-    function renderActive(state) {
-      var active = (state.timers || []).filter(function (t) {
-        return t.status === 'running' || t.status === 'paused' || t.status === 'ended';
-      });
-      if (active.length === 0) {
-        if (lastActiveKey === 'empty') return;
-        lastActiveKey = 'empty';
-        activeListEl.innerHTML = '<p class="timer-active-empty">Aucun minuteur en cours.</p>';
-        return;
-      }
-      var keyParts = [];
-      for (var k = 0; k < active.length; k++) {
-        var tk = active[k];
-        keyParts.push(tk.id + '|' + tk.status + '|' + (tk.label || '') + '|'
-          + fmt(global.FamilyHubTimers.timerRemainingMs(tk)) + '|'
-          + Math.round(global.FamilyHubTimers.timerProgress(tk) * 100));
-      }
-      var activeKey = keyParts.join('#');
-      if (activeKey === lastActiveKey) return;
-      lastActiveKey = activeKey;
-      activeListEl.innerHTML = '';
-      for (var i = 0; i < active.length; i++) {
-        (function (t) {
-          var remaining = global.FamilyHubTimers.timerRemainingMs(t);
-          var progress = global.FamilyHubTimers.timerProgress(t);
-          var row = document.createElement('div');
-          row.className = 'timer-active-row ' + t.status;
-
-          var html = '<div class="timer-active-info">';
-          html += '<div class="timer-active-label">' + escapeHtml(t.label || '?') + '</div>';
-          html += '<div class="timer-active-time">' + (t.status === 'ended' ? ICON_BELL_SM + 'Terminé !' : fmt(remaining)) + '</div>';
-          html += '<div class="timer-active-progress"><div class="timer-active-progress-fill" style="width:' + Math.round(progress * 100) + '%"></div></div>';
-          html += '</div>';
-          html += '<div class="timer-active-actions">';
-          if (t.status === 'ended') {
-            html += '<button class="btn-tile-primary timer-ack" aria-label="OK, arrêter l\'alarme">OK</button>';
-          } else if (t.status === 'paused') {
-            html += '<button class="btn-tile-secondary timer-resume" aria-label="Reprendre">' + ICON_PLAY_SM + '</button>';
-            html += '<button class="btn-tile-secondary timer-stop" aria-label="Arrêter">' + ICON_CLOSE_SM + '</button>';
-          } else {
-            html += '<button class="btn-tile-secondary timer-pause" aria-label="Mettre en pause">' + ICON_PAUSE_SM + '</button>';
-            html += '<button class="btn-tile-secondary timer-stop" aria-label="Arrêter">' + ICON_CLOSE_SM + '</button>';
-          }
-          html += '</div>';
-          row.innerHTML = html;
-
-          var pauseBtn = row.querySelector('.timer-pause');
-          if (pauseBtn) pauseBtn.addEventListener('click', function () { global.FamilyHubTimers.pauseTimer(t); });
-          var resumeBtn = row.querySelector('.timer-resume');
-          if (resumeBtn) resumeBtn.addEventListener('click', function () { global.FamilyHubTimers.resumeTimer(t); });
-          var stopBtn = row.querySelector('.timer-stop');
-          if (stopBtn) stopBtn.addEventListener('click', function () { global.FamilyHubTimers.stopTimer(t); });
-          var ackBtn = row.querySelector('.timer-ack');
-          if (ackBtn) ackBtn.addEventListener('click', function () { global.FamilyHubTimers.acknowledgeTimer(t); });
-
-          activeListEl.appendChild(row);
-        })(active[i]);
-      }
-    }
-    var unsub = global.FamilyHubTimers.subscribe(renderActive);
-    container._timerExpandUnsub = unsub;
+    container._timerExpand = { choix: choix, panneau: panneau };
   }
 
   function collapse(container) {
-    if (typeof container._timerExpandUnsub === 'function') {
-      try { container._timerExpandUnsub(); } catch (e) {}
-      container._timerExpandUnsub = null;
-    }
+    var e = container._timerExpand;
+    if (!e) return;
+    container._timerExpand = null;
+    if (e.panneau) { try { e.panneau.demonter(); } catch (err) {} }
+    if (e.choix) { try { e.choix.demonter(); } catch (err2) {} }
   }
 
   global.Tiles = global.Tiles || {};
@@ -352,6 +306,7 @@
     render: render,
     cleanup: cleanup,
     expand: expand,
-    collapse: collapse
+    collapse: collapse,
+    monterChoix: monterChoix
   };
 })(window);

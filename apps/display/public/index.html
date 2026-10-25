@@ -16,6 +16,7 @@
   <!-- fonts.css puis ambiance.css APRÈS styles.css : à spécificité égale la dernière règle gagne, donc les jetons du design system l'emportent sur les anciennes couleurs en dur. -->
   <link rel="stylesheet" href="css/fonts.css?v=__DISPLAY_VERSION__">
   <link rel="stylesheet" href="css/ambiance.css?v=__DISPLAY_VERSION__">
+  <link rel="stylesheet" href="css/minuteurs.css?v=__DISPLAY_VERSION__">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="manifest" href="manifest.json">
 </head>
@@ -56,8 +57,13 @@
 
   <!-- Singletons partagés (audio persistant + overlay plein écran + timers Firestore + brightness) -->
   <script src="js/audio-singleton.js?v=__DISPLAY_VERSION__"></script>
+  <!-- minuteurs.js (pur : libellé auto, +1 min) AVANT timer-singleton.js qui l'utilise ;
+       alarme.js (bandeau « c'est prêt » par-dessus tout) et le panneau APRÈS. -->
+  <script src="js/minuteurs.js?v=__DISPLAY_VERSION__"></script>
   <script src="js/timer-singleton.js?v=__DISPLAY_VERSION__"></script>
   <script src="js/overlay.js?v=__DISPLAY_VERSION__"></script>
+  <script src="js/alarme.js?v=__DISPLAY_VERSION__"></script>
+  <script src="js/minuteurs-panneau.js?v=__DISPLAY_VERSION__"></script>
   <script src="js/brightness.js?v=__DISPLAY_VERSION__"></script>
 
   <!-- Tile modules (chacun pose son module sur window.Tiles[type]) -->

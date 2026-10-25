@@ -259,7 +259,7 @@
     var startedAtMs = Date.now();
     var endsAtMs = startedAtMs + durationSeconds * 1000;
     col.add({
-      label: label || (durationSeconds + 's'),
+      label: label || libelleParDefaut(durationSeconds),
       durationSeconds: durationSeconds,
       startedAt: new Date(startedAtMs),
       endsAt: new Date(endsAtMs),
@@ -268,6 +268,36 @@
       updatedAt: firebase.firestore.FieldValue.serverTimestamp()
     }).then(function () {}, function (err) {
       if (window.console && window.console.error) window.console.error('startTimer', err);
+    });
+  }
+
+  /* Libellé automatique (« 5 min », « 1 min 30 ») : on ne tape jamais de nom
+     sur l'iPad. Même règle que libelleParDefaut du hub (js/minuteurs.js). */
+  function libelleParDefaut(secondes) {
+    var M = global.FamilyHubMinuteurs;
+    if (M && typeof M.libelleMinuteur === 'function') return M.libelleMinuteur(secondes);
+    return Math.round(secondes / 60) + ' min';
+  }
+
+  /* « +1 min » : mêmes champs que ajouterUneMinute du hub (patchUneMinute).
+     En cours ou terminé → endsAt + 60 s et status 'running' ; en pause →
+     remainingSeconds + 60. durationSeconds + 60 dans les deux cas. */
+  function ajouterUneMinute(t) {
+    var col = colRef(); if (!col) return;
+    var M = global.FamilyHubMinuteurs;
+    if (!M || typeof M.patchUneMinute !== 'function') return;
+    var p = M.patchUneMinute(t, Date.now());
+    var champs = {
+      durationSeconds: p.durationSeconds,
+      updatedAt: firebase.firestore.FieldValue.serverTimestamp()
+    };
+    if (p.status) champs.status = p.status;
+    if (p.endsAtMs !== undefined) champs.endsAt = new Date(p.endsAtMs);
+    if (p.remainingSeconds !== undefined) champs.remainingSeconds = p.remainingSeconds;
+    /* Relancé après sa fin : il pourra de nouveau être marqué terminé. */
+    delete alarmTimers[t.id];
+    col.doc(t.id).update(champs).then(function () {}, function (err) {
+      if (window.console && window.console.error) window.console.error('ajouterUneMinute', err);
     });
   }
 
@@ -318,6 +348,11 @@
     var hasEnded = false;
     for (var i = 0; i < state.timers.length; i++) {
       var t = state.timers[i];
+      /* Relancé ailleurs (« +1 min » depuis un téléphone) : oublie la fin déjà
+         signalée pour pouvoir la signaler à nouveau. */
+      if (alarmTimers[t.id] && t.status === 'running' && timerRemainingMs(t) > 0) {
+        delete alarmTimers[t.id];
+      }
       if (t.status === 'running' && timerRemainingMs(t) === 0 && !alarmTimers[t.id]) {
         alarmTimers[t.id] = true;
         var col = colRef();
@@ -401,6 +436,8 @@
     subscribe: subscribe,
     getState: function () { return state; },
     startTimer: startTimer,
+    ajouterUneMinute: ajouterUneMinute,
+    libelleParDefaut: libelleParDefaut,
     pauseTimer: pauseTimer,
     resumeTimer: resumeTimer,
     stopTimer: stopTimer,
