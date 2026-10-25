@@ -21,6 +21,7 @@ import type {
   Profil,
   Recette,
   ShoppingList,
+  ShoppingListItem,
   Tile,
   User,
 } from "@family-hub/types";
@@ -267,7 +268,11 @@ export function usePlanCourses(householdId: string | undefined, planId: string |
 }
 
 export type BatchSessionWithId = BatchSession & { id: string };
-export type ShoppingListWithId = ShoppingList & { id: string };
+/**
+ * Ancien affichage (tableau `items`) — remplacé par `useListeCourses` (format 2).
+ * `items` y est toujours présent : vide une fois la liste migrée.
+ */
+export type ShoppingListWithId = ShoppingList & { id: string; items: ShoppingListItem[] };
 
 /**
  * Sessions de batch cooking d'un plan (Phase 3).
@@ -311,7 +316,8 @@ export function usePlanShoppingList(
       );
       const snap = await getDocs(q);
       if (snap.empty) return null;
-      return { id: snap.docs[0].id, ...(snap.docs[0].data() as ShoppingList) };
+      const data = snap.docs[0].data() as ShoppingList;
+      return { id: snap.docs[0].id, ...data, items: data.items ?? [] };
     },
   });
 }
