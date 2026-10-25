@@ -22,7 +22,6 @@ import type {
   Resolution,
   ShoppingListItem,
   TileType,
-  Theme,
 } from "@family-hub/types";
 
 interface CreateHouseholdInput {
@@ -91,7 +90,6 @@ interface CreateDisplayInput {
   nom: string;
   type: DisplayDeviceType;
   resolution: Resolution;
-  theme: Theme;
   gridConfig: GridConfig;
 }
 

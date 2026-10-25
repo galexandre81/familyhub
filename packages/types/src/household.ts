@@ -4,8 +4,6 @@ export interface HouseholdParametres {
   localisation: Localisation;
   langue: Language;
   systemeUnites: UnitSystem;
-  /** ID du thème UI (cf. apps/hub/src/lib/themes.ts). Défaut "caractere". */
-  themeId?: string;
 }
 
 export interface Household {

@@ -55,7 +55,7 @@
 - **Horloge** : design soigné
 
 ### 🎨 Personnalisation
-- 6 thèmes UI prêts à l'emploi (Caractère, Forêt, Marine, Bordeaux, Glacier, Lin clair)
+- Ambiance jour/nuit automatique (lever/coucher du soleil), jetons du design system Gates
 - Choix partagé toute famille via la console Paramètres
 - Layouts par display configurables individuellement
 
@@ -153,7 +153,7 @@ familyhub/
 │   │   ├── src/
 │   │   │   ├── components/   # composants partagés
 │   │   │   ├── pages/        # Menu, LivreRecettes, Profils, etc.
-│   │   │   └── lib/          # auth, queries, mutations, firebase, themes
+│   │   │   └── lib/          # auth, queries, mutations, firebase, ambiance
 │   │   └── .env.local        # ⚠️ à créer, gitignored
 │   └── display/              # site iPad/mobile-display vanilla JS
 │       └── public/js/tiles/  # 1 fichier JS ES5 par type de tuile
@@ -194,7 +194,7 @@ Pattern : pas de `if/else` à rallonge sur `tile.type`, dispatch via `window.Til
 - **Phase 1** ✅ — Fondation monorepo + tuiles `clock`, `weather`, `radio`. iPad mural en cuisine.
 - **Phase 2** ✅ — Drag&drop layout, mode édition tactile, tuiles `calendar`, `timer`.
 - **Phase 3** ✅ — Meal planner hebdo, batch cooking, livre de recettes, liste de courses mobile, recipe-mode iPad. Workflow human-in-the-loop avec Claude.ai.
-- **Bonus** ✅ — Thèmes UI personnalisables, recherche par ingrédients du frigo, repas express, notation pouce ↑↓.
+- **Bonus** ✅ — Recherche par ingrédients du frigo, repas express, notation pouce ↑↓.
 
 **Hors scope (volontairement)** : Cloud Function LLM (le LLM = Claude.ai en human-in-the-loop), chat conversationnel intégré, PWA installable, OCR recettes externes.
 

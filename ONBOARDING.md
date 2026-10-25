@@ -749,21 +749,11 @@ Maintenant tu vas créer ton foyer dans le système, ajouter les profils famille
    - **Système d'unités** : Métrique
 4. Clique **Créer**.
 
-## 8.2 Choisir ton thème UI
+## 8.2 Ambiance jour/nuit
 
-Toujours dans **Paramètres**, descends à la section **Thème de l'interface**.
+Il n'y a rien à choisir : l'interface passe toute seule en ambiance de jour ou de nuit selon le lever et le coucher du soleil de ta ville (07h–19h si la localisation est inconnue).
 
-6 thèmes au choix :
-- **Caractère** (défaut, noir + laiton + crème)
-- **Forêt** (vert profond + or)
-- **Marine** (bleu nuit + cuivre)
-- **Bordeaux** (rouge sombre + or rose)
-- **Glacier** (gris-bleu + argent)
-- **Lin** (clair, ivoire + caramel + brun)
-
-Clique sur celui qui te plaît, ça s'applique immédiatement et c'est partagé avec tous tes futurs displays.
-
-## 8.3 Créer les profils famille
+Créer les profils famille
 
 1. **Paramètres** → **Profils famille**.
 2. Clique **+ Nouveau profil** pour chaque membre de ta famille :
@@ -792,11 +782,10 @@ Un "display" est un écran qui affiche les tuiles. Tu peux en avoir plusieurs (i
    - `mobile` : téléphone portable
    - `desktop` : ordinateur, écran mural moderne
 5. **Résolution** : laisse les valeurs par défaut suggérées
-6. **Thème** : `dark` ou `light` selon préférence
-7. **Configuration de la grille** :
+6. **Configuration de la grille** :
    - 4 colonnes × 3 lignes pour iPad mini cuisine
    - 2 colonnes × 4 lignes pour mobile
-8. Clique **Créer**.
+7. Clique **Créer**.
 
 ## 8.5 Ajouter des tuiles à ce display
 
@@ -853,7 +842,7 @@ Le display est créé côté serveur, mais l'iPad ne sait pas encore qu'il est c
 
 ## ✅ Récap section 8
 
-- ✅ Foyer créé avec localisation et thème
+- ✅ Foyer créé avec localisation
 - ✅ Profils famille créés
 - ✅ Au moins un display créé avec des tuiles
 - ✅ iPad / mobile pairé sur ce display

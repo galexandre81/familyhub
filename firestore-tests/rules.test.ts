@@ -72,7 +72,7 @@ beforeEach(async () => {
       nom: "Foyer Test",
       ownerUid: MEMBER_UID,
       membres: [MEMBER_UID],
-      parametres: { localisation: {}, langue: "fr", systemeUnites: "metric", themeId: "caractere" },
+      parametres: { localisation: {}, langue: "fr", systemeUnites: "metric" },
       createdAt: 1,
       updatedAt: 1,
     });
@@ -102,6 +102,7 @@ beforeEach(async () => {
     });
     await setDoc(doc(db, "households", HID, "tiles", "t1"), {
       type: "weather",
+      config: { selectedLocationId: "loc1" },
       createdAt: 1,
     });
     await setDoc(doc(db, "households", HID, "shoppingLists", "sl1"), {
@@ -255,17 +256,36 @@ describe("display (kiosk) writes", () => {
     );
   });
 
-  it("can update household parametres.themeId", async () => {
-    await assertSucceeds(
+  it("CANNOT update household parametres", async () => {
+    await assertFails(
       updateDoc(doc(displayDb(), "households", HID), {
-        parametres: {
-          localisation: {},
-          langue: "fr",
-          systemeUnites: "metric",
-          themeId: "ocean",
-        },
+        parametres: { localisation: {}, langue: "en", systemeUnites: "metric" },
         updatedAt: 2,
       }),
+    );
+  });
+
+  it("can update tile config.selectedLocationId", async () => {
+    await assertSucceeds(
+      updateDoc(doc(displayDb(), "households", HID, "tiles", "t1"), {
+        "config.selectedLocationId": "loc2",
+        updatedAt: 2,
+      }),
+    );
+  });
+
+  it("CANNOT update tile config.url", async () => {
+    await assertFails(
+      updateDoc(doc(displayDb(), "households", HID, "tiles", "t1"), {
+        "config.url": "https://evil.example",
+        updatedAt: 2,
+      }),
+    );
+  });
+
+  it("CANNOT update tile type", async () => {
+    await assertFails(
+      updateDoc(doc(displayDb(), "households", HID, "tiles", "t1"), { type: "clock" }),
     );
   });
 

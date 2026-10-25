@@ -24,8 +24,6 @@ export type TileType =
 
 export type DisplayDeviceType = "ipad-mini-1" | "modern-tablet" | "desktop" | "mobile";
 
-export type Theme = "light" | "dark" | "auto";
-
 export type Language = "fr" | "en";
 
 export type UnitSystem = "metric" | "imperial";
