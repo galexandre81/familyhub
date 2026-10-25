@@ -21,7 +21,7 @@ const MenuWizard = lazy(() => import("./pages/MenuWizard"));
 const MenuImport = lazy(() => import("./pages/MenuImport"));
 const LivreRecettes = lazy(() => import("./pages/LivreRecettes"));
 const RecetteDetail = lazy(() => import("./pages/RecetteDetail"));
-const RecetteCuisine = lazy(() => import("./pages/RecetteCuisine"));
+const ModeRecette = lazy(() => import("./pages/ModeRecette"));
 
 function RequireAuth({ children }: { children: React.ReactNode }) {
   const { user, loading } = useAuth();
@@ -73,9 +73,10 @@ export default function App() {
           <Route path="menu" element={<Menu />} />
           <Route path="menu/nouveau" element={<MenuWizard />} />
           <Route path="menu/import" element={<MenuImport />} />
+          <Route path="menu/:planId/:slotId/cuisine" element={<ModeRecette />} />
           <Route path="livre-recettes" element={<LivreRecettes />} />
           <Route path="livre-recettes/:recetteId" element={<RecetteDetail />} />
-          <Route path="livre-recettes/:recetteId/cuisine" element={<RecetteCuisine />} />
+          <Route path="livre-recettes/:recetteId/cuisine" element={<ModeRecette />} />
           {/* Anciennes routes /kitchen-buddy/* — redirections rétro-compat. */}
           <Route path="kitchen-buddy" element={<Navigate to="/menu" replace />} />
           <Route path="kitchen-buddy/nouveau-plan" element={<Navigate to="/menu/nouveau" replace />} />

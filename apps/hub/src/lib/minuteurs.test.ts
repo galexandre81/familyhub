@@ -121,9 +121,9 @@ describe("lireMinutesSaisies", () => {
 });
 
 describe("ajoutUneMinute", () => {
-  it("en cours : repousse la fin et allonge la durée", () => {
+  it("en cours : repousse la fin, allonge la durée et réécrit « en cours » (course avec l'iPad)", () => {
     const p = ajoutUneMinute({ status: "running", endsAt: new Date(T0 + 30_000), durationSeconds: 300 }, T0);
-    expect(p).toEqual({ endsAtMs: T0 + 90_000, durationSeconds: 360 });
+    expect(p).toEqual({ status: "running", endsAtMs: T0 + 90_000, durationSeconds: 360 });
   });
   it("en pause : ajoute 60 s au reste", () => {
     const p = ajoutUneMinute({ status: "paused", endsAt: new Date(T0), durationSeconds: 300, remainingSeconds: 20 }, T0);
@@ -135,7 +135,7 @@ describe("ajoutUneMinute", () => {
   });
   it("en cours mais déjà dépassé : repart de maintenant", () => {
     const p = ajoutUneMinute({ status: "running", endsAt: new Date(T0 - 5000), durationSeconds: 300 }, T0);
-    expect(p).toEqual({ endsAtMs: T0 + 60_000, durationSeconds: 360 });
+    expect(p).toEqual({ status: "running", endsAtMs: T0 + 60_000, durationSeconds: 360 });
   });
 });
 

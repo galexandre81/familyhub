@@ -107,9 +107,9 @@ export function ajoutUneMinute(t: MinuteurLu, nowMs: number): PatchAjoutMinute {
     return { remainingSeconds: (t.remainingSeconds ?? 0) + 60, durationSeconds };
   }
   const base = Math.max(versMs(t.endsAt) ?? nowMs, nowMs);
-  const patch: PatchAjoutMinute = { endsAtMs: base + 60_000, durationSeconds };
-  if (t.status !== "running") return { status: "running", ...patch };
-  return patch;
+  // Toujours « running » : si l'iPad vient de le marquer `ended`, la minute
+  // ajoutée le relance au lieu de laisser un document terminé avec une fin future.
+  return { status: "running", endsAtMs: base + 60_000, durationSeconds };
 }
 
 /** Le minuteur doit sonner : marqué `ended`, ou encore `running` mais arrivé à zéro ici (ex. hors ligne). */

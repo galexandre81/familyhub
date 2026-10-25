@@ -119,6 +119,15 @@ function jouerCycle(): void {
   }
 }
 
+let ecouteVisibilite = false;
+
+/** Un seul écouteur pour toute la page : le démontage d'un panneau ne coupe pas les autres. */
+function installerEcouteVisibilite(): void {
+  if (ecouteVisibilite || typeof document === "undefined") return;
+  ecouteVisibilite = true;
+  document.addEventListener("visibilitychange", majBoucle);
+}
+
 function majBoucle(): void {
   const doitSonner = demandesAlarme.size > 0 && document.visibilityState === "visible";
   if (doitSonner && boucle === null) {
@@ -246,12 +255,11 @@ export function useMinuteurs(householdId?: string): MinuteursApi {
     installerDeverrouillage();
     if (!alarme) return;
     const cle = Symbol("alarme");
+    installerEcouteVisibilite();
     demandesAlarme.add(cle);
     majBoucle();
-    document.addEventListener("visibilitychange", majBoucle);
     return () => {
       demandesAlarme.delete(cle);
-      document.removeEventListener("visibilitychange", majBoucle);
       majBoucle();
     };
   }, [alarme]);
