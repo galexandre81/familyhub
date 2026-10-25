@@ -17,6 +17,7 @@ import { db, functions } from "./firebase";
 import { isValidIcalUrl } from "./calendarUrl";
 import { lierProfilLocalement } from "./personnes";
 import { rafraichirEcransSansAttendre } from "./rafraichirEcrans";
+import { patchToucheHeuresRepas } from "./rafraichissementGroupe";
 import { toast } from "../components/Toast";
 import type {
   DisplayDeviceType,
@@ -144,6 +145,10 @@ export function useUpdateHousehold() {
     },
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["households", vars.uid] });
+      // L'iPad choisit le prochain repas d'après ces heures.
+      if (patchToucheHeuresRepas(vars.patch as Record<string, unknown>)) {
+        rafraichirEcransSansAttendre(vars.householdId, "menu");
+      }
     },
   });
 }
@@ -516,6 +521,7 @@ export function useValidateMealPlan() {
       void qc.invalidateQueries({ queryKey: ["draftPlan", vars.householdId] });
       void qc.invalidateQueries({ queryKey: ["activePlan", vars.householdId] });
       void qc.invalidateQueries({ queryKey: ["plan", vars.householdId, vars.planId] });
+      rafraichirEcransSansAttendre(vars.householdId, "menu");
     },
   });
 }
@@ -531,6 +537,7 @@ export function useDeleteMealPlan() {
       void qc.invalidateQueries({ queryKey: ["draftPlan", vars.householdId] });
       void qc.invalidateQueries({ queryKey: ["activePlan", vars.householdId] });
       void qc.invalidateQueries({ queryKey: ["plan", vars.householdId, vars.planId] });
+      rafraichirEcransSansAttendre(vars.householdId, "menu");
     },
   });
 }
@@ -706,6 +713,8 @@ export function useCreateProfil() {
     },
     onSuccess: (_id, vars) => {
       void qc.invalidateQueries({ queryKey: ["profils", vars.householdId] });
+      // Couleurs et initiales des convives : dans l'instantané de l'iPad.
+      rafraichirEcransSansAttendre(vars.householdId, "menu");
     },
   });
 }
@@ -729,6 +738,8 @@ export function useUpdateProfil() {
     },
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["profils", vars.householdId] });
+      // Couleurs et initiales des convives : dans l'instantané de l'iPad.
+      rafraichirEcransSansAttendre(vars.householdId, "menu");
     },
   });
 }
@@ -747,6 +758,8 @@ export function useDeleteProfil() {
     },
     onSuccess: (_data, vars) => {
       void qc.invalidateQueries({ queryKey: ["profils", vars.householdId] });
+      // Couleurs et initiales des convives : dans l'instantané de l'iPad.
+      rafraichirEcransSansAttendre(vars.householdId, "menu");
     },
   });
 }
@@ -905,11 +918,14 @@ export function useLierProfilAuCompte() {
         updatedAt: serverTimestamp(),
       });
       // Pas d'await : la promesse ne se résout qu'à l'accusé du serveur.
-      batch.commit().catch((err: unknown) => {
-        console.error("[c'est moi]", err);
-        toast("Ton profil n'a pas pu être enregistré — réessaie.", { type: "error" });
-        void qc.invalidateQueries({ queryKey: ["profils", householdId] });
-      });
+      batch.commit().then(
+        () => rafraichirEcransSansAttendre(householdId, "menu"),
+        (err: unknown) => {
+          console.error("[c'est moi]", err);
+          toast("Ton profil n'a pas pu être enregistré — réessaie.", { type: "error" });
+          void qc.invalidateQueries({ queryKey: ["profils", householdId] });
+        },
+      );
     },
     onMutate: ({ householdId, profilId, uid }) => {
       qc.setQueryData<Array<Profil & { id: string }>>(["profils", householdId], (avant) =>

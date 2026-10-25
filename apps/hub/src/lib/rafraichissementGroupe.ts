@@ -8,6 +8,23 @@ import { lancerSansAttendre } from "./sansAttente";
 export type PorteeRafraichissement = "menu" | "tout";
 
 /**
+ * Vrai si un patch du foyer touche les heures des repas (clé pointée
+ * « parametres.heuresRepas[.x] » ou objet « parametres: { heuresRepas } ») :
+ * l'iPad affiche le prochain repas d'après ces heures, il faut recalculer.
+ */
+export function patchToucheHeuresRepas(patch: Record<string, unknown> | null | undefined): boolean {
+  if (!patch) return false;
+  for (const cle of Object.keys(patch)) {
+    if (cle === "parametres.heuresRepas" || cle.startsWith("parametres.heuresRepas.")) return true;
+    if (cle === "parametres") {
+      const p = patch[cle];
+      if (p && typeof p === "object" && "heuresRepas" in p) return true;
+    }
+  }
+  return false;
+}
+
+/**
  * Regroupe les demandes de rafraîchissement par foyer : l'appel part
  * `delaiMs` après la DERNIÈRE demande (une rafale de clics = un seul appel,
  * qui lit l'état final). Dans une rafale, « tout » l'emporte sur « menu ».

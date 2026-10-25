@@ -1,5 +1,9 @@
 import { describe, it, expect, vi, beforeEach, afterEach } from "vitest";
-import { creerRafraichisseur, messageEcransMisAJour } from "./rafraichissementGroupe";
+import {
+  creerRafraichisseur,
+  messageEcransMisAJour,
+  patchToucheHeuresRepas,
+} from "./rafraichissementGroupe";
 
 describe("creerRafraichisseur — regroupement par foyer (1,5 s après le dernier appel)", () => {
   beforeEach(() => {
@@ -87,5 +91,22 @@ describe("messageEcransMisAJour", () => {
     expect(messageEcransMisAJour({ weeklyMenuTiles: 2, recipeTodayTiles: 0 })).toBe(
       "Écrans mis à jour : menu.",
     );
+  });
+});
+
+describe("patchToucheHeuresRepas — l'iPad doit recalculer le prochain repas", () => {
+  it("chemin pointé parametres.heuresRepas (ou une de ses heures)", () => {
+    expect(patchToucheHeuresRepas({ "parametres.heuresRepas": { diner: "19:30" } })).toBe(true);
+    expect(patchToucheHeuresRepas({ "parametres.heuresRepas.diner": "19:30" })).toBe(true);
+  });
+  it("objet parametres contenant heuresRepas", () => {
+    expect(patchToucheHeuresRepas({ parametres: { heuresRepas: { dejeuner: "12:00" } } })).toBe(true);
+  });
+  it("autres réglages : non", () => {
+    expect(patchToucheHeuresRepas({ "parametres.placard": ["sel"] })).toBe(false);
+    expect(patchToucheHeuresRepas({ parametres: { placard: [] } })).toBe(false);
+    expect(patchToucheHeuresRepas({ nom: "Maison" })).toBe(false);
+    expect(patchToucheHeuresRepas({ "parametres.heuresRepasX": 1 })).toBe(false);
+    expect(patchToucheHeuresRepas(undefined)).toBe(false);
   });
 });
