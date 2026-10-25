@@ -1,0 +1,234 @@
+/* mode-recette.css — mode recette de l'iPad (js/mode-recette.js).
+   Écran 1024×768 paysage. Safari 9 : ni var(, ni gap, ni grid ; flex préfixé
+   -webkit-, espacements par marges. Couleurs : classes fh-* de ambiance.css.
+   iOS 9 : JAMAIS de flex sur un <button> (flexbugs #9) : la mise en page du
+   contenu vit dans <span class="fh-mr-dedans"> ; les classes de bouton
+   contiennent « btn » (contrôlé par scripts/check-display-css.mjs). */
+
+/* --- Écran : au-dessus du tableau et du plein écran des tuiles (200),
+       sous le bandeau d'alarme (10000) --- */
+.fh-mr {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 500;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  overflow: hidden;
+  font-size: 22px;
+}
+
+/* --- Boutons : cible >= 72 px, texte >= 20 px --- */
+.fh-mr-btn {
+  min-height: 72px;
+  min-width: 72px;
+  padding: 0 18px;
+  border: 0;
+  border-radius: 14px;
+  font-size: 22px;
+  font-weight: 700;
+  line-height: 1.1;
+  cursor: pointer;
+  -webkit-appearance: none;
+  display: inline-block;
+  vertical-align: middle;
+  text-align: center;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+.fh-mr-btn:active { opacity: 0.8; }
+.fh-mr-btn[disabled] { opacity: 0.35; }
+.fh-mr-dedans {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+  width: 100%;
+}
+.fh-mr-icone { display: block; margin-right: 8px; -webkit-flex-shrink: 0; flex-shrink: 0; }
+
+/* --- Barre haute --- */
+.fh-mr-barre {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  padding: 8px 16px;
+  border-width: 0 0 2px;
+  border-style: solid;
+}
+.fh-mr-fermer { border-width: 2px; border-style: solid; }
+.fh-mr-titre {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin: 0 16px;
+  font-size: 30px;
+  font-weight: 700;
+  line-height: 1.15;
+  overflow: hidden;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+.fh-mr-portions {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+}
+.fh-mr-pas { padding: 0; border-width: 2px; border-style: solid; }
+.fh-mr-portions-valeur {
+  min-width: 150px;
+  margin: 0 10px;
+  text-align: center;
+  font-size: 24px;
+  font-weight: 700;
+  white-space: nowrap;
+}
+
+/* --- Corps : deux colonnes --- */
+.fh-mr-corps {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: -webkit-flex;
+  display: flex;
+}
+
+/* Colonne gauche ≈ 2/3 : les étapes, seule zone qui défile. */
+.fh-mr-etapes {
+  width: 62%;
+  -webkit-flex: 0 0 62%;
+  flex: 0 0 62%;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  padding: 16px 16px 40px 20px;
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+}
+.fh-mr-recette { margin-bottom: 28px; }
+.fh-mr-recette-nom { font-size: 28px; font-weight: 700; line-height: 1.15; margin: 4px 0 4px; }
+.fh-mr-meta { font-size: 20px; margin: 0 0 12px; }
+.fh-mr-etapes-liste { list-style: none; margin: 0; padding: 0; }
+.fh-mr-etape {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: flex-start;
+  align-items: flex-start;
+  border-width: 2px;
+  border-style: solid;
+  border-radius: 16px;
+  padding: 14px;
+  margin-bottom: 12px;
+}
+.fh-mr-etape-num {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  width: 44px;
+  height: 44px;
+  line-height: 44px;
+  border-radius: 22px;
+  text-align: center;
+  font-size: 22px;
+  font-weight: 700;
+  margin-right: 14px;
+}
+.fh-mr-etape-corps { -webkit-flex: 1 1 auto; flex: 1 1 auto; min-width: 0; }
+.fh-mr-etape-texte { font-size: 22px; line-height: 1.4; margin: 6px 0 0; }
+.fh-mr-lancer { margin-top: 12px; }
+.fh-mr-indispo {
+  border-width: 2px;
+  border-style: dashed;
+  border-radius: 16px;
+  padding: 18px;
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 12px;
+}
+.fh-mr-vide { font-size: 20px; margin: 8px 0; }
+
+/* Colonne droite fixe : ingrédients en haut, minuteur en dessous. */
+.fh-mr-droite {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  min-height: 0;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  padding: 16px 16px 12px 4px;
+  -webkit-box-sizing: border-box;
+  box-sizing: border-box;
+}
+.fh-mr-ingredients {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-height: 120px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  border-width: 2px;
+  border-style: solid;
+  border-radius: 16px;
+  padding: 10px 14px;
+  margin-bottom: 12px;
+}
+.fh-mr-ing-titre { font-size: 22px; font-weight: 700; margin: 8px 0 4px; }
+.fh-mr-ing-liste { list-style: none; margin: 0 0 6px; padding: 0; }
+.fh-mr-ing { font-size: 21px; line-height: 1.3; padding: 5px 0; }
+.fh-mr-ing-qte { font-weight: 700; }
+
+.fh-mr-minuteur {
+  -webkit-flex: 0 1 auto;
+  flex: 0 1 auto;
+  max-height: 62%;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.fh-mr-retour {
+  width: 100%;
+  margin-bottom: 10px;
+  border-width: 2px;
+  border-style: solid;
+}
+
+/* Panneau et choix « Autre » dans une colonne étroite (≈ 370 px) :
+   boutons rapides 2 par ligne, sélecteur −/+ sur deux lignes. */
+.fh-mr-minuteur .fh-min-rapides {
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  margin-bottom: 4px;
+}
+.fh-mr-minuteur .fh-min-rapide {
+  -webkit-flex: 1 1 40%;
+  flex: 1 1 40%;
+  margin-bottom: 8px;
+}
+.fh-mr-minuteur .fh-min-action { padding: 0 2px; }
+.fh-mr-minuteur .fh-min-choix-btn { min-height: 80px; }
+.fh-mr-minuteur .fh-min-pas {
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+}
+.fh-mr-minuteur .fh-min-pas-valeur {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  font-size: 30px;
+}
+.fh-mr-minuteur .fh-min-pas-lancer {
+  -webkit-flex: 1 1 100%;
+  flex: 1 1 100%;
+  margin: 12px 0 0;
+}

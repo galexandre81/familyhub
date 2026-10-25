@@ -1,8 +1,10 @@
 /* tiles/recipe-today.js — Repas du moment.
    Compact : libellé du repas + recettes du slot + profils présents.
-   Expand : mode cuisine plein écran (portions, ingrédients, étapes avec timers).
+   Toucher : ouvre le repas dans le mode recette (js/mode-recette.js), le même
+   écran que depuis le menu et le livre. Pas de vue « expand » : render.js
+   n'ouvre donc pas de plein écran de tuile, le clic est posé ici.
    ES5 vanilla, iOS 9.3.6 OK. La data vient du snapshot (pré-calculée par
-   functions/src/tiles/recipeToday.ts). Pas d'appel Firestore direct ici. */
+   functions/src/tiles/recipeToday.ts). */
 (function (global) {
   'use strict';
 
@@ -78,49 +80,6 @@
     );
   }
 
-  /* Sablier (timer) */
-  function svgHourglass(size) {
-    return svgWrap(
-      '<path d="M14 6 L36 6 L36 12 L25 24 L36 36 L36 44 L14 44 L14 36 L25 24 L14 12 Z" ' +
-        'fill="rgba(217,160,91,0.18)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
-      '<line x1="14" y1="6" x2="36" y2="6" stroke="' + BRASS + '" stroke-width="2.6" stroke-linecap="round"/>' +
-      '<line x1="14" y1="44" x2="36" y2="44" stroke="' + BRASS + '" stroke-width="2.6" stroke-linecap="round"/>',
-      size
-    );
-  }
-
-  /* Check (timer lancé) */
-  function svgCheck(size) {
-    return svgWrap(
-      '<path d="M10 26 L22 36 L40 14" fill="none" stroke="' + BRASS + '" stroke-width="3.2" stroke-linecap="round" stroke-linejoin="round"/>',
-      size
-    );
-  }
-
-  /* Pouce vers le haut (favori) */
-  function svgThumbUp(size) {
-    return svgWrap(
-      '<path d="M16 22 L16 42 L10 42 L10 22 Z" ' +
-        'fill="rgba(217,160,91,0.10)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
-      '<path d="M16 22 L22 8 Q24 5, 27 6 Q30 8, 28 14 L26 18 L40 18 Q44 18, 44 22 Q44 25, 42 26 ' +
-        'Q44 28, 43 31 Q44 33, 42 35 Q43 38, 40 39 Q39 42, 35 42 L20 42 L16 42 Z" ' +
-        'fill="rgba(217,160,91,0.18)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>',
-      size
-    );
-  }
-
-  /* Pouce vers le bas (exclure) */
-  function svgThumbDown(size) {
-    return svgWrap(
-      '<path d="M16 28 L16 8 L10 8 L10 28 Z" ' +
-        'fill="rgba(217,160,91,0.10)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
-      '<path d="M16 28 L22 42 Q24 45, 27 44 Q30 42, 28 36 L26 32 L40 32 Q44 32, 44 28 Q44 25, 42 24 ' +
-        'Q44 22, 43 19 Q44 17, 42 15 Q43 12, 40 11 Q39 8, 35 8 L20 8 L16 8 Z" ' +
-        'fill="rgba(217,160,91,0.18)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>',
-      size
-    );
-  }
-
   /* Plat couvert (état vide compact) */
   function svgEmpty(size) {
     return svgWrap(
@@ -139,53 +98,27 @@
     return svgCutlery(size);
   }
 
-  /* ---------- helpers ---------- */
-
-  function parseQuantity(q) {
-    if (q == null) return null;
-    /* Tolère : "300", "1.5", "1,5", "1/2". Renvoie null pour "qsp", "1 botte", etc. */
-    var s = String(q).replace(',', '.').trim();
-    if (s.indexOf('/') > -1) {
-      var parts = s.split('/');
-      if (parts.length === 2) {
-        var num = parseFloat(parts[0]);
-        var den = parseFloat(parts[1]);
-        if (!isNaN(num) && !isNaN(den) && den !== 0) return num / den;
-      }
-      return null;
-    }
-    var n = parseFloat(s);
-    if (isNaN(n)) return null;
-    /* Si la string contient autre chose qu'un nombre (ex "1 botte"), on rejette. */
-    if (String(n) !== s && (n + '.0') !== s && (n + '.5') !== s) {
-      /* Tolère aussi "1.5" avec parseFloat exact match */
-      if (s.replace(/^0+/, '').replace('.', '') !== String(n).replace('.', '')) {
-        /* Trop strict ? Acceptons si parseFloat a au moins consommé des chiffres. */
-      }
-    }
-    /* Vérifie : la string nettoyée ne doit contenir que [0-9.] */
-    if (!/^-?\d+(\.\d+)?$/.test(s)) return null;
-    return n;
-  }
-
-  function formatScaled(n) {
-    if (n == null) return null;
-    /* Round à 1 décimale max, retire les .0 */
-    var rounded = Math.round(n * 10) / 10;
-    if (rounded === Math.round(rounded)) return String(Math.round(rounded));
-    return String(rounded);
-  }
-
-  function scaleQuantite(q, ratio) {
-    var n = parseQuantity(q);
-    if (n == null) return q; /* qsp, 1 botte → garde tel quel */
-    return formatScaled(n * ratio);
-  }
-
   function difficulteLabel(d) {
     if (d <= 1) return 'Facile';
     if (d === 2) return 'Moyen';
     return 'Avancé';
+  }
+
+  /* Portions : présents du repas (invités compris), sinon celles de la recette. */
+  function ouvrirModeRecette(d) {
+    if (!global.FamilyHubModeRecette || !d.recettes || d.recettes.length === 0) return;
+    var ids = [];
+    for (var i = 0; i < d.recettes.length; i++) {
+      if (d.recettes[i] && d.recettes[i].recetteId) ids.push(d.recettes[i].recetteId);
+    }
+    if (ids.length === 0) return;
+    var presents = (d.profilsPresents ? d.profilsPresents.length : 0) +
+      (d.invitesNoms ? d.invitesNoms.length : 0);
+    global.FamilyHubModeRecette.ouvrir({
+      recetteIds: ids,
+      titre: d.repasLabel || '',
+      portions: presents > 0 ? presents : undefined
+    });
   }
 
   /* ---------- COMPACT ---------- */
@@ -195,6 +128,9 @@
     container.innerHTML = '';
 
     var d = data || {};
+    /* Affectation (pas addEventListener) : render est rappelé à chaque
+       snapshot, un seul gestionnaire à la fois. */
+    container.onclick = function () { ouvrirModeRecette(d); };
 
     var titleEl = document.createElement('div');
     titleEl.className = 'tile-title';
@@ -289,406 +225,18 @@
     cta.style.cssText =
       'font-size:10px; letter-spacing:0.15em; text-transform:uppercase; ' +
       'opacity:0.5; margin-top:10px; text-align:right;';
-    cta.innerHTML = 'Toucher → mode cuisine →';
+    cta.innerHTML = 'Toucher → mode recette →';
     body.appendChild(cta);
   }
 
   function cleanup(container) {
+    container.onclick = null;
     container.innerHTML = '';
-  }
-
-  /* ---------- EXPAND : mode cuisine plein écran ---------- */
-
-  /**
-   * État local de l'expand :
-   * - currentRecetteIdx : index de la recette affichée (0 par défaut)
-   * - portionsTarget : nombre de portions courant
-   */
-  function expand(container, data, _config, _tileId) {
-    container.className = 'tile-overlay-content tile-overlay-content--full tile-recipe-today-expand';
-    container.innerHTML = '';
-    /* Force flex column layout : sinon le styles.css de base laisse les
-       enfants en flux normal et le body se superpose au header sur iOS 9. */
-    container.style.cssText =
-      'display:-webkit-flex; display:flex; ' +
-      '-webkit-flex-direction:column; flex-direction:column; ' +
-      'height:100%; width:100%; overflow:hidden;';
-
-    var d = data || {};
-    var recettes = (d.recettes || []);
-    if (recettes.length === 0) {
-      container.innerHTML =
-        '<div style="padding:40px; text-align:center; font-size:18px; opacity:0.7">' +
-          'Pas de recette à afficher pour le moment.' +
-        '</div>';
-      return;
-    }
-
-    var state = {
-      idx: 0,
-      portionsTarget: recettes[0].portions || 4
-      /* NOTE: pas de stepIdx — le mode "étape par étape" n'est pas implémenté.
-         L'aperçu complet (toutes les étapes listées) est le seul mode. Champ
-         retiré car jamais lu (état mort). Le timer par étape utilise un
-         data-step-idx local, sans rapport avec un curseur d'étape global. */
-    };
-
-    /* ---- Header : title + tabs si plusieurs recettes + portion picker ---- */
-
-    var header = document.createElement('div');
-    header.style.cssText =
-      'padding:16px 20px; border-bottom:1px solid rgba(217,160,91,0.15); ' +
-      '-webkit-flex-shrink:0; flex-shrink:0;';
-    container.appendChild(header);
-
-    var headerTop = document.createElement('div');
-    headerTop.style.cssText = 'display:-webkit-flex; display:flex; -webkit-align-items:flex-start; align-items:flex-start; -webkit-flex-wrap:wrap; flex-wrap:wrap;';
-    headerTop.className = 'fh-gap-w16'; /* ex-gap 16px (Safari 9) */
-    header.appendChild(headerTop);
-
-    var titleBlock = document.createElement('div');
-    titleBlock.style.cssText = '-webkit-flex:1; flex:1; min-width:200px;';
-    headerTop.appendChild(titleBlock);
-
-    /* Eyebrow repas */
-    if (d.repasLabel) {
-      var eyebrow = document.createElement('div');
-      eyebrow.style.cssText =
-        'font-size:11px; letter-spacing:0.2em; text-transform:uppercase; opacity:0.85; ' +
-        'margin-bottom:4px; display:-webkit-flex; display:flex; ' +
-        '-webkit-align-items:center; align-items:center;';
-      eyebrow.className = 'fh-gap-r8'; /* ex-gap 8px (Safari 9) */
-      eyebrow.innerHTML = repasSvg(d.repasActif, 22) + '<span>' + escapeHtml(d.repasLabel) + '</span>';
-      titleBlock.appendChild(eyebrow);
-    }
-
-    var titleEl = document.createElement('div');
-    titleEl.style.cssText = 'font-family:Georgia,serif; font-size:28px; line-height:1.15; margin-bottom:4px;';
-    titleEl.id = 'rt-title';
-    titleBlock.appendChild(titleEl);
-
-    var metaEl = document.createElement('div');
-    metaEl.style.cssText = 'font-size:13px; opacity:0.7;';
-    metaEl.id = 'rt-meta';
-    titleBlock.appendChild(metaEl);
-
-    /* Boutons vote (favori / exclu) en haut, à droite des profils */
-    var voteBlock = document.createElement('div');
-    voteBlock.style.cssText =
-      'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center;';
-    voteBlock.className = 'fh-gap-r8'; /* ex-gap 8px (Safari 9) */
-    voteBlock.setAttribute('data-role', 'vote-block');
-    headerTop.appendChild(voteBlock);
-
-    /* Pastilles profils */
-    if (d.profilsPresents && d.profilsPresents.length > 0) {
-      var profilsBlock = document.createElement('div');
-      /* ex-gap 6px (Safari 9). profilsBlock est lui-même un enfant de
-         headerTop (fh-gap-w16) : ses deux marges se combinent, donc elles
-         sont posées inline (8-3 / 16-6), comme celles des pastilles. */
-      profilsBlock.style.cssText = 'display:-webkit-flex; display:flex; -webkit-flex-wrap:wrap; flex-wrap:wrap; margin:0 5px 10px;';
-      for (var p = 0; p < d.profilsPresents.length; p++) {
-        var prof = d.profilsPresents[p];
-        var pill = document.createElement('span');
-        pill.style.cssText =
-          'display:inline-block; width:32px; height:32px; line-height:32px; text-align:center; ' +
-          'border-radius:50%; font-size:14px; font-weight:600; margin:0 3px 6px; ' +
-          'background:' + (prof.couleur || '#888') + '; color:#fff;';
-        if (prof.nom) pill.setAttribute('aria-label', prof.nom);
-        pill.innerHTML = escapeHtml(prof.initiale || (prof.nom ? prof.nom.charAt(0).toUpperCase() : '?'));
-        profilsBlock.appendChild(pill);
-      }
-      headerTop.appendChild(profilsBlock);
-    }
-
-    /* Tabs si plusieurs recettes */
-    if (recettes.length > 1) {
-      var tabs = document.createElement('div');
-      /* overflow-x:auto + nowrap : 3+ noms longs scrollent horizontalement au
-         lieu de casser/déborder le header sur iPad mini. */
-      tabs.style.cssText = 'display:-webkit-flex; display:flex; margin-top:12px; ' +
-        'overflow-x:auto; -webkit-overflow-scrolling:touch; white-space:nowrap;';
-      tabs.className = 'fh-gap-r6'; /* ex-gap 6px (Safari 9) */
-      tabs.setAttribute('role', 'tablist');
-      tabs.setAttribute('aria-label', 'Recettes du repas');
-      header.appendChild(tabs);
-      for (var ti = 0; ti < recettes.length; ti++) {
-        (function (ix) {
-          var btn = document.createElement('button');
-          btn.type = 'button';
-          btn.setAttribute('data-tab-idx', ix);
-          btn.setAttribute('role', 'tab');
-          btn.setAttribute('aria-selected', ix === 0 ? 'true' : 'false');
-          btn.style.cssText =
-            'padding:8px 14px; font-size:13px; border:1px solid rgba(217,160,91,0.3); ' +
-            'background:transparent; color:#FAFAF7; border-radius:4px; cursor:pointer; ' +
-            '-webkit-flex-shrink:0; flex-shrink:0; white-space:nowrap;';
-          btn.innerHTML = escapeHtml(recettes[ix].nom || '(sans nom)');
-          btn.addEventListener('click', function () {
-            state.idx = ix;
-            state.portionsTarget = recettes[ix].portions || 4;
-            renderRecette();
-          });
-          tabs.appendChild(btn);
-        })(ti);
-      }
-    }
-
-    /* Portion picker */
-    var portionRow = document.createElement('div');
-    portionRow.style.cssText =
-      'display:-webkit-flex; display:flex; -webkit-align-items:center; align-items:center; ' +
-      'margin-top:14px; font-size:13px;';
-    portionRow.className = 'fh-gap-r10'; /* ex-gap 10px (Safari 9) */
-    portionRow.innerHTML =
-      '<span style="opacity:0.7">Portions :</span>' +
-      '<button type="button" data-act="minus" aria-label="Une portion de moins" style="width:36px; height:36px; border:1px solid rgba(217,160,91,0.3); background:transparent; color:#FAFAF7; border-radius:4px; font-size:18px;">−</button>' +
-      '<span data-role="portions-display" aria-live="polite" style="font-size:20px; font-weight:600; min-width:34px; text-align:center;">' + state.portionsTarget + '</span>' +
-      '<button type="button" data-act="plus" aria-label="Une portion de plus" style="width:36px; height:36px; border:1px solid rgba(217,160,91,0.3); background:transparent; color:#FAFAF7; border-radius:4px; font-size:18px;">+</button>' +
-      '<button type="button" data-act="reset" aria-label="Réinitialiser les portions" style="margin-left:18px; padding:4px 10px; background:transparent; color:#D9A05B; border:none; font-size:12px; text-decoration:underline;">réinit.</button>';
-    header.appendChild(portionRow);
-
-    portionRow.querySelector('[data-act="minus"]').addEventListener('click', function () {
-      if (state.portionsTarget > 1) {
-        state.portionsTarget--;
-        renderRecette();
-      }
-    });
-    portionRow.querySelector('[data-act="plus"]').addEventListener('click', function () {
-      if (state.portionsTarget < 30) {
-        state.portionsTarget++;
-        renderRecette();
-      }
-    });
-    portionRow.querySelector('[data-act="reset"]').addEventListener('click', function () {
-      state.portionsTarget = recettes[state.idx].portions || 4;
-      renderRecette();
-    });
-
-    /* ---- Body : ingredients + etapes ---- */
-
-    var body = document.createElement('div');
-    body.style.cssText =
-      'padding:20px; overflow-y:auto; -webkit-overflow-scrolling:touch; ' +
-      '-webkit-flex:1 1 auto; flex:1 1 auto; min-height:0;';
-    body.id = 'rt-body';
-    body.setAttribute('data-scroll-lock', '1');
-    container.appendChild(body);
-
-    /* Notes du slot (ex: "Marc et Sophie invités") */
-    if (d.notes) {
-      var notesEl = document.createElement('div');
-      notesEl.style.cssText =
-        'background:rgba(217,160,91,0.08); border-left:3px solid #D9A05B; ' +
-        'padding:10px 14px; font-style:italic; font-size:13px; margin:0 20px 16px 20px;';
-      notesEl.innerHTML = '« ' + escapeHtml(d.notes) + ' »';
-      header.appendChild(notesEl);
-    }
-
-    /* Initial render */
-    renderRecette();
-
-    function renderRecette() {
-      var r = recettes[state.idx];
-      var ratio = r.portions > 0 ? state.portionsTarget / r.portions : 1;
-
-      /* Update tabs visuel */
-      var tabBtns = container.querySelectorAll('[data-tab-idx]');
-      for (var t = 0; t < tabBtns.length; t++) {
-        var active = parseInt(tabBtns[t].getAttribute('data-tab-idx'), 10) === state.idx;
-        tabBtns[t].style.background = active ? '#D9A05B' : 'transparent';
-        tabBtns[t].style.color = active ? '#1F1A14' : '#FAFAF7';
-        tabBtns[t].setAttribute('aria-selected', active ? 'true' : 'false');
-      }
-
-      /* Update title + meta */
-      document.getElementById('rt-title').innerHTML = escapeHtml(r.nom || '(sans nom)');
-      var metaParts = [];
-      if (r.tempsTotalMinutes) metaParts.push(r.tempsTotalMinutes + ' min total');
-      if (r.tempsPrepMinutes != null) metaParts.push('prep ' + r.tempsPrepMinutes + ' + cuisson ' + r.tempsCuissonMinutes);
-      metaParts.push(difficulteLabel(r.difficulte || 1));
-      if (r.tags && r.tags.length > 0) {
-        for (var tg = 0; tg < Math.min(r.tags.length, 3); tg++) {
-          metaParts.push(escapeHtml(r.tags[tg]));
-        }
-      }
-      document.getElementById('rt-meta').innerHTML = metaParts.join(' · ');
-
-      /* Update portions display */
-      var portionsDisp = container.querySelector('[data-role="portions-display"]');
-      if (portionsDisp) portionsDisp.innerHTML = state.portionsTarget;
-
-      /* Update body */
-      var html = '';
-      if (r.description) {
-        html += '<p style="font-style:italic; opacity:0.85; margin-bottom:18px;">' +
-                  escapeHtml(r.description) + '</p>';
-      }
-
-      /* Ingredients */
-      html += '<h3 style="font-size:15px; letter-spacing:0.15em; text-transform:uppercase; opacity:0.7; margin-bottom:8px;">Ingrédients</h3>';
-      html += '<ul style="list-style:none; padding:0; margin:0 0 24px 0;">';
-      var ings = r.ingredients || [];
-      for (var i = 0; i < ings.length; i++) {
-        var ing = ings[i];
-        var qty = scaleQuantite(ing.quantite, ratio);
-        var qtyStr = (qty != null && qty !== '') ? (qty + ' ' + (ing.unite || '')) : (ing.unite || '');
-        var frigoBadge = ing.noteFrigo
-          ? '<span style="margin-left:6px; padding:1px 6px; background:rgba(125,159,118,0.2); color:#7D9F76; font-size:10px; border-radius:3px;">FRIGO</span>'
-          : '';
-        html += '<li style="padding:4px 0; border-bottom:1px solid rgba(217,160,91,0.08); font-size:15px;">' +
-                  '<span style="font-weight:600; min-width:80px; display:inline-block;">' + escapeHtml(qtyStr.trim()) + '</span> · ' +
-                  escapeHtml(ing.libelle || '') +
-                  frigoBadge +
-                '</li>';
-      }
-      html += '</ul>';
-
-      /* Etapes */
-      html += '<h3 style="font-size:15px; letter-spacing:0.15em; text-transform:uppercase; opacity:0.7; margin-bottom:12px;">Étapes</h3>';
-      html += '<ol style="list-style:none; padding:0; margin:0; counter-reset:step;">';
-      var etapes = (r.etapes || []).slice().sort(function (a, b) { return (a.ordre || 0) - (b.ordre || 0); });
-      for (var s = 0; s < etapes.length; s++) {
-        var e = etapes[s];
-        var stepNum = s + 1;
-        var timerBtn = '';
-        if (e.dureeMinutes && e.dureeMinutes > 0) {
-          timerBtn =
-            '<button type="button" class="rt-timer-btn fh-gap-r6" data-step-idx="' + s + '" ' +
-              'data-duration="' + e.dureeMinutes + '" data-recette-nom="' + escapeHtml(r.nom || '') + '" ' +
-              'style="margin-top:8px; padding:8px 14px; background:#D9A05B; color:#1F1A14; ' +
-              'border:none; border-radius:4px; font-size:13px; font-weight:600; ' +
-              'display:-webkit-inline-flex; display:inline-flex; -webkit-align-items:center; align-items:center;">' +
-              svgHourglass(16).replace('#D9A05B', '#1F1A14') +
-              '<span>Timer ' + e.dureeMinutes + ' min</span>' +
-            '</button>';
-        }
-        html += '<li class="fh-gap-r12" style="display:-webkit-flex; display:flex; padding:14px 0; border-bottom:1px solid rgba(217,160,91,0.08);">' +
-                  '<div style="flex-shrink:0; width:32px; height:32px; border-radius:50%; background:rgba(217,160,91,0.15); ' +
-                          'color:#D9A05B; line-height:32px; text-align:center; font-weight:600; font-size:14px;">' + stepNum + '</div>' +
-                  '<div style="-webkit-flex:1; flex:1;">' +
-                    '<div style="font-size:15px; line-height:1.5;">' + escapeHtml(e.description || '') + '</div>' +
-                    timerBtn +
-                  '</div>' +
-                '</li>';
-      }
-      html += '</ol>';
-
-      document.getElementById('rt-body').innerHTML = html;
-
-      /* Boutons vote (favori / exclu) en haut — peuple le voteBlock du header */
-      renderVoteButtons(container, r.recetteId);
-
-      /* Wire timer buttons */
-      var timerBtns = container.querySelectorAll('.rt-timer-btn');
-      for (var b = 0; b < timerBtns.length; b++) {
-        timerBtns[b].addEventListener('click', function (ev) {
-          var btn = ev.currentTarget;
-          var dur = parseInt(btn.getAttribute('data-duration'), 10);
-          var nom = btn.getAttribute('data-recette-nom') || 'Étape';
-          var stepIdx = parseInt(btn.getAttribute('data-step-idx'), 10) + 1;
-          if (global.FamilyHubTimers && typeof global.FamilyHubTimers.startTimer === 'function') {
-            var label = nom + ' — étape ' + stepIdx;
-            global.FamilyHubTimers.startTimer(label, dur * 60);
-            btn.innerHTML = svgCheck(16).replace(BRASS, '#fff') + '<span style="margin-left:6px">Timer lancé</span>';
-            btn.disabled = true;
-            btn.style.opacity = '0.7';
-            btn.style.background = '#7D9F76';
-            btn.style.color = '#fff';
-          }
-        });
-      }
-
-    }
-  }
-
-  /**
-   * Peuple le voteBlock du header avec 2 boutons (pouce bas / pouce haut).
-   * Au clic : update la recette en Firestore (favori OU exclu).
-   * On n'a pas l'état initial dans le snapshot, donc les boutons partent
-   * neutres ; après clic ils restent visuellement actifs.
-   */
-  function renderVoteButtons(container, recetteId) {
-    var voteEl = container.querySelector('[data-role="vote-block"]');
-    if (!voteEl) return;
-    if (!recetteId) {
-      voteEl.innerHTML = '';
-      return;
-    }
-    voteEl.innerHTML =
-      '<button type="button" data-action="down" ' +
-        'style="background:transparent; border:1px solid rgba(217,160,91,0.40); ' +
-        'border-radius:6px; padding:6px 10px; cursor:pointer; color:#D9A05B; ' +
-        'display:-webkit-inline-flex; display:inline-flex; -webkit-align-items:center; align-items:center;" ' +
-        'aria-label="Exclure cette recette" title="Exclure (ne plus piocher cette recette)">' +
-        svgThumbDown(24) +
-      '</button>' +
-      '<button type="button" data-action="up" ' +
-        'style="background:transparent; border:1px solid rgba(217,160,91,0.40); ' +
-        'border-radius:6px; padding:6px 10px; cursor:pointer; color:#D9A05B; ' +
-        'display:-webkit-inline-flex; display:inline-flex; -webkit-align-items:center; align-items:center;" ' +
-        'aria-label="Marquer comme favori" title="Marquer comme favori">' +
-        svgThumbUp(24) +
-      '</button>';
-    voteEl.querySelector('[data-action="up"]').addEventListener('click', function () {
-      voteRecette(recetteId, 'up', voteEl);
-    });
-    voteEl.querySelector('[data-action="down"]').addEventListener('click', function () {
-      voteRecette(recetteId, 'down', voteEl);
-    });
-  }
-
-  function voteRecette(recetteId, action, voteEl) {
-    var db = global.FamilyHubGetDb && global.FamilyHubGetDb();
-    var hid = global.FamilyHubGetHouseholdId && global.FamilyHubGetHouseholdId();
-    if (!db || !hid) return;
-    var FieldValue = global.firebase && global.firebase.firestore && global.firebase.firestore.FieldValue;
-    var serverTs = FieldValue ? FieldValue.serverTimestamp() : new Date();
-    var updates = action === 'up'
-      ? { statut: 'favorite', excluded: false, updatedAt: serverTs }
-      : { statut: 'accepted', excluded: true, updatedAt: serverTs };
-
-    var upBtn = voteEl.querySelector('[data-action="up"]');
-    var downBtn = voteEl.querySelector('[data-action="down"]');
-    /* Optimistic UI feedback */
-    if (action === 'up') {
-      upBtn.style.background = 'rgba(217,160,91,0.20)';
-      upBtn.style.borderColor = BRASS;
-      downBtn.style.background = 'transparent';
-      downBtn.style.borderColor = 'rgba(217,160,91,0.40)';
-      downBtn.style.color = BRASS;
-    } else {
-      downBtn.style.background = 'rgba(200,85,61,0.20)';
-      downBtn.style.borderColor = '#C8553D';
-      downBtn.style.color = '#C8553D';
-      upBtn.style.background = 'transparent';
-      upBtn.style.borderColor = 'rgba(217,160,91,0.40)';
-      upBtn.style.color = BRASS;
-    }
-
-    db.collection('households').doc(hid).collection('recettes').doc(recetteId)
-      .update(updates)
-      .catch(function (err) {
-        if (window.console && window.console.error) console.error('[vote]', err);
-        /* Rollback visuel sur erreur */
-        upBtn.style.background = 'transparent';
-        upBtn.style.borderColor = 'rgba(217,160,91,0.40)';
-        upBtn.style.color = BRASS;
-        downBtn.style.background = 'transparent';
-        downBtn.style.borderColor = 'rgba(217,160,91,0.40)';
-        downBtn.style.color = BRASS;
-      });
-  }
-
-  function collapse(_container) {
-    /* Rien à nettoyer (les timers une fois lancés vivent dans la collection partagée). */
   }
 
   global.Tiles = global.Tiles || {};
   global.Tiles['recipe-today'] = {
     render: render,
-    cleanup: cleanup,
-    expand: expand,
-    collapse: collapse
+    cleanup: cleanup
   };
 })(window);

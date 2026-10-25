@@ -734,6 +734,13 @@
      Si l'overlay plein écran est ouvert (ex: une recette lue en grand),
      on diffère le reload pour ne pas l'arracher sous les yeux : on poll
      jusqu'à fermeture de l'overlay puis on reload. Idempotent via un flag. */
+  /* Plein écran d'une tuile ou mode recette (on cuisine : ne pas l'arracher). */
+  function pleinEcranOuvert() {
+    var overlay = window.FamilyHubOverlay;
+    var recette = window.FamilyHubModeRecette;
+    return !!((overlay && overlay.isOpen && overlay.isOpen())
+      || (recette && recette.estOuvert && recette.estOuvert()));
+  }
   var layoutReloadPending = false;
   function reloadDisplay() {
     function doReload() {
@@ -741,10 +748,7 @@
       var url = window.location.pathname + '?reload=' + Date.now();
       window.location.replace(url);
     }
-    var overlayOpen = window.FamilyHubOverlay
-      && window.FamilyHubOverlay.isOpen
-      && window.FamilyHubOverlay.isOpen();
-    if (!overlayOpen) {
+    if (!pleinEcranOuvert()) {
       doReload();
       return;
     }
@@ -754,9 +758,7 @@
       window.console.log('[display] overlay open, deferring reload until close');
     }
     var poll = setInterval(function () {
-      var stillOpen = window.FamilyHubOverlay
-        && window.FamilyHubOverlay.isOpen
-        && window.FamilyHubOverlay.isOpen();
+      var stillOpen = pleinEcranOuvert();
       if (!stillOpen) {
         clearInterval(poll);
         doReload();

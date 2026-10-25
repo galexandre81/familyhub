@@ -1201,6 +1201,10 @@
       wrap.innerHTML = '' +
         '<div class="wiz-bar">' +
           '<button type="button" class="wiz-back" data-act="back-detail">← Retour à la liste</button>' +
+          (global.FamilyHubModeRecette
+            ? '<button type="button" class="fh-mr-btn fh-action fh-corps" data-act="cuisiner">' +
+                '<span class="fh-mr-dedans">Cuisiner</span></button>'
+            : '') +
         '</div>' +
         '<h2 class="livre-detail-name">' + escapeHTML(r.nom) + '</h2>' +
         '<div class="livre-detail-meta">' + meta.join(' · ') + '</div>' +
@@ -1210,6 +1214,15 @@
         '<h3 class="livre-detail-h3">Étapes</h3>' +
         '<ol class="livre-detail-steps">' + stepHtml + '</ol>';
 
+      /* Même mode recette que depuis le tableau et le menu ; la recette déjà
+         lue est confiée à son cache (pas de relecture, marche hors ligne). */
+      var cuisiner = wrap.querySelector('[data-act="cuisiner"]');
+      if (cuisiner) {
+        cuisiner.addEventListener('click', function () {
+          global.FamilyHubModeRecette.memoriser(r.id, r);
+          global.FamilyHubModeRecette.ouvrir({ recetteIds: [r.id], titre: r.nom });
+        });
+      }
       wrap.querySelector('[data-act="back-detail"]').addEventListener('click', function () {
         goStep2();
         /* Restaure la position de scroll de la liste après le re-render. */
