@@ -1,0 +1,365 @@
+/* tableau.css — tableau de cuisine (js/tableau.js), iPad 1024×768 paysage.
+   D'après les maquettes Sys-iPad-Jour / Sys-iPad-Nuit (marges 32 px).
+   Safari 9 : ni var(, ni gap, ni grid ; flex préfixé -webkit-, espacements
+   par marges. Couleurs : classes fh-* de ambiance.css ; seules les teintes
+   propres aux maquettes (ombre portée du jour, barre, en-tête du repas la
+   nuit) sont posées ici, avec les valeurs des jetons du design system.
+   JAMAIS de flex sur un <button> : contenu dans .tab-dedans. */
+
+.tab {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  width: 100%;
+  height: 100%;
+  box-sizing: border-box;
+  padding: 28px 32px 24px;
+  overflow: hidden;
+  font-size: 20px;
+}
+
+/* --- En-tête : date + heure, météo --- */
+.tab-tete {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  -webkit-align-items: flex-start;
+  align-items: flex-start;
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  margin-bottom: 18px;
+}
+.tab-date { font-size: 22px; line-height: 1.2; margin-bottom: 2px; }
+.tab-heure {
+  font-size: 104px;
+  font-weight: 800;
+  line-height: 0.9;
+  letter-spacing: -0.03em;
+}
+.tab-meteo {
+  min-width: 160px;
+  min-height: 96px;
+  text-align: right;
+  cursor: pointer;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+.tab-meteo:active { opacity: 0.7; }
+.tab-meteo-temp { font-size: 44px; font-weight: 800; line-height: 1.05; }
+.tab-meteo-ciel { font-size: 22px; line-height: 1.25; }
+.tab-meteo-ville { font-size: 20px; line-height: 1.25; }
+
+/* --- Milieu : colonne gauche (≈ 60 %) + colonne droite --- */
+.tab-milieu {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: -webkit-flex;
+  display: flex;
+}
+.tab-gauche,
+.tab-droite {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+.tab-gauche { -webkit-flex: 1.6 1 0%; flex: 1.6 1 0%; margin-right: 22px; }
+.tab-droite { -webkit-flex: 1 1 0%; flex: 1 1 0%; }
+
+.tab-carte {
+  border-width: 3px;
+  border-style: solid;
+  border-radius: 28px;
+  box-sizing: border-box;
+  overflow: hidden;
+}
+.tab-carte-titre { font-size: 20px; line-height: 1.2; margin-bottom: 8px; }
+.tab-message { font-size: 22px; margin: 4px 0 0; }
+
+/* --- Prochain repas --- */
+.tab-repas {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  margin-bottom: 16px;
+}
+html.amb-jour .tab-repas { -webkit-box-shadow: 0 6px 0 #1E2B22; box-shadow: 0 6px 0 #1E2B22; }
+.tab-repas-tete {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  -webkit-align-items: center;
+  align-items: center;
+  padding: 12px 24px;
+  border-bottom-width: 3px;
+  border-bottom-style: solid;
+}
+.tab-repas-moment { font-size: 28px; font-weight: 700; line-height: 1.15; }
+.tab-repas-dans { font-size: 26px; font-weight: 700; white-space: nowrap; margin-left: 12px; }
+/* Nuit (maquette) : pas d'aplat, le moment du repas en ambre. */
+html.amb-nuit .tab-repas-tete.fh-maintenant { background: transparent; color: #F2F5F8; border-bottom-color: transparent; padding-bottom: 4px; }
+html.amb-nuit .tab-repas-tete.fh-maintenant .tab-repas-moment { color: #FFB547; }
+.tab-repas-tete-neutre { border-bottom-color: transparent; }
+
+.tab-repas-corps {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  padding: 14px 24px 16px;
+}
+.tab-repas-message { font-size: 26px; margin: 8px 0 0; }
+
+.tab-barre {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  height: 14px;
+  border-radius: 999px;
+  border-width: 2px;
+  border-style: solid;
+  overflow: hidden;
+  margin-bottom: 14px;
+}
+html.amb-nuit .tab-barre { border-color: transparent; }
+.tab-barre-plein { height: 100%; border-radius: 999px; }
+html.amb-jour .tab-barre-plein { background: #1E2B22; }
+html.amb-nuit .tab-barre-plein { background: #FFB547; }
+
+.tab-repas-textes {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow: hidden;
+}
+.tab-repas-plat {
+  font-size: 52px;
+  font-weight: 800;
+  line-height: 1.04;
+  max-height: 2.08em; /* 2 lignes max */
+  overflow: hidden;
+  margin-bottom: 6px;
+}
+.tab-repas-plat-long { font-size: 42px; }
+.tab-repas-acc {
+  font-size: 24px;
+  line-height: 1.25;
+  max-height: 2.5em; /* 2 lignes max */
+  overflow: hidden;
+}
+
+.tab-repas-bas {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  margin-top: 10px;
+}
+.tab-pastille {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  display: block;
+  width: 60px;
+  height: 60px;
+  line-height: 60px;
+  border-radius: 30px;
+  text-align: center;
+  font-size: 26px;
+  font-weight: 800;
+  margin-right: 10px;
+}
+.tab-pastille-neutre { background: #55665A; }
+html.amb-nuit .tab-pastille-neutre { background: #A8B6C8; }
+.tab-presence { font-size: 20px; margin-right: 12px; white-space: nowrap; }
+.tab-commencer-btn {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  display: block;
+  min-width: 200px;
+  height: 80px;
+  margin-left: 10px;
+  padding: 0 16px;
+  border: 0;
+  border-radius: 20px;
+  font-size: 28px;
+  font-weight: 700;
+  cursor: pointer;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+.tab-commencer-btn:active { opacity: 0.8; }
+
+/* Contenu des boutons (icône + mot) : c'est ce span qui est flex. */
+.tab-dedans {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  -webkit-justify-content: center;
+  justify-content: center;
+  width: 100%;
+}
+.tab-icone { display: block; margin-right: 10px; -webkit-flex-shrink: 0; flex-shrink: 0; }
+
+/* --- Agenda de la semaine --- */
+.tab-agenda {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  min-height: 96px;
+  padding: 12px 22px 14px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+.tab-agenda:active { opacity: 0.8; }
+.tab-agenda .tab-carte-titre { margin-bottom: 4px; }
+.tab-agenda-liste {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+}
+.tab-evt {
+  width: 50%;
+  box-sizing: border-box;
+  padding-right: 12px;
+  font-size: 22px;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tab-evt-jour { font-weight: 700; }
+
+/* --- Minuteurs (panneau partagé js/minuteurs-panneau.js) --- */
+.tab-minuteurs {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  padding: 14px 16px 10px;
+  margin-bottom: 16px;
+}
+.tab-minuteurs .tab-carte-titre { padding-left: 6px; }
+.tab-minuteurs-corps {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+}
+.tab-minuteurs .fh-min-panneau {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+}
+/* 1 / 5 / 10 min et Autre en 2 × 2 : la colonne est trop étroite pour 4. */
+.tab-minuteurs .fh-min-rapides {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  -webkit-flex-wrap: wrap;
+  flex-wrap: wrap;
+  margin: 0 -4px 4px;
+}
+.tab-minuteurs .fh-min-rapide {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  width: 46%;
+  width: -webkit-calc(50% - 8px);
+  width: calc(50% - 8px);
+  margin: 0 4px 8px;
+}
+.tab-minuteurs .fh-min-liste {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* --- Ensuite --- */
+.tab-ensuite {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  padding: 14px 22px 16px;
+}
+.tab-ensuite .tab-carte-titre { margin-bottom: 4px; }
+.tab-ensuite-plat {
+  font-size: 28px;
+  font-weight: 800;
+  line-height: 1.15;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tab-ensuite-acc {
+  font-size: 20px;
+  line-height: 1.3;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* --- Rangée « plus » --- */
+.tab-plus {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  display: -webkit-flex;
+  display: flex;
+  margin: 16px -8px 0;
+}
+.tab-plus-btn {
+  -webkit-flex: 1 1 0%;
+  flex: 1 1 0%;
+  display: block;
+  min-width: 0;
+  height: 72px;
+  margin: 0 8px;
+  padding: 0 10px;
+  border-width: 3px;
+  border-style: solid;
+  border-radius: 18px;
+  font-size: 21px;
+  font-weight: 700;
+  line-height: 1.1;
+  cursor: pointer;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+.tab-plus-btn:active { opacity: 0.8; }
+.tab-plus-mot { text-align: left; }
+
+/* Hôte (#grid dans index.html) : remplit #display-root. */
+.tab-hote {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  display: -webkit-flex;
+  display: flex;
+  min-width: 0;
+  min-height: 0;
+}

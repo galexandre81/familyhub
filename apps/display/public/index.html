@@ -18,6 +18,7 @@
   <link rel="stylesheet" href="css/ambiance.css?v=__DISPLAY_VERSION__">
   <link rel="stylesheet" href="css/minuteurs.css?v=__DISPLAY_VERSION__">
   <link rel="stylesheet" href="css/mode-recette.css?v=__DISPLAY_VERSION__">
+  <link rel="stylesheet" href="css/tableau.css?v=__DISPLAY_VERSION__">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="manifest" href="manifest.json">
 </head>
@@ -27,7 +28,8 @@
       <div class="boot-title">Family Hub</div>
       <div class="boot-status" id="boot-status">Initialisation…</div>
     </div>
-    <div id="grid" class="grid" style="display:none"></div>
+    <!-- Hôte du tableau de cuisine (js/tableau.js) ; id historique « grid ». -->
+    <div id="grid" class="tab-hote" style="display:none"></div>
     <div id="error-overlay" class="error-overlay" style="display:none">
       <div class="error-title">Erreur</div>
       <div class="error-text" id="error-text"></div>
@@ -69,8 +71,9 @@
   <script src="js/mode-recette.js?v=__DISPLAY_VERSION__"></script>
   <script src="js/brightness.js?v=__DISPLAY_VERSION__"></script>
 
-  <!-- Tile modules (chacun pose son module sur window.Tiles[type]) -->
-  <script src="js/tiles/clock.js?v=__DISPLAY_VERSION__"></script>
+  <!-- Tile modules (chacun pose son module sur window.Tiles[type]) : ils ne
+       servent plus qu'aux vues plein écran ouvertes depuis le tableau. Horloge
+       et liste de courses retirées (jamais sur l'iPad). -->
   <script src="js/tiles/weather.js?v=__DISPLAY_VERSION__"></script>
   <script src="js/tiles/radio.js?v=__DISPLAY_VERSION__"></script>
   <script src="js/tiles/timer.js?v=__DISPLAY_VERSION__"></script>
@@ -78,13 +81,14 @@
   <script src="js/tiles/livreRecettes.js?v=__DISPLAY_VERSION__"></script>
   <script src="js/tiles/recipe-today.js?v=__DISPLAY_VERSION__"></script>
   <script src="js/tiles/weekly-menu.js?v=__DISPLAY_VERSION__"></script>
-  <script src="js/tiles/shopping-list.js?v=__DISPLAY_VERSION__"></script>
   <script src="js/tiles/settings.js?v=__DISPLAY_VERSION__"></script>
 
   <!-- Core -->
   <script src="js/render.js?v=__DISPLAY_VERSION__"></script>
   <script src="js/ambiance.js?v=__DISPLAY_VERSION__"></script>
   <script src="js/repas.js?v=__DISPLAY_VERSION__"></script>
+  <!-- Tableau de cuisine (écran principal) : APRÈS repas.js, le panneau des minuteurs et le mode recette qu'il utilise. -->
+  <script src="js/tableau.js?v=__DISPLAY_VERSION__"></script>
   <script src="js/core.js?v=__DISPLAY_VERSION__"></script>
 </body>
 </html>

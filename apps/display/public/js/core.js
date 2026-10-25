@@ -94,8 +94,8 @@
     auth: null,
     householdId: null,
     displayId: null,
-    cellsByTileId: {},
     tilesById: {},
+    tableau: null,               /* instance FamilyHubTableau (écran principal) */
     snapshotUnsub: null,
     displayConfig: null,
     householdConfig: null,
@@ -639,7 +639,7 @@
       var byId = {};
       tilesSnap.forEach(function (doc) { byId[doc.id] = doc.data(); });
       state.tilesById = byId;
-      renderInitialGrid();
+      monterTableau();
       attachSnapshotListener(displayRef);
       attachDisplayConfigListener(displayRef);
       attachHouseholdListener(householdRef);
@@ -819,21 +819,44 @@
     return parts.join('|');
   }
 
-  function renderInitialGrid() {
-    var grid = document.getElementById('grid');
-    if (!grid || !state.displayConfig) return;
-    var cfg = state.displayConfig;
-    var cells = window.FamilyHubRender.buildGrid(grid, cfg.gridConfig, cfg.layout || [], state.tilesById);
-    state.cellsByTileId = cells;
-    showGrid();
-
-    /* Tuiles client-only (clock notamment) : rendu immédiat sans data du snapshot */
-    for (var tileId in cells) {
-      if (!cells.hasOwnProperty(tileId)) continue;
-      var tile = state.tilesById[tileId];
-      if (!tile) continue;
-      window.FamilyHubRender.renderTile(tile.type, cells[tileId], {}, tile.config);
+  /* Sources du tableau, par TYPE de tuile : la première tuile de chaque type
+     présente dans le layout de l'écran (le serveur n'écrit le snapshot que
+     pour celles-là). { tileId, config, data } — data null tant que le
+     snapshot n'est pas arrivé. Les types inconnus du tableau (horloge, liste
+     de courses d'un ancien layout…) sont simplement ignorés. */
+  function sourcesParType() {
+    var out = {};
+    var layout = (state.displayConfig && state.displayConfig.layout) || [];
+    var tiles = state.lastSnapshotTiles || {};
+    for (var i = 0; i < layout.length; i++) {
+      var tileId = layout[i] && layout[i].tileId;
+      var tile = tileId ? state.tilesById[tileId] : null;
+      if (!tile || !tile.type || out.hasOwnProperty(tile.type)) continue;
+      var entry = tiles.hasOwnProperty(tileId) ? tiles[tileId] : null;
+      out[tile.type] = {
+        tileId: tileId,
+        config: tile.config || {},
+        data: (entry && entry.data) || null
+      };
     }
+    return out;
+  }
+
+  /* Écran principal : le tableau de cuisine (js/tableau.js), pour tout écran.
+     La grille de tuiles (render.js buildGrid) n'est plus affichée : les
+     modules de tuiles ne servent plus qu'aux vues plein écran ouvertes depuis
+     le tableau. */
+  function monterTableau() {
+    var hote = document.getElementById('grid');
+    if (!hote || !state.displayConfig) return;
+    if (state.tableau) { state.tableau.demonter(); state.tableau = null; }
+    hote.innerHTML = '';
+    if (!window.FamilyHubTableau) {
+      showError('Module du tableau manquant : recharge la page.');
+      return;
+    }
+    state.tableau = window.FamilyHubTableau.monter(hote, { sources: sourcesParType });
+    showGrid();
   }
 
   function attachSnapshotListener(displayRef) {
@@ -865,14 +888,8 @@
           ? data.ttlSeconds : 0;
         evaluateStaleness();
       }
-      for (var tileId in tiles) {
-        if (!tiles.hasOwnProperty(tileId)) continue;
-        var cell = state.cellsByTileId[tileId];
-        var tile = state.tilesById[tileId];
-        if (!cell || !tile) continue;
-        var entry = tiles[tileId] || {};
-        window.FamilyHubRender.renderTile(tile.type, cell, entry.data || {}, tile.config);
-      }
+      /* Le tableau relit les sources et ne reconstruit que ce qui a changé. */
+      if (state.tableau) state.tableau.actualiser();
     }, function (err) {
       if (window.console && window.console.error) window.console.error('snapshot listener', err);
       state.snapshotUnsub = null;
@@ -887,7 +904,7 @@
   window.FamilyHubGetDb = function () { return state.db; };
   window.FamilyHubGetHouseholdId = function () { return state.householdId; };
 
-  /* Permet à render.js de récupérer la dernière data d'un tile pour l'expand. */
+  /* Dernière data d'une tuile (vues plein écran, ex. weather expand). */
   window.FamilyHubGetTileSnapshot = function (tileId) {
     var entry = state.lastSnapshotTiles && state.lastSnapshotTiles[tileId];
     return entry ? entry.data : null;
@@ -925,12 +942,8 @@
           if (patch.hasOwnProperty(k2)) t.config[k2] = patch[k2];
         }
       }
-      /* Re-render la cell avec la nouvelle config */
-      var cell = state.cellsByTileId[tileId];
-      if (cell && t) {
-        var snapshotData = window.FamilyHubGetTileSnapshot(tileId);
-        window.FamilyHubRender.renderTile(t.type, cell, snapshotData || {}, t.config);
-      }
+      /* Le tableau suit la nouvelle config (ex. ville de la météo). */
+      if (state.tableau) state.tableau.actualiser();
     }, function (err) {
       if (window.console && window.console.error) window.console.error('updateTileConfig failed', err);
     });
