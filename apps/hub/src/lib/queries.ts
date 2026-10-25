@@ -20,8 +20,6 @@ import type {
   MealPlanSlot,
   Profil,
   Recette,
-  ShoppingList,
-  ShoppingListItem,
   Tile,
   User,
 } from "@family-hub/types";
@@ -268,11 +266,6 @@ export function usePlanCourses(householdId: string | undefined, planId: string |
 }
 
 export type BatchSessionWithId = BatchSession & { id: string };
-/**
- * Ancien affichage (tableau `items`) — remplacé par `useListeCourses` (format 2).
- * `items` y est toujours présent : vide une fois la liste migrée.
- */
-export type ShoppingListWithId = ShoppingList & { id: string; items: ShoppingListItem[] };
 
 /**
  * Sessions de batch cooking d'un plan (Phase 3).
@@ -293,31 +286,6 @@ export function usePlanBatchSessions(
       return snap.docs
         .map((d) => ({ id: d.id, ...(d.data() as BatchSession) }))
         .sort((a, b) => a.date.localeCompare(b.date));
-    },
-  });
-}
-
-/**
- * Liste de courses associée à un plan (1-1 sur planId). Renvoie null si
- * aucune liste pour ce plan.
- */
-export function usePlanShoppingList(
-  householdId: string | undefined,
-  planId: string | undefined,
-) {
-  return useQuery({
-    enabled: !!householdId && !!planId,
-    queryKey: ["planShoppingList", householdId, planId],
-    queryFn: async (): Promise<ShoppingListWithId | null> => {
-      if (!householdId || !planId) return null;
-      const q = query(
-        collection(db, `households/${householdId}/shoppingLists`),
-        where("planId", "==", planId),
-      );
-      const snap = await getDocs(q);
-      if (snap.empty) return null;
-      const data = snap.docs[0].data() as ShoppingList;
-      return { id: snap.docs[0].id, ...data, items: data.items ?? [] };
     },
   });
 }

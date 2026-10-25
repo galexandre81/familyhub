@@ -2,6 +2,7 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import { Check, ChevronRight, Pencil, Users, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
+import { modeleDriveValide, RECHERCHE_DRIVE_DEFAUT } from "../lib/drive";
 import { useHouseholds } from "../lib/queries";
 import { useUpdateHousehold } from "../lib/mutations";
 import {
@@ -114,17 +115,27 @@ function ProduitsPlacardSection({
   const update = useUpdateHousehold();
   const liste = parametres.placard ?? PLACARD_DEFAUT;
   const [saisie, setSaisie] = useState("");
+  const [message, setMessage] = useState<string | null>(null);
+  /** Au moins une lettre ou un chiffre : « ... » ou « - » ne sont pas des produits. */
+  const saisieValide = /[\p{L}\p{N}]/u.test(saisie);
 
   function enregistrer(placard: string[]) {
-    update.mutate({ uid, householdId, patch: { parametres: { ...parametres, placard } } });
+    setMessage(null);
+    update.mutate(
+      { uid, householdId, patch: { parametres: { ...parametres, placard } } },
+      { onSuccess: () => setMessage("Enregistré") },
+    );
   }
 
   function ajouter() {
     const nom = saisie.trim();
-    if (!nom) return;
-    setSaisie("");
+    if (!saisieValide) return;
     const cle = normaliserNom(nom);
-    if (liste.some((p) => normaliserNom(p) === cle)) return;
+    if (liste.some((p) => normaliserNom(p) === cle)) {
+      setMessage("Déjà dans la liste");
+      return;
+    }
+    setSaisie("");
     enregistrer([...liste, nom]);
   }
 
@@ -166,12 +177,15 @@ function ProduitsPlacardSection({
       >
         <input
           value={saisie}
-          onChange={(e) => setSaisie(e.target.value)}
+          onChange={(e) => {
+            setSaisie(e.target.value);
+            setMessage(null);
+          }}
           className="input flex-1"
           placeholder="Ajouter un produit"
           aria-label="Nouveau produit de placard"
         />
-        <button type="submit" disabled={!saisie.trim()} className="btn-primary text-sm">
+        <button type="submit" disabled={!saisieValide || update.isPending} className="btn-primary text-sm">
           Ajouter
         </button>
       </form>
@@ -183,8 +197,110 @@ function ProduitsPlacardSection({
         >
           Remettre la liste par défaut
         </button>
+        {message && !update.isPending && (
+          <span role="status" className="text-sm flex items-center gap-1">
+            {message === "Enregistré" && <Check size={14} aria-hidden="true" />}
+            {message}
+          </span>
+        )}
         {update.isError && <span className="text-sm text-red-600">Échec de l'enregistrement.</span>}
       </div>
+    </section>
+  );
+}
+
+function RechercheDriveSection({
+  uid,
+  householdId,
+  parametres,
+}: {
+  uid: string;
+  householdId: string;
+  parametres: HouseholdParametres;
+}) {
+  const update = useUpdateHousehold();
+  const [modele, setModele] = useState(parametres.modeleRechercheDrive ?? RECHERCHE_DRIVE_DEFAUT);
+  const [enregistre, setEnregistre] = useState(false);
+  const valeur = modele.trim();
+  const valide = valeur === "" || modeleDriveValide(valeur);
+
+  function enregistrer(nouveau: string) {
+    if (nouveau !== "" && !modeleDriveValide(nouveau)) return;
+    setEnregistre(false);
+    // Vide ou égal au défaut : on retire le réglage (le défaut s'applique).
+    const { modeleRechercheDrive: _ancien, ...reste } = parametres;
+    const suivants: HouseholdParametres =
+      nouveau === "" || nouveau === RECHERCHE_DRIVE_DEFAUT ? reste : { ...reste, modeleRechercheDrive: nouveau };
+    update.mutate(
+      { uid, householdId, patch: { parametres: suivants } },
+      {
+        onSuccess: () => {
+          setEnregistre(true);
+          if (nouveau === "") setModele(RECHERCHE_DRIVE_DEFAUT);
+        },
+      },
+    );
+  }
+
+  return (
+    <section className="tile-card space-y-3">
+      <h2 className="text-xl">Drive</h2>
+      <p className="text-text-secondaire text-sm">
+        Sur l'ordinateur, chaque article du drive a un lien « Chercher sur Intermarché ».
+      </p>
+      <form
+        className="space-y-2"
+        onSubmit={(e) => {
+          e.preventDefault();
+          enregistrer(valeur);
+        }}
+      >
+        <label htmlFor="modele-drive" className="block font-medium">
+          Adresse de recherche du drive
+        </label>
+        <input
+          id="modele-drive"
+          type="url"
+          value={modele}
+          onChange={(e) => {
+            setModele(e.target.value);
+            setEnregistre(false);
+          }}
+          className="input w-full"
+          placeholder={RECHERCHE_DRIVE_DEFAUT}
+          aria-describedby="modele-drive-aide"
+          spellCheck={false}
+        />
+        <p id="modele-drive-aide" className="text-text-secondaire text-sm">
+          {"{terme}"} sera remplacé par le nom du produit. Par défaut : {RECHERCHE_DRIVE_DEFAUT}
+        </p>
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="submit" disabled={update.isPending || !valide} className="btn-primary text-sm">
+            {update.isPending ? "Enregistrement…" : "Enregistrer"}
+          </button>
+          <button
+            type="button"
+            onClick={() => {
+              setModele(RECHERCHE_DRIVE_DEFAUT);
+              enregistrer(RECHERCHE_DRIVE_DEFAUT);
+            }}
+            className="btn-secondary text-sm"
+          >
+            Remettre Intermarché
+          </button>
+          {!valide && (
+            <span className="text-sm text-red-600">
+              L'adresse doit commencer par https:// et contenir {"{terme}"}
+            </span>
+          )}
+          {enregistre && (
+            <span role="status" className="text-sm flex items-center gap-1">
+              <Check size={14} aria-hidden="true" /> Enregistré
+            </span>
+          )}
+          {update.isError && <span className="text-sm text-red-600">Échec de l'enregistrement.</span>}
+        </div>
+      </form>
     </section>
   );
 }
@@ -289,6 +405,15 @@ export default function Parametres() {
 
       {households && households.length > 0 && (
         <ProduitsPlacardSection
+          key={households[0].id}
+          uid={user.uid}
+          householdId={households[0].id}
+          parametres={households[0].parametres}
+        />
+      )}
+
+      {households && households.length > 0 && (
+        <RechercheDriveSection
           key={households[0].id}
           uid={user.uid}
           householdId={households[0].id}

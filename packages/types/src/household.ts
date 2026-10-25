@@ -9,6 +9,11 @@ export interface HouseholdParametres {
   heuresRepas?: HeuresRepas;
   /** Produits de placard du foyer ; absent = PLACARD_DEFAUT. */
   placard?: string[];
+  /**
+   * Adresse de recherche du drive, `{terme}` = nom du produit ; absent =
+   * recherche Intermarché (`RECHERCHE_DRIVE_DEFAUT`, apps/hub/src/lib/drive.ts).
+   */
+  modeleRechercheDrive?: string;
 }
 
 /** Rôle d'une personne dans le foyer. Copie dans functions/src/household/invitationRules.ts. */
