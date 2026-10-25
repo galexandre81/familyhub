@@ -20,8 +20,10 @@
    - carte du prochain repas (≈ 60 %) : « Dîner · 19:00 », « dans 1 h 30 »,
      barre qui se vide, plat, accompagnements, présents, « Commencer » → mode
      recette ; dessous, l'agenda de la semaine (toucher → agenda) ;
-   - colonne droite : minuteurs (1 / 5 / 10 min, Autre, en cours) puis
-     « Ensuite » (le repas d'après) ;
+   - colonne droite : minuteurs (1 / 5 / 10 min, Autre, en cours ; la carte
+     ne grandit qu'avec les minuteurs en cours), « PC des enfants » (place
+     réservée au temps d'écran, projet à venir) puis « Ensuite » (le repas
+     d'après) ;
    - rangée « plus » : Recettes, Menu de la semaine, Radio, Réglages.
 
    iOS 9 : jamais de flex sur un <button> (contenu dans un <span> intérieur).
@@ -302,7 +304,8 @@
     radio: '<rect x="3" y="8" width="18" height="12" rx="2"' + TRAIT + '/>' +
       '<circle cx="15.5" cy="14" r="3"' + TRAIT + '/><path d="M6 12 H10 M6 16 H10 M5 8 L16 3"' + TRAIT + '/>',
     reglages: '<circle cx="12" cy="12" r="3"' + TRAIT + '/>' +
-      '<path d="M12 2.5 V5 M12 19 V21.5 M2.5 12 H5 M19 12 H21.5 M5.3 5.3 L7 7 M17 17 L18.7 18.7 M5.3 18.7 L7 17 M17 7 L18.7 5.3"' + TRAIT + '/>'
+      '<path d="M12 2.5 V5 M12 19 V21.5 M2.5 12 H5 M19 12 H21.5 M5.3 5.3 L7 7 M17 17 L18.7 18.7 M5.3 18.7 L7 17 M17 7 L18.7 5.3"' + TRAIT + '/>',
+    ecran: '<rect x="3" y="4" width="18" height="12" rx="2"' + TRAIT + '/><path d="M12 16 V20 M8 20 H16"' + TRAIT + '/>'
   };
 
   var PLUS = [
@@ -390,6 +393,12 @@
     var minuteursCorps = el('div', 'tab-minuteurs-corps');
     minuteursEl.appendChild(minuteursCorps);
     droite.appendChild(minuteursEl);
+    /* Place réservée : le temps d'écran du PC des enfants (projet à venir). */
+    var pcEl = el('div', 'tab-pc tab-carte fh-carte fh-bordure');
+    pcEl.innerHTML =
+      '<div class="tab-pc-titre fh-texte">' + svg(ICONES.ecran, 24) + '<span>PC des enfants</span></div>' +
+      '<p class="tab-pc-texte fh-texte-doux">Bientôt : le temps d’écran</p>';
+    droite.appendChild(pcEl);
     var ensuiteEl = el('div', 'tab-ensuite tab-carte fh-carte fh-bordure');
     droite.appendChild(ensuiteEl);
     milieu.appendChild(droite);
