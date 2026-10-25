@@ -10,7 +10,7 @@
     "packages/*"
   ],
   "scripts": {
-    "build:design": "npm run build --workspace=@family-hub/design",
+    "build:design": "npm run build --workspace=@family-hub/design && node packages/design/scripts/gen-hub-css.mjs",
     "build:types": "npm run build --workspace=@family-hub/types",
     "build:hub": "npm run build --workspace=hub",
     "build:functions": "npm run build --workspace=functions",

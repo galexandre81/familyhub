@@ -1,4 +1,4 @@
-import type { Ambiance } from "./tokens";
+import type { Ambiance } from "./tokens.js";
 
 const REPLI_LEVER = 7 * 60;
 const REPLI_COUCHER = 19 * 60;
