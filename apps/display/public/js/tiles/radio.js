@@ -139,118 +139,191 @@
     container.innerHTML = '';
   }
 
-  /**
-   * Vue PLEIN ÉCRAN — appelée par l'overlay quand l'utilisateur tape sur la tuile.
-   * Liste de stations grandes touchables, statut, gros bouton play/pause.
-   */
+  /* --- Vue PLEIN ÉCRAN — design « Alpage + Veillée » ---
+     Barre (overlay.js, tete()) : « Radio », l'état en sous-titre, et
+     « Arrêter » quand une station joue. Contenu : les stations en grandes
+     cartes (3 par ligne) ; celle qui joue est en jaune (fh-maintenant).
+     Toucher une station la lance ; toucher celle qui joue la met en pause.
+     Styles : css/plein-ecran.css (fh-ra-*). */
+
+  function escapeHtml(s) {
+    if (s == null) return '';
+    return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+  }
+
+  /* État d'une station d'après l'état du lecteur (audio-singleton.js) :
+     'erreur' | 'chargement' | 'lecture' | 'pause' pour la station courante,
+     null pour les autres. */
+  function etatStation(state, station) {
+    var s = state || {};
+    if (!station || !s.currentStation || s.currentStation.id !== station.id) return null;
+    if (s.error) return 'erreur';
+    if (s.loading) return 'chargement';
+    if (s.playing) return 'lecture';
+    return 'pause';
+  }
+
+  /* Sous-titre de la barre : ce que fait la radio, en une phrase. */
+  function sousTitreRadio(state, nbStations) {
+    var s = state || {};
+    var nom = s.currentStation && s.currentStation.nom ? s.currentStation.nom : '';
+    var etat = etatStation(s, s.currentStation);
+    if (etat === 'erreur') return (nom ? nom + ' : ' : '') + (s.error || 'indisponible');
+    if (etat === 'chargement') return 'Connexion à ' + nom + '…';
+    if (etat === 'lecture') return 'En écoute : ' + nom;
+    if (etat === 'pause') return nom + ' en pause';
+    if (!nbStations) return 'Aucune station';
+    return 'Touche une station pour l\'écouter';
+  }
+
+  var LIBELLES_ETAT = {
+    lecture: 'En écoute · toucher pour couper',
+    pause: 'En pause · toucher pour reprendre',
+    chargement: 'Connexion…',
+    erreur: 'Indisponible · toucher pour réessayer'
+  };
+
+  function svg(inner, taille) {
+    return '<svg viewBox="0 0 24 24" width="' + taille + '" height="' + taille + '" aria-hidden="true">' + inner + '</svg>';
+  }
+  var IC_LECTURE = '<path d="M8 5 L19 12 L8 19 Z" fill="currentColor"/>';
+  var IC_PAUSE = '<rect x="6" y="5" width="4.5" height="14" rx="1" fill="currentColor"/>' +
+    '<rect x="13.5" y="5" width="4.5" height="14" rx="1" fill="currentColor"/>';
+  var IC_ATTENTE = '<circle cx="6" cy="12" r="2" fill="currentColor"/><circle cx="12" cy="12" r="2" fill="currentColor"/>' +
+    '<circle cx="18" cy="12" r="2" fill="currentColor"/>';
+  var IC_ERREUR = '<path d="M12 4 L21 19 L3 19 Z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>' +
+    '<path d="M12 10 V14 M12 16.5 V16.6" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/>';
+  var IC_STOP = '<rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/>';
+
+  function iconeEtat(etat) {
+    if (etat === 'lecture') return IC_PAUSE;
+    if (etat === 'chargement') return IC_ATTENTE;
+    if (etat === 'erreur') return IC_ERREUR;
+    return IC_LECTURE;
+  }
+
+  /* Zone de tête de la barre du plein écran (overlay.js) ; sans elle (appel
+     direct), une tête en haut du contenu. Vidée à chaque appel. */
+  function zoneTete(container) {
+    var O = global.FamilyHubOverlay;
+    var t = O && typeof O.tete === 'function' ? O.tete() : null;
+    if (t) { t.innerHTML = ''; return t; }
+    var h = document.createElement('div');
+    h.className = 'fh-pe-tete-repli fh-carte fh-bordure';
+    container.insertBefore(h, container.firstChild);
+    return h;
+  }
+
   function expand(container, _data, config) {
     container.innerHTML = '';
-    container.className = 'tile-overlay-content tile-radio-expand';
+    container.className = 'tile-overlay-content tile-overlay-content--full fh-pe-fixe fh-ra';
 
     var stations = (config && config.stations) ? config.stations : [];
-    var defaultStationId = (config && config.defaultStationId) ? config.defaultStationId : (stations[0] && stations[0].id);
+    var audio = global.FamilyHubAudio;
 
-    var headerEl = document.createElement('h1');
-    headerEl.className = 'tile-overlay-h1';
-    headerEl.innerHTML = 'Radio';
-    container.appendChild(headerEl);
+    var corps = document.createElement('div');
+    corps.className = 'fh-pe-corps';
+    corps.setAttribute('data-scroll-lock', '1');
+    container.appendChild(corps);
 
-    var nowPlayingEl = document.createElement('div');
-    nowPlayingEl.className = 'tile-radio-expand-nowplaying';
-    container.appendChild(nowPlayingEl);
+    /* Barre : titres + « Arrêter » (visible seulement quand ça joue). */
+    var tete = zoneTete(container);
+    var titres = document.createElement('div');
+    titres.className = 'fh-pe-titres';
+    titres.innerHTML = '<div class="fh-pe-titre fh-titre fh-texte">Radio</div>' +
+      '<div class="fh-pe-sous-titre fh-texte-doux"></div>';
+    tete.appendChild(titres);
+    var sousTitreEl = titres.lastChild;
+
+    /* iOS 9 : pas de flex sur un <button> ; contenu dans un span. */
+    var stopBtn = document.createElement('button');
+    stopBtn.type = 'button';
+    stopBtn.className = 'fh-pe-btn fh-ra-arreter-btn fh-action fh-corps';
+    stopBtn.innerHTML = '<span class="fh-pe-dedans">' +
+      svg(IC_STOP, 26).replace('<svg ', '<svg class="fh-pe-icone" ') + '<span>Arrêter</span></span>';
+    stopBtn.style.display = 'none';
+    stopBtn.addEventListener('click', function () { if (audio) audio.pause(); });
+    tete.appendChild(stopBtn);
+
+    var erreurEl = document.createElement('div');
+    erreurEl.className = 'fh-ra-erreur fh-carte fh-texte';
+    erreurEl.style.display = 'none';
+    corps.appendChild(erreurEl);
+
+    if (stations.length === 0) {
+      var vide = document.createElement('div');
+      vide.className = 'fh-pe-message fh-texte-doux';
+      vide.innerHTML = 'Aucune station.<br>Ajoute des stations depuis le hub.';
+      corps.appendChild(vide);
+    }
 
     var listEl = document.createElement('div');
-    listEl.className = 'tile-radio-expand-list';
-    container.appendChild(listEl);
+    listEl.className = 'fh-ra-stations';
+    corps.appendChild(listEl);
 
-    /* Boutons de stations */
-    var btnsByStation = {};
-    function buildList() {
-      for (var i = 0; i < stations.length; i++) {
-        (function (st) {
-          var btn = document.createElement('button');
-          btn.className = 'tile-radio-expand-btn';
-          btn.setAttribute('aria-pressed', 'false');
-          btn.innerHTML = st.nom;
-          /* IMPORTANT iOS 9 : appel synchrone à FamilyHubAudio.play(),
-             sans setTimeout / await — sinon Safari bloque. */
-          btn.addEventListener('click', function () {
-            var cur = global.FamilyHubAudio.getState();
-            if (cur.playing && cur.currentStation && cur.currentStation.id === st.id) {
-              global.FamilyHubAudio.pause();
-            } else {
-              global.FamilyHubAudio.play(st);
-            }
-          });
-          listEl.appendChild(btn);
-          btnsByStation[st.id] = btn;
-        })(stations[i]);
-      }
-    }
-    buildList();
-
-    /* Bouton stop global — icône SVG (carré plein) + libellé. Le glyph
-       Unicode ⏸ s'affichait mal sur iPad mini 1 (fallback Safari moche). */
-    var STOP_ICON_SVG =
-      '<svg viewBox="0 0 24 24" width="14" height="14" aria-hidden="true" ' +
-        'style="display:inline-block; vertical-align:-2px; margin-right:8px;">' +
-        '<rect x="6" y="6" width="12" height="12" rx="1.5" fill="currentColor"/>' +
-      '</svg>';
-    var stopBtn = document.createElement('button');
-    stopBtn.className = 'tile-radio-expand-stop';
-    stopBtn.innerHTML = STOP_ICON_SVG + 'Arrêter';
-    stopBtn.addEventListener('click', function () { global.FamilyHubAudio.pause(); });
-    container.appendChild(stopBtn);
-
-    /* Si aucune station active, suggère de démarrer celle par défaut */
-    function maybeAutoplayHint() {
-      var cur = global.FamilyHubAudio.getState();
-      if (!cur.currentStation && defaultStationId) {
-        nowPlayingEl.innerHTML = 'Touche une station pour démarrer';
-      }
-    }
-    maybeAutoplayHint();
-
-    /* Subscribe pour mise à jour du nowPlaying et des active states */
-    var unsub = global.FamilyHubAudio.subscribe(function (state) {
-      /* Active state visual */
-      for (var id in btnsByStation) {
-        if (btnsByStation.hasOwnProperty(id)) {
-          var b = btnsByStation[id];
-          var isCurrent = state.currentStation && state.currentStation.id === id;
-          var classes = 'tile-radio-expand-btn';
-          if (isCurrent) {
-            if (state.playing) classes += ' active playing';
-            else classes += ' active';
+    /* Cartes des stations. Le contenu est réécrit seulement si l'état de la
+       station change (sinon un toucher en cours sauterait). */
+    var cartes = [];
+    for (var i = 0; i < stations.length; i++) {
+      (function (st) {
+        var btn = document.createElement('button');
+        btn.type = 'button';
+        btn.setAttribute('aria-pressed', 'false');
+        /* IMPORTANT iOS 9 : appel synchrone à FamilyHubAudio.play(),
+           sans setTimeout / await — sinon Safari bloque. */
+        btn.addEventListener('click', function () {
+          if (!audio) return;
+          var cur = audio.getState();
+          if (cur.playing && cur.currentStation && cur.currentStation.id === st.id) {
+            audio.pause();
+          } else {
+            audio.play(st);
           }
-          b.className = classes;
-          b.setAttribute('aria-pressed', (isCurrent && state.playing) ? 'true' : 'false');
-          if (isCurrent) b.setAttribute('aria-current', 'true');
-          else b.removeAttribute('aria-current');
-        }
-      }
-      /* Now playing */
-      if (state.error) {
-        nowPlayingEl.innerHTML = '⚠ ' + state.error
-          + (state.currentStation ? ' (' + state.currentStation.nom + ')' : '');
-        stopBtn.style.display = 'none';
-      } else if (state.loading) {
-        nowPlayingEl.innerHTML = '⋯ Chargement de '
-          + (state.currentStation ? state.currentStation.nom : '');
-        stopBtn.style.display = 'inline-block';
-      } else if (state.playing) {
-        nowPlayingEl.innerHTML = '♪ ' + state.currentStation.nom + ' — en lecture';
-        stopBtn.style.display = 'inline-block';
-      } else if (state.currentStation) {
-        nowPlayingEl.innerHTML = '⏸ ' + state.currentStation.nom + ' — en pause';
-        stopBtn.style.display = 'none';
-      } else {
-        nowPlayingEl.innerHTML = 'Touche une station pour démarrer';
-        stopBtn.style.display = 'none';
-      }
-    });
+        });
+        listEl.appendChild(btn);
+        cartes.push({ station: st, btn: btn, etat: undefined });
+      })(stations[i]);
+    }
 
-    container._radioExpandUnsub = unsub;
+    function majCarte(c, etat) {
+      if (c.etat === etat) return;
+      c.etat = etat;
+      var enAvant = etat === 'lecture' || etat === 'chargement';
+      c.btn.className = 'fh-pe-btn fh-ra-station-btn fh-corps fh-bordure ' +
+        (enAvant ? 'fh-maintenant' : 'fh-carte fh-texte') + (etat === 'pause' ? ' is-pause' : '');
+      c.btn.setAttribute('aria-pressed', etat === 'lecture' ? 'true' : 'false');
+      if (etat) c.btn.setAttribute('aria-current', 'true');
+      else c.btn.removeAttribute('aria-current');
+      c.btn.innerHTML = '<span class="fh-pe-dedans fh-ra-station-dedans">' +
+        '<span class="fh-ra-pastille">' + svg(iconeEtat(etat), 30) + '</span>' +
+        '<span class="fh-ra-station-textes">' +
+          '<span class="fh-ra-station-nom fh-titre">' + escapeHtml(c.station.nom) + '</span>' +
+          (etat ? '<span class="fh-ra-station-etat' + (enAvant ? '' : ' fh-texte-doux') + '">' + LIBELLES_ETAT[etat] + '</span>' : '') +
+        '</span></span>';
+    }
+
+    function rendre(state) {
+      var s = state || {};
+      for (var k = 0; k < cartes.length; k++) majCarte(cartes[k], etatStation(s, cartes[k].station));
+      var st = sousTitreRadio(s, stations.length);
+      if (sousTitreEl.textContent !== st) sousTitreEl.textContent = st;
+      stopBtn.style.display = (s.playing || s.loading) && !s.error ? '' : 'none';
+      if (s.error) {
+        erreurEl.innerHTML = svg(IC_ERREUR, 30) + '<span>' + escapeHtml(s.error) +
+          (s.currentStation ? ' (' + escapeHtml(s.currentStation.nom) + ')' : '') +
+          ' — touche la station pour réessayer.</span>';
+        erreurEl.style.display = '';
+      } else {
+        erreurEl.style.display = 'none';
+      }
+    }
+
+    if (audio) {
+      container._radioExpandUnsub = audio.subscribe(rendre);
+    } else {
+      rendre(null);
+    }
   }
 
   function collapse(container) {
@@ -265,6 +338,9 @@
     render: render,
     cleanup: cleanup,
     expand: expand,
-    collapse: collapse
+    collapse: collapse,
+    /* Fonctions pures (testées par packages/design/src/displayRadio.test.ts). */
+    etatStation: etatStation,
+    sousTitreRadio: sousTitreRadio
   };
 })(window);

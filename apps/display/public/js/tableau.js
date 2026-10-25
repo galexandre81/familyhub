@@ -22,9 +22,10 @@
      recette ; dessous, l'agenda de la semaine (toucher → agenda) ;
    - colonne droite : minuteurs (1 / 5 / 10 min, Autre, en cours ; la carte
      ne grandit qu'avec les minuteurs en cours), « PC des enfants » (place
-     réservée au temps d'écran, projet à venir ; remplacée par le batch
-     cooking du jour ou du lendemain s'il y en a un : toucher → mode recette
-     avec toutes ses recettes — à gauche, il écrasait le plat du repas) puis « Menu de la semaine »
+     réservée au temps d'écran, projet à venir), précédée du batch cooking du
+     jour ou du lendemain s'il y en a un (toucher → mode recette avec toutes
+     ses recettes — à gauche, il écrasait le plat du repas) ; les boutons
+     1 / 5 / 10 min et Autre tiennent sur une ligne pour faire la place) puis « Menu de la semaine »
      avec le repas d'après (toucher → menu de la semaine) ;
    - rangée « plus » : Recettes, Menu de la semaine, Radio, Réglages.
 
@@ -447,17 +448,17 @@
     var minuteursCorps = el('div', 'tab-minuteurs-corps');
     minuteursEl.appendChild(minuteursCorps);
     droite.appendChild(minuteursEl);
-    /* Place réservée : le temps d'écran du PC des enfants (projet à venir). */
-    var pcEl = el('div', 'tab-pc tab-carte fh-carte fh-bordure');
-    pcEl.innerHTML =
-      '<div class="tab-pc-titre fh-texte">' + svg(ICONES.ecran, 24) + '<span>PC des enfants</span></div>' +
-      '<p class="tab-pc-texte fh-texte-doux">Bientôt : le temps d’écran</p>';
-    droite.appendChild(pcEl);
     var batchEl = el('div', 'tab-batch tab-carte fh-carte fh-bordure');
     batchEl.setAttribute('role', 'button');
     batchEl.style.display = 'none';
     batchEl.addEventListener('click', cuisinerBatch);
     droite.appendChild(batchEl);
+    /* Place réservée : le temps d'écran du PC des enfants (projet à venir). */
+    var pcEl = el('div', 'tab-pc tab-carte fh-carte fh-bordure');
+    pcEl.innerHTML =
+      '<div class="tab-pc-titre fh-texte">' + svg(ICONES.ecran, 24) + '<span>PC des enfants</span>' +
+      '<span class="tab-pc-texte fh-texte-doux">&nbsp;· bientôt</span></div>';
+    droite.appendChild(pcEl);
     var ensuiteEl = el('div', 'tab-ensuite tab-carte fh-carte fh-bordure');
     ensuiteEl.setAttribute('role', 'button');
     ensuiteEl.setAttribute('aria-label', 'Menu de la semaine');
@@ -572,8 +573,7 @@
       var cle = b ? b.cle : '';
       if (cles.batch === cle) return;
       cles.batch = cle;
-      if (!b) { batchEl.style.display = 'none'; batchEl.innerHTML = ''; pcEl.style.display = ''; return; }
-      pcEl.style.display = 'none';
+      if (!b) { batchEl.style.display = 'none'; batchEl.innerHTML = ''; return; }
       batchEl.style.display = '';
       batchEl.className = 'tab-batch tab-carte fh-carte fh-bordure' + (b.fait ? ' tab-batch-fait' : '');
       var details = [];

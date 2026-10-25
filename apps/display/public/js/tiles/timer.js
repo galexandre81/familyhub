@@ -221,15 +221,44 @@
     };
   }
 
-  function section(container, titre) {
-    var s = document.createElement('div');
-    s.className = 'tile-timer-section';
+  /* --- Plein écran « Minuteur » — design « Alpage + Veillée » ---
+     Barre (overlay.js, tete()) : « Minuteur », sous-titre, « Tester le son ».
+     Deux colonnes qui défilent chacune : à gauche choisir une durée (choix
+     « Autre » puis démarrage rapide du hub), à droite les minuteurs en cours
+     (panneau partagé, avec 1 / 5 / 10 min). Tout lancement referme le plein
+     écran. Styles : css/plein-ecran.css (fh-mn-*), css/minuteurs.css. */
+
+  var ICONE_CLOCHE =
+    '<svg viewBox="0 0 24 24" width="26" height="26" aria-hidden="true" class="fh-pe-icone">' +
+      '<path d="M12 3 Q17 3, 17 10 L18 16 L6 16 L7 10 Q7 3, 12 3 Z" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linejoin="round"/>' +
+      '<path d="M10 18.5 Q12 21, 14 18.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/>' +
+    '</svg>';
+
+  function sectionTitre(parent, titre) {
     var h = document.createElement('h2');
-    h.className = 'tile-timer-section-h2 fh-titre';
+    h.className = 'fh-pe-section-titre fh-titre fh-texte';
     h.innerHTML = titre;
-    s.appendChild(h);
-    container.appendChild(s);
-    return s;
+    parent.appendChild(h);
+    return h;
+  }
+
+  function colonne(classe) {
+    var c = document.createElement('div');
+    c.className = 'fh-pe-corps ' + classe;
+    c.setAttribute('data-scroll-lock', '1');
+    return c;
+  }
+
+  /* Zone de tête de la barre du plein écran (overlay.js) ; sans elle (appel
+     direct), une tête en haut du contenu. Vidée à chaque appel. */
+  function zoneTete(container) {
+    var O = global.FamilyHubOverlay;
+    var t = O && typeof O.tete === 'function' ? O.tete() : null;
+    if (t) { t.innerHTML = ''; return t; }
+    var h = document.createElement('div');
+    h.className = 'fh-pe-tete-repli fh-carte fh-bordure';
+    container.insertBefore(h, container.firstChild);
+    return h;
   }
 
   function fermerOverlay() {
@@ -238,7 +267,7 @@
 
   function expand(container, _data, config) {
     container.innerHTML = '';
-    container.className = 'tile-overlay-content tile-timer-expand';
+    container.className = 'tile-overlay-content tile-overlay-content--full fh-pe-fixe fh-mn';
 
     var cfg = config || {};
     var presets = cfg.presets ? cfg.presets : [];
@@ -250,42 +279,53 @@
     container._timerExpand = monte;
 
     try {
-      var headerEl = document.createElement('h1');
-      headerEl.className = 'tile-overlay-h1 fh-titre';
-      headerEl.innerHTML = 'Minuteur';
-      container.appendChild(headerEl);
+      var colonnes = document.createElement('div');
+      colonnes.className = 'fh-mn-colonnes';
+      container.appendChild(colonnes);
 
-      /* 1. Autre durée — c'est ce qu'on vient chercher ici (le panneau du
-         tableau a déjà 1 / 5 / 10 min). Tout lancement referme le plein écran. */
-      var choixSection = section(container, 'Choisis une durée');
-      monte.choix = monterChoix(choixSection, { libelleParDefaut: nom, apresLancement: fermerOverlay });
+      /* Barre : titre, sous-titre, test du son. */
+      var tete = zoneTete(container);
+      var titres = document.createElement('div');
+      titres.className = 'fh-pe-titres';
+      titres.innerHTML = '<div class="fh-pe-titre fh-titre fh-texte">Minuteur</div>' +
+        '<div class="fh-pe-sous-titre fh-texte-doux">' +
+        (nom ? 'Pour : ' + escapeHtml(nom) : 'Un toucher lance le minuteur') + '</div>';
+      tete.appendChild(titres);
+      /* iOS 9 : pas de flex sur un <button> ; contenu dans un span. */
+      var testBtn = document.createElement('button');
+      testBtn.type = 'button';
+      testBtn.className = 'fh-pe-btn fh-mn-son-btn fh-carte fh-texte fh-bordure fh-corps';
+      testBtn.setAttribute('aria-label', 'Tester le son');
+      testBtn.innerHTML = '<span class="fh-pe-dedans">' + ICONE_CLOCHE + '<span>Tester le son</span></span>';
+      testBtn.addEventListener('click', function () {
+        global.FamilyHubTimers.beepSequence(2);
+      });
+      tete.appendChild(testBtn);
 
-      /* 2. Minuteurs en cours + lancement rapide (panneau partagé). */
-      if (global.FamilyHubMinuteursPanneau) {
-        var enCours = section(container, 'En cours');
-        monte.panneau = global.FamilyHubMinuteursPanneau.monter(enCours, {
-          libelleParDefaut: nom,
-          autre: false,
-          apresLancement: fermerOverlay
-        });
-      }
+      /* 1. Gauche : autre durée — c'est ce qu'on vient chercher ici (le
+         panneau du tableau a déjà 1 / 5 / 10 min). */
+      var gauche = colonne('fh-mn-gauche');
+      colonnes.appendChild(gauche);
+      sectionTitre(gauche, 'Choisis une durée');
+      monte.choix = monterChoix(gauche, { libelleParDefaut: nom, apresLancement: fermerOverlay });
 
-      /* 3. Presets configurés dans le hub (suggestions, en bas) */
+      /* Presets configurés dans le hub (suggestions, sous le choix). */
       if (presets.length > 0) {
-        var presetSection = section(container, 'Démarrage rapide');
+        sectionTitre(gauche, 'Démarrage rapide');
         var presetGrid = document.createElement('div');
-        presetGrid.className = 'tile-timer-preset-grid';
-        presetSection.appendChild(presetGrid);
+        presetGrid.className = 'fh-mn-presets';
+        gauche.appendChild(presetGrid);
 
         for (var i = 0; i < presets.length; i++) {
           (function (p) {
             var btn = document.createElement('button');
             btn.type = 'button';
-            btn.className = 'tile-timer-preset-btn';
+            btn.className = 'fh-pe-btn fh-mn-preset-btn fh-carte fh-texte fh-bordure fh-corps';
+            btn.setAttribute('aria-label', 'Lancer ' + (p.label || 'un minuteur') + ', ' + fmtDuration(p.seconds));
             /* iOS 9 : pas de flex sur le <button>, span intérieur. */
-            btn.innerHTML = '<span class="tile-timer-preset-in">'
-              + '<span class="preset-label">' + escapeHtml(p.label) + '</span>'
-              + '<span class="preset-duration">' + fmtDuration(p.seconds) + '</span></span>';
+            btn.innerHTML = '<span class="fh-pe-dedans fh-mn-preset-dedans">'
+              + '<span class="fh-mn-preset-nom">' + escapeHtml(p.label) + '</span>'
+              + '<span class="fh-mn-preset-duree fh-texte-doux">' + fmtDuration(p.seconds) + '</span></span>';
             btn.addEventListener('click', function () {
               global.FamilyHubTimers.startTimer(p.label, p.seconds);
               fermerOverlay();
@@ -295,15 +335,17 @@
         }
       }
 
-      /* 4. Bouton de test du son — discret, tout en bas */
-      var testBtn = document.createElement('button');
-      testBtn.className = 'btn-tile-secondary timer-test-sound';
-      testBtn.setAttribute('aria-label', 'Tester le son');
-      testBtn.innerHTML = ICON_BELL_SM + 'Tester le son';
-      testBtn.addEventListener('click', function () {
-        global.FamilyHubTimers.beepSequence(2);
-      });
-      container.appendChild(testBtn);
+      /* 2. Droite : minuteurs en cours + lancement rapide (panneau partagé). */
+      if (global.FamilyHubMinuteursPanneau) {
+        var droite = colonne('fh-mn-droite');
+        colonnes.appendChild(droite);
+        sectionTitre(droite, 'En cours');
+        monte.panneau = global.FamilyHubMinuteursPanneau.monter(droite, {
+          libelleParDefaut: nom,
+          autre: false,
+          apresLancement: fermerOverlay
+        });
+      }
     } catch (e) {
       collapse(container);
       throw e;

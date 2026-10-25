@@ -544,431 +544,6 @@ body {
   margin-left: 0;
   margin-right: 0;
 }
-.tile-overlay-h1 {
-  font-family: Georgia, serif;
-  font-size: 44px;
-  color: #F2E8D5;
-  margin: 0 0 4px 0;
-  font-weight: 400;
-  letter-spacing: -0.02em;
-  font-style: italic;
-}
-.tile-overlay-h1:after {
-  content: '';
-  display: block;
-  width: 32px;
-  height: 1px;
-  background: #D9A05B;
-  margin-top: 14px;
-  margin-bottom: 24px;
-}
-
-/* ----- Radio expand ----- */
-.tile-radio-expand-nowplaying {
-  font-family: Georgia, serif;
-  font-style: italic;
-  font-size: 17px;
-  color: #F2E8D5;
-  padding: 18px 22px;
-  background: #1C1815;
-  border: 1px solid #3A2E22;
-  border-radius: 4px;
-  margin-bottom: 18px;
-  text-align: center;
-  -webkit-flex-shrink: 0;
-  flex-shrink: 0;
-}
-.tile-radio-expand-list {
-  display: -webkit-flex;
-  display: flex;
-  -webkit-flex-direction: column;
-  flex-direction: column;
-  -webkit-flex: 1;
-  flex: 1;
-}
-.tile-radio-expand-btn {
-  display: block;
-  width: 100%;
-  padding: 18px 22px;
-  margin-bottom: 8px;
-  background: #1C1815;
-  border: 1px solid #3A2E22;
-  border-radius: 4px;
-  font-family: Georgia, serif;
-  font-size: 19px;
-  color: #F2E8D5;
-  text-align: left;
-  cursor: pointer;
-  -webkit-appearance: none;
-  -webkit-transition: all 0.15s ease;
-  transition: all 0.15s ease;
-}
-.tile-radio-expand-btn:active { -webkit-transform: scale(0.99); transform: scale(0.99); }
-.tile-radio-expand-btn.active {
-  background: #2A1F15;
-  border-color: #D9A05B;
-  color: #D9A05B;
-  font-style: italic;
-}
-.tile-radio-expand-btn.active.playing {
-  background: #7BA471;
-  border-color: #7BA471;
-  color: #0F0D0A;
-}
-.tile-radio-expand-btn.active.playing:before {
-  content: '♪ ';
-  font-style: normal;
-}
-.tile-radio-expand-stop {
-  margin-top: 16px;
-  padding: 14px 28px;
-  background: transparent;
-  color: #F2E8D5;
-  border: 1px solid #3A2E22;
-  border-radius: 2px;
-  font-size: 12px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  cursor: pointer;
-  -webkit-appearance: none;
-  -webkit-flex-shrink: 0;
-  flex-shrink: 0;
-  align-self: center;
-}
-
-/* ----- Weather expand : hero + semaine + chips ----- */
-.tile-weather-expand {
-  /* Override max-width générique : la météo a besoin de toute la largeur. */
-  max-width: 1100px;
-}
-.tile-weather-expand-body {
-  display: -webkit-flex;
-  display: flex;
-  -webkit-flex-direction: column;
-  flex-direction: column;
-}
-
-/* HERO : ville sélectionnée en grand */
-.weather-hero {
-  background: #1C1815;
-  border: 1px solid #3A2E22;
-  border-radius: 10px;
-  padding: 28px 32px;
-  margin-bottom: 28px;
-}
-.weather-hero-ville {
-  font-family: Georgia, serif;
-  font-size: 36px;
-  color: #F2E8D5;
-  font-style: italic;
-  margin-bottom: 18px;
-  line-height: 1;
-}
-.weather-hero-row {
-  display: -webkit-flex;
-  display: flex;
-  -webkit-flex-direction: row;
-  flex-direction: row;
-  -webkit-align-items: center;
-  align-items: center;
-  /* Pas de `gap` : ignoré par Safari 9 (iPad mini 1). Espacement porté
-     par les marges des enfants, cf. règle suivante. */
-}
-.weather-hero-row > * + * { margin-left: 20px; }
-/* .weather-hero-meta porte déjà margin-left:8px (déclarée plus bas, elle
-   écraserait la règle ci-dessus) : 20 (ex-gap) + 8 = 28, spécificité plus forte. */
-.weather-hero-row > * + .weather-hero-meta { margin-left: 28px; }
-.weather-hero-icon { width: 110px; height: 110px; -webkit-flex-shrink: 0; flex-shrink: 0; }
-.weather-hero-icon svg { width: 100%; height: 100%; display: block; }
-.weather-hero-temp {
-  font-family: Georgia, serif;
-  font-size: 96px;
-  color: #F2E8D5;
-  line-height: 1;
-  letter-spacing: -0.04em;
-  -webkit-font-feature-settings: "tnum";
-  font-feature-settings: "tnum";
-  -webkit-flex-shrink: 0;
-  flex-shrink: 0;
-}
-.weather-hero-meta {
-  display: -webkit-flex;
-  display: flex;
-  -webkit-flex-direction: column;
-  flex-direction: column;
-  -webkit-flex: 1;
-  flex: 1;
-  margin-left: 8px;
-}
-.weather-hero-label {
-  font-family: Georgia, serif;
-  font-size: 26px;
-  color: #F2E8D5;
-  font-style: italic;
-  margin-bottom: 8px;
-}
-.weather-hero-range {
-  font-family: Georgia, serif;
-  font-size: 18px;
-  color: #C49B6B;
-  margin-bottom: 4px;
-  letter-spacing: 0.04em;
-}
-.weather-hero-sun {
-  font-family: Georgia, serif;
-  font-size: 16px;
-  color: #B0A084;
-  letter-spacing: 0.04em;
-}
-
-/* Section générique : titre + contenu */
-.weather-section-title {
-  font-family: Georgia, serif;
-  font-size: 14px;
-  color: #C49B6B;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  margin: 0 0 14px 4px;
-  font-weight: 600;
-}
-.weather-week-section { margin-bottom: 32px; }
-
-/* Forecast 7 jours : 7 colonnes égales */
-.weather-card-week {
-  display: -webkit-flex;
-  display: flex;
-  -webkit-flex-direction: row;
-  flex-direction: row;
-  -webkit-justify-content: space-between;
-  justify-content: space-between;
-  background: #1C1815;
-  border: 1px solid #3A2E22;
-  border-radius: 10px;
-  padding: 20px 12px;
-  /* Pas de `gap` : ignoré par Safari 9 (iPad mini 1). Espacement porté
-     par les marges des enfants, cf. règle suivante. */
-}
-.weather-card-week > * + * { margin-left: 6px; }
-.weather-day {
-  -webkit-flex: 1;
-  flex: 1;
-  display: -webkit-flex;
-  display: flex;
-  -webkit-flex-direction: column;
-  flex-direction: column;
-  -webkit-align-items: center;
-  align-items: center;
-  text-align: center;
-  padding: 8px 4px;
-  border-radius: 6px;
-  min-width: 0;
-}
-.weather-day-today {
-  background: rgba(217,160,91,0.10);
-}
-.weather-day-name {
-  font-family: Georgia, serif;
-  font-size: 16px;
-  color: #C49B6B;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  margin-bottom: 8px;
-  font-weight: 600;
-}
-.weather-day-today .weather-day-name { color: #D9A05B; }
-.weather-day-icon { width: 56px; height: 56px; margin: 4px 0; }
-.weather-day-icon svg { width: 100%; height: 100%; display: block; }
-.weather-day-max {
-  font-family: Georgia, serif;
-  font-size: 24px;
-  color: #F2E8D5;
-  line-height: 1.1;
-  margin-top: 6px;
-  -webkit-font-feature-settings: "tnum";
-  font-feature-settings: "tnum";
-}
-.weather-day-min {
-  font-family: Georgia, serif;
-  font-size: 18px;
-  color: #B0A084;
-  line-height: 1.1;
-  margin-top: 2px;
-  -webkit-font-feature-settings: "tnum";
-  font-feature-settings: "tnum";
-}
-
-/* Autres villes : chips (icône + nom + temp) */
-.weather-others-section { margin-bottom: 24px; }
-.weather-chips {
-  display: -webkit-flex;
-  display: flex;
-  -webkit-flex-direction: row;
-  flex-direction: row;
-  -webkit-flex-wrap: wrap;
-  flex-wrap: wrap;
-  /* Pas de `gap` (Safari 9) : liste qui passe à la ligne → demi-marge
-     horizontale + marge basse sur chaque puce, compensées en négatif ici. */
-  margin: 0 -5px -10px;
-}
-.weather-chips > * { margin: 0 5px 10px; }
-.weather-chip {
-  display: -webkit-flex;
-  display: flex;
-  -webkit-flex-direction: row;
-  flex-direction: row;
-  -webkit-align-items: center;
-  align-items: center;
-  background: #1C1815;
-  border: 1px solid #3A2E22;
-  border-radius: 999px;
-  padding: 10px 18px 10px 12px;
-  cursor: pointer;
-  -webkit-appearance: none;
-  text-align: left;
-  /* Pas de `gap` : ignoré par Safari 9 (iPad mini 1). Espacement porté
-     par les marges des enfants, cf. règle suivante. */
-  -webkit-transition: all 0.15s ease;
-  transition: all 0.15s ease;
-}
-.weather-chip > * + * { margin-left: 10px; }
-.weather-chip:active {
-  -webkit-transform: scale(0.97);
-  transform: scale(0.97);
-  border-color: #D9A05B;
-}
-.weather-chip-icon { width: 38px; height: 38px; -webkit-flex-shrink: 0; flex-shrink: 0; }
-.weather-chip-icon svg { width: 100%; height: 100%; display: block; }
-.weather-chip-info {
-  display: -webkit-flex;
-  display: flex;
-  -webkit-flex-direction: column;
-  flex-direction: column;
-}
-.weather-chip-ville {
-  font-family: Georgia, serif;
-  font-size: 16px;
-  color: #F2E8D5;
-  font-style: italic;
-  line-height: 1.1;
-}
-.weather-chip-temp {
-  font-family: Georgia, serif;
-  font-size: 18px;
-  color: #C49B6B;
-  line-height: 1.1;
-  margin-top: 2px;
-  -webkit-font-feature-settings: "tnum";
-  font-feature-settings: "tnum";
-}
-
-/* ----- Timer expand ----- */
-.tile-timer-section { margin-bottom: 32px; }
-.tile-timer-section:last-of-type { margin-bottom: 16px; }
-.timer-test-sound {
-  -webkit-align-self: center;
-  align-self: center;
-  margin-top: 8px;
-  margin-bottom: 24px;
-  font-family: -apple-system, BlinkMacSystemFont, "Helvetica Neue", sans-serif;
-  font-size: 12px;
-  letter-spacing: 0.08em;
-  padding: 8px 18px;
-  opacity: 0.7;
-}
-.timer-test-sound:active { opacity: 1; }
-.tile-timer-section-h2 {
-  font-family: Georgia, serif;
-  font-size: 11px;
-  color: #D9A05B;
-  margin: 0 0 14px 0;
-  text-transform: uppercase;
-  letter-spacing: 0.22em;
-  font-weight: 400;
-}
-.tile-timer-preset-grid {
-  display: -webkit-flex;
-  display: flex;
-  -webkit-flex-wrap: wrap;
-  flex-wrap: wrap;
-  -webkit-align-content: flex-start;
-  align-content: flex-start;
-  margin: -5px;
-}
-.tile-timer-preset-btn {
-  /* Largeur fixée (pas de grow), 3 colonnes, sans débordement */
-  -webkit-flex: 0 0 calc(33.333% - 10px);
-  flex: 0 0 calc(33.333% - 10px);
-  margin: 5px;
-  padding: 14px 10px;
-  background: #1C1815;
-  border: 1px solid #3A2E22;
-  border-radius: 4px;
-  cursor: pointer;
-  -webkit-appearance: none;
-  display: block;
-  text-align: center;
-  -webkit-transition: all 0.15s ease;
-  transition: all 0.15s ease;
-  min-width: 0;
-}
-/* iOS 9 : un <button> ne peut pas être conteneur flex — span intérieur. */
-.tile-timer-preset-in {
-  display: -webkit-flex;
-  display: flex;
-  -webkit-flex-direction: column;
-  flex-direction: column;
-  -webkit-align-items: center;
-  align-items: center;
-}
-.preset-label {
-  font-family: Georgia, serif;
-  font-style: italic;
-  font-size: 15px;
-  color: #F2E8D5;
-  text-align: center;
-  line-height: 1.2;
-}
-.preset-duration {
-  font-size: 13px;
-  color: #B0A084;
-  margin-top: 4px;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-.tile-timer-preset-btn:active {
-  background: #2A1F15;
-  border-color: #D9A05B;
-  -webkit-transform: scale(0.98);
-  transform: scale(0.98);
-}
-
-.btn-tile-primary {
-  background: #D9A05B;
-  color: #0F0D0A;
-  border: 0;
-  padding: 14px 24px;
-  border-radius: 2px;
-  font-size: 12px;
-  letter-spacing: 0.18em;
-  text-transform: uppercase;
-  font-weight: 600;
-  cursor: pointer;
-  -webkit-appearance: none;
-}
-.btn-tile-primary:active { background: #C28A47; }
-.btn-tile-secondary {
-  background: #1C1815;
-  color: #F2E8D5;
-  border: 1px solid #3A2E22;
-  padding: 8px 14px;
-  border-radius: 4px;
-  font-size: 16px;
-  cursor: pointer;
-  -webkit-appearance: none;
-  min-width: 44px;
-}
-.btn-tile-secondary:active { background: #2A1F15; }
-
 /* ----- Calendar compact : 1 event focal + compteur ----- */
 .tile-calendar {
   -webkit-align-items: stretch;
@@ -1132,44 +707,6 @@ body {
 }
 
 /* ===========================================================================
-   Tuile Réglages — boutons de luminosité (5 niveaux discrets, iOS 9 OK).
-   =========================================================================== */
-.tile-settings-lum-row {
-  display: -webkit-flex;
-  display: flex;
-  -webkit-flex-wrap: wrap;
-  flex-wrap: wrap;
-  /* Pas de `gap` (Safari 9) : demi-marges sur les boutons, compensées ici
-     pour que la rangée reste alignée sur les bords de la section. */
-  margin: 0 -4px -8px;
-}
-.tile-settings-lum-row > * { margin: 0 4px 8px; }
-.tile-settings-lum-btn {
-  -webkit-flex: 1;
-  flex: 1;
-  min-width: 80px;
-  min-height: 48px;
-  background: transparent;
-  border: 1px solid rgba(217, 160, 91, 0.35);
-  border-radius: 6px;
-  color: #C49B6B;
-  font-family: Georgia, serif;
-  font-size: 14px;
-  cursor: pointer;
-  padding: 12px 8px;
-}
-.tile-settings-lum-btn.is-active {
-  background: rgba(217, 160, 91, 0.18);
-  border-color: #D9A05B;
-  color: #F2E8D5;
-  border-width: 2px;
-  padding: 11px 7px; /* compense border-width 2px */
-}
-.tile-settings-lum-btn:active {
-  background: rgba(217, 160, 91, 0.10);
-}
-
-/* ===========================================================================
    THEMES — synchro avec apps/hub/src/lib/themes.ts (6 entrées).
    Pas de variables CSS (Safari 9 ne les supporte pas), duplication brute.
    La classe est posée sur <html> par core.js au boot et au snapshot household.
@@ -1234,26 +771,14 @@ html.amb-jour .tile-overlay-bar { background:#FCF6E6; border-bottom-color:#D4C7A
 html.amb-jour .error-link { background:#B26E38; color:#F8F0DE; }
 
 /* === #F2E8D5 (primary text) → #3C2A1A === */
-html.amb-jour .btn-tile-secondary,
 html.amb-jour .cal-compact-next,
 html.amb-jour .cal-compact-next-summary,
 html.amb-jour .cal-compact-summary,
-html.amb-jour .preset-label,
 html.amb-jour .tile-clock-time,
 html.amb-jour .tile-livre-count,
-html.amb-jour .tile-overlay-h1,
 html.amb-jour .tile-radio-compact-station,
-html.amb-jour .tile-radio-expand-btn,
-html.amb-jour .tile-radio-expand-nowplaying,
-html.amb-jour .tile-radio-expand-stop,
-html.amb-jour .tile-settings-lum-btn.is-active,
 html.amb-jour .tile-weather-label,
-html.amb-jour .tile-weather-temp,
-html.amb-jour .weather-chip-ville,
-html.amb-jour .weather-day-max,
-html.amb-jour .weather-hero-label,
-html.amb-jour .weather-hero-temp,
-html.amb-jour .weather-hero-ville { color:#3C2A1A; }
+html.amb-jour .tile-weather-temp { color:#3C2A1A; }
 
 /* === #C49B6B (secondary text) → #6B5238 === */
 html.amb-jour .cal-compact-loc,
@@ -1261,46 +786,27 @@ html.amb-jour .cal-compact-next-when,
 html.amb-jour .tile-clock-date,
 html.amb-jour .tile-livre-label,
 html.amb-jour .tile-radio-compact-status,
-html.amb-jour .tile-settings-lum-btn,
 html.amb-jour .tile-weather-range,
 html.amb-jour .timer-compact-others,
-html.amb-jour .timer-hero-label,
-html.amb-jour .weather-chip-temp,
-html.amb-jour .weather-day-name,
-html.amb-jour .weather-hero-range,
-html.amb-jour .weather-section-title { color:#6B5238; }
+html.amb-jour .timer-hero-label { color:#6B5238; }
 
 /* === #9C8A6E (muted) → #8C7456 === */
 html.amb-jour .boot-status,
 html.amb-jour .cal-compact-empty,
 html.amb-jour .cal-compact-more,
 html.amb-jour .error-text,
-html.amb-jour .preset-duration,
 html.amb-jour .setup-detail,
 html.amb-jour .tile-livre-cta,
 html.amb-jour .tile-radio-compact-btn.loading,
 html.amb-jour .tile-weather-hint,
-html.amb-jour .timer-compact-empty,
-html.amb-jour .weather-day-min,
-html.amb-jour .weather-hero-sun { color:#8C7456; }
+html.amb-jour .timer-compact-empty { color:#8C7456; }
 
 /* === #D9A05B (accent laiton) → #B26E38 === */
 html.amb-jour .boot-title,
 html.amb-jour .cal-compact-when,
 html.amb-jour .error-title,
 html.amb-jour .tile-radio-compact-btn,
-html.amb-jour .tile-radio-expand-btn.active,
-html.amb-jour .tile-timer-section-h2,
 html.amb-jour .tile-title { color:#B26E38; }
-
-/* === BACKGROUNDS — dark theme card (#1C1815) → Lin card (#FFFAF0) === */
-html.amb-jour .btn-tile-secondary,
-html.amb-jour .tile-radio-expand-btn,
-html.amb-jour .tile-radio-expand-nowplaying,
-html.amb-jour .tile-timer-preset-btn,
-html.amb-jour .weather-card-week,
-html.amb-jour .weather-chip,
-html.amb-jour .weather-hero { background:#FFFAF0; border-color:#D4C7AC; }
 
 /* Active states (darker dark) → slightly tinted Lin */
 
