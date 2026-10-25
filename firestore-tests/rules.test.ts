@@ -147,6 +147,11 @@ beforeEach(async () => {
       updatedAt: 1,
     });
     await setDoc(doc(db, "households", HID_B, "timers", "tmB"), { label: "Riz" });
+    await setDoc(doc(db, "households", HID_B, "tiles", "tB"), {
+      type: "weather",
+      config: { selectedLocationId: "loc1" },
+      createdAt: 1,
+    });
   });
 });
 
@@ -278,6 +283,24 @@ describe("display (kiosk) writes", () => {
     await assertFails(
       updateDoc(doc(displayDb(), "households", HID, "tiles", "t1"), {
         "config.url": "https://evil.example",
+        updatedAt: 2,
+      }),
+    );
+  });
+
+  it("CANNOT update tile config.selectedLocationId with a non-string value", async () => {
+    await assertFails(
+      updateDoc(doc(displayDb(), "households", HID, "tiles", "t1"), {
+        "config.selectedLocationId": 42,
+        updatedAt: 2,
+      }),
+    );
+  });
+
+  it("CANNOT update tile from another household's display", async () => {
+    await assertFails(
+      updateDoc(doc(displayDb(), "households", HID_B, "tiles", "tB"), {
+        "config.selectedLocationId": "loc2",
         updatedAt: 2,
       }),
     );

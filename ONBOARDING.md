@@ -753,7 +753,7 @@ Maintenant tu vas créer ton foyer dans le système, ajouter les profils famille
 
 Il n'y a rien à choisir : l'interface passe toute seule en ambiance de jour ou de nuit selon le lever et le coucher du soleil de ta ville (07h–19h si la localisation est inconnue).
 
-Créer les profils famille
+## 8.3 Créer les profils famille
 
 1. **Paramètres** → **Profils famille**.
 2. Clique **+ Nouveau profil** pour chaque membre de ta famille :

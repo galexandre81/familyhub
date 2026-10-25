@@ -92,7 +92,9 @@ service cloud.firestore {
         allow read: if isDisplayOfHousehold(hid);
         allow update: if isDisplayOfHousehold(hid)
                       && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['config', 'updatedAt'])
-                      && request.resource.data.config.diff(resource.data.config).affectedKeys().hasOnly(['selectedLocationId']);
+                      && request.resource.data.config.diff(resource.data.config).affectedKeys().hasOnly(['selectedLocationId'])
+                      && request.resource.data.config.selectedLocationId is string
+                      && request.resource.data.config.selectedLocationId.size() <= 100;
       }
 
       // Shopping lists : le display affiche la liste de courses (lecture seule).
