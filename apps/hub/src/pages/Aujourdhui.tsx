@@ -3,7 +3,7 @@
  * (prochain repas, PC d'Léo pour les parents), puis les autres repas du
  * jour (passés effacés) et le batch du jour. Pas d'agenda.
  */
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { Link } from "react-router-dom";
 import { ChefHat, CookingPot, Monitor } from "lucide-react";
 import { heuresRepasValides, type Profil } from "@family-hub/types";
@@ -21,33 +21,15 @@ import {
 } from "../lib/queries";
 import { estParent } from "../lib/personnes";
 import {
-  millisecondesAvantMinute,
   resumeAujourdhui,
   type AutreRepas,
   type ProchainRepas,
 } from "../lib/aujourdhui";
 import { useInvitationEnAttente } from "../lib/invitationContext";
+import { useMaintenant } from "../lib/useMaintenant";
 import { titreRepas } from "../lib/repasCuisine";
 import ProfilBadge from "../components/ProfilBadge";
 import { LoadingState } from "../components/states";
-
-/** Heure courante, recalculée chaque minute. */
-function useMaintenant(): Date {
-  const [now, setNow] = useState(() => new Date());
-  useEffect(() => {
-    // Aligné sur les minutes pleines : « dans 1 h 30 » change pile à la minute.
-    let id: number;
-    const planifier = () => {
-      id = window.setTimeout(() => {
-        setNow(new Date());
-        planifier();
-      }, millisecondesAvantMinute(new Date()));
-    };
-    planifier();
-    return () => window.clearTimeout(id);
-  }, []);
-  return now;
-}
 
 const CARTE = "rounded-2xl bg-ebony-card border border-hairline overflow-hidden flex flex-col";
 
