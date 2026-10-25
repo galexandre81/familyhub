@@ -42,6 +42,14 @@
     return false;
   }
 
+  /* Texte affiché (badge + statut) pour une raison définitive. Textes fixes,
+     jamais err.message. Le lien « à reconfigurer » est ajouté par l'appelant. */
+  function pairingReasonLabel(reason) {
+    if (reason === 'revoked' || reason === 'deleted') return 'Écran retiré du foyer';
+    if (reason === 'expired') return 'Appairage expiré';
+    return 'Écran appairé ailleurs'; /* token-mismatch, et défaut */
+  }
+
   /* Guard contre les refresh concurrents. Trois sources peuvent firer
      refreshCustomToken(0) en parallèle : setInterval 24 h,
      visibilitychange, onAuthStateChanged(null). Sans guard, deux
@@ -230,8 +238,9 @@
              boucle). */
           authPermanentlyFailed = true;
           refreshInFlight = false;
-          setAuthBadge('paired-elsewhere');
-          setStatus('Écran appairé ailleurs — <a href="setup.html">à reconfigurer</a>');
+          var reasonLabel = pairingReasonLabel(err.details.reason);
+          setAuthBadge('paired-elsewhere', err.details.reason);
+          setStatus(reasonLabel + ' — <a href="setup.html">à reconfigurer</a>');
           return;
         }
         if (attemptIdx < REFRESH_RETRY_DELAYS_MS.length) {
@@ -364,10 +373,11 @@
       el.style.background = 'rgba(200,85,61,0.90)';
       el.innerHTML = '⚠ ' + (detail || 'auth perdue');
     } else if (stateName === 'paired-elsewhere') {
-      /* Texte fixe, jamais err.message : le badge est visible dans la cuisine. */
+      /* Texte fixe par raison serveur (detail = details.reason), jamais
+         err.message : le badge est visible dans la cuisine. */
       el.style.background = 'rgba(200,85,61,0.90)';
       el.innerHTML = '⚠ <a href="setup.html" style="color:#fff; text-decoration:underline;">' +
-        'Écran appairé ailleurs — à reconfigurer</a>';
+        pairingReasonLabel(detail) + ' — à reconfigurer</a>';
     }
   }
 
@@ -572,32 +582,13 @@
 
   /* Ambiance jour/nuit TRANSITOIRE : l'iPad ne choisit ni n'écrit plus de
      thème. Il réutilise les overrides CSS theme-lin (jour) / theme-marine
-     (nuit) selon le lever/coucher du soleil. Même règle que ambianceAt du
-     hub : jour si lever <= now < coucher ; repli 07:00-19:00 si l'info est
-     absente, illisible ou incohérente (lever >= coucher). */
-  function parseHHMM(s) {
-    var m = /^(\d{1,2}):(\d{2})/.exec(String(s == null ? '' : s));
-    if (!m) return null;
-    var h = parseInt(m[1], 10);
-    var mi = parseInt(m[2], 10);
-    if (h > 23 || mi > 59) return null;
-    return h * 60 + mi;
-  }
-
-  function ambianceFromSun(now, sunrise, sunset) {
-    var cur = now.getHours() * 60 + now.getMinutes();
-    var rise = parseHHMM(sunrise);
-    var set = parseHHMM(sunset);
-    if (rise === null || set === null || rise >= set) {
-      rise = 7 * 60;
-      set = 19 * 60;
-    }
-    return (cur >= rise && cur < set) ? 'jour' : 'nuit';
-  }
-
+     (nuit) selon le lever/coucher du soleil de la tuile météo. Règle et
+     lecture des données : js/ambiance.js (fonctions pures, testées par
+     packages/design/src/displayAmbiance.test.ts). */
   function applyAmbiance() {
-    var sunrise = null;
-    var sunset = null;
+    var amb = window.FamilyHubAmbiance;
+    if (!amb) return;
+    var sun = null;
     var tiles = state.lastSnapshotTiles;
     if (tiles && state.tilesById) {
       for (var tileId in tiles) {
@@ -605,15 +596,12 @@
         var t = state.tilesById[tileId];
         if (!t || t.type !== 'weather') continue;
         var entry = tiles[tileId] || {};
-        var daily = entry.data && entry.data.daily;
-        if (daily) {
-          sunrise = daily.sunrise;
-          sunset = daily.sunset;
-        }
+        var selId = (t.config && t.config.selectedLocationId) || null;
+        sun = amb.sunFromWeatherData(entry.data, selId);
         break;
       }
     }
-    var cls = ambianceFromSun(new Date(), sunrise, sunset) === 'jour'
+    var cls = amb.ambianceFromSun(new Date(), sun && sun.sunrise, sun && sun.sunset) === 'jour'
       ? 'theme-lin' : 'theme-marine';
     var html = document.documentElement;
     var classes = (html.className || '').split(/\s+/);
@@ -777,7 +765,7 @@
   }
 
   /* Rechargement automatique après un déploiement. Le build écrit
-     version.json ({"version":"YYYYMMDDHHmm"}) et la même valeur dans
+     version.json ({"version":"YYYYMMDDHHmmss"}) et la même valeur dans
      window.FH_DISPLAY_VERSION (index.html). Si elles diffèrent, un nouveau
      déploiement est en ligne : on recharge (même report si overlay ouvert).
      Toute erreur (hors ligne, version.json absent → Hosting renvoie

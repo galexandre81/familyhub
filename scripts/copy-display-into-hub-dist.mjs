@@ -80,11 +80,12 @@ const contenu =
 mkdirSync(resolve(DEST, "js"), { recursive: true });
 writeFileSync(resolve(DEST, "js/firebase-config.js"), contenu);
 
-// Version du déploiement = horodatage UTC YYYYMMDDHHmm, calculé une fois par build.
+// Version du déploiement = horodatage UTC YYYYMMDDHHmmss (à la seconde : deux builds
+// dans la même minute donnent deux versions distinctes), calculé une fois par build.
 // Remplace __DISPLAY_VERSION__ (cache buster ?v= de tous les assets + window.FH_DISPLAY_VERSION)
 // dans les pages, et écrit version.json : core.js le relit toutes les 10 min et
 // recharge l'iPad dès qu'un nouveau déploiement est en ligne.
-const version = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 12);
+const version = new Date().toISOString().replace(/[-:T]/g, "").slice(0, 14);
 for (const page of ["index.html", "setup.html"]) {
   const chemin = resolve(DEST, page);
   if (!existsSync(chemin)) continue;

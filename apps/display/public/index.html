@@ -9,7 +9,7 @@
   <meta name="format-detection" content="telephone=no">
   <title>Family Hub</title>
   <!-- Cache buster ?v=__DISPLAY_VERSION__ : remplacé à CHAQUE build par
-       scripts/copy-display-into-hub-dist.mjs (horodatage UTC YYYYMMDDHHmm),
+       scripts/copy-display-into-hub-dist.mjs (horodatage UTC YYYYMMDDHHmmss),
        pour TOUS les assets à la fois (pas de skew vieux core.js / nouveau
        settings.js). Ne rien bumper à la main. -->
   <link rel="stylesheet" href="css/styles.css?v=__DISPLAY_VERSION__">
@@ -71,6 +71,7 @@
 
   <!-- Core -->
   <script src="js/render.js?v=__DISPLAY_VERSION__"></script>
+  <script src="js/ambiance.js?v=__DISPLAY_VERSION__"></script>
   <script src="js/core.js?v=__DISPLAY_VERSION__"></script>
 </body>
 </html>
