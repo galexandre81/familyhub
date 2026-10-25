@@ -100,6 +100,7 @@
     displayConfig: null,
     householdConfig: null,
     householdUnsub: null,
+    tilesUnsub: null,
     /* Indicateur fraîcheur / hors-ligne (kiosk 24/7) */
     snapshotGeneratedAtMs: 0,    /* age de référence du dernier snapshot reçu (ms epoch) */
     snapshotTtlSeconds: 0,       /* ttlSeconds top-level du snapshot, sert au seuil */
@@ -636,6 +637,7 @@
       attachSnapshotListener(displayRef);
       attachDisplayConfigListener(displayRef);
       attachHouseholdListener(householdRef);
+      attachTilesListener(tilesRef);
       /* Démarre le singleton timers une fois auth + db prêts */
       if (window.FamilyHubTimers) {
         window.FamilyHubTimers.init(state.db, hid);
@@ -682,6 +684,28 @@
       state.householdUnsub = null;
       scheduleListenerReattach('household', function () {
         attachHouseholdListener(householdRef);
+      });
+    });
+  }
+
+  /* Listener live sur les tuiles du foyer : tilesById (configs : villes de
+     la météo, ville choisie…) suit le hub sans recharger la page. Sans lui,
+     la config restait celle du démarrage : une ville retirée dans le hub
+     laissait la météo du tableau « En attente… » jusqu'au rechargement. */
+  function attachTilesListener(tilesRef) {
+    if (state.tilesUnsub) state.tilesUnsub();
+    state.tilesUnsub = tilesRef.onSnapshot(function (tilesSnap) {
+      listenerHealthy('tiles');
+      var byId = {};
+      tilesSnap.forEach(function (doc) { byId[doc.id] = doc.data(); });
+      state.tilesById = byId;
+      applyAmbiance();
+      if (state.tableau) state.tableau.actualiser();
+    }, function (err) {
+      if (window.console && window.console.error) window.console.error('tiles listener', err);
+      state.tilesUnsub = null;
+      scheduleListenerReattach('tiles', function () {
+        attachTilesListener(tilesRef);
       });
     });
   }

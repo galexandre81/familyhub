@@ -444,7 +444,10 @@
         html = '<div class="tab-meteo-ville fh-texte-doux">Météo</div>' +
           '<div class="tab-meteo-ciel fh-texte-doux">' + A_CONFIGURER + '</div>';
       } else {
-        var m = meteoResume(src.data, src.config);
+        /* Config courante de la tuile (suit le hub), sinon celle des sources. */
+        var cfg = root && typeof root.FamilyHubGetTileConfig === 'function' && src.tileId
+          ? root.FamilyHubGetTileConfig(src.tileId) : null;
+        var m = meteoResume(src.data, cfg || src.config);
         html = m
           ? '<div class="tab-meteo-temp fh-titre fh-texte">' + echapper(m.temp) + '</div>' +
             (m.ciel ? '<div class="tab-meteo-ciel fh-texte">' + echapper(m.ciel) + '</div>' : '') +
