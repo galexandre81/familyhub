@@ -12,16 +12,18 @@
  * Pas de transaction : chaque action ne touche que les champs de SON article,
  * deux téléphones qui cochent des articles différents ne s'écrasent pas.
  *
- * Migration (ancien tableau `items` → documents) : un `writeBatch` qui pose
- * chaque article à un id déterministe (= ancien `item.id`, mêmes données),
- * puis passe la liste en `format: 2` et retire le tableau. Deux appareils qui
- * migrent ensemble écrivent la même chose : ni doublon ni perte.
- * Décision : on ne migre qu'à partir d'un instantané CONFIRMÉ par le serveur
- * (`!metadata.fromCache`). Un appareil resté longtemps hors ligne avec
- * l'ancien format en cache pourrait sinon, au retour du réseau, ré-écrire les
- * articles « non cochés » par-dessus des coches faites entre-temps ailleurs.
- * Tant que la liste n'est pas migrée, les articles sont affichés depuis le
- * tableau (lecture seule) et les actions demandent de se reconnecter.
+ * Migration (ancien tableau `items` → documents) : une TRANSACTION (ce n'est
+ * pas une des actions des courses ; elle ne marche qu'en ligne, voulu) qui
+ * relit la liste sur le serveur, abandonne si elle est déjà en `format: 2`
+ * (ou sans tableau), sinon pose chaque article à un id déterministe (= ancien
+ * `item.id`) et passe la liste en `format: 2` sans le tableau. Deux appareils
+ * qui migrent ensemble : le second voit `format: 2` et n'écrit rien — aucune
+ * coche faite entre-temps n'est écrasée. Hors ligne, la transaction échoue
+ * au lieu de mettre en file une écriture périmée.
+ * Optimisation : on ne tente la migration qu'à partir d'un instantané confirmé
+ * par le serveur (`!metadata.fromCache`). Tant que la liste n'est pas migrée,
+ * les articles sont affichés depuis le tableau (lecture seule) et les actions
+ * demandent de se reconnecter.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import {
@@ -31,11 +33,11 @@ import {
   doc,
   onSnapshot,
   query,
+  runTransaction,
   serverTimestamp,
   setDoc,
   updateDoc,
   where,
-  writeBatch,
 } from "firebase/firestore";
 import type { ArticleCourses, DestinationArticle, ShoppingList } from "@family-hub/types";
 import { db } from "./firebase";
@@ -70,8 +72,8 @@ export interface ListeCoursesOptions {
   estPlacard?: (nom: string) => boolean;
 }
 
-/** Au-delà de 500 écritures, un batch Firestore est refusé. */
-const TAILLE_BATCH = 450;
+/** Une transaction est limitée à 500 écritures : au-delà on ne migre pas (irréaliste). */
+const MAX_ARTICLES_MIGRATION = 450;
 const AUCUN_PLACARD = () => false;
 
 function signalerErreur(err: unknown, message: string): void {
@@ -82,6 +84,11 @@ function signalerErreur(err: unknown, message: string): void {
   toast(message, { type: "error" });
 }
 
+/** Action refusée tant que la liste n'est pas passée au format 2. */
+function signalerMigrationEnCours(): void {
+  toast("La liste se met à jour : reconnecte-toi un instant, puis réessaie.", { type: "info" });
+}
+
 function colListes(householdId: string) {
   return collection(db, "households", householdId, "shoppingLists");
 }
@@ -90,33 +97,30 @@ function colArticles(householdId: string, listId: string) {
   return collection(db, "households", householdId, "shoppingLists", listId, "items");
 }
 
-/** Écrit la migration sans l'attendre. Rejette si l'un des lots échoue. */
+/**
+ * Migre la liste en une transaction (relit le document sur le serveur).
+ * Sans effet si la liste est déjà migrée. Rejette hors ligne.
+ */
 function lancerMigration(
   householdId: string,
-  liste: ListeCoursesAvecId,
+  listId: string,
   estPlacard: (nom: string) => boolean,
 ): Promise<void> {
-  const articles = migrerArticles(liste.items ?? [], estPlacard);
-  const col = colArticles(householdId, liste.id);
-  const lots: Promise<void>[] = [];
-  let batch = writeBatch(db);
-  let taille = 0;
-  for (const { id, data } of articles) {
-    batch.set(doc(col, id), data);
-    if (++taille >= TAILLE_BATCH) {
-      lots.push(batch.commit());
-      batch = writeBatch(db);
-      taille = 0;
+  const listeRef = doc(colListes(householdId), listId);
+  const col = colArticles(householdId, listId);
+  return runTransaction(db, async (tx) => {
+    const snap = await tx.get(listeRef);
+    if (!snap.exists()) return;
+    const data = snap.data() as ShoppingList;
+    if (!doitMigrer(data)) return;
+    const articles = migrerArticles(data.items ?? [], estPlacard);
+    if (articles.length > MAX_ARTICLES_MIGRATION) {
+      console.warn(`[courses] migration refusée : ${articles.length} articles (max ${MAX_ARTICLES_MIGRATION})`);
+      return;
     }
-  }
-  // Dernier lot : la liste ne passe en format 2 qu'avec (ou après) ses articles.
-  batch.update(doc(colListes(householdId), liste.id), {
-    format: 2,
-    items: deleteField(),
-    updatedAt: serverTimestamp(),
+    for (const { id, data: article } of articles) tx.set(doc(col, id), article);
+    tx.update(listeRef, { format: 2, items: deleteField(), updatedAt: serverTimestamp() });
   });
-  lots.push(batch.commit());
-  return Promise.all(lots).then(() => undefined);
 }
 
 export function useListeCourses(
@@ -193,7 +197,7 @@ export function useListeCourses(
     if (!householdId || !liste || !aMigrer || !listeConfirmee) return;
     if (migrees.current.has(liste.id)) return;
     migrees.current.add(liste.id);
-    lancerMigration(householdId, liste, estPlacardRef.current).catch((err) => {
+    lancerMigration(householdId, liste.id, estPlacardRef.current).catch((err) => {
       migrees.current.delete(liste.id);
       signalerErreur(err, "La liste de courses n'a pas pu être mise à jour.");
     });
@@ -217,7 +221,7 @@ export function useListeCourses(
     (id: string) => {
       if (!householdId || !listId) return null;
       if (aMigrer) {
-        toast("La liste se met à jour : reconnecte-toi un instant, puis réessaie.", { type: "info" });
+        signalerMigrationEnCours();
         return null;
       }
       return doc(colArticles(householdId, listId), id);
@@ -257,7 +261,7 @@ export function useListeCourses(
       }
       if (!householdId || !listId) return;
       if (aMigrer) {
-        refArticle("_"); // affiche le message de mise à jour
+        signalerMigrationEnCours();
         return;
       }
       const ref = doc(colArticles(householdId, listId));
@@ -265,7 +269,7 @@ export function useListeCourses(
         (err) => signalerErreur(err, "L'article n'a pas pu être ajouté."),
       );
     },
-    [householdId, planId, listId, aMigrer, refArticle, docsArticles],
+    [householdId, planId, listId, aMigrer, docsArticles],
   );
 
   const supprimer = useCallback(

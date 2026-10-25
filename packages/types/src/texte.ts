@@ -3,7 +3,9 @@
  * minuscules, sans accents, `œ`→`oe` (`æ`→`ae`), espaces réduits, et pluriel
  * final `s`/`x` retiré de chaque mot (« Œufs » = « oeuf », « gousses d'ail » =
  * « gousse d'ail »). Les mots de deux lettres ou moins sont laissés tels quels
- * (« os »). Sert à la fusion des articles et à la détection des produits de
+ * (« os »). Le retrait est aveugle : un mot qui finit par s/x au singulier est
+ * tronqué (« noix » → « noi », « riz » non), mais singulier et pluriel
+ * donnent toujours la même clé. Sert à la fusion des articles et à la détection des produits de
  * placard — ce n'est pas un texte à afficher.
  */
 export function normaliserNom(nom: string): string {

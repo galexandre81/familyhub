@@ -198,6 +198,11 @@ export async function importPlanFromJson(args: {
       ),
     ),
   ]);
+  // Format 2 : les articles des anciennes listes sont en sous-collection
+  // `items` ; on les efface avec leur liste (sinon documents orphelins).
+  const oldShoppingItemsSnaps = await Promise.all(
+    planShoppingSnap.docs.map((d) => getDocs(collection(d.ref, "items"))),
+  );
 
   // ---- 7. Big batch write ----
   const batch = writeBatch(db);
@@ -208,6 +213,7 @@ export async function importPlanFromJson(args: {
   oldSlotsSnap.docs.forEach((d) => batch.delete(d.ref));
   oldBatchesSnap.docs.forEach((d) => batch.delete(d.ref));
   planShoppingSnap.docs.forEach((d) => batch.delete(d.ref));
+  oldShoppingItemsSnaps.forEach((snap) => snap.docs.forEach((d) => batch.delete(d.ref)));
 
   // Creates : recettes
   for (const { ref, data: r } of recettesToCreate) {
