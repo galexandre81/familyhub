@@ -1,6 +1,6 @@
 import { useState, type FormEvent } from "react";
 import { Plus, X } from "lucide-react";
-import type { Profil, Absence, RepasKey } from "@family-hub/types";
+import type { Profil, Absence, RepasKey, CouleurPersonne } from "@family-hub/types";
 import { useCreateProfil, useUpdateProfil } from "../lib/mutations";
 import ProfilBadge from "./ProfilBadge";
 
@@ -31,15 +31,12 @@ interface ProfilFormProps {
   onCancel?: () => void;
 }
 
-const COULEURS_PRESET = [
-  "#E07A5F", // corail (accent-chaud)
-  "#81B29A", // vert sauge
-  "#F2CC8F", // moutarde
-  "#3D405B", // bleu nuit
-  "#9B5DE5", // violet
-  "#F15BB5", // rose
-  "#00BBF9", // cyan
-  "#00F5D4", // menthe
+const COULEURS_PERSONNES: { cle: CouleurPersonne; label: string }[] = [
+  { cle: "sapin", label: "Sapin" },
+  { cle: "toleRouge", label: "Tôle rouge" },
+  { cle: "lilas", label: "Lilas" },
+  { cle: "miel", label: "Miel" },
+  { cle: "ardoise", label: "Ardoise" },
 ];
 
 const EMOJIS_PRESET = [
@@ -60,7 +57,9 @@ export default function ProfilForm({
 
   const [nom, setNom] = useState(existing?.nom ?? "");
   const [initiale, setInitiale] = useState(existing?.initiale ?? "");
-  const [couleur, setCouleur] = useState(existing?.couleur ?? COULEURS_PRESET[0]);
+  const [couleurPersonne, setCouleurPersonne] = useState<CouleurPersonne>(
+    existing?.couleurPersonne ?? "sapin",
+  );
   const [emoji, setEmoji] = useState<string | undefined>(existing?.emoji);
   const [regimes, setRegimes] = useState<string[]>(existing?.regimes ?? []);
   const [aversions, setAversions] = useState<string[]>(existing?.aversions ?? []);
@@ -129,7 +128,8 @@ export default function ProfilForm({
       const profilData = {
         nom: nom.trim(),
         initiale: initiale.trim(),
-        couleur,
+        couleur: existing?.couleur ?? "#81B29A",
+        couleurPersonne,
         emoji,
         regimes,
         aversions,
@@ -169,10 +169,8 @@ export default function ProfilForm({
         </div>
         <ProfilBadge
           initiale={initiale || "?"}
-          couleur={couleur}
-          emoji={emoji}
+          couleurPersonne={couleurPersonne}
           size="lg"
-          showEmojiBeside
         />
       </div>
 
@@ -200,26 +198,24 @@ export default function ProfilForm({
 
       <Field label="Couleur">
         <div className="flex flex-wrap gap-2 items-center">
-          {COULEURS_PRESET.map((c) => (
+          {COULEURS_PERSONNES.map((c) => (
             <button
-              key={c}
+              key={c.cle}
               type="button"
-              onClick={() => setCouleur(c)}
-              aria-pressed={couleur === c}
-              className={`w-11 h-11 rounded-full border-2 transition ${
-                couleur === c ? "border-text-principal scale-110" : "border-transparent"
+              onClick={() => setCouleurPersonne(c.cle)}
+              aria-pressed={couleurPersonne === c.cle}
+              className={`min-h-12 px-3 rounded-full border-2 flex items-center gap-2 text-sm transition ${
+                couleurPersonne === c.cle ? "border-brass" : "border-transparent"
               }`}
-              style={{ backgroundColor: c }}
-              aria-label={`Couleur ${c}`}
-            />
+            >
+              <span
+                className="w-6 h-6 rounded-full"
+                style={{ backgroundColor: `rgb(var(--c-p-${c.cle}))` }}
+                aria-hidden="true"
+              />
+              {c.label}
+            </button>
           ))}
-          <input
-            type="color"
-            value={couleur}
-            onChange={(e) => setCouleur(e.target.value)}
-            className="w-11 h-11 rounded-full cursor-pointer border-0 bg-transparent"
-            aria-label="Couleur personnalisée"
-          />
         </div>
       </Field>
 

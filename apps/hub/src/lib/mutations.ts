@@ -3,6 +3,8 @@ import {
   addDoc,
   collection,
   deleteDoc,
+  deleteField,
+  writeBatch,
   doc,
   runTransaction,
   serverTimestamp,
@@ -1114,6 +1116,42 @@ export function useToggleBatchSessionDone() {
       void qc.invalidateQueries({
         queryKey: ["planBatchSessions", vars.householdId, vars.planId],
       });
+    },
+  });
+}
+
+/** « C'est moi » : relie le profil choisi au compte et l'enlève de tout autre profil du même compte. */
+export function useLierProfilAuCompte() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({
+      householdId,
+      profilId,
+      uid,
+      autresProfilIds,
+    }: {
+      householdId: string;
+      profilId: string;
+      uid: string;
+      /** Profils du foyer portant déjà ce uid (à délier). */
+      autresProfilIds: string[];
+    }) => {
+      const batch = writeBatch(db);
+      for (const id of autresProfilIds) {
+        if (id === profilId) continue;
+        batch.update(doc(db, `households/${householdId}/profils/${id}`), {
+          uid: deleteField(),
+          updatedAt: serverTimestamp(),
+        });
+      }
+      batch.update(doc(db, `households/${householdId}/profils/${profilId}`), {
+        uid,
+        updatedAt: serverTimestamp(),
+      });
+      await batch.commit();
+    },
+    onSuccess: (_d, v) => {
+      qc.invalidateQueries({ queryKey: ["profils", v.householdId] });
     },
   });
 }

@@ -1,38 +1,44 @@
+import type { CouleurPersonne } from "@family-hub/types";
+import { couleurDuProfil } from "../lib/personnes";
+
 interface ProfilBadgeProps {
   initiale: string;
-  couleur: string;
+  /** Ancienne couleur hex (repli si `couleurPersonne` absent). */
+  couleur?: string;
+  /** Couleur de personne du design system. */
+  couleurPersonne?: CouleurPersonne;
+  /** Conservé pour compatibilité : l'emoji n'est plus affiché (un seul repère : la pastille). */
   emoji?: string;
   size?: "sm" | "md" | "lg";
-  /** Si true, affiche l'emoji à droite de l'initiale plutôt que par-dessus. */
+  /** Conservé pour compatibilité, sans effet. */
   showEmojiBeside?: boolean;
 }
 
 const SIZES = {
-  sm: { box: "w-8 h-8 text-sm", emoji: "text-xs", emojiBeside: "text-base" },
-  md: { box: "w-12 h-12 text-lg", emoji: "text-sm", emojiBeside: "text-xl" },
-  lg: { box: "w-16 h-16 text-2xl", emoji: "text-base", emojiBeside: "text-3xl" },
+  sm: { box: "w-8 h-8 text-sm" },
+  md: { box: "w-12 h-12 text-lg" },
+  lg: { box: "w-16 h-16 text-2xl" },
 };
 
 export default function ProfilBadge({
   initiale,
   couleur,
-  emoji,
+  couleurPersonne,
   size = "md",
-  showEmojiBeside = false,
 }: ProfilBadgeProps) {
   const s = SIZES[size];
-  const textColor = isLightColor(couleur) ? "#1a1a1a" : "#ffffff";
+  const fond = couleurDuProfil({ couleurPersonne, couleur: couleur ?? "#888888" });
+  const textColor = couleurPersonne || !isLightColor(fond) ? "#ffffff" : "#1a1a1a";
 
   return (
     <span className="inline-flex items-center gap-1.5">
       <span
         className={`${s.box} rounded-full flex items-center justify-center font-semibold flex-shrink-0`}
-        style={{ backgroundColor: couleur, color: textColor }}
+        style={{ backgroundColor: fond, color: textColor }}
         aria-hidden="true"
       >
         {initiale.toUpperCase()}
       </span>
-      {emoji && showEmojiBeside && <span className={s.emojiBeside}>{emoji}</span>}
     </span>
   );
 }

@@ -10,10 +10,16 @@ import type { Absence } from "./absence";
  * Note : pas de champ allergies dans la famille actuelle. Si besoin futur,
  * ajouter `allergies: string[]` ici et propager au snapshot des plans.
  */
+export type CouleurPersonne = "sapin" | "toleRouge" | "lilas" | "miel" | "ardoise";
+
 export interface Profil {
   nom: string;
   /** Couleur de fond du badge identité (hex, ex: "#E07A5F"). */
   couleur: string;
+  /** Couleur de personne du design system (palette fermée). Prioritaire sur `couleur`. */
+  couleurPersonne?: CouleurPersonne;
+  /** UID du compte Firebase relié à ce profil (« C'est moi »). */
+  uid?: string;
   /** Initiale affichée dans le badge (1 char, ex: "J"). */
   initiale: string;
   /** Emoji unicode optionnel pour identité visuelle (ex: "🦊"). */

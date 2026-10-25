@@ -131,6 +131,7 @@ export default function PresenceGrid({
                               <ProfilBadge
                                 initiale={p.initiale}
                                 couleur={p.couleur}
+                                couleurPersonne={p.couleurPersonne}
                                 emoji={p.emoji}
                                 size="sm"
                               />

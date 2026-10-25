@@ -1,0 +1,63 @@
+import { useAuth } from "../lib/auth";
+import { useActiveHouseholdId, useProfils } from "../lib/queries";
+import { useLierProfilAuCompte } from "../lib/mutations";
+import { profilDuCompte } from "../lib/personnes";
+import ProfilBadge from "./ProfilBadge";
+
+/**
+ * Sur téléphone : si aucun profil n'est relié au compte connecté, demande « Qui es-tu ? ».
+ * Ne rend rien une fois le compte relié. Monté dans le Layout par la tâche « coque téléphone ».
+ */
+export default function CestMoi() {
+  const { user } = useAuth();
+  const householdId = useActiveHouseholdId(user?.uid);
+  const { data: profils } = useProfils(householdId);
+  const lier = useLierProfilAuCompte();
+
+  if (!user || !householdId || !profils || profils.length === 0) return null;
+  if (profilDuCompte(profils, user.uid)) return null;
+
+  const dejaLies = profils.filter((p) => p.uid === user.uid).map((p) => p.id);
+
+  return (
+    <div
+      role="dialog"
+      aria-modal="true"
+      aria-label="Qui es-tu ?"
+      className="fixed inset-0 z-50 bg-ebony flex flex-col p-4 gap-4 overflow-y-auto"
+    >
+      <h1 className="text-2xl text-cream">Qui es-tu ?</h1>
+      <p className="text-cream-mute text-base">Choisis ton profil pour que le hub te reconnaisse.</p>
+      <ul className="flex flex-col gap-3">
+        {profils.map((p) => (
+          <li key={p.id}>
+            <button
+              type="button"
+              disabled={lier.isPending}
+              onClick={() =>
+                lier.mutate({
+                  householdId,
+                  profilId: p.id,
+                  uid: user.uid,
+                  autresProfilIds: dejaLies,
+                })
+              }
+              className="w-full min-h-12 flex items-center gap-3 rounded-xl bg-ebony-card border border-hairline px-4 py-2 text-left text-cream text-lg"
+            >
+              <ProfilBadge
+                initiale={p.initiale}
+                couleur={p.couleur}
+                couleurPersonne={p.couleurPersonne}
+                size="md"
+              />
+              <span>{p.nom}</span>
+            </button>
+          </li>
+        ))}
+      </ul>
+      {lier.isError && (
+        <p className="text-base text-cream">Impossible d'enregistrer, réessaie dans un instant.</p>
+      )}
+    </div>
+  );
+}
