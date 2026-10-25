@@ -6,9 +6,8 @@ import { renderHubCss } from "./hubCss.js";
 describe("hubCss", () => {
   it("ambiance.css à jour", () => {
     const fichier = resolve(__dirname, "../../../apps/hub/src/styles/ambiance.css");
-    expect(readFileSync(fichier, "utf8").replace(/
-/g, "
-")).toBe(renderHubCss());
+    const lu = readFileSync(fichier, "utf8").replace(/\r\n/g, "\n");
+    expect(lu).toBe(renderHubCss());
   });
   it("définit les variables existantes et personnes pour jour et nuit", () => {
     const css = renderHubCss();
