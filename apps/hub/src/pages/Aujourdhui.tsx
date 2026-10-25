@@ -1,11 +1,11 @@
 /**
  * Téléphone — onglet « Aujourd'hui » : deux cartes moyennes de même taille
  * (prochain repas, PC des enfants pour les parents), puis les autres repas du
- * jour (passés effacés) et le batch du jour. Pas d'agenda.
+ * jour (passés effacés) et le batch d'aujourd'hui ou de demain. Pas d'agenda.
  */
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { ChefHat, CookingPot, Monitor } from "lucide-react";
+import { ChefHat, Monitor } from "lucide-react";
 import { heuresRepasValides, type Profil } from "@family-hub/types";
 import { useAuth } from "../lib/auth";
 import {
@@ -16,7 +16,6 @@ import {
   usePlanRecettes,
   usePlanSlots,
   useProfils,
-  type BatchSessionWithId,
   type MealPlanSlotWithId,
 } from "../lib/queries";
 import { estParent } from "../lib/personnes";
@@ -28,6 +27,7 @@ import {
 import { useInvitationEnAttente } from "../lib/invitationContext";
 import { useMaintenant } from "../lib/useMaintenant";
 import { titreRepas } from "../lib/repasCuisine";
+import CarteBatch from "../components/CarteBatch";
 import ProfilBadge from "../components/ProfilBadge";
 import ResultatInvitation from "../components/ResultatInvitation";
 import { LoadingState } from "../components/states";
@@ -117,11 +117,16 @@ export default function Aujourdhui() {
         </section>
       )}
 
-      {resume.batchsDuJour.length > 0 && (
-        <ul aria-label="Batch du jour" className="flex flex-col gap-2">
-          {resume.batchsDuJour.map((b) => (
-            <li key={b.id}>
-              <CarteBatch batch={b} recettes={recettes ?? {}} />
+      {plan && resume.batchsProches.length > 0 && (
+        <ul aria-label="Batch cooking" className="flex flex-col gap-2">
+          {resume.batchsProches.map(({ batch, quand }) => (
+            <li key={batch.id}>
+              <CarteBatch
+                planId={plan.id}
+                batch={batch}
+                titre={quand === "aujourdhui" ? "Batch cooking aujourd'hui" : "Batch cooking demain"}
+                recettes={recettes ?? {}}
+              />
             </li>
           ))}
         </ul>
@@ -267,36 +272,5 @@ function LigneRepas({ repas }: { repas: AutreRepas<MealPlanSlotWithId> }) {
         {repas.annule ? "Annulé" : repas.noms.join(", ")}
       </p>
     </li>
-  );
-}
-
-function CarteBatch({
-  batch,
-  recettes,
-}: {
-  batch: BatchSessionWithId;
-  recettes: Record<string, { nom: string } | undefined>;
-}) {
-  const noms = batch.recetteIds.map((id) => recettes[id]?.nom).filter(Boolean).join(", ");
-  const heures = Math.floor(batch.dureeEstimeeMinutes / 60);
-  const minutes = batch.dureeEstimeeMinutes % 60;
-  const duree =
-    batch.dureeEstimeeMinutes > 0
-      ? heures > 0
-        ? `${heures} h${minutes ? ` ${String(minutes).padStart(2, "0")}` : ""}`
-        : `${minutes} min`
-      : null;
-  return (
-    <section
-      className={"rounded-xl bg-ebony-card border border-hairline px-4 py-3 " + (batch.done ? "opacity-50" : "")}
-    >
-      <h2 className="flex items-center gap-2 text-base font-semibold text-cream">
-        <CookingPot size={20} aria-hidden="true" />
-        Batch cooking aujourd'hui
-        {duree && <span className="font-normal text-cream-mute">· {duree}</span>}
-        {batch.done && <span className="font-normal text-cream-mute">· fait</span>}
-      </h2>
-      {noms && <p className="text-[15px] text-cream-mute line-clamp-2">{noms}</p>}
-    </section>
   );
 }

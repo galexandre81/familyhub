@@ -3,7 +3,9 @@
  *
  * Deux entrées :
  *   - /menu/:planId/:slotId/cuisine → le repas du menu (toutes ses recettes) ;
- *   - /livre-recettes/:recetteId/cuisine → une recette seule (?portions=N).
+ *   - /livre-recettes/:recetteId/cuisine → une recette seule (?portions=N) ;
+ *   - /menu/:planId/batch/:batchId/cuisine → toutes les recettes d'une session
+ *     de batch cooking, chacune à ses propres portions (pas de réglage).
  *
  * PC (≥ 768 px) : étapes à gauche (seule colonne qui défile), à droite les
  * ingrédients en haut et les minuteurs partagés avec l'iPad.
@@ -21,6 +23,7 @@ import { useAuth } from "../lib/auth";
 import {
   useActiveHouseholdId,
   usePlanRecettes,
+  usePlanBatchSessions,
   usePlanSlots,
   useRecette,
   type MealPlanSlotWithId,
@@ -76,10 +79,11 @@ function useEcranAllume(): void {
 const BOUTON = "min-h-12 inline-flex items-center justify-center gap-2 rounded-xl px-4 text-base font-semibold transition";
 
 export default function ModeRecette() {
-  const { recetteId, planId, slotId } = useParams<{
+  const { recetteId, planId, slotId, batchId } = useParams<{
     recetteId?: string;
     planId?: string;
     slotId?: string;
+    batchId?: string;
   }>();
   const [search] = useSearchParams();
   const navigate = useNavigate();
@@ -89,22 +93,35 @@ export default function ModeRecette() {
   // Entrée « repas du menu ».
   const slotsQ = usePlanSlots(householdId, slotId ? planId : undefined);
   const slot: MealPlanSlotWithId | undefined = slotsQ.data?.find((s) => s.id === slotId);
-  const recettesQ = usePlanRecettes(householdId, slot ? [slot] : undefined);
+  // Entrée « session de batch ».
+  const sessionsQ = usePlanBatchSessions(householdId, batchId ? planId : undefined);
+  const batch = sessionsQ.data?.find((s) => s.id === batchId);
+  const recettesQ = usePlanRecettes(householdId, slot ? [slot] : batch ? [batch] : undefined);
   // Entrée « recette seule ».
-  const recetteQ = useRecette(householdId, slotId ? undefined : recetteId);
+  const recetteQ = useRecette(householdId, slotId || batchId ? undefined : recetteId);
 
   const modeRepas = !!slotId;
+  const modeBatch = !!batchId;
   const chargement =
     !householdId ||
-    (modeRepas ? slotsQ.isLoading || (!!slot && slot.recetteIds.length > 0 && recettesQ.isLoading) : recetteQ.isLoading);
+    (modeRepas
+      ? slotsQ.isLoading || (!!slot && slot.recetteIds.length > 0 && recettesQ.isLoading)
+      : modeBatch
+        ? sessionsQ.isLoading || (!!batch && batch.recetteIds.length > 0 && recettesQ.isLoading)
+        : recetteQ.isLoading);
 
   const repas: RepasAssemble = useMemo(() => {
     if (modeRepas) return assemblerRepas(slot?.recetteIds ?? [], recettesQ.data ?? {});
+    if (modeBatch) return assemblerRepas(batch?.recetteIds ?? [], recettesQ.data ?? {});
     if (!recetteId) return { presentes: [], manquantes: [] };
     return assemblerRepas([recetteId], recetteQ.data ? { [recetteId]: recetteQ.data } : {});
-  }, [modeRepas, slot, recettesQ.data, recetteId, recetteQ.data]);
+  }, [modeRepas, slot, modeBatch, batch, recettesQ.data, recetteId, recetteQ.data]);
 
-  const titre = modeRepas
+  const titre = modeBatch
+    ? batch
+      ? "Batch cooking"
+      : "Session introuvable"
+    : modeRepas
     ? slot
       ? titreRepas(slot.repas, slot.date)
       : "Repas introuvable"
@@ -118,16 +135,19 @@ export default function ModeRecette() {
       : clampPortions(portionsParDefaut(slot, repas.presentes[0]?.recette.portions));
   const [portionsChoisies, setPortions] = useState<number | null>(null);
   const portions = portionsChoisies ?? portionsInitiales;
+  /** Batch : chaque recette à ses propres portions (null), pas de réglage. */
+  const portionsAffichees = modeBatch ? null : portions;
 
   const telephone = useEstTelephone();
   const fermer = useCallback(() => {
     const idx = (window.history.state as { idx?: number } | null)?.idx ?? 0;
     if (idx > 0) navigate(-1);
+    else if (modeBatch) navigate(`/batch/${planId}/${batchId}`);
     // Ouvert directement (lien, appli relancée) : sur téléphone, /menu n'existe
     // pas (page PC) → retour à « Aujourd'hui ».
     else if (telephone) navigate("/");
     else navigate(modeRepas ? "/menu" : recetteId ? `/livre-recettes/${recetteId}` : "/livre-recettes");
-  }, [navigate, modeRepas, recetteId, telephone]);
+  }, [navigate, modeRepas, modeBatch, planId, batchId, recetteId, telephone]);
 
   useEcranAllume();
   const [feuilleOuverte, setFeuilleOuverte] = useState(false);
@@ -189,7 +209,7 @@ export default function ModeRecette() {
           Fermer
         </button>
         <h1 className="flex-1 min-w-0 text-xl md:text-2xl font-serif leading-tight line-clamp-2">{titre}</h1>
-        {!chargement && repas.presentes.length > 0 && (
+        {!chargement && !modeBatch && repas.presentes.length > 0 && (
           <div className="flex items-center gap-2" role="group" aria-label="Portions">
             <span className="text-base text-cream-mute">Portions</span>
             <button
@@ -222,12 +242,20 @@ export default function ModeRecette() {
         <p className="p-6 text-lg text-cream-mute">Chargement…</p>
       ) : introuvable ? (
         <p className="p-6 text-lg">
-          {!modeRepas ? "Recette introuvable." : slot ? "Aucune recette prévue pour ce repas." : "Ce repas est introuvable."}
+          {modeBatch
+            ? batch
+              ? "Aucune recette prévue pour cette session."
+              : "Cette session de batch cooking est introuvable."
+            : !modeRepas
+              ? "Recette introuvable."
+              : slot
+                ? "Aucune recette prévue pour ce repas."
+                : "Ce repas est introuvable."}
         </p>
       ) : telephone ? (
         <>
           <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-4 pb-28 space-y-6">
-            <Ingredients repas={repas} portions={portions} />
+            <Ingredients repas={repas} portions={portionsAffichees} />
             <Etapes repas={repas} onLancer={lancerEtape} />
           </div>
           <div className="fixed inset-x-0 bottom-0 z-[55] p-3 bg-ebony border-t border-hairline pb-[max(0.75rem,env(safe-area-inset-bottom))]">
@@ -288,7 +316,7 @@ export default function ModeRecette() {
               ingrédients restent en haut, limités à la moitié de l'écran. */}
           <aside className="col-span-1 min-h-0 overflow-y-auto flex flex-col gap-4 pr-1">
             <div className="shrink-0 max-h-[50vh] overflow-y-auto rounded-2xl">
-              <Ingredients repas={repas} portions={portions} />
+              <Ingredients repas={repas} portions={portionsAffichees} />
             </div>
             {householdId && <MinuteurPanneau compact className="shrink-0" />}
           </aside>
@@ -298,15 +326,23 @@ export default function ModeRecette() {
   );
 }
 
-function Ingredients({ repas, portions }: { repas: RepasAssemble; portions: number }) {
+/** `portions` null : chaque recette à ses propres portions (batch). */
+function Ingredients({ repas, portions }: { repas: RepasAssemble; portions: number | null }) {
   const plusieurs = repas.presentes.length + repas.manquantes.length > 1;
   return (
     <section aria-label="Ingrédients" className="bg-ebony-card rounded-2xl p-4 space-y-4">
-      <h2 className="text-lg font-semibold">Ingrédients · {portions} pers.</h2>
+      <h2 className="text-lg font-semibold">Ingrédients{portions !== null && ` · ${portions} pers.`}</h2>
       {repas.presentes.map(({ id, recette }) => (
         <div key={id}>
-          {plusieurs && <h3 className="text-base font-semibold text-brass mb-1">{recette.nom}</h3>}
-          <ListeIngredients recette={recette} portions={portions} />
+          {plusieurs && (
+            <h3 className="text-base font-semibold text-brass mb-1">
+              {recette.nom}
+              {portions === null && recette.portions > 0 && (
+                <span className="font-normal text-cream-mute"> · {recette.portions} pers.</span>
+              )}
+            </h3>
+          )}
+          <ListeIngredients recette={recette} portions={portions ?? recette.portions} />
         </div>
       ))}
       {repas.manquantes.map((id) => (

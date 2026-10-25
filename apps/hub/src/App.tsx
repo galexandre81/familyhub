@@ -27,6 +27,7 @@ const ModeRecette = lazy(() => import("./pages/ModeRecette"));
 const Aujourdhui = lazy(() => import("./pages/Aujourdhui"));
 const Semaine = lazy(() => import("./pages/Semaine"));
 const Courses = lazy(() => import("./pages/Courses"));
+const BatchCooking = lazy(() => import("./pages/BatchCooking"));
 
 /** `/` : Aujourd'hui sur téléphone, tableau de bord sur PC. */
 function Accueil() {
@@ -81,6 +82,7 @@ export default function App() {
           <Route index element={<Accueil />} />
           <Route path="semaine" element={<Semaine />} />
           <Route path="courses" element={<Courses />} />
+          <Route path="batch/:planId/:batchId" element={<BatchCooking />} />
           <Route path="displays" element={<PcSeulement><Displays /></PcSeulement>} />
           <Route path="displays/:displayId" element={<PcSeulement><DisplayEditor /></PcSeulement>} />
           <Route path="tiles" element={<PcSeulement><Tiles /></PcSeulement>} />
@@ -90,6 +92,7 @@ export default function App() {
           <Route path="menu" element={<PcSeulement><Menu /></PcSeulement>} />
           <Route path="menu/nouveau" element={<PcSeulement><MenuWizard /></PcSeulement>} />
           <Route path="menu/import" element={<PcSeulement><MenuImport /></PcSeulement>} />
+          <Route path="menu/:planId/batch/:batchId/cuisine" element={<ModeRecette />} />
           <Route path="menu/:planId/:slotId/cuisine" element={<ModeRecette />} />
           <Route path="livre-recettes" element={<LivreRecettes />} />
           <Route path="livre-recettes/:recetteId" element={<RecetteDetail />} />
