@@ -6,7 +6,7 @@ export default {
     extend: {
       colors: {
         /* Couleurs thémifiables : pointent vers des CSS vars RGB triplets
-           définis dans index.css. Les classes html.theme-* overrident. */
+           générées dans styles/ambiance.css (html.amb-jour / html.amb-nuit). */
         ebony: {
           DEFAULT: "rgb(var(--c-ebony) / <alpha-value>)",
           panel: "rgb(var(--c-ebony-panel) / <alpha-value>)",
@@ -15,7 +15,7 @@ export default {
         },
         brass: {
           DEFAULT: "rgb(var(--c-brass) / <alpha-value>)",
-          deep: "#C28A47",
+          deep: "rgb(var(--c-brass) / <alpha-value>)",
           soft: "rgb(var(--c-ebony-ridge) / <alpha-value>)",
         },
         cream: {
@@ -24,13 +24,13 @@ export default {
         },
         wood: {
           dark: "rgb(var(--c-wood-dark) / <alpha-value>)",
-          mid: "#5C3D1F",
-          light: "#C49B6B",
+          mid: "rgb(var(--c-cream-mute) / <alpha-value>)",
+          light: "rgb(var(--c-cream-mute) / <alpha-value>)",
         },
 
-        /* Couleurs sémantiques fixes (succès / warn / erreur) */
-        copper: "#C9712E",
-        sage: "#7BA471",
+        /* Couleurs sémantiques (succès / warn / erreur), suivent l'ambiance */
+        copper: "rgb(var(--c-p-toleRouge) / <alpha-value>)",
+        sage: "rgb(var(--c-p-sapin) / <alpha-value>)",
 
         /* Compat anciens noms */
         "bg-principal": "rgb(var(--c-ebony) / <alpha-value>)",
@@ -50,19 +50,19 @@ export default {
         ink: {
           DEFAULT: "rgb(var(--c-cream) / <alpha-value>)",
           mute: "rgb(var(--c-cream-mute) / <alpha-value>)",
-          soft: "#C49B6B",
+          soft: "rgb(var(--c-cream-mute) / <alpha-value>)",
         },
         terracotta: {
           DEFAULT: "rgb(var(--c-brass) / <alpha-value>)",
-          deep: "#C28A47",
+          deep: "rgb(var(--c-brass) / <alpha-value>)",
           soft: "rgb(var(--c-ebony-ridge) / <alpha-value>)",
         },
         ochre: "rgb(var(--c-brass) / <alpha-value>)",
         hairline: "rgb(var(--c-wood-dark) / <alpha-value>)",
       },
       fontFamily: {
-        serif: ["Fraunces", "Georgia", "Times New Roman", "serif"],
-        sans: ["DM Sans", "-apple-system", "BlinkMacSystemFont", "Helvetica Neue", "sans-serif"],
+        serif: ["Bricolage Grotesque", "system-ui", "sans-serif"],
+        sans: ["Atkinson Hyperlegible", "system-ui", "sans-serif"],
         mono: ["DM Mono", "ui-monospace", "monospace"],
       },
       fontSize: {

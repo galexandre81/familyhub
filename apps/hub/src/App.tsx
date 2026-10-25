@@ -4,6 +4,7 @@ import { AuthProvider, useAuth } from "./lib/auth";
 import Layout from "./components/Layout";
 import NotFound from "./components/NotFound";
 import { LoadingState } from "./components/states";
+import { useAmbiance } from "./lib/ambiance";
 
 const Login = lazy(() => import("./pages/Login"));
 const Dashboard = lazy(() => import("./pages/Dashboard"));
@@ -34,6 +35,8 @@ function RequireAuth({ children }: { children: React.ReactNode }) {
 }
 
 export default function App() {
+  /* Ambiance hors Layout (login, chargements) : cache du jour ou repli 07–19. */
+  useAmbiance();
   return (
     <AuthProvider>
       <Suspense fallback={<LoadingState />}>

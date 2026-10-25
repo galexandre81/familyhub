@@ -10,6 +10,11 @@ import {
 import App from "./App";
 import { toast, Toaster } from "./components/Toast";
 import ErrorBoundary from "./components/ErrorBoundary";
+import "@fontsource/bricolage-grotesque/500.css";
+import "@fontsource/bricolage-grotesque/700.css";
+import "@fontsource/bricolage-grotesque/800.css";
+import "@fontsource/atkinson-hyperlegible/400.css";
+import "@fontsource/atkinson-hyperlegible/700.css";
 import "./index.css";
 
 function getMsg(err: unknown): string {
