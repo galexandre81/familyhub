@@ -11,7 +11,6 @@ import {
 } from "../lib/queries";
 import {
   useCreateTile,
-  useRefreshWeatherTile,
   useUpdateDisplayLayout,
 } from "../lib/mutations";
 import {
@@ -33,7 +32,6 @@ export default function DisplayEditor() {
   const { data: tiles } = useTiles(householdId);
   const updateLayout = useUpdateDisplayLayout();
   const createTile = useCreateTile();
-  const refreshWeather = useRefreshWeatherTile();
 
   const [setupOpen, setSetupOpen] = useState(false);
   const [status, setStatus] = useState<string | null>(null);
@@ -96,25 +94,12 @@ export default function DisplayEditor() {
     }
   }
 
-  async function rafraichir() {
+  /* Une seule demande « tout » (menu, recette du jour, météo, agenda) : la
+     météo n'est plus rafraîchie deux fois. */
+  function rafraichir() {
     setStatus(null);
-    const meteos = layout
-      .map((e) => tuiles.find((t) => t.id === e.tileId))
-      .filter((t): t is NonNullable<typeof t> => !!t && t.type === "weather");
-    let echecs = 0;
-    for (const t of meteos) {
-      try {
-        await refreshWeather.mutateAsync({ householdId: householdId!, tileId: t.id });
-      } catch {
-        echecs++;
-      }
-    }
     rafraichirEcransSansAttendre(householdId!, "tout");
-    afficherMessage(
-      echecs === 0
-        ? "Mise à jour demandée : l'écran se met à jour dans un instant."
-        : "La météo n'a pas pu être mise à jour, le reste est demandé.",
-    );
+    afficherMessage("Mise à jour demandée : l'écran se met à jour dans un instant.");
   }
 
   return (
@@ -137,11 +122,10 @@ export default function DisplayEditor() {
         <div className="flex gap-2">
           <button
             onClick={rafraichir}
-            disabled={refreshWeather.isPending}
             className="btn-secondary flex items-center gap-1"
             title="Demande une mise à jour des données de l'écran"
           >
-            <RefreshCw size={14} className={refreshWeather.isPending ? "animate-spin" : ""} aria-hidden="true" />
+            <RefreshCw size={14} aria-hidden="true" />
             Rafraîchir
           </button>
           <button onClick={() => setSetupOpen(true)} className="btn-secondary">
