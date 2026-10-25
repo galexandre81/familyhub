@@ -28,6 +28,7 @@ Il n'y a plus de choix de thème (ni `parametres.themeId`, ni champ `theme` sur 
 - JavaScript ES5 (pas de `let`/`const`, flèches, template strings, `fetch`) ;
 - pas de variables CSS (`var(--x)`), les valeurs sont écrites en dur ;
 - pas de `gap` (flexbox) ni de CSS grid ;
+- iOS 9 : jamais de flex sur un `<button>`, utiliser un `<span>` intérieur (flexbugs #9). Toute classe posée sur un bouton contient « btn », ce qui permet au contrôle CSS de le vérifier ;
 - pas de polices woff2 (woff ou ttf).
 
 `npm run check:display` vérifie une partie de ces règles.

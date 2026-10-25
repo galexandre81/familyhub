@@ -895,6 +895,15 @@
     var t = state.tilesById[tileId];
     return t ? t.config : null;
   };
+  /* Config de la première tuile d'un type donné (ex. 'timer' : presets du
+     minuteur, lus par le panneau des minuteurs pour son choix « Autre »). */
+  window.FamilyHubGetTileConfigByType = function (type) {
+    var by = state.tilesById || {};
+    for (var id in by) {
+      if (by.hasOwnProperty(id) && by[id] && by[id].type === type) return by[id].config || null;
+    }
+    return null;
+  };
   /* Patch partiel sur tile.config (utilisé par weather expand pour basculer la ville sélectionnée). */
   window.FamilyHubUpdateTileConfig = function (tileId, patch) {
     if (!tileId || !patch) return;

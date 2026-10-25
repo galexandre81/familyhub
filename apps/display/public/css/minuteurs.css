@@ -2,7 +2,15 @@
    « Autre » (js/tiles/timer.js) et bandeau d'alarme (js/alarme.js).
    Safari 9 : ni var(, ni gap, ni grid ; flex préfixé -webkit-, espacements
    par marges. Les couleurs viennent des classes fh-* de ambiance.css ; seules
-   les couleurs du bouton « OK » de l'alarme sont posées ici (jour / nuit). */
+   les couleurs du bouton « OK » de l'alarme sont posées ici (jour / nuit).
+
+   iOS 9 : JAMAIS de flex sur un <button>. Safari < 11 ne sait pas faire d'un
+   <button> un conteneur flex (flexbugs #9) : ses enfants restent en ligne et
+   la mise en page casse sur l'iPad mini 1. Le bouton reste inline-block (il
+   peut être un ÉLÉMENT flex d'une rangée) ; la mise en page de son contenu
+   vit dans un <span class="fh-min-dedans"> intérieur. Convention : toute
+   classe posée sur un bouton contient « btn » ; scripts/check-display-css.mjs
+   refuse alors display:flex sur un tel sélecteur. */
 
 /* --- Boutons communs : cible tactile >= 72 px, texte >= 20 px --- */
 .fh-min-btn {
@@ -16,15 +24,26 @@
   line-height: 1.1;
   cursor: pointer;
   -webkit-appearance: none;
-  display: -webkit-inline-flex;
-  display: inline-flex;
+  display: inline-block;
+  vertical-align: middle;
+  text-align: center;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+.fh-min-btn:active { opacity: 0.8; }
+/* Contenu du bouton (icône + mot) : c'est ce span qui est flex, pas le bouton. */
+.fh-min-dedans {
+  display: -webkit-flex;
+  display: flex;
   -webkit-align-items: center;
   align-items: center;
   -webkit-justify-content: center;
   justify-content: center;
-  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+  width: 100%;
 }
-.fh-min-btn:active { opacity: 0.8; }
+.fh-min-colonne {
+  -webkit-flex-direction: column;
+  flex-direction: column;
+}
 .fh-min-doux { border-width: 2px; border-style: solid; }
 .fh-min-icone { display: block; margin-right: 8px; -webkit-flex-shrink: 0; flex-shrink: 0; }
 
@@ -112,8 +131,6 @@
   width: calc(25% - 12px);
   margin: 0 6px 12px;
   min-height: 96px;
-  -webkit-flex-direction: column;
-  flex-direction: column;
 }
 .fh-min-choix-nb { font-size: 40px; line-height: 1; margin-bottom: 4px; }
 
@@ -170,7 +187,7 @@
   overflow: hidden;
   max-height: 2.3em; /* 2 lignes max */
 }
-.fh-alarme-ok {
+.fh-alarme-btn {
   min-height: 80px;
   min-width: 160px;
   margin-left: 16px;
@@ -181,14 +198,12 @@
   font-weight: 700;
   cursor: pointer;
   -webkit-appearance: none;
-  display: -webkit-flex;
-  display: flex;
-  -webkit-align-items: center;
-  align-items: center;
-  -webkit-justify-content: center;
-  justify-content: center;
+  display: block;
+  -webkit-flex-shrink: 0;
+  flex-shrink: 0;
+  text-align: center;
   background: #1E2B22;
   color: #F5C242;
 }
-.fh-alarme-ok:active { opacity: 0.85; }
-html.amb-nuit .fh-alarme-ok { background: #0F1B2D; color: #FFB547; }
+.fh-alarme-btn:active { opacity: 0.85; }
+html.amb-nuit .fh-alarme-btn { background: #0F1B2D; color: #FFB547; }

@@ -6,7 +6,13 @@
        étape de recette) ; sinon libellé automatique « 5 min ».
      options.autre : false pour masquer le bouton « Autre » (déjà dans le choix).
      options.surAutre : fonction appelée par « Autre » à la place de l'ouverture
-       du choix plein écran (FamilyHubOverlay.open('timer', …)).
+       du choix plein écran (FamilyHubOverlay.open('timer', …), avec les
+       presets de la tuile minuteur s'il y en a une).
+     options.apresLancement : appelée après un lancement 1 / 5 / 10 min (le
+       plein écran s'en sert pour se refermer).
+
+   iOS 9 : un <button> ne peut pas être un conteneur flex (flexbugs #9) ; la
+   mise en page vit dans un <span class="fh-min-dedans"> intérieur.
 
    Contenu : boutons 1 / 5 / 10 min et « Autre », puis la liste des minuteurs
    en cours (nom, temps restant, « +1 min », Pause/Reprendre, Arrêter). La
@@ -71,7 +77,7 @@
     var b = document.createElement('button');
     b.type = 'button';
     b.className = 'fh-min-btn fh-corps ' + classes;
-    b.innerHTML = html;
+    b.innerHTML = '<span class="fh-min-dedans">' + html + '</span>';
     if (aria) b.setAttribute('aria-label', aria);
     return b;
   }
@@ -95,6 +101,7 @@
           'Lancer un minuteur de ' + min + ' minute' + (min > 1 ? 's' : ''));
         b.addEventListener('click', function () {
           if (timers) timers.startTimer(nom, min * 60);
+          if (typeof opts.apresLancement === 'function') opts.apresLancement();
         });
         rangee.appendChild(b);
       })(RAPIDES[i]);
@@ -105,7 +112,12 @@
       autre.addEventListener('click', function () {
         if (typeof opts.surAutre === 'function') { opts.surAutre(); return; }
         if (global.FamilyHubOverlay) {
-          global.FamilyHubOverlay.open('timer', {}, { libelleParDefaut: nom });
+          var cfgTuile = typeof global.FamilyHubGetTileConfigByType === 'function'
+            ? global.FamilyHubGetTileConfigByType('timer') : null;
+          global.FamilyHubOverlay.open('timer', {}, {
+            libelleParDefaut: nom,
+            presets: (cfgTuile && cfgTuile.presets) || []
+          });
         }
       });
       rangee.appendChild(autre);

@@ -69,9 +69,10 @@
           '<div class="fh-alarme-texte fh-titre">' + echapper(t.label || 'Minuteur') + ' : c\'est prêt !</div>';
         var ok = document.createElement('button');
         ok.type = 'button';
-        ok.className = 'fh-alarme-ok fh-corps';
+        ok.className = 'fh-alarme-btn fh-corps';
         ok.setAttribute('aria-label', 'OK, arrêter l\'alarme');
-        ok.innerHTML = ICONE_OK + '<span>OK</span>';
+        /* Pas de flex sur un <button> en iOS 9 : span intérieur. */
+        ok.innerHTML = '<span class="fh-min-dedans">' + ICONE_OK + '<span>OK</span></span>';
         ok.addEventListener('click', function () { timers.acknowledgeTimer(t); });
         ligne.appendChild(ok);
         el.appendChild(ligne);
