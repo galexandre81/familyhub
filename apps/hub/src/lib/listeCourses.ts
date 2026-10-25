@@ -269,6 +269,9 @@ export function fusionnerReimport(
       id: e.id,
       data: sansUndefined({
         ...n,
+        // Un oubli repris par le plan reste un ajout manuel : un ré-import
+        // qui retire ce produit ne doit pas effacer l'ajout de la famille.
+        ajoutManuel: e.ajoutManuel || n.ajoutManuel,
         destination: e.destination,
         checked: e.checked,
         checkedBy: e.checkedBy ?? null,
@@ -289,6 +292,30 @@ export function fusionnerReimport(
     }
   }
   return { aEcrire, aSupprimer };
+}
+
+/** Champs qu'un ré-import possède ; le reste (tri, coche) appartient aux téléphones. */
+export type ChampsDuPlan = Pick<
+  ArticleCourses,
+  "nom" | "unite" | "quantite" | "rayon" | "recetteIds" | "placard" | "ordre" | "ajoutManuel"
+>;
+
+/**
+ * Ce qu'un ré-import écrit (en `merge`) sur un article déjà en base : jamais
+ * `destination`, `checked`, `checkedBy`, `checkedAt` — un téléphone qui coche
+ * pendant l'import ne voit pas sa coche annulée.
+ */
+export function champsDuPlan(a: ArticleCourses): ChampsDuPlan {
+  return {
+    nom: a.nom,
+    unite: a.unite,
+    quantite: a.quantite,
+    rayon: a.rayon,
+    recetteIds: a.recetteIds,
+    placard: a.placard,
+    ordre: a.ordre,
+    ajoutManuel: a.ajoutManuel,
+  };
 }
 
 /**

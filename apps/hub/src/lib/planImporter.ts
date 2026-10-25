@@ -18,8 +18,10 @@
  *
  * Lot principal atomique (plan, slots, recettes, batchs, document de liste,
  * archives). Les articles y sont aussi tant que le total tient sous
- * `MAX_OPS_LOT` (import entièrement atomique) ; au-delà, ils partent juste
- * après, en lots supplémentaires (`ecrireParLots`).
+ * `MAX_OPS_LOT` (import entièrement atomique) ; au-delà, ils partent d'abord,
+ * en lots supplémentaires (`ecrireParLots`), et le lot principal en dernier.
+ * Un article déjà en base ne reçoit que les champs du plan (`champsDuPlan`,
+ * en merge) : tri et coches restent ceux des téléphones.
  */
 
 import {
@@ -39,6 +41,7 @@ import { db } from "./firebase";
 import { ecrireParLots } from "./ecritureParLots";
 import {
   articlesDuPlan,
+  champsDuPlan,
   doitMigrer,
   fusionnerReimport,
   migrerArticles,
@@ -421,9 +424,22 @@ export async function importPlanFromJson(args: {
     const existants = articlesDeListe(listeExistante.data() as ShoppingList, itemsSnap, estPlacard);
     const { aEcrire, aSupprimer } = fusionnerReimport(existants, nouveauxArticles);
     for (const { id, data: article } of aEcrire) {
-      const ref = id ? doc(itemsCol, id) : doc(itemsCol);
-      const valeur = id ? article : { ...article, createdAt: serverTimestamp() };
-      opsArticles.push((b) => b.set(ref, valeur));
+      if (id && idsEnBase.has(id)) {
+        /* Document déjà en base : seulement les champs du plan, en merge.
+           Le tri et la coche restent ceux de la base (un téléphone peut
+           cocher pendant l'import). Si l'article a été effacé entre la
+           lecture et l'écriture, il revient avec ces seuls champs : sans
+           `destination` il s'affiche parmi les « déjà triés » (vueTri) et
+           hors magasin — repérable, sans perte. */
+        const ref = doc(itemsCol, id);
+        const champs = champsDuPlan(article);
+        opsArticles.push((b) => b.set(ref, champs, { merge: true }));
+      } else {
+        // Document neuf (nouvel article ou id converti de l'ancien tableau).
+        const ref = id ? doc(itemsCol, id) : doc(itemsCol);
+        const valeur = { ...article, createdAt: serverTimestamp() };
+        opsArticles.push((b) => b.set(ref, valeur));
+      }
     }
     // Un id issu de l'ancien tableau n'a pas de document : rien à effacer.
     for (const id of aSupprimer) {
@@ -504,13 +520,17 @@ export async function importPlanFromJson(args: {
   opsPrincipales += 1; // promotion du plan
 
   /* Articles dans le lot principal si tout tient (import entièrement
-     atomique) ; sinon le lot principal part d'abord, puis les articles. */
+     atomique). Sinon les articles partent D'ABORD, puis le lot principal :
+     un échec en route laisse soit l'ancien tableau intact (liste pas encore
+     en format 2, plan pas encore promu), soit des articles orphelins sous
+     une liste qui n'existe pas encore — invisibles ; relancer l'import
+     reprend tout, oublis du plan précédent compris (il n'est pas archivé). */
   if (opsPrincipales + opsArticles.length <= MAX_OPS_LOT) {
     opsArticles.forEach((op) => op(batch));
     await batch.commit();
   } else {
-    await batch.commit();
     await ecrireParLots(() => writeBatch(db), opsArticles, MAX_OPS_LOT);
+    await batch.commit();
   }
 
   return {

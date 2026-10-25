@@ -3,6 +3,7 @@ import type { ArticleCourses, ShoppingListItem } from "@family-hub/types";
 import {
   articleOubli,
   articlesDuPlan,
+  champsDuPlan,
   cleArticle,
   fusionnerReimport,
   oublisAReporter,
@@ -339,12 +340,16 @@ describe("fusionnerReimport", () => {
     ]);
   });
 
-  it("un oubli qui entre dans le plan devient un article du plan (gardant son tri)", () => {
+  it("un oubli repris par le plan reste un ajout manuel (un ré-import qui le retire ne l'efface pas)", () => {
     const existants = [art("o1", { nom: "Riz", ajoutManuel: true, destination: "deja" })];
     const r = fusionnerReimport(existants, [nouveau("riz")]);
     expect(r.aEcrire).toEqual([
-      { id: "o1", data: expect.objectContaining({ ajoutManuel: false, destination: "deja" }) },
+      { id: "o1", data: expect.objectContaining({ ajoutManuel: true, destination: "deja" }) },
     ]);
+    // Ré-import suivant sans le riz : l'oubli est conservé, pas supprimé.
+    const ensuite = fusionnerReimport([{ ...r.aEcrire[0].data, id: "o1" }], [nouveau("Pâtes")]);
+    expect(ensuite.aSupprimer).toEqual([]);
+    expect(ensuite.aEcrire.map((e) => e.id)).toContain("o1");
   });
 
   it("deux articles existants pour la même clé : un seul est repris, l'autre supprimé", () => {
@@ -360,6 +365,37 @@ describe("fusionnerReimport", () => {
     for (const { data } of r.aEcrire) {
       expect(Object.values(data).some((v) => v === undefined)).toBe(false);
     }
+  });
+});
+
+describe("champsDuPlan", () => {
+  it("ne garde que les champs qui appartiennent au plan (jamais le tri ni la coche)", () => {
+    const a = art("x", {
+      nom: "Riz",
+      unite: "g",
+      quantite: 500,
+      rayon: "epicerie",
+      recetteIds: ["r1"],
+      placard: true,
+      ordre: 4,
+      ajoutManuel: true,
+      destination: "drive",
+      checked: true,
+      checkedBy: "u",
+      checkedAt: "T" as never,
+      createdAt: "C" as never,
+    });
+    const { id: _id, ...data } = a;
+    expect(champsDuPlan(data)).toEqual({
+      nom: "Riz",
+      unite: "g",
+      quantite: 500,
+      rayon: "epicerie",
+      recetteIds: ["r1"],
+      placard: true,
+      ordre: 4,
+      ajoutManuel: true,
+    });
   });
 });
 
