@@ -4,6 +4,7 @@ import { Link, useNavigate } from "react-router-dom";
 import { Check, ChevronRight, Pencil, Users, X } from "lucide-react";
 import { useAuth } from "../lib/auth";
 import { modeleDriveValide, RECHERCHE_DRIVE_DEFAUT } from "../lib/drive";
+import { NOM_PC_DEFAUT, NOM_PC_MAX } from "../lib/pcEnfants";
 import { useHouseholds } from "../lib/queries";
 import { useUpdateHousehold } from "../lib/mutations";
 import {
@@ -310,6 +311,69 @@ function RechercheDriveSection({
   );
 }
 
+/** Nom de la carte du PC des enfants (téléphone et iPad), gardé dans le foyer. */
+function NomPcEnfantsSection({
+  uid,
+  householdId,
+  parametres,
+}: {
+  uid: string;
+  householdId: string;
+  parametres: HouseholdParametres;
+}) {
+  const update = useUpdateHousehold();
+  const [nom, setNom] = useState(parametres.nomPcEnfants ?? "");
+  const [enregistre, setEnregistre] = useState(false);
+
+  function enregistrer(e: React.FormEvent) {
+    e.preventDefault();
+    setEnregistre(false);
+    const valeur = nom.trim();
+    // Vide : on retire le réglage (« PC des enfants » s'affiche).
+    update.mutate(
+      { uid, householdId, patch: { "parametres.nomPcEnfants": valeur === "" ? deleteField() : valeur } },
+      { onSuccess: () => setEnregistre(true) },
+    );
+  }
+
+  return (
+    <section className="tile-card space-y-3">
+      <h2 className="text-xl">PC des enfants</h2>
+      <p className="text-text-secondaire text-sm">
+        Nom de la carte sur les téléphones et l'iPad. Il reste dans les données du foyer (jamais dans le code).
+      </p>
+      <form className="space-y-2" onSubmit={enregistrer}>
+        <label htmlFor="nom-pc" className="block font-medium">
+          Nom affiché
+        </label>
+        <input
+          id="nom-pc"
+          type="text"
+          value={nom}
+          maxLength={NOM_PC_MAX}
+          onChange={(e) => {
+            setNom(e.target.value);
+            setEnregistre(false);
+          }}
+          className="input w-full"
+          placeholder={NOM_PC_DEFAUT}
+        />
+        <div className="flex flex-wrap items-center gap-3">
+          <button type="submit" disabled={update.isPending} className="btn-primary text-sm">
+            {update.isPending ? "Enregistrement…" : "Enregistrer"}
+          </button>
+          {enregistre && (
+            <span role="status" className="text-sm flex items-center gap-1">
+              <Check size={14} aria-hidden="true" /> Enregistré
+            </span>
+          )}
+          {update.isError && <span className="text-sm text-red-600">Échec de l'enregistrement.</span>}
+        </div>
+      </form>
+    </section>
+  );
+}
+
 export default function Parametres() {
   const { user } = useAuth();
   const { data: households, isLoading } = useHouseholds(user?.uid);
@@ -420,6 +484,14 @@ export default function Parametres() {
       {households && households.length > 0 && (
         <RechercheDriveSection
           key={households[0].id}
+          uid={user.uid}
+          householdId={households[0].id}
+          parametres={households[0].parametres}
+        />
+      )}
+      {user && households && households[0] && (
+        <NomPcEnfantsSection
+          key={`pc-${households[0].id}`}
           uid={user.uid}
           householdId={households[0].id}
           parametres={households[0].parametres}

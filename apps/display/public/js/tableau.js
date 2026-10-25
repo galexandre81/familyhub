@@ -270,6 +270,15 @@
     return { prochain: prochain, ensuite: ensuite };
   }
 
+  /* Nom de la carte du PC des enfants : parametres.nomPcEnfants du foyer
+     (réglé dans le hub, jamais dans le code), sinon « PC des enfants ».
+     Même règle que titrePcEnfants du hub (apps/hub/src/lib/pcEnfants.ts). */
+  function titrePc(foyer) {
+    var p = foyer && foyer.parametres;
+    var nom = p && typeof p.nomPcEnfants === 'string' ? p.nomPcEnfants.replace(/^\s+|\s+$/g, '') : '';
+    return nom ? nom.slice(0, 30) : 'PC des enfants';
+  }
+
   /* « 2 h 30 », « 2 h », « 45 min » ; '' si la durée n'est pas connue. */
   function dureeTexte(minutes) {
     var m = +minutes;
@@ -455,9 +464,14 @@
     droite.appendChild(batchEl);
     /* Place réservée : le temps d'écran du PC des enfants (projet à venir). */
     var pcEl = el('div', 'tab-pc tab-carte fh-carte fh-bordure');
-    pcEl.innerHTML =
-      '<div class="tab-pc-titre fh-texte">' + svg(ICONES.ecran, 24) + '<span>PC des enfants</span>' +
-      '<span class="tab-pc-texte fh-texte-doux">&nbsp;· bientôt</span></div>';
+    function rendrePc() {
+      var foyer = null;
+      try { foyer = typeof ctx.foyer === 'function' ? ctx.foyer() : null; } catch (e) { foyer = null; }
+      var html = '<div class="tab-pc-titre fh-texte">' + svg(ICONES.ecran, 24) +
+        '<span>' + echapper(titrePc(foyer)) + '</span>' +
+        '<span class="tab-pc-texte fh-texte-doux">&nbsp;· bientôt</span></div>';
+      if (cles.pc !== html) { cles.pc = html; pcEl.innerHTML = html; }
+    }
     droite.appendChild(pcEl);
     var ensuiteEl = el('div', 'tab-ensuite tab-carte fh-carte fh-bordure');
     ensuiteEl.setAttribute('role', 'button');
@@ -692,6 +706,7 @@
       try { rendreMeteo(s.weather); } catch (e1) { journal('météo', e1); }
       try { rendreRepasEtEnsuite(s['weekly-menu'], now); } catch (e2) { journal('repas', e2); }
       try { rendreBatch(s['weekly-menu'], now); } catch (e4) { journal('batch', e4); }
+      try { rendrePc(); } catch (e5) { journal('pc', e5); }
       try { rendreAgenda(s.calendar, now); } catch (e3) { journal('agenda', e3); }
     }
 
@@ -736,6 +751,7 @@
     resumeRepas: resumeRepas,
     meteoResume: meteoResume,
     resumeBatch: resumeBatch,
+    titrePc: titrePc,
     monter: monter
   };
 

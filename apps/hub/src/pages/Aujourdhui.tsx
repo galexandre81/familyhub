@@ -19,6 +19,7 @@ import {
   type MealPlanSlotWithId,
 } from "../lib/queries";
 import { estParent } from "../lib/personnes";
+import { titrePcEnfants } from "../lib/pcEnfants";
 import {
   resumeAujourdhui,
   type AutreRepas,
@@ -101,7 +102,7 @@ export default function Aujourdhui() {
             <p className="text-base text-cream">Pas de menu en cours — il se prépare sur l'ordinateur</p>
           </section>
         )}
-        {parent && <CartePcEnfants />}
+        {parent && <CartePcEnfants titre={titrePcEnfants(household?.parametres)} />}
       </div>
 
       {resume.autresDuJour.length > 0 && (
@@ -236,15 +237,16 @@ function CarteProchainRepas({
   );
 }
 
-function CartePcEnfants() {
+/** `titre` : nom réglé dans Paramètres (données du foyer), sinon « PC des enfants ». */
+function CartePcEnfants({ titre }: { titre: string }) {
   return (
-    <section className={`${CARTE} p-4 gap-3`} aria-label="PC des enfants">
+    <section className={`${CARTE} p-4 gap-3`} aria-label={titre}>
       <h2 className="flex items-center gap-2 text-lg font-semibold text-cream">
         <Monitor size={20} aria-hidden="true" />
-        PC des enfants
+        {titre}
       </h2>
       <p className="flex-1 flex items-center text-base text-cream-mute">
-        Bientôt : couper ou remettre le wifi du PC des enfants
+        Bientôt : couper ou remettre le wifi et suivre le temps d'écran
       </p>
     </section>
   );

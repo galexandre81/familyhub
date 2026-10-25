@@ -14,6 +14,12 @@ export interface HouseholdParametres {
    * recherche Intermarché (`RECHERCHE_DRIVE_DEFAUT`, apps/hub/src/lib/drive.ts).
    */
   modeleRechercheDrive?: string;
+  /**
+   * Nom affiché de la carte du PC des enfants (téléphone et iPad), ex. le
+   * prénom de l'enfant ; absent ou vide = « PC des enfants ». Rangé dans les
+   * données du foyer (jamais dans le code : dépôt public).
+   */
+  nomPcEnfants?: string;
 }
 
 /** Rôle d'une personne dans le foyer. Copie dans functions/src/household/invitationRules.ts. */

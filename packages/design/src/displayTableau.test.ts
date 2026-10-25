@@ -60,6 +60,7 @@ interface ApiTableau {
     ensuite: null | { libelle: string; plat: string; accompagnements: string };
   };
   meteoResume(data: unknown, config: unknown): null | { temp: string; ciel: string; ville: string };
+  titrePc(foyer: unknown): string;
   resumeBatch(data: unknown, now: Date): null | {
     titre: string;
     duree: string;
@@ -348,5 +349,19 @@ describe("resumeBatch (carte batch cooking du tableau)", () => {
     const r = t.resumeBatch({ plans: [{ batchSessions: [session("2026-10-25", { dureeEstimeeMinutes: 45 })] }] }, now);
     expect(r?.duree).toBe("45 min");
     expect(t.resumeBatch({ batchSessions: [session("2026-10-25", { dureeEstimeeMinutes: 0 })] }, now)?.duree).toBe("");
+  });
+});
+
+describe("titrePc (nom de la carte du PC des enfants)", () => {
+  it("nom réglé dans le foyer, sans espaces autour", () => {
+    expect(t.titrePc({ parametres: { nomPcEnfants: "  PC de Léo " } })).toBe("PC de Léo");
+  });
+  it("absent, vide ou pas de foyer : « PC des enfants »", () => {
+    expect(t.titrePc({ parametres: {} })).toBe("PC des enfants");
+    expect(t.titrePc({ parametres: { nomPcEnfants: "  " } })).toBe("PC des enfants");
+    expect(t.titrePc(null)).toBe("PC des enfants");
+  });
+  it("coupé à 30 caractères, comme le hub", () => {
+    expect(t.titrePc({ parametres: { nomPcEnfants: "x".repeat(50) } })).toHaveLength(30);
   });
 });
