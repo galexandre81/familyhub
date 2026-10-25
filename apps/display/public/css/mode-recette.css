@@ -96,9 +96,11 @@
 }
 
 /* --- Corps : deux colonnes --- */
+/* Base 0 (pas auto) : Safari 9 calcule mal la hauteur d'un enfant flex
+   « auto » qui contient des zones défilantes. */
 .fh-mr-corps {
-  -webkit-flex: 1 1 auto;
-  flex: 1 1 auto;
+  -webkit-flex: 1 1 0%;
+  flex: 1 1 0%;
   min-height: 0;
   display: -webkit-flex;
   display: flex;

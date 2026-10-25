@@ -1,10 +1,19 @@
 /* mode-recette.js — mode recette de l'iPad : tout le repas d'un coup.
    ES5 strict (syntaxe ET fonctions intégrées), Safari 9 / iOS 9.3.6.
 
-   API : FamilyHubModeRecette.ouvrir({ recetteIds, titre?, portions? })
+   API : FamilyHubModeRecette.ouvrir({ recetteIds, titre?, portions?, noms? })
+           titre : sinon le nom de la première recette ;
+           noms : { id: nom } connus de l'appelant (ex. recetteNoms du menu),
+             affichés si la recette est indisponible.
          FamilyHubModeRecette.fermer() / estOuvert()
-         FamilyHubModeRecette.memoriser(id, donnees) : met une recette déjà lue
-           (ex. par le livre) dans le cache mémoire, pour ne pas la relire.
+         FamilyHubModeRecette.memoriser(id, donnees) : confie une copie déjà en
+           main (recette du livre) ; memoriserListe(recettes) : idem pour une
+           liste d'objets portant recetteId (ou id), ex. snapshot.recettes de la
+           tuile « À cuisiner ». Le TABLEAU (prochain repas) fait pareil avant
+           ouvrir() avec les recettes de son snapshot.
+         Champs lus : nom, portions, tempsPrepMinutes, tempsCuissonMinutes,
+           ingredients[{ libelle, quantite, unite }], etapes[{ ordre,
+           description, dureeMinutes? }] (doc Firestore ou copie du snapshot).
    Même écran depuis le prochain repas (tableau), le menu de la semaine et le
    livre de recettes.
 
@@ -17,9 +26,12 @@
    - colonne droite fixe : ingrédients regroupés par recette en haut (défilent
      seuls si la liste est longue), panneau des minuteurs en dessous (« Autre »
      ouvre le choix de durée DANS la colonne, sans quitter la recette).
-   Recettes lues dans households/{hid}/recettes/{id}, gardées en mémoire par
-   id ; une recette introuvable (hors ligne, supprimée) → « Recette
-   indisponible », le minuteur marche quand même.
+   Lecture réseau d'abord (households/{hid}/recettes/{id} ; l'iPad tourne
+   jour et nuit : pas de copie périmée quand le réseau répond). La copie en
+   mémoire (dernière lecture ou memoriser) ne sert qu'en secours : lecture en
+   échec, ou sans réponse après DELAI_RESEAU_MS. Recette introuvable →
+   « Recette indisponible » à sa place dans le repas ; le minuteur marche
+   quand même.
 
    Les fonctions *Es5 sont pures et testées (packages/design/src/
    displayModeRecette.test.ts) contre apps/hub/src/lib/repasCuisine.ts. */
@@ -45,6 +57,23 @@
       else manquantes.push(id);
     }
     return { presentes: presentes, manquantes: manquantes };
+  }
+
+  /* Recettes du repas dans l'ordre donné, doublons ignorés, chacune à sa
+     place : { id, recette } (recette null si introuvable). */
+  function repasOrdonneEs5(ids, recettes) {
+    var vus = {};
+    var out = [];
+    var liste = ids || [];
+    var src = recettes || {};
+    for (var i = 0; i < liste.length; i++) {
+      var id = liste[i];
+      if (Object.prototype.hasOwnProperty.call(vus, id)) continue;
+      vus[id] = true;
+      var r = Object.prototype.hasOwnProperty.call(src, id) ? src[id] : null;
+      out.push({ id: id, recette: r || null });
+    }
+    return out;
   }
 
   function formatFr(n) {
@@ -108,6 +137,7 @@
 
   var PORTIONS_MIN = 1;
   var PORTIONS_MAX = 20;
+  var DELAI_RESEAU_MS = 5000;
 
   var cache = {}; /* id → données Firestore de la recette */
 
@@ -167,29 +197,49 @@
 
   /* --- Lecture des recettes (cache mémoire par id) --- */
 
+  /* Réseau d'abord ; copie en mémoire en secours (échec ou réseau muet). */
   function lireRecette(id) {
-    if (Object.prototype.hasOwnProperty.call(cache, id)) return Promise.resolve(cache[id]);
+    var copie = Object.prototype.hasOwnProperty.call(cache, id) ? cache[id] : null;
     var db = root.FamilyHubGetDb && root.FamilyHubGetDb();
     var hid = root.FamilyHubGetHouseholdId && root.FamilyHubGetHouseholdId();
-    if (!db || !hid || !id) return Promise.resolve(null);
-    try {
-      return db.collection('households').doc(hid).collection('recettes').doc(String(id)).get()
-        .then(function (doc) {
-          if (!doc.exists) return null;
-          var d = doc.data() || {};
-          cache[id] = d;
-          return d;
-        }, function (err) {
-          if (root.console && root.console.warn) root.console.warn('[mode-recette] lecture', id, err);
-          return null;
-        });
-    } catch (e) {
-      return Promise.resolve(null);
-    }
+    if (!db || !hid || !id) return Promise.resolve(copie);
+    return new Promise(function (resolve) {
+      var fini = false;
+      var minuterie = null;
+      function finir(v) {
+        if (fini) return;
+        fini = true;
+        if (minuterie) clearTimeout(minuterie);
+        resolve(v);
+      }
+      if (copie) minuterie = setTimeout(function () { finir(copie); }, DELAI_RESEAU_MS);
+      try {
+        db.collection('households').doc(hid).collection('recettes').doc(String(id)).get()
+          .then(function (doc) {
+            if (!doc.exists) { delete cache[id]; finir(null); return; }
+            var d = doc.data() || {};
+            cache[id] = d;
+            finir(d);
+          }, function (err) {
+            if (root.console && root.console.warn) root.console.warn('[mode-recette] lecture', id, err);
+            finir(copie);
+          });
+      } catch (e) {
+        finir(copie);
+      }
+    });
   }
 
   function memoriser(id, donnees) {
-    if (id && donnees) cache[id] = donnees;
+    if (id && donnees) cache[String(id)] = donnees;
+  }
+
+  function memoriserListe(recettes) {
+    var liste = recettes || [];
+    for (var i = 0; i < liste.length; i++) {
+      var r = liste[i];
+      if (r) memoriser(r.recetteId || r.id, r);
+    }
   }
 
   /* --- Colonne gauche : étapes --- */
@@ -223,11 +273,18 @@
     return b;
   }
 
-  function rendreEtapes(zone, repas) {
+  function rendreEtapes(zone, ordonne, noms) {
     zone.innerHTML = '';
-    var p = repas.presentes;
-    for (var i = 0; i < p.length; i++) {
-      var r = p[i].recette;
+    for (var i = 0; i < ordonne.length; i++) {
+      var r = ordonne[i].recette;
+      if (!r) {
+        var idM = ordonne[i].id;
+        var nomConnu = noms && idM && Object.prototype.hasOwnProperty.call(noms, idM)
+          ? texteSeul(noms[idM]) : '';
+        zone.appendChild(el('p', 'fh-mr-indispo fh-carte fh-bordure fh-texte',
+          'Recette indisponible' + (nomConnu ? ' : ' + echapper(nomConnu) : '')));
+        continue;
+      }
       var bloc = el('section', 'fh-mr-recette');
       bloc.appendChild(el('h2', 'fh-mr-recette-nom fh-titre fh-texte', echapper(r.nom || 'Recette')));
       var m = meta(r);
@@ -250,9 +307,6 @@
       }
       bloc.appendChild(liste);
       zone.appendChild(bloc);
-    }
-    for (var j = 0; j < repas.manquantes.length; j++) {
-      zone.appendChild(el('p', 'fh-mr-indispo fh-carte fh-bordure fh-texte', 'Recette indisponible'));
     }
     zone.scrollTop = 0;
   }
@@ -309,9 +363,32 @@
     });
   }
 
+  /* Secours si le choix de durée n'est pas chargé : plein écran du minuteur
+     (z-index 200, donc SOUS cet écran) ; on se cache tant qu'il est ouvert,
+     puis on réapparaît tel quel. */
+  function choixEnPleinEcran(e) {
+    var overlay = root.FamilyHubOverlay;
+    if (!overlay || typeof overlay.open !== 'function') return;
+    var cfgTuile = typeof root.FamilyHubGetTileConfigByType === 'function'
+      ? root.FamilyHubGetTileConfigByType('timer') : null;
+    var ouvert = overlay.open('timer', {}, {
+      libelleParDefaut: e.nomMinuteur,
+      presets: (cfgTuile && cfgTuile.presets) || []
+    });
+    if (!ouvert) return;
+    e.racine.style.display = 'none';
+    e.attente = setInterval(function () {
+      if (ecran !== e || !overlay.isOpen()) {
+        clearInterval(e.attente);
+        e.attente = null;
+        e.racine.style.display = '';
+      }
+    }, 400);
+  }
+
   function monterChoix(e) {
     var timerTuile = root.Tiles && root.Tiles.timer;
-    if (!timerTuile || typeof timerTuile.monterChoix !== 'function') return;
+    if (!timerTuile || typeof timerTuile.monterChoix !== 'function') { choixEnPleinEcran(e); return; }
     demonterMinuteur(e);
     e.retour = bouton('fh-carte fh-texte fh-bordure fh-mr-retour', ICONE_RETOUR + '<span>Retour</span>',
       'Revenir aux minuteurs');
@@ -337,6 +414,7 @@
     var e = ecran;
     if (!e) return;
     ecran = null;
+    if (e.attente) { clearInterval(e.attente); e.attente = null; }
     demonterMinuteur(e);
     if (e.racine.parentNode) e.racine.parentNode.removeChild(e.racine);
   }
@@ -355,7 +433,9 @@
       repas: null,
       minuteur: null,
       retour: null,
-      nomMinuteur: texteSeul(opts.titre) || null
+      nomMinuteur: texteSeul(opts.titre) || null,
+      noms: opts.noms || null,
+      attente: null
     };
     ecran = e;
 
@@ -414,7 +494,8 @@
       var parId = {};
       for (var j = 0; j < ids.length; j++) if (res[j]) parId[ids[j]] = res[j];
       var repas = assemblerRepasEs5(ids, parId);
-      if (ids.length === 0) repas.manquantes.push('');
+      var ordonne = repasOrdonneEs5(ids, parId);
+      if (ids.length === 0) ordonne.push({ id: '', recette: null });
       e.repas = repas;
 
       var recettes = [];
@@ -430,7 +511,7 @@
         e.nomMinuteur = nom;
         if (!e.retour) monterPanneau(e);
       }
-      rendreEtapes(e.zoneEtapes, repas);
+      rendreEtapes(e.zoneEtapes, ordonne, e.noms);
       majPortions(e);
     });
   }
@@ -445,10 +526,12 @@
     libelleEtapeEs5: libelleEtapeEs5,
     etapesTrieesEs5: etapesTrieesEs5,
     portionsInitialesEs5: portionsInitialesEs5,
+    repasOrdonneEs5: repasOrdonneEs5,
     ouvrir: ouvrir,
     fermer: fermer,
     estOuvert: estOuvert,
-    memoriser: memoriser
+    memoriser: memoriser,
+    memoriserListe: memoriserListe
   };
 
   if (root) root.FamilyHubModeRecette = api;

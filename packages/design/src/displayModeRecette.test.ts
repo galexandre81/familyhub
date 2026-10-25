@@ -30,6 +30,7 @@ interface ApiModeRecette {
   libelleEtapeEs5(description: string): string;
   etapesTrieesEs5(etapes: Etape[] | undefined): Etape[];
   portionsInitialesEs5(portions: unknown, recettes: Array<{ portions?: unknown }>): number;
+  repasOrdonneEs5(ids: string[], recettes: Record<string, unknown>): Array<{ id: string; recette: unknown }>;
 }
 
 const SOURCE = readFileSync(
@@ -110,6 +111,19 @@ describe("libelleEtapeEs5 / etapesTrieesEs5 — parité avec le hub", () => {
     expect(m.etapesTrieesEs5(etapes)).toEqual(etapesTrieesTs(etapes));
     expect(etapes[0].ordre).toBe(2);
     expect(m.etapesTrieesEs5(undefined)).toEqual([]);
+  });
+});
+
+describe("repasOrdonneEs5", () => {
+  it("garde chaque recette à sa place, manquantes comprises (recette null), sans doublon", () => {
+    const a = { nom: "Plat" };
+    const c = { nom: "Dessert" };
+    expect(m.repasOrdonneEs5(["a", "b", "a", "c"], { a, c })).toEqual([
+      { id: "a", recette: a },
+      { id: "b", recette: null },
+      { id: "c", recette: c },
+    ]);
+    expect(m.repasOrdonneEs5(undefined as never, {})).toEqual([]);
   });
 });
 

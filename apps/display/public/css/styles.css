@@ -542,7 +542,7 @@ body {
   width: 100%;
 }
 /* Modifier opt-in : pour les expand qui posent leur propre layout
-   (recipe-today, weekly-menu, livre-recettes). Retire le max-width
+   (weekly-menu, livre-recettes). Retire le max-width
    et le padding du container parent — le module gère son propre header
    et son propre body scrollable interne. */
 .tile-overlay-content--full {

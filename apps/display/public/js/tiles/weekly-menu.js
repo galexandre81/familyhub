@@ -407,11 +407,11 @@
                 'color:#FAFAF7; font-size:14px; cursor:pointer;';
               btn.innerHTML = '<span style="color:#D9A05B; margin-right:8px">▸</span>' + escapeHtml(nom || rid);
               btn.addEventListener('click', function () {
-                showRecetteForSlot({
-                  recetteIds: [rid],
-                  repas: 'dej', /* fallback : on n'a pas de repas pour un batch */
-                  date: session.date
-                });
+                /* Pas de repas pour un batch : titre = nom de la recette. */
+                if (!global.FamilyHubModeRecette) return;
+                var noms = {};
+                if (nom) noms[rid] = nom;
+                global.FamilyHubModeRecette.ouvrir({ recetteIds: [rid], noms: noms });
               });
               recettesWrap.appendChild(btn);
             })(session.recetteIds[ri], session.recetteNoms[ri]);
@@ -426,13 +426,26 @@
     function showRecetteForSlot(slot) {
       if (!slot || !slot.recetteIds || slot.recetteIds.length === 0) return;
       if (!global.FamilyHubModeRecette) return;
-      var nbPresents = (slot.profilsPresents ? slot.profilsPresents.length : 0) +
-        (slot.invitesNoms ? slot.invitesNoms.length : 0);
+      /* Snapshot du menu : profilsCount / invitesCount (pas les noms des invités). */
+      var nbProfils = slot.profilsCount != null
+        ? (+slot.profilsCount || 0)
+        : (slot.profilsPresents ? slot.profilsPresents.length : 0);
+      var nbPresents = nbProfils + (+slot.invitesCount || 0);
       global.FamilyHubModeRecette.ouvrir({
         recetteIds: slot.recetteIds,
         titre: repasLabelLong(slot.repas) + ' · ' + dateLongFr(slot.date),
-        portions: nbPresents > 0 ? nbPresents : undefined
+        portions: nbPresents > 0 ? nbPresents : undefined,
+        noms: nomsParId(slot.recetteIds, slot.recetteNoms)
       });
+    }
+
+    /* recetteNoms ne garde que les noms connus : on ne l'aligne sur
+       recetteIds que s'il est complet. */
+    function nomsParId(ids, noms) {
+      var out = {};
+      if (!ids || !noms || noms.length !== ids.length) return out;
+      for (var i = 0; i < ids.length; i++) out[ids[i]] = noms[i];
+      return out;
     }
   }
 

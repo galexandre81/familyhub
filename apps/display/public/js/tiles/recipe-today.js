@@ -112,6 +112,9 @@
       if (d.recettes[i] && d.recettes[i].recetteId) ids.push(d.recettes[i].recetteId);
     }
     if (ids.length === 0) return;
+    /* Le snapshot porte les recettes complètes (mêmes champs que le doc) :
+       copie de secours si le réseau ne répond pas. */
+    global.FamilyHubModeRecette.memoriserListe(d.recettes);
     var presents = (d.profilsPresents ? d.profilsPresents.length : 0) +
       (d.invitesNoms ? d.invitesNoms.length : 0);
     global.FamilyHubModeRecette.ouvrir({
