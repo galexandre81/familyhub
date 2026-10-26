@@ -13,10 +13,11 @@ Vue d'ensemble pour un développeur. La version pour débutant est dans [ONBOARD
 └──────────────────────┘                  │  ▸ Auth (Google + jeton  │
                                           │    personnalisé iPad)    │
 ┌──────────────────────┐   lit (snapshot) │  ▸ Hosting               │
-│ iPad (apps/display)  │ ───────────────→ │  ▸ Storage               │
-│ ES5, iOS 9, jeton    │                  └──────────────────────────┘
-│ d'écran              │                             ▲
-└──────────────────────┘                             │ cron + déclencheurs
+│ iPad (apps/display)  │ ───────────────→ │  (Storage : activé, non  │
+│ ES5, iOS 9, jeton    │                  │   utilisé)               │
+│ d'écran              │                  └──────────────────────────┘
+└──────────────────────┘                             ▲
+                                                     │ cron + déclencheurs
                                           ┌──────────────────────────┐
                                           │ functions/ : construit   │
                                           │ les snapshots des tuiles │

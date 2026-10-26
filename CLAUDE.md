@@ -16,7 +16,7 @@ npm run check:display                    # iPad : ES5, CSS Safari 9, fichiers r�
 npm run lint --workspace=functions
 npm run build                            # contrôles iPad + design + types + functions + hub
 npm test --workspace=@family-hub/design  # idem : @family-hub/types, functions, hub
-npm run emulators                        # émulateurs Firebase locaux
+npm run emulators                        # émulateurs Firebase locaux (Java 21)
 ```
 
 Tests des règles Firestore (Java 21 requis) : voir [firestore-tests/README.md](firestore-tests/README.md).
@@ -37,7 +37,7 @@ Déploiement : [docs/exploitation/deploiement.md](docs/exploitation/deploiement.
 |---|---|
 | `apps/hub/` | React + Vite + TS + Tailwind : PC et téléphone (`src/pages/`, `src/lib/`) |
 | `apps/display/public/` | iPad ES5 : `js/core.js` (appairage, snapshot, rechargement), `js/tiles/<type>.js` (`window.Tiles[type]`) |
-| `functions/src/` | Cloud Functions : `tiles/` (snapshots), `mealPlan/`, `auth/` (jetons d'écran), `household/` (invitations), `timers/` ; exports dans `index.ts` |
+| `functions/src/` | Cloud Functions : `tiles/` et `snapshot/` (snapshots), `mealPlan/`, `auth/` (jetons d'écran), `household/` (invitations), `timers/`, `lib/` (outils communs) ; exports dans `index.ts` |
 | `packages/types/` | Types Firestore partagés et règles pures |
 | `packages/design/` | Jetons, règle jour/nuit, générateurs CSS, tests de la logique de l'iPad |
 | `firestore.rules`, `firestore.indexes.json`, `firestore-tests/` | Sécurité et index |

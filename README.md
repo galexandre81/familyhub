@@ -65,8 +65,9 @@
                                   │  ▸ Auth Google     │
 ┌────────────────┐                │  ▸ Cloud Functions │
 │ iPad cuisine   │ ←── lit ─────→ │  ▸ Hosting         │
-│ ES5 vanilla    │                │  ▸ Storage         │
-└────────────────┘                └────────────────────┘
+│ ES5 vanilla    │                │  (Storage activé,  │
+└────────────────┘                │   non utilisé)     │
+                                  └────────────────────┘
 ```
 
 - **`apps/hub/`** : React/Vite/TS, PC et application de téléphone (installable, hors ligne)
@@ -97,7 +98,7 @@ L'iPad s'authentifie par un jeton d'écran (pas de compte Google) et lit des sna
 
 > Pour installer Family Hub chez toi : [ONBOARDING.md](./ONBOARDING.md).
 
-**Prérequis** : Node.js ≥ 22 (npm 10), Firebase CLI (`npm i -g firebase-tools`), un projet Firebase à toi (plan Blaze) pour lancer le hub contre de vraies données. Java 21 seulement pour les tests des règles.
+**Prérequis** : Node.js ≥ 22 (npm 10), Firebase CLI (`npm i -g firebase-tools`), un projet Firebase à toi (plan Blaze) pour lancer le hub contre de vraies données. Java 21 pour les émulateurs Firebase (`npm run emulators`) et les tests des règles.
 
 ```bash
 git clone https://github.com/galexandre81/familyhub.git
@@ -122,7 +123,7 @@ L'iPad n'a pas de serveur de dev : `npm run build` le recopie dans `apps/hub/dis
 | `npm run lint --workspace=functions` | Lint des Cloud Functions |
 | `npm test --workspace=<w>` | Tests, `<w>` = `@family-hub/design`, `@family-hub/types`, `functions`, `hub` |
 | `npm run build` | Contrôles iPad + design + types + functions + hub |
-| `npm run emulators` | Émulateurs Firebase locaux |
+| `npm run emulators` | Émulateurs Firebase locaux (Java 21 requis) |
 | `npm run deploy:functions` / `deploy:rules` / `deploy:hosting` / `deploy` | Déploiement, dans cet ordre : [docs/exploitation/deploiement.md](docs/exploitation/deploiement.md) |
 
 Tests des règles Firestore : [firestore-tests/README.md](firestore-tests/README.md). La CI (GitHub Actions) lance tout cela sur chaque PR, sans rien déployer.
