@@ -19,17 +19,28 @@ Le compte est reconnu par le champ `deviceUid` de la config : c'est un parent
 qui l'y inscrit. Les noms exacts des champs sont dans
 `packages/controle-parental/src/schema.ts`.
 
-## 1. Activer la connexion par adresse et mot de passe (une fois)
+## 1. Fermer l'inscription, PUIS ouvrir la connexion par mot de passe
 
-Console Firebase → **Authentication** → **Sign-in method** → **Adresse e-mail/Mot
-de passe** → activer (pas le « lien par e-mail »).
+L'ordre compte (relevé le 26.10.2026) : activer d'abord le mot de passe
+laisserait un moment où n'importe qui peut se créer un compte par l'API
+publique. Un tel compte n'aurait accès à rien — les règles n'accordent jamais
+rien sur la seule connexion, toujours par l'appartenance au foyer ou l'UID de
+l'appareil — mais autant ne pas ouvrir la porte.
 
-Le hub, lui, continue de ne proposer que Google : il n'a aucun écran
-d'inscription. Mais l'API publique permettrait à n'importe qui de se créer un
-compte. Un tel compte n'aurait accès à rien (les règles le refusent partout,
-comme aujourd'hui un compte Google inconnu). Pour fermer quand même la porte,
-une fois le compte de l'appareil créé :
-**Authentication** → **Settings** → **User actions** → décocher **Enable create (sign-up)**.
+1. **Avant**, s'assurer que tous les membres ont déjà un compte (premier passage
+   par Google fait) : ensuite, un **nouveau** compte Google ne pourra plus se
+   connecter pour la première fois, même invité. Pour inviter quelqu'un plus
+   tard : recocher l'inscription le temps de sa première connexion.
+2. **Authentication** → **Settings** → **User actions** :
+   - décocher **Enable create (sign-up)** ;
+   - décocher **Enable deletion** (sinon le compte de l'appareil pourrait se
+     supprimer lui-même ; le hub ne propose pas de suppression de compte).
+   Les comptes des écrans de cuisine (`display:…`) n'en souffrent pas : la
+   fonction `exchangeSetupToken` les crée par le SDK d'administration
+   (`auth.createUser`), que ce réglage ne bloque pas.
+3. **Authentication** → **Sign-in method** → **Adresse e-mail/Mot de passe** →
+   activer (pas le « lien par e-mail »). Le hub, lui, continue de ne proposer que
+   Google.
 
 ## 2. Créer le compte
 
