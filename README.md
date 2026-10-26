@@ -98,7 +98,7 @@ L'iPad s'authentifie par un jeton d'écran (pas de compte Google) et lit des sna
 
 > Pour installer Family Hub chez toi : [ONBOARDING.md](./ONBOARDING.md).
 
-**Prérequis** : Node.js ≥ 22 (npm 10), Firebase CLI (`npm i -g firebase-tools`), un projet Firebase à toi (plan Blaze) pour lancer le hub contre de vraies données. Java 21 pour les émulateurs Firebase (`npm run emulators`) et les tests des règles.
+**Prérequis** : Node.js ≥ 22 (npm 10 pour régénérer le lockfile, comme la CI), Firebase CLI (`npm i -g firebase-tools`), un projet Firebase à toi (plan Blaze) pour lancer le hub contre de vraies données. Java 21 pour les émulateurs Firebase (`npm run emulators`) et les tests des règles.
 
 ```bash
 git clone https://github.com/galexandre81/familyhub.git

@@ -21,7 +21,7 @@ Niveau zéro technique requis · Windows + macOS · ~2-3 heures · 0 €/mois.
 ## ❓ Tu as une question ?
 
 Avant d'ouvrir une issue, vérifie :
-- [ONBOARDING.md](../ONBOARDING.md) section 12 « Si ça plante » : 15 erreurs fréquentes documentées
+- [ONBOARDING.md](../ONBOARDING.md) section 12 « Si ça plante » : les erreurs fréquentes et leur solution
 - [README.md](../README.md) sections architecture et stack
 - [Issues fermées](https://github.com/galexandre81/familyhub/issues?q=is%3Aissue+is%3Aclosed) : ta question a peut-être déjà été résolue
 
