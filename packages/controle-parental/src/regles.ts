@@ -7,7 +7,7 @@
  * Le planning ne porte que sur l'accès au PC (le brief ne planifie pas le
  * mode internet). Toutes les heures sont en heure LOCALE du foyer.
  */
-import { CLE_JOUR, VALEUR } from "./schema";
+import { CLE_JOUR, VALEUR } from "./schema.js";
 import type {
   AccesPc,
   ConfigAppareil,
@@ -17,7 +17,7 @@ import type {
   Exception,
   Jour,
   Planning,
-} from "./types";
+} from "./types.js";
 
 /** [brief] PC autorisé, internet filtré. */
 export const DEFAUTS: Defauts = {

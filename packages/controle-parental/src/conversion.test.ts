@@ -7,7 +7,7 @@ import {
   CHAMP_REGLE,
   CHAMPS_DEMANDE_PARENT,
   VALEUR,
-} from "./schema";
+} from "./schema.js";
 import {
   configDepuis,
   decisionVers,
@@ -21,8 +21,8 @@ import {
   planningVers,
   usageDepuis,
   usageVers,
-} from "./conversion";
-import { DEFAUTS, PLANNING_DEFAUT } from "./regles";
+} from "./conversion.js";
+import { DEFAUTS, PLANNING_DEFAUT } from "./regles.js";
 
 const t = new Date(2026, 9, 26, 22, 0);
 

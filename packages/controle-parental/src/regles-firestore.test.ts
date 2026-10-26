@@ -17,7 +17,7 @@ import {
   DOC_ETAT_COURANT,
   SOUS_COLLECTION,
   VALEUR,
-} from "./schema";
+} from "./schema.js";
 
 const regles = readFileSync(resolve(__dirname, "../../../firestore.rules"), "utf8");
 const bloc = regles.slice(regles.indexOf(`match /${COLLECTION_APPAREILS}/`));

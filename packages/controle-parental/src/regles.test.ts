@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { VALEUR } from "./schema";
+import { VALEUR } from "./schema.js";
 import {
   DEFAUTS,
   PLANNING_DEFAUT,
@@ -9,8 +9,8 @@ import {
   jourLocal,
   prochainChangementPc,
   verrouilleParPlanning,
-} from "./regles";
-import type { Exception } from "./types";
+} from "./regles.js";
+import type { Exception } from "./types.js";
 
 // Semaine du lundi 26.10.2026 (heure locale). Dimanche 25, vendredi 30, samedi 31.
 const le = (jour: number, h: number, m = 0) => new Date(2026, 9, jour, h, m);

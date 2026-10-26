@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { ajouterDomaine, normaliserDomaine } from "./domaine";
+import { ajouterDomaine, normaliserDomaine } from "./domaine.js";
 
 describe("« le prof demande ce site »", () => {
   it.each([

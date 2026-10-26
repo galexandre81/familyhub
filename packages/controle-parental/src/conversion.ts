@@ -20,8 +20,8 @@ import {
   CHAMP_USAGE,
   CLE_JOUR,
   VALEUR,
-} from "./schema";
-import { DEFAUTS, PLANNING_DEFAUT, heureValide } from "./regles";
+} from "./schema.js";
+import { DEFAUTS, PLANNING_DEFAUT, heureValide } from "./regles.js";
 import type {
   AccesPc,
   Appli,
@@ -40,7 +40,7 @@ import type {
   StatutDemande,
   TypeDemande,
   UsageJour,
-} from "./types";
+} from "./types.js";
 
 type Brut = Record<string, unknown>;
 

@@ -26,7 +26,7 @@ import {
   type Firestore,
   type Unsubscribe,
 } from "firebase/firestore";
-import { CHAMP_CONFIG, CHAMP_DEMANDE, COLLECTION_APPAREILS, VALEUR, chemin } from "./schema";
+import { CHAMP_CONFIG, CHAMP_DEMANDE, COLLECTION_APPAREILS, VALEUR, chemin } from "./schema.js";
 import {
   appliVers,
   configDepuis,
@@ -41,7 +41,7 @@ import {
   planningVers,
   usageDepuis,
   usageVers,
-} from "./conversion";
+} from "./conversion.js";
 import type {
   Appli,
   Categorie,
@@ -53,7 +53,7 @@ import type {
   Planning,
   TypeDemande,
   UsageJour,
-} from "./types";
+} from "./types.js";
 
 const signature = (par: string) => ({
   [CHAMP_CONFIG.modifiePar]: par,

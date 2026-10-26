@@ -4,7 +4,7 @@
  * `schema.ts`. Les dates sont des `Date` ; heures du planning en "HH:MM",
  * heure locale du foyer.
  */
-import type { CLE_JOUR, VALEUR } from "./schema";
+import type { CLE_JOUR, VALEUR } from "./schema.js";
 
 type Valeurs<T> = T[keyof T];
 
