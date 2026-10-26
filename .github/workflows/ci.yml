@@ -37,6 +37,8 @@ jobs:
         run: npm test --workspace=@family-hub/design
       - name: Test (types)
         run: npm test --workspace=@family-hub/types
+      - name: Test (contrôle parental)
+        run: npm test --workspace=@family-hub/controle-parental
       - name: Test (functions)
         run: npm test --workspace=functions --if-present
       - name: Test (hub)
