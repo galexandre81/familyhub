@@ -20,7 +20,7 @@ n'atteigne jamais le navigateur ni le PC. Sources : documentation de l'API
 
 | Prérequis | Pourquoi | Coût |
 |---|---|---|
-| **NextDNS Pro** | Fait 2 : sans lui, le filtrage peut s'arrêter en fin de mois | ~2 CHF / mois (prix affiché en monnaie locale) |
+| **NextDNS gratuit, puis Pro si la mesure l'exige** (décision du 26.10.2026) | Fait 2 : on commence gratuit et on mesure ; la jauge ci-dessous prévient avant la limite | 0, puis ~2 CHF / mois |
 | **Un profil NextDNS réservé au PC** | Les listes de sites sont par profil : débloquer un site pour le PC ne doit le débloquer pour personne d'autre ; le rapport ne montre alors que ce PC | 0 |
 | Recommandé : **un compte NextDNS séparé** pour ce profil | Fait 1 : une fuite de clé ne toucherait que ce profil, pas les autres réglages de la famille | 0 (un seul compte Pro suffit si on garde le compte actuel) |
 | **Journaux activés** sur ce profil (stockage Europe ou Suisse, conservation 1 à 3 mois) | Sans journaux, pas de rapport des sites | 0 |
@@ -64,6 +64,16 @@ Téléphone (parent)                 Cloud Function (europe-west1)            Ne
   « Le prof demande ce site » ajoute le site à la liste école (déjà fait) et,
   s'il apparaît dans les sites bloqués du jour, propose « Le débloquer aussi
   en temps normal » (liste blanche NextDNS).
+
+## Jauge du quota (tant que le compte est en gratuit)
+
+La limite des 300 000 requêtes vaut pour **le compte**, tous profils confondus.
+Le rapport (`analytics/status` depuis le 1er du mois, sommé sur les profils du
+compte) donne le total du mois ; les réglages du fondateur affichent « N
+requêtes ce mois-ci sur 300 000 », et une alerte à 70 % laisse le temps de
+passer en Pro avant que le filtrage ne s'arrête. Une requête n'est pas une page :
+Chrome en fait plusieurs par page, et les mises à jour du PC passent aussi par
+NextDNS. Sans code, le tableau de bord NextDNS donne le même chiffre.
 
 ## Ce que l'écran gagne
 
