@@ -14,50 +14,43 @@
 
 </div>
 
-> Plateforme familiale modulaire à base de tuiles, hébergée sur Firebase. Le PC, l'iPad cuisine, le mobile au supermarché — tous synchronisés, chacun avec sa propre sélection de tuiles.
+> Application familiale hébergée sur Firebase, pour un foyer : un iPad en cuisine, les téléphones des parents et un PC pour préparer, tous synchronisés.
 
-**Family Hub transforme une famille en un écosystème connecté de tuiles** : meal planner hebdomadaire généré avec Claude.ai, livre de recettes familial, liste de courses partageable vers Google Keep, mode cuisine plein écran avec timers, agenda Google, météo, radio, minuteurs partagés cross-device.
+**Statut** : en service dans le foyer de l'auteur ; dernière grosse livraison le 25.10.2026 (refonte iPad + téléphone). Détail : [docs/ETAT.md](docs/ETAT.md).
 
 ---
 
 ## ✨ Fonctionnalités
 
-### 🍽️ Meal planner hebdomadaire
-- **Wizard 5 étapes** : date / qui est là cette semaine (filtre rapide pour exclure les profils absents) / présence par profil par repas (avec mode ⚡ express ≤ 15 min) / contexte (batch cooking, jour des courses, frigo à écouler) / export
-- **Plans de durée variable** : un plan peut démarrer n'importe quel jour (pas forcément lundi) et s'étendre sur plus de 7 jours si besoin
-- **Workflow human-in-the-loop avec Claude.ai** : le hub génère un `.md` structuré, tu le colles dans Claude.ai (compte Pro recommandé), tu dialogues pour ajuster, tu récupères un JSON validé, tu l'importes
-- **Édition inline** : notes par slot, marquer un repas annulé (pizzas commandées), changer de recette
-- **Navigation historique** : chevrons ◀ ▶ sur le hub et sur la tuile iPad pour parcourir les semaines précédentes archivées (idées de menus, traçabilité)
-- **Batch cooking** intégré : sessions de prep dimanche affichées séparément avec leurs recettes
+### 🍽️ Menus de la semaine
+- **Assistant en 5 étapes** au PC : date, qui est là, présence par repas (avec repas express ≤ 15 min), contexte (batch cooking, jour des courses, frigo à écouler), revue
+- **Plans de durée variable** : un plan démarre n'importe quel jour et peut dépasser 7 jours
+- **Humain dans la boucle avec Claude.ai** : le hub génère un `.md`, tu dialogues avec Claude.ai, tu importes le JSON obtenu. Aucune IA côté serveur
+- Notes par repas, repas annulé, changement de recette, historique des semaines passées, batch cooking
 
-### 📖 Livre de recettes familial
-- Recherche par nom, tag, style culinaire (insensible aux accents)
-- **Recherche par ingrédients du frigo** : tape ce que tu as, le livre te propose les recettes utilisant ces ingrédients, triées par pertinence
-- Favoris ⭐ / Exclusion 👎 par recette
-- Mode cuisine plein écran avec timers intégrés sur chaque étape
-- Adaptation portions live (recalcul des quantités)
+### 📖 Livre de recettes
+- Recherche par nom, tag, style (insensible aux accents) et **par ingrédients du frigo**
+- Favoris, exclusions, vote pouce ↑↓
+- **Mode recette** : toutes les recettes du repas d'un coup, quantités ajustées aux portions, minuteurs à côté
 
-### 🛒 Liste de courses
-- Auto-générée depuis le plan de repas (groupée par rayon, dédoublonnage)
-- **Web Share API → Google Keep** en un tap (pour cocher en magasin hors-ligne)
-- Ajout manuel d'items (oublis du frigo)
-- Statut « envoyée il y a X temps · toucher pour renvoyer » avec reset auto sur ajout/retrait
+### 🛒 Courses
+- Liste générée depuis le menu, regroupée par rayon, produits de placard à vérifier
+- Tri à la maison : « On l'a », « Drive », « Magasin »
+- **Cochée en magasin sans réseau**, à la couleur de la personne, synchronisée au retour du réseau
+- Oublis ajoutés à la main, reportés au plan suivant ; partage vers Google Keep en option
 
-### 📅 Tuiles d'écran
-- **Recette du jour** (iPad cuisine) : auto-détection du slot du moment selon l'heure
-- **Menu de la semaine** : grille 7×3 avec batch cooking en bandeau
-- **Liste de courses** mobile / iPad
-- **Livre de recettes** : grille filtrée tactile
-- **Calendrier** Google iCal (optionnel)
-- **Météo** Open-Meteo (gratuit, sans clé API)
-- **Radio** : lecteur web avec presets
-- **Minuteur** : timers de cuisine partagés cross-device
-- **Horloge** : design soigné
+### 📱 Téléphone
+- Application installable sur l'écran d'accueil, utilisable hors ligne : Aujourd'hui, Semaine, Courses, Recettes
+- L'autre parent rejoint le foyer par invitation
 
-### 🎨 Personnalisation
-- Ambiance jour/nuit automatique (lever/coucher du soleil), jetons du design system Gates
-- Choix partagé toute famille via la console Paramètres
-- Layouts par display configurables individuellement
+### 🧑‍🍳 iPad de cuisine (iPad mini 1, iOS 9)
+- Tableau fixe : prochain repas, ensuite, batch cooking, minuteurs, météo, agenda, « PC des enfants »
+- Plein écran : agenda, menu de la semaine, livre de recettes, radio, réglages (luminosité)
+- **Minuteurs partagés** avec les téléphones ; seul l'appareil qui lance un minuteur sonne
+- Se met à jour tout seul après chaque déploiement
+
+### 🎨 Ambiance
+- Jour/nuit automatique (lever et coucher du soleil), sur le téléphone, le PC et l'iPad
 
 ---
 
@@ -65,27 +58,24 @@
 
 ```
 ┌────────────────┐                ┌────────────────────┐
-│  Hub web (PC)  │ ←─── R/W ────→ │                    │
-│  React + Vite  │                │     Firebase       │
-└────────────────┘                │                    │
-                                  │  ▸ Firestore (BDD) │
-┌────────────────┐                │  ▸ Auth Google     │
-│ iPad cuisine   │ ←──── R ─────→ │  ▸ Cloud Functions │
-│ ES5 vanilla    │                │  ▸ Hosting         │
-└────────────────┘                │  ▸ Storage         │
-                                  │                    │
-┌────────────────┐                └────────────────────┘
-│ Mobile / autre │ ←─── R/W ────→
-│ écran          │
-└────────────────┘
+│ Hub (PC +      │ ←─── R/W ────→ │                    │
+│ téléphone)     │                │     Firebase       │
+│ React + Vite   │                │                    │
+└────────────────┘                │  ▸ Firestore (BDD) │
+                                  │  ▸ Auth Google     │
+┌────────────────┐                │  ▸ Cloud Functions │
+│ iPad cuisine   │ ←── lit ─────→ │  ▸ Hosting         │
+│ ES5 vanilla    │                │  (Storage activé,  │
+└────────────────┘                │   non utilisé)     │
+                                  └────────────────────┘
 ```
 
-- **`apps/hub/`** : interface React/Vite/TS pour PC + mobile responsive (édition, wizard, gestion)
-- **`apps/display/`** : site vanilla JS ES5 pour iPad mini 1 (iOS 9.3.6) et autres écrans d'affichage uniquement
-- **`functions/`** : Cloud Functions Node 22 (snapshot builders, calendrier iCal, refresh météo, etc.)
-- **`packages/types/`** : interfaces TypeScript Firestore partagées Hub / Functions
+- **`apps/hub/`** : React/Vite/TS, PC et application de téléphone (installable, hors ligne)
+- **`apps/display/`** : site JavaScript ES5 pour l'iPad mini 1 (iOS 9.3.6)
+- **`functions/`** : Cloud Functions Node 22 (snapshots des tuiles, plans de repas, appairage, invitations)
+- **`packages/types/`**, **`packages/design/`** : types partagés, jetons du design et règle jour/nuit
 
-L'iPad mini 1 est **read-only** (custom token), il consomme les snapshots pré-calculés par les Cloud Functions toutes les 30 minutes.
+L'iPad s'authentifie par un jeton d'écran (pas de compte Google) et lit des snapshots pré-calculés par les Cloud Functions. Détails : [docs/architecture.md](docs/architecture.md).
 
 ---
 
@@ -93,133 +83,100 @@ L'iPad mini 1 est **read-only** (custom token), il consomme les snapshots pré-c
 
 | Couche | Tech |
 |---|---|
-| Frontend hub | React 18 + Vite + TypeScript + Tailwind CSS |
-| Frontend display | HTML + JS ES5 + Firebase SDK v8 compat (iOS 9.3.6 OK) |
-| Backend | Firebase Cloud Functions (Node 22, 2nd gen) |
-| Base de données | Cloud Firestore |
-| Auth | Firebase Auth — Google OAuth |
-| Hosting | Firebase Hosting (CDN global) |
-| Validation | Zod |
-| State management | TanStack Query |
-| Type sharing | Monorepo npm workspaces |
+| Hub (PC + téléphone) | React 18, Vite, TypeScript, Tailwind CSS, React Query, React Router, `vite-plugin-pwa` |
+| iPad | HTML + JavaScript ES5 + Firebase SDK v8 compat (iOS 9.3.6) |
+| Backend | Firebase Cloud Functions v2 (Node 22, europe-west1) |
+| Données | Cloud Firestore (cache hors ligne IndexedDB côté hub) |
+| Auth | Firebase Auth : Google pour les parents, jeton personnalisé pour l'iPad |
+| Hébergement | Firebase Hosting |
+| Validation, tests | Zod, Vitest, émulateur Firestore |
+| Monorepo | npm workspaces |
 
 ---
 
-## 👨‍💻 Setup développeur (si tu fork pour adapter)
+## 👨‍💻 Démarrage développeur
 
-> Pour l'installation utilisateur final : voir [ONBOARDING.md](./ONBOARDING.md).
+> Pour installer Family Hub chez toi : [ONBOARDING.md](./ONBOARDING.md).
 
-**Prérequis** : Node.js ≥ 22, Firebase CLI (`npm i -g firebase-tools`), un projet Firebase à toi avec plan Blaze.
+**Prérequis** : Node.js ≥ 22 (npm 10 pour régénérer le lockfile, comme la CI), Firebase CLI (`npm i -g firebase-tools`), un projet Firebase à toi (plan Blaze) pour lancer le hub contre de vraies données. Java 21 pour les émulateurs Firebase (`npm run emulators`) et les tests des règles.
 
 ```bash
-# Cloner
 git clone https://github.com/galexandre81/familyhub.git
 cd familyhub
+npm ci
 
-# Installer
-npm install
+cp .env.example apps/hub/.env.local      # puis remplis les VITE_FIREBASE_* de ton projet
+cp .firebaserc.example .firebaserc       # puis mets ton projectId (fichier non versionné)
 
-# Configurer
-cp .env.example apps/hub/.env.local
-# → édite apps/hub/.env.local avec tes clés Firebase
-cp .firebaserc.example .firebaserc
-# → édite .firebaserc avec ton projectId (fichier non versionné)
-# (la config de l'iPad est générée au build depuis ce même .env.local)
-
-# Connexion
-firebase login
-
-# Dev local hub
-npm run dev:hub        # → http://localhost:5173
-
-# Émulateurs Firebase locaux (optionnel)
-npm run emulators
-
-# Build complet
-npm run build
-
-# Déploiement
-firebase deploy
-firebase deploy --only hosting       # plus rapide
-firebase deploy --only functions     # quand seul le code CF change
-firebase deploy --only firestore     # rules + indexes
+npm run build:design && npm run build:types   # paquets partagés, obligatoire avant dev:hub
+npm run dev:hub                               # → http://localhost:5173
 ```
 
-### Structure du repo
+L'iPad n'a pas de serveur de dev : `npm run build` le recopie dans `apps/hub/dist/display`, servi par `npm run emulators` ou par l'hébergement.
 
-```
-familyhub/
-├── apps/
-│   ├── hub/                  # React app (PC + mobile)
-│   │   ├── src/
-│   │   │   ├── components/   # composants partagés
-│   │   │   ├── pages/        # Menu, LivreRecettes, Profils, etc.
-│   │   │   └── lib/          # auth, queries, mutations, firebase, ambiance
-│   │   └── .env.local        # ⚠️ à créer, gitignored
-│   └── display/              # site iPad/mobile-display vanilla JS
-│       └── public/js/tiles/  # 1 fichier JS ES5 par type de tuile
-├── functions/                # Cloud Functions (logique serveur)
-│   └── src/
-│       ├── tiles/            # snapshot builders par tuile
-│       ├── mealPlan/         # CFs création/validation/suppression plans
-│       └── auth/             # display token (custom auth)
-├── packages/
-│   └── types/                # types Firestore partagés
-├── scripts/
-│   └── seedRecipes/          # script Node pour pré-remplir le livre via LLM
-├── firebase.json
-├── firestore.rules
-├── firestore.indexes.json
-├── .firebaserc.example       # modèle : copier en .firebaserc (non versionné) avec ton projectId
-├── .env.example
-└── package.json              # workspaces npm
-```
+### Commandes
 
-### Ajouter une nouvelle tuile
+| Commande | Rôle |
+|---|---|
+| `npm run dev:hub` | Hub en local |
+| `npm run check:display` | iPad : ES5, CSS compatible Safari 9, fichiers référencés |
+| `npm run lint --workspace=functions` | Lint des Cloud Functions |
+| `npm test --workspace=<w>` | Tests, `<w>` = `@family-hub/design`, `@family-hub/types`, `functions`, `hub` |
+| `npm run build` | Contrôles iPad + design + types + functions + hub |
+| `npm run emulators` | Émulateurs Firebase locaux (Java 21 requis) |
+| `npm run deploy:functions` / `deploy:rules` / `deploy:hosting` / `deploy` | Déploiement, dans cet ordre : [docs/exploitation/deploiement.md](docs/exploitation/deploiement.md) |
 
-1. Définir le type config dans `packages/types/src/tiles/<type>.ts`
-2. Ajouter le type dans l'enum `TileType` de `packages/types/src/common.ts` ET `functions/src/types.ts`
-3. Composant React dans `apps/hub/src/components/tiles/<Type>Tile.tsx` (si édition spécifique)
-4. Module display dans `apps/display/public/js/tiles/<type>.js` (ES5 vanilla)
-5. (Si pré-calcul) Cloud Function dans `functions/src/tiles/<type>.ts`
-6. (Si refresh régulier) `scheduledXxxRefresh` cron toutes les X minutes
-7. Ajouter au TileForm `SUPPORTED_TYPES` + label
-8. Référence le script dans `apps/display/public/index.html` avec un cache-buster `?v=YYYYMMDDx`
+Tests des règles Firestore : [firestore-tests/README.md](firestore-tests/README.md). La CI (GitHub Actions) lance tout cela sur chaque PR, sans rien déployer.
 
-Pattern : pas de `if/else` à rallonge sur `tile.type`, dispatch via `window.Tiles[type]`.
+### Ajouter une tuile à l'iPad
+
+1. Type de config dans `packages/types/src/tiles/<type>.ts`, et le type dans `TileType` (`packages/types/src/common.ts` **et** `functions/src/types.ts`).
+2. Module ES5 dans `apps/display/public/js/tiles/<type>.js`, enregistré dans `window.Tiles[type]`, référencé dans `apps/display/public/index.html` avec `?v=__DISPLAY_VERSION__`.
+3. Si la tuile appartient au tableau de cuisine : `TYPES_TABLEAU` dans `apps/hub/src/lib/ecranCuisine.ts`.
+4. Si elle a besoin de données pré-calculées : snapshot builder dans `functions/src/tiles/<type>.ts` (+ tâche planifiée), exporté dans `functions/src/index.ts`.
+5. Logique pure de l'iPad testée dans `packages/design/src/display*.test.ts`.
 
 ---
 
-## 📦 Phases livrées
+## 📚 Documentation
 
-- **Phase 1** ✅ — Fondation monorepo + tuiles `clock`, `weather`, `radio`. iPad mural en cuisine.
-- **Phase 2** ✅ — Drag&drop layout, mode édition tactile, tuiles `calendar`, `timer`.
-- **Phase 3** ✅ — Meal planner hebdo, batch cooking, livre de recettes, liste de courses mobile, recipe-mode iPad. Workflow human-in-the-loop avec Claude.ai.
-- **Bonus** ✅ — Recherche par ingrédients du frigo, repas express, notation pouce ↑↓.
+Par ordre d'autorité (le code fait foi en cas de doute) :
 
-**Hors scope (volontairement)** : Cloud Function LLM (le LLM = Claude.ai en human-in-the-loop), chat conversationnel intégré, PWA installable, OCR recettes externes.
+| Document | Contenu |
+|---|---|
+| [docs/ETAT.md](docs/ETAT.md) | État courant : livré, en cours, prochaines étapes |
+| [docs/DESIGN.md](docs/DESIGN.md) | Jetons, jour/nuit, contraintes iPad, application de téléphone |
+| [docs/architecture.md](docs/architecture.md) | Morceaux, flux de données, intégrations |
+| [docs/decisions/](docs/decisions/) | Décisions d'architecture |
+| [docs/exploitation/](docs/exploitation/) | Déploiement, IAM des Cloud Functions |
+| [ONBOARDING.md](ONBOARDING.md) | Guide d'installation pour un foyer non technique |
+| [CHANGELOG.md](CHANGELOG.md) | Historique des livraisons |
+| [CLAUDE.md](CLAUDE.md) | Consignes pour les agents de code |
+| [docs/archive/](docs/archive/INDEX.md) | Specs et plans clos |
+
+**Hors périmètre (volontairement)** : LLM côté serveur, chat intégré, OCR de recettes externes, notifications push.
 
 ---
 
 ## 💸 Coût d'exploitation
 
-Pour un usage familial (3-5 personnes, 1 plan/semaine, ~50 recettes/mois cuisinées) :
+Pour un usage familial (3-5 personnes, 1 plan/semaine) :
 
-- **Quasiment toujours 0 €/mois** : le quota gratuit Firebase est généreux pour cet usage
-- **Plan Blaze obligatoire** (CB requise) car les Cloud Functions 2nd gen ne marchent pas sur Spark
-- **Recommandé** : alerte budget à 1 € + restrictions HTTP referrer sur l'apiKey + cap budget manuel
+- **Quasiment toujours 0 €/mois** : le quota gratuit Firebase suffit
+- **Plan Blaze obligatoire** (CB requise) : les Cloud Functions 2nd gen ne marchent pas sur Spark
+- **Recommandé** : alerte budget à 1 €, restrictions HTTP referrer sur l'apiKey
 
-Détails complets dans [ONBOARDING.md §2.3](./ONBOARDING.md#23--le-coût--à-lire-absolument).
+Détails dans [ONBOARDING.md §2.3](./ONBOARDING.md#23--le-coût--à-lire-absolument).
 
 ---
 
 ## 🤝 Contribuer
 
-Family Hub est un projet **open-source** que tu peux fork, cloner, adapter à ta famille. Si tu trouves un bug ou as une suggestion :
+Family Hub est un projet **open-source** que tu peux fork, cloner, adapter à ta famille :
 
-- 🐛 [Ouvrir une issue](https://github.com/galexandre81/familyhub/issues) en décrivant le problème + étapes pour reproduire
-- 💡 [Proposer une fonctionnalité](https://github.com/galexandre81/familyhub/issues/new) en expliquant le besoin
-- 🔧 [Pull request](https://github.com/galexandre81/familyhub/pulls) bienvenue (avec build qui passe et description des changements)
+- 🐛 [Ouvrir une issue](https://github.com/galexandre81/familyhub/issues) en décrivant le problème et les étapes pour le reproduire
+- 💡 [Proposer une fonctionnalité](https://github.com/galexandre81/familyhub/issues/new)
+- 🔧 [Pull request](https://github.com/galexandre81/familyhub/pulls) bienvenue (CI verte, description des changements)
 
 ---
 
@@ -239,11 +196,11 @@ L'**usage commercial** (revente d'un service basé sur ce code, intégration dan
 
 ## 🙏 Remerciements
 
-- **[Anthropic Claude](https://claude.ai)** : co-pilote pendant tout le développement et compagnon human-in-the-loop pour les meal plans
+- **[Anthropic Claude](https://claude.ai)** : co-pilote pendant tout le développement et compagnon human-in-the-loop pour les menus
 - **[Firebase](https://firebase.google.com)** : infrastructure backend
 - **[Open-Meteo](https://open-meteo.com)** : API météo gratuite et sans clé
 - **[Lucide Icons](https://lucide.dev)** : icônes SVG
-- **[shadcn/ui](https://ui.shadcn.com)** + **[Tailwind](https://tailwindcss.com)** : système de design
+- **[Tailwind](https://tailwindcss.com)** : CSS du hub
 
 ---
 
