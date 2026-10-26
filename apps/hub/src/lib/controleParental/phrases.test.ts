@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   DEFAUTS,
+  JUSQUA_NOUVEL_ORDRE_MS,
   PLANNING_DEFAUT,
   VALEUR,
   type ConfigAppareil,
@@ -76,6 +77,22 @@ describe("l'état en une phrase", () => {
         expect(phraseEtat(c, le(26, h))).not.toMatch(/dns|override|exception|filtered|school|locked|allowed/i);
       }
     }
+  });
+});
+
+describe("verrouillé jusqu'à ce qu'un parent le déverrouille", () => {
+  const sansFin = new Date(JUSQUA_NOUVEL_ORDRE_MS);
+  it("proposé en premier quand on verrouille, et seulement là", () => {
+    expect(choixEcheances(le(26, 15), "verrouiller")[0]).toEqual({ libelle: "Jusqu'à ce que je le déverrouille", jusqua: sansFin });
+    expect(choixEcheances(le(26, 15), "debloquer").some((c) => c.jusqua.getTime() === sansFin.getTime())).toBe(false);
+    expect(choixEcheances(le(26, 15), "ecole").some((c) => c.jusqua.getTime() === sansFin.getTime())).toBe(false);
+  });
+  it("la phrase ne donne pas de date, et le verrou tient toute la nuit et le lendemain", () => {
+    const c = config({ pc: VALEUR.pc.verrouille, jusqua: sansFin, par: "p" });
+    for (const t of [le(26, 15), le(27, 10), le(30, 12)]) {
+      expect(phraseEtat(c, t)).toBe("PC verrouillé jusqu'à ce qu'un parent le déverrouille, internet complet");
+    }
+    expect(exceptionEnCours(c, le(26, 15))).toBe("verrouillé jusqu'à ce qu'un parent le déverrouille");
   });
 });
 

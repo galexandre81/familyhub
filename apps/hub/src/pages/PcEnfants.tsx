@@ -29,7 +29,7 @@ import {
   exceptionEnCours,
   fraicheur,
   phraseEtat,
-  quandTexte,
+  jusquaTexte,
 } from "../lib/controleParental/phrases";
 import {
   useAppareilDuFoyer,
@@ -109,7 +109,7 @@ export default function PcEnfants() {
     const a = ACTIONS[sorte];
     envoyer(
       poserException(db, config.id, { ...a.regle, jusqua, par: user.uid }),
-      `${a.fait} jusqu'à ${quandTexte(jusqua, new Date())}`,
+      `${a.fait} ${jusquaTexte(jusqua, new Date())}`,
     );
   };
 

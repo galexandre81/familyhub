@@ -10,6 +10,8 @@ import {
   etatEffectif,
   exceptionActive,
   prochainChangementPc,
+  sansFin,
+  JUSQUA_NOUVEL_ORDRE_MS,
   type ConfigAppareil,
   type Demande,
   type EtatAppareil,
@@ -41,6 +43,14 @@ export function quandTexte(d: Date, maintenant: Date): string {
   return `${d.toLocaleDateString("fr-FR", { weekday: "long" })} ${heure(d)}`;
 }
 
+/**
+ * « jusqu'à 21h30 », « jusqu'à demain 7h00 », ou, pour un verrouillage sans
+ * fin, « jusqu'à ce qu'un parent le déverrouille ».
+ */
+export function jusquaTexte(d: Date, maintenant: Date): string {
+  return sansFin(d) ? "jusqu'à ce qu'un parent le déverrouille" : `jusqu'à ${quandTexte(d, maintenant)}`;
+}
+
 /** « 2h35 », « 45 min », « 0 min ». */
 export function dureeTexte(minutes: number): string {
   const m = Math.round(minutes);
@@ -59,16 +69,16 @@ export function phraseEtat(config: ConfigAppareil, maintenant: Date): string {
     if (e.raisonPc === VALEUR.raison.planning) {
       parties.push(suite ? `PC verrouillé pour la nuit, jusqu'à ${quandTexte(suite.quand, maintenant)}` : "PC verrouillé");
     } else {
-      parties.push(ex ? `PC verrouillé jusqu'à ${quandTexte(ex.jusqua, maintenant)}` : "PC verrouillé");
+      parties.push(ex ? `PC verrouillé ${jusquaTexte(ex.jusqua, maintenant)}` : "PC verrouillé");
     }
   } else if (ex?.pc === VALEUR.pc.autorise) {
-    parties.push(`PC débloqué jusqu'à ${quandTexte(ex.jusqua, maintenant)}`);
+    parties.push(`PC débloqué ${jusquaTexte(ex.jusqua, maintenant)}`);
   } else {
     parties.push("PC autorisé");
   }
 
   if (e.internet === VALEUR.internet.ecole) {
-    parties.push(ex ? `mode école jusqu'à ${quandTexte(ex.jusqua, maintenant)}` : "mode école");
+    parties.push(ex ? `mode école ${jusquaTexte(ex.jusqua, maintenant)}` : "mode école");
   } else {
     parties.push("internet complet");
   }
@@ -159,6 +169,8 @@ export function choixEcheances(maintenant: Date, sorte: "debloquer" | "verrouill
   } else if (sorte === "verrouiller") {
     repere(`Jusqu'à ${heure(a(maintenant, 18, 0))}`, a(maintenant, 18, 0));
     choix.push({ libelle: `Demain ${heure(a(maintenant, 7, 0))}`, jusqua: a(lendemain(maintenant), 7, 0) });
+    // En tête : verrouillé tant qu'un parent ne le déverrouille pas.
+    choix.unshift({ libelle: "Jusqu'à ce que je le déverrouille", jusqua: new Date(JUSQUA_NOUVEL_ORDRE_MS) });
   } else {
     repere(`Jusqu'à ${heure(a(maintenant, 17, 0))}`, a(maintenant, 17, 0));
     repere(`Jusqu'à ${heure(a(maintenant, 19, 0))}`, a(maintenant, 19, 0));
@@ -205,5 +217,5 @@ export function exceptionEnCours(config: ConfigAppareil, maintenant: Date): stri
   if (ex.pc === VALEUR.pc.verrouille) parts.push("verrouillé");
   if (ex.internet === VALEUR.internet.ecole) parts.push("mode école");
   if (ex.internet === VALEUR.internet.complet) parts.push("internet complet");
-  return `${parts.join(" et ")} jusqu'à ${quandTexte(ex.jusqua, maintenant)}`;
+  return `${parts.join(" et ")} ${jusquaTexte(ex.jusqua, maintenant)}`;
 }

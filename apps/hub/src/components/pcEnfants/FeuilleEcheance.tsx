@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { X } from "lucide-react";
+import { sansFin } from "@family-hub/controle-parental";
 import { useMaintenant } from "../../lib/useMaintenant";
 import {
   choixEcheances,
@@ -56,7 +57,7 @@ export default function FeuilleEcheance({
 
         <ul className="grid grid-cols-2 gap-2">
           {choixEcheances(maintenant, sorte).map((c) => (
-            <li key={c.libelle}>
+            <li key={c.libelle} className={sansFin(c.jusqua) ? "col-span-2" : undefined}>
               <button
                 type="button"
                 onClick={() => onChoisir(c.jusqua)}

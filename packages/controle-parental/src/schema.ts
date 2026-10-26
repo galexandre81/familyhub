@@ -130,6 +130,15 @@ export const CHAMP_DEMANDE = {
   accordeJusqua: "grantedUntil",
 } as const;
 
+/**
+ * [hub] Échéance d'un verrouillage « jusqu'à ce qu'un parent le déverrouille »
+ * (décision du 26.10.2026). Une date lointaine plutôt qu'une absence d'échéance :
+ * un agent qui ne connaît que le brief (échéance obligatoire) verrouille quand
+ * même, au lieu d'ignorer une exception qu'il jugerait invalide et de débloquer.
+ * À confirmer au contrat.
+ */
+export const JUSQUA_NOUVEL_ORDRE_MS = Date.UTC(2100, 0, 1);
+
 /** Les seuls champs d'une demande qu'un parent a le droit d'écrire. */
 export const CHAMPS_DEMANDE_PARENT = [
   CHAMP_DEMANDE.statut,

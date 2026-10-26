@@ -58,6 +58,10 @@ doit suivre.
 - [ ] `override` : `{ pc?, internet?, until, by }` — une seule échéance pour les
       deux dimensions ? (Family Hub : une décision remplace la précédente ; seule
       l'acceptation de « plus de temps » fusionne.) `until` en Timestamp ?
+- [ ] **Verrouillage « jusqu'à ce qu'un parent le déverrouille »** (décision du
+      26.10) : écrit comme une exception `pc: locked` d'échéance 01.01.2100
+      (`JUSQUA_NOUVEL_ORDRE_MS`), pour qu'un agent qui exige une échéance
+      verrouille quand même. Le contrat prévoit-il mieux (échéance absente) ?
 - [ ] `schoolAllowlist` : domaines nus ; sous-domaines inclus implicitement ?
       (Family Hub retire seulement « www. ».)
 - [ ] `apps` : `{ id: { allowed, category, label? } }` — format des ids (binaire,

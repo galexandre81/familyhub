@@ -7,7 +7,7 @@
  * Le planning ne porte que sur l'accès au PC (le brief ne planifie pas le
  * mode internet). Toutes les heures sont en heure LOCALE du foyer.
  */
-import { CLE_JOUR, SEUIL_ALERTE_QUOTA, VALEUR } from "./schema.js";
+import { CLE_JOUR, JUSQUA_NOUVEL_ORDRE_MS, SEUIL_ALERTE_QUOTA, VALEUR } from "./schema.js";
 import type {
   AccesPc,
   ConfigAppareil,
@@ -185,4 +185,9 @@ export function partDuQuota(r: Pick<RapportNextdns, "requetesDuMois" | "limiteDu
 /** Les parents sont prévenus à partir de SEUIL_ALERTE_QUOTA (au-delà de la limite, le filtrage s'arrête). */
 export function alerteQuota(r: Pick<RapportNextdns, "requetesDuMois" | "limiteDuMois"> | null): boolean {
   return !!r && partDuQuota(r) >= SEUIL_ALERTE_QUOTA;
+}
+
+/** Échéance « jusqu'à ce qu'un parent le déverrouille » (voir JUSQUA_NOUVEL_ORDRE_MS). */
+export function sansFin(jusqua: Date): boolean {
+  return jusqua.getTime() >= JUSQUA_NOUVEL_ORDRE_MS;
 }
