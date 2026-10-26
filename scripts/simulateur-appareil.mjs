@@ -23,6 +23,7 @@ import { connectAuthEmulator, getAuth, signInWithEmailAndPassword } from "fireba
 import { connectFirestoreEmulator, getDoc, doc, getFirestore } from "firebase/firestore";
 import {
   CHAMP_CONFIG,
+  CHAMP_PRIVE_NEXTDNS,
   VALEUR,
   appliVers,
   chemin,
@@ -213,6 +214,10 @@ async function preparer() {
     ),
     [CHAMP_CONFIG.listeEcole]: LISTE_ECOLE,
   });
+
+  // Profil NextDNS de l'appareil (document privé, lu par la fonction seule) :
+  // celui que sert scripts/faux-nextdns.mjs.
+  await db.doc(chemin.priveNextdns(APPAREIL)).set({ [CHAMP_PRIVE_NEXTDNS.profil]: "essaiPc" });
 
   console.log(`Foyer d'essai prêt : ${parents.length} parent(s), ${enfants.length} enfant(s).`);
   console.log(`Appareil « ${APPAREIL} » relié au compte ${COMPTE_APPAREIL.email}, ${APPLIS.length} applis, planning par défaut.`);

@@ -35,6 +35,8 @@ import { afterAll, beforeAll, beforeEach, describe, it } from "vitest";
 import {
   CHAMP_CONFIG,
   CHAMP_DEMANDE,
+  CHAMP_PRIVE_NEXTDNS,
+  CHAMP_RAPPORT,
   CHAMP_REGLE,
   COLLECTION_APPAREILS,
   SOUS_COLLECTION,
@@ -297,6 +299,36 @@ describe("appareil : interdit", () => {
   it("lire le foyer et ses données (recettes, profils)", async () => {
     await assertFails(getDoc(doc(db(APPAREIL), "households", FOYER)));
     await assertFails(getDocs(collection(db(APPAREIL), "households", FOYER, "profils")));
+  });
+});
+
+describe("NextDNS : rapport et profil privé", () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const d = ctx.firestore();
+      await setDoc(doc(d, chemin.rapportNextdns(PC)), { [CHAMP_RAPPORT.jour]: JOUR, [CHAMP_RAPPORT.requetesDuMois]: 1000 });
+      await setDoc(doc(d, chemin.priveNextdns(PC)), { [CHAMP_PRIVE_NEXTDNS.profil]: "abc123" });
+    });
+  });
+
+  it("les parents lisent le rapport", async () => {
+    await assertSucceeds(getDoc(doc(db(PARENT), chemin.rapportNextdns(PC))));
+    await assertSucceeds(getDoc(doc(db(PARENT_2), chemin.rapportNextdns(PC))));
+  });
+
+  it("personne n'écrit le rapport depuis un navigateur ; le PC et l'enfant ne le lisent pas", async () => {
+    await assertFails(setDoc(doc(db(PARENT), chemin.rapportNextdns(PC)), { [CHAMP_RAPPORT.requetesDuMois]: 0 }));
+    await assertFails(setDoc(doc(db(APPAREIL), chemin.rapportNextdns(PC)), { [CHAMP_RAPPORT.requetesDuMois]: 0 }));
+    await assertFails(getDoc(doc(db(APPAREIL), chemin.rapportNextdns(PC))));
+    await assertFails(getDoc(doc(db(ENFANT), chemin.rapportNextdns(PC))));
+    await assertFails(getDoc(doc(db(PARENT_B), chemin.rapportNextdns(PC))));
+  });
+
+  it("le profil NextDNS n'est lisible par aucun client, même un parent", async () => {
+    for (const uid of [PARENT, PARENT_2, APPAREIL, ENFANT]) {
+      await assertFails(getDoc(doc(db(uid), chemin.priveNextdns(PC))));
+      await assertFails(setDoc(doc(db(uid), chemin.priveNextdns(PC)), { [CHAMP_PRIVE_NEXTDNS.profil]: "autre" }));
+    }
   });
 });
 

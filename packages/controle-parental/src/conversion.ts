@@ -16,9 +16,12 @@ import {
   CHAMP_ETAT,
   CHAMP_EVENEMENT,
   CHAMP_LIMITE,
+  CHAMP_RAPPORT,
   CHAMP_REGLE,
+  CHAMP_SITE,
   CHAMP_USAGE,
   CLE_JOUR,
+  QUOTA_GRATUIT_NEXTDNS,
   VALEUR,
 } from "./schema.js";
 import { DEFAUTS, PLANNING_DEFAUT, heureValide } from "./regles.js";
@@ -36,6 +39,8 @@ import type {
   Limite,
   ModeInternet,
   Planning,
+  RapportNextdns,
+  SiteDuJour,
   Raison,
   StatutDemande,
   TypeDemande,
@@ -320,5 +325,33 @@ export function decisionVers(d: {
     [CHAMP_DEMANDE.decidePar]: d.par,
     [CHAMP_DEMANDE.decideLe]: d.quand,
     [CHAMP_DEMANDE.accordeJusqua]: d.accordeJusqua,
+  };
+}
+
+// ---------------------------------------------------------------- NextDNS
+
+function sitesDepuis(v: unknown): SiteDuJour[] {
+  if (!Array.isArray(v)) return [];
+  return v
+    .filter(estObjet)
+    .map((s) => ({ domaine: texte(s[CHAMP_SITE.domaine]) ?? "", requetes: nombre(s[CHAMP_SITE.requetes]) }))
+    .filter((s) => s.domaine);
+}
+
+function textes(v: unknown): string[] {
+  return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string" && x.length > 0) : [];
+}
+
+export function rapportNextdnsDepuis(data: Brut | undefined): RapportNextdns | null {
+  if (!data) return null;
+  return {
+    jour: texte(data[CHAMP_RAPPORT.jour]),
+    visites: sitesDepuis(data[CHAMP_RAPPORT.visites]),
+    bloques: sitesDepuis(data[CHAMP_RAPPORT.bloques]),
+    toujoursAutorises: textes(data[CHAMP_RAPPORT.toujoursAutorises]),
+    toujoursBloques: textes(data[CHAMP_RAPPORT.toujoursBloques]),
+    requetesDuMois: nombre(data[CHAMP_RAPPORT.requetesDuMois]),
+    limiteDuMois: nombre(data[CHAMP_RAPPORT.limiteDuMois]) || QUOTA_GRATUIT_NEXTDNS,
+    majLe: enDate(data[CHAMP_RAPPORT.majLe]),
   };
 }

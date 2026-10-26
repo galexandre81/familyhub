@@ -7,7 +7,7 @@
  * Le planning ne porte que sur l'accès au PC (le brief ne planifie pas le
  * mode internet). Toutes les heures sont en heure LOCALE du foyer.
  */
-import { CLE_JOUR, VALEUR } from "./schema.js";
+import { CLE_JOUR, SEUIL_ALERTE_QUOTA, VALEUR } from "./schema.js";
 import type {
   AccesPc,
   ConfigAppareil,
@@ -17,6 +17,7 @@ import type {
   Exception,
   Jour,
   Planning,
+  RapportNextdns,
 } from "./types.js";
 
 /** [brief] PC autorisé, internet filtré. */
@@ -174,4 +175,14 @@ export function prochainChangementPc(
     if (pc !== actuel) return { quand: t, pc };
   }
   return null;
+}
+
+/** Part du quota NextDNS du mois déjà consommée (0 à 1 et plus). */
+export function partDuQuota(r: Pick<RapportNextdns, "requetesDuMois" | "limiteDuMois">): number {
+  return r.limiteDuMois > 0 ? r.requetesDuMois / r.limiteDuMois : 0;
+}
+
+/** Les parents sont prévenus à partir de SEUIL_ALERTE_QUOTA (au-delà de la limite, le filtrage s'arrête). */
+export function alerteQuota(r: Pick<RapportNextdns, "requetesDuMois" | "limiteDuMois"> | null): boolean {
+  return !!r && partDuQuota(r) >= SEUIL_ALERTE_QUOTA;
 }

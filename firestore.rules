@@ -204,6 +204,14 @@ service cloud.firestore {
         allow create, update: if estAppareil() && jour.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
       }
 
+      // Rapport NextDNS (sites du jour, quota du mois) : écrit par la fonction
+      // serveur (Admin), lu par les parents. Ni l'appareil ni personne d'autre.
+      // `private/nextdns` (profil NextDNS) n'a volontairement AUCUNE règle :
+      // refusé à tous les clients, lu par la fonction seule.
+      match /reports/{docId} {
+        allow read: if estParent();
+      }
+
       // Demandes : l'appareil les crée en attente ; un parent ne pose que la
       // décision, signée de son uid. Personne ne supprime.
       match /requests/{requestId} {

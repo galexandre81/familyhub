@@ -1,5 +1,6 @@
 import { Check, Clock, Globe, AppWindow, X } from "lucide-react";
 import {
+  ACTION_NEXTDNS,
   VALEUR,
   accepterDemande,
   refuserDemande,
@@ -8,6 +9,7 @@ import {
 } from "@family-hub/controle-parental";
 import { db } from "../../lib/firebase";
 import { envoyer } from "../../lib/controleParental/envoyer";
+import { changerSite } from "../../lib/controleParental/nextdns";
 import { ilYA, titreDemande } from "../../lib/controleParental/phrases";
 
 const ICONE = {
@@ -36,9 +38,16 @@ export default function Demandes({
   if (demandes.length === 0) return null;
   const nomAppli = (id: string) => config.applis[id]?.nom ?? id;
 
+  /**
+   * Un seul toucher. Un site accepté va dans la liste école ET est autorisé
+   * par le filtre internet : la demande vient presque toujours d'un blocage.
+   */
   const accepter = (d: Demande, minutes: number | null) => {
     const jusqua = minutes ? new Date(Date.now() + minutes * 60_000) : null;
     envoyer(accepterDemande(db, config, d, jusqua, uid), `Accepté : ${titreDemande(d, nomAppli).toLowerCase()}`);
+    if (d.type === VALEUR.typeDemande.site && d.cible) {
+      void changerSite(config.id, ACTION_NEXTDNS.debloquer, d.cible, `${d.cible} est autorisé sur internet`);
+    }
   };
   const refuserLa = (d: Demande) =>
     envoyer(refuserDemande(db, config.id, d.id, uid), `Refusé : ${titreDemande(d, nomAppli).toLowerCase()}`);

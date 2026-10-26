@@ -46,6 +46,11 @@ const DOSSIERS = ["apps/hub/src", "scripts", "firestore-tests", "functions/src",
 const VISES = DOSSIERS.flatMap(fichiers).filter((f) => {
   if (f === join(ICI, "schema.ts") || f === join(ICI, "isolation.test.ts")) return false;
   if (f.startsWith(ICI)) return true;
+  // Côté fonctions : la copie générée EST le schéma (copie-functions.test.ts la
+  // compare à l'original) ; tout le reste du dossier est surveillé.
+  const fonctions = join(RACINE_DEPOT, "functions/src/controleParental");
+  if (f.startsWith(join(fonctions, "genere"))) return false;
+  if (f.startsWith(fonctions)) return true;
   // Import par le nom du paquet (hub) ou par chemin relatif (tests des règles,
   // qui ont leur propre installation et ne lisent que les fichiers purs).
   const t = readFileSync(f, "utf8");

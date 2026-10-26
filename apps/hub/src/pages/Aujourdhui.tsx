@@ -5,7 +5,9 @@
  */
 import { useMemo } from "react";
 import { Link } from "react-router-dom";
-import { ChefHat, Monitor } from "lucide-react";
+import { AlertTriangle, ChefHat, Monitor } from "lucide-react";
+import { alerteQuota } from "@family-hub/controle-parental";
+import { useRapportNextdns } from "../lib/controleParental/nextdns";
 import { heuresRepasValides, type Profil } from "@family-hub/types";
 import { useAuth } from "../lib/auth";
 import {
@@ -254,6 +256,7 @@ function CartePcEnfants({ titre, householdId, now }: { titre: string; householdI
   const config = appareil.donnees;
   const etat = useEtatAppareil(config?.id);
   const demandes = useDemandesEnAttente(config?.id);
+  const rapport = useRapportNextdns(config?.id);
   const fr = fraicheur(etat.donnees, now);
   const nb = demandes.donnees.length;
   return (
@@ -274,6 +277,12 @@ function CartePcEnfants({ titre, householdId, now }: { titre: string; householdI
           {nb > 0 && (
             <p className="text-base font-semibold text-brass">
               {nb === 1 ? "Une demande en attente" : `${nb} demandes en attente`}
+            </p>
+          )}
+          {alerteQuota(rapport) && (
+            <p className="flex items-center gap-2 text-base font-semibold text-copper">
+              <AlertTriangle size={18} aria-hidden="true" />
+              Filtre internet bientôt à court ce mois-ci
             </p>
           )}
         </div>

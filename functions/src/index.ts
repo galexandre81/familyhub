@@ -46,3 +46,6 @@ export {
 
 // Foyer : invitation d'un membre
 export { createInvitation, acceptInvitation } from "./household/invitations";
+
+// Contrôle parental : NextDNS du PC des enfants (parents seulement, clé en secret)
+export { nextdnsAppareil } from "./controleParental/nextdns";

@@ -108,3 +108,22 @@ export interface EtatEffectif {
   internet: ModeInternet;
   raisonInternet: Raison;
 }
+
+/** Un site du rapport NextDNS, avec son nombre de visites (requêtes) du jour. */
+export interface SiteDuJour {
+  domaine: string;
+  requetes: number;
+}
+
+/** Rapport NextDNS de l'appareil (écrit par la fonction serveur). */
+export interface RapportNextdns {
+  /** "AAAA-MM-JJ" décrit par visites et bloques. */
+  jour: string | null;
+  visites: SiteDuJour[];
+  bloques: SiteDuJour[];
+  toujoursAutorises: string[];
+  toujoursBloques: string[];
+  requetesDuMois: number;
+  limiteDuMois: number;
+  majLe: Date | null;
+}

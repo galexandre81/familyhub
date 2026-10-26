@@ -13,8 +13,10 @@ import {
   type ConfigAppareil,
   type Limite,
   type Planning,
+  type RapportNextdns,
 } from "@family-hub/controle-parental";
 import { db } from "../../lib/firebase";
+import ListesDeSites from "./ListesDeSites";
 import { envoyer, refuser } from "../../lib/controleParental/envoyer";
 
 /** Libellés dans l'ordre de CLE_JOUR (dimanche d'abord, comme Date.getDay). */
@@ -240,13 +242,24 @@ function CompteDuPc({ config, uid }: { config: ConfigAppareil; uid: string }) {
 }
 
 /** Réglages : réservés au fondateur du foyer (masqués à l'écran pour les autres parents). */
-export default function Reglages({ config, uid }: { config: ConfigAppareil; uid: string }) {
+export default function Reglages({
+  config,
+  uid,
+  rapport,
+}: {
+  config: ConfigAppareil;
+  uid: string;
+  rapport: RapportNextdns | null;
+}) {
   return (
     <section aria-labelledby="reglages" className="flex flex-col gap-2">
       <h2 id="reglages" className="text-lg font-semibold text-cream">Réglages</h2>
       <PlanningReglage config={config} uid={uid} />
       <ApplisReglage config={config} uid={uid} />
       <LimitesReglage config={config} uid={uid} />
+      <Bloc titre="Sites toujours bloqués ou autorisés">
+        <ListesDeSites appareilId={config.id} rapport={rapport} />
+      </Bloc>
       <CompteDuPc config={config} uid={uid} />
     </section>
   );

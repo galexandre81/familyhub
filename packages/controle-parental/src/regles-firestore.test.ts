@@ -16,6 +16,8 @@ import {
   COLLECTION_APPAREILS,
   DOC_ETAT_COURANT,
   SOUS_COLLECTION,
+  SOUS_COLLECTION_PRIVE,
+  SOUS_COLLECTION_RAPPORTS,
   VALEUR,
 } from "./schema.js";
 
@@ -31,8 +33,13 @@ describe("firestore.rules concorde avec le schéma", () => {
     `/${SOUS_COLLECTION.etat}/`,
     `/${SOUS_COLLECTION.usage}/`,
     `/${SOUS_COLLECTION.demandes}/`,
+    `/${SOUS_COLLECTION_RAPPORTS}/`,
   ])("sous-collection %s", (s) => {
     expect(bloc).toContain(`match ${s}`);
+  });
+
+  it("le profil NextDNS (privé) n'est ouvert par aucune règle", () => {
+    expect(bloc).not.toContain(`match /${SOUS_COLLECTION_PRIVE}/`);
   });
 
   it("noms de champs et valeurs cités entre apostrophes", () => {

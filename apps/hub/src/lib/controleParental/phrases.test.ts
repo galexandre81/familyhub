@@ -14,6 +14,7 @@ import {
   fraicheur,
   ilYA,
   phraseEtat,
+  phraseQuota,
   quandTexte,
   titreDemande,
 } from "./phrases";
@@ -124,6 +125,22 @@ describe("jusqu'à quand", () => {
     const ex = { pc: VALEUR.pc.autorise, jusqua: le(26, 23, 0), par: "p" };
     expect(exceptionEnCours(config(ex), le(26, 22, 0))).toBe("débloqué jusqu'à 23h00");
     expect(exceptionEnCours(config(ex), le(26, 23, 30))).toBeNull();
+  });
+});
+
+describe("quota du filtre internet", () => {
+  it("sous le seuil : un chiffre", () => {
+    expect(phraseQuota({ requetesDuMois: 48_000, limiteDuMois: 300_000 })).toEqual({
+      alerte: false,
+      texte: "Filtre internet : 48 000 requêtes ce mois-ci sur 300 000 gratuites (16 %)",
+    });
+  });
+  it("au seuil : une alerte qui dit la conséquence et quoi faire, sans jargon", () => {
+    const q = phraseQuota({ requetesDuMois: 246_000, limiteDuMois: 300_000 });
+    expect(q.alerte).toBe(true);
+    expect(q.texte).toContain("82 %");
+    expect(q.texte).toContain("ne bloque plus rien");
+    expect(q.texte).not.toMatch(/dns\b|quota|api/i);
   });
 });
 

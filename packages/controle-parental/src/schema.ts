@@ -154,8 +154,61 @@ export const VALEUR = {
   statutDemande: { enAttente: "pending", acceptee: "accepted", refusee: "refused" },
 } as const;
 
+// ─── NextDNS (côté Family Hub seulement : l'agent du PC n'y touche pas) ────
+
+/**
+ * [hub] Rapport des sites et quota du mois, écrit par la fonction serveur
+ * (Admin), lu par les parents : `devices/{id}/reports/nextdns`.
+ */
+export const SOUS_COLLECTION_RAPPORTS = "reports";
+export const DOC_RAPPORT_NEXTDNS = "nextdns";
+export const CHAMP_RAPPORT = {
+  /** "AAAA-MM-JJ" (heure de Zurich) du jour décrit par visites et bloques. */
+  jour: "day",
+  visites: "visitedSites",
+  bloques: "blockedSites",
+  toujoursAutorises: "alwaysAllowed",
+  toujoursBloques: "alwaysBlocked",
+  requetesDuMois: "monthQueries",
+  limiteDuMois: "monthLimit",
+  majLe: "updatedAt",
+} as const;
+export const CHAMP_SITE = {
+  domaine: "siteName",
+  requetes: "count",
+} as const;
+
+/**
+ * [hub] Identifiant du profil NextDNS de l'appareil, posé à la main par le
+ * propriétaire : `devices/{id}/private/nextdns`. Aucune règle ne l'ouvre :
+ * seule la fonction serveur (Admin) le lit.
+ */
+export const SOUS_COLLECTION_PRIVE = "private";
+export const DOC_PRIVE_NEXTDNS = "nextdns";
+export const CHAMP_PRIVE_NEXTDNS = { profil: "profileId" } as const;
+
+/** [hub] La fonction serveur appelée par les parents, et ses actions. */
+export const FONCTION_NEXTDNS = "nextdnsAppareil";
+export const ACTION_NEXTDNS = {
+  rapport: "report",
+  debloquer: "allow",
+  bloquer: "block",
+  retirer: "remove",
+} as const;
+
+/** Offre gratuite NextDNS : au-delà, le service cesse de FILTRER (pages des prix, 26.10.2026). */
+export const QUOTA_GRATUIT_NEXTDNS = 300_000;
+/** Part du quota à partir de laquelle les parents sont prévenus. */
+export const SEUIL_ALERTE_QUOTA = 0.7;
+/** Un rapport plus récent est servi tel quel, sans rappeler NextDNS. */
+export const FRAICHEUR_RAPPORT_MS = 5 * 60_000;
+
 /** Chemins. Les identifiants sont passés par l'appelant, jamais écrits en dur. */
 export const chemin = {
+  rapportNextdns: (appareilId: string) =>
+    `${COLLECTION_APPAREILS}/${appareilId}/${SOUS_COLLECTION_RAPPORTS}/${DOC_RAPPORT_NEXTDNS}`,
+  priveNextdns: (appareilId: string) =>
+    `${COLLECTION_APPAREILS}/${appareilId}/${SOUS_COLLECTION_PRIVE}/${DOC_PRIVE_NEXTDNS}`,
   config: (appareilId: string) => `${COLLECTION_APPAREILS}/${appareilId}`,
   etat: (appareilId: string) =>
     `${COLLECTION_APPAREILS}/${appareilId}/${SOUS_COLLECTION.etat}/${DOC_ETAT_COURANT}`,

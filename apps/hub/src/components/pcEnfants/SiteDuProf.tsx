@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { Plus, X } from "lucide-react";
 import {
+  ACTION_NEXTDNS,
   ajouterSiteEcole,
   normaliserDomaine,
   retirerSiteEcole,
@@ -8,6 +9,7 @@ import {
 } from "@family-hub/controle-parental";
 import { db } from "../../lib/firebase";
 import { envoyer, refuser } from "../../lib/controleParental/envoyer";
+import { changerSite } from "../../lib/controleParental/nextdns";
 
 /** « Le prof demande ce site » : on colle l'adresse telle quelle, le hub garde le nom du site. */
 export default function SiteDuProf({ config, uid }: { config: ConfigAppareil; uid: string }) {
@@ -18,7 +20,9 @@ export default function SiteDuProf({ config, uid }: { config: ConfigAppareil; ui
   const ajouter = () => {
     if (!domaine) return refuser("Cette adresse n'est pas lisible. Copie-la depuis le message du prof.");
     if (dejaLa) return refuser(`${domaine} est déjà dans la liste.`);
+    // Un toucher : ouvert en mode école ET autorisé par le filtre internet le reste du temps.
     envoyer(ajouterSiteEcole(db, config.id, domaine, uid), `Ajouté : ${domaine}`);
+    void changerSite(config.id, ACTION_NEXTDNS.debloquer, domaine, `${domaine} est autorisé sur internet`);
     setSaisie("");
   };
 
@@ -26,7 +30,7 @@ export default function SiteDuProf({ config, uid }: { config: ConfigAppareil; ui
     <section aria-labelledby="site-prof" className="rounded-2xl bg-ebony-card border border-hairline p-4 flex flex-col gap-3">
       <div>
         <h2 id="site-prof" className="text-lg font-semibold text-cream">Le prof demande ce site</h2>
-        <p className="text-[15px] text-cream-mute">Il restera ouvert même en mode école.</p>
+        <p className="text-[15px] text-cream-mute">Il sera ouvert, même en mode école.</p>
       </div>
       <form
         className="flex gap-2"

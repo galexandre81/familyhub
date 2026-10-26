@@ -5,12 +5,15 @@
  */
 import {
   VALEUR,
+  alerteQuota,
+  partDuQuota,
   etatEffectif,
   exceptionActive,
   prochainChangementPc,
   type ConfigAppareil,
   type Demande,
   type EtatAppareil,
+  type RapportNextdns,
 } from "@family-hub/controle-parental";
 
 /** Au-delà, le PC est dit « hors ligne ». À aligner sur la cadence réelle de l'agent (contrat). */
@@ -169,6 +172,28 @@ export function echeanceDepuisHeure(hhmm: string, maintenant: Date): Date | null
   if (!m) return null;
   const d = a(maintenant, Number(m[1]), Number(m[2]));
   return d.getTime() > maintenant.getTime() ? d : a(lendemain(maintenant), Number(m[1]), Number(m[2]));
+}
+
+/** « 48 000 » : séparateur des milliers à la française. */
+export function nombreTexte(n: number): string {
+  return Math.round(n).toLocaleString("fr-FR").replace(/\s/g, " ");
+}
+
+/** Le quota du filtre internet en mots, pour les deux parents. */
+export function phraseQuota(r: Pick<RapportNextdns, "requetesDuMois" | "limiteDuMois">): { texte: string; alerte: boolean } {
+  const part = Math.round(partDuQuota(r) * 100);
+  if (alerteQuota(r)) {
+    return {
+      alerte: true,
+      texte:
+        `Le filtre internet arrive à ${part} % de sa limite gratuite du mois. Au-delà, il ne bloque plus rien ` +
+        `(sites pour adultes compris) jusqu'au 1er du mois : il faut passer le filtre à l'offre payante (environ 2 CHF par mois).`,
+    };
+  }
+  return {
+    alerte: false,
+    texte: `Filtre internet : ${nombreTexte(r.requetesDuMois)} requêtes ce mois-ci sur ${nombreTexte(r.limiteDuMois)} gratuites (${part} %)`,
+  };
 }
 
 /** Ce que remplacerait une nouvelle échéance (« débloqué jusqu'à 23h00 »), ou null. */

@@ -1,9 +1,31 @@
-# NextDNS dans Family Hub : architecture proposée (phase 5, non implémentée)
+# NextDNS dans Family Hub
+
+**État (26.10.2026) : implémenté et essayé contre un faux NextDNS, NI déployé NI
+branché sur le vrai compte.** Code : `functions/src/controleParental/`
+(fonction `nextdnsAppareil`), écran `apps/hub/src/components/pcEnfants/`
+(InternetDuJour, ListesDeSites). Essai local : SIMULATEUR.md.
 
 Objectif : afficher dans Family Hub les sites visités et bloqués par le PC des
 enfants, et bloquer ou débloquer un site précis, sans que la clé NextDNS
 n'atteigne jamais le navigateur ni le PC. Sources : documentation de l'API
 (https://nextdns.github.io/api/, « beta ») et page des prix, lues le 26.10.2026.
+
+## Mise en service (propriétaire)
+
+Décision du 26.10.2026 : **un compte NextDNS séparé, avec un seul profil, celui
+du PC**. Une fuite de clé ne toucherait que ce profil, et la jauge ne compte que
+ce PC (la limite gratuite est par compte).
+
+1. Créer le compte et son profil ; y régler une fois les catégories (adulte,
+   jeux d'argent, malveillants), SafeSearch, YouTube restreint ; **activer les
+   journaux** (stockage Europe ou Suisse, 1 à 3 mois). Donner l'ID du profil à
+   l'agent du PC.
+2. Poser la clé : `firebase functions:secrets:set NEXTDNS_API_KEY --project <projet>`.
+3. Console Firestore : créer `devices/<id du PC>/private/nextdns` avec le champ
+   `profileId` = l'ID du profil (noms : `CHAMP_PRIVE_NEXTDNS` dans
+   `packages/controle-parental/src/schema.ts`). Aucune règle ne l'ouvre aux
+   navigateurs : seule la fonction le lit.
+4. Déployer : fonctions, puis règles, puis hébergement (ordre de DESIGN.md).
 
 ## Deux faits qui décident de l'architecture
 

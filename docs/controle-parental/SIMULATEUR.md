@@ -24,6 +24,26 @@ npm run simulateur -- <commande>
 Le mode « essai » du hub (`apps/hub/.env.essai`) ne vaut qu'en développement :
 le build de production ne contient ni l'adresse des émulateurs ni `demo-fh`.
 
+## Avec le filtre internet (NextDNS), sans compte ni clé réels
+
+`scripts/faux-nextdns.mjs` répond aux seules routes que la fonction
+`nextdnsAppareil` appelle, garde ses listes en mémoire et refuse toute requête
+sans la clé d'essai. Il faut alors aussi l'émulateur des fonctions :
+
+```bash
+# Une fois : deux fichiers locaux, ignorés par git, lus par l'émulateur seul
+echo NEXTDNS_API_KEY=cle-emulateur > functions/.secret.local
+echo NEXTDNS_BASE_EMULATEUR=http://127.0.0.1:7777 > functions/.env.local
+
+npm run build:functions
+node scripts/faux-nextdns.mjs --requetes 48000      # 246000 : déclenche l'alerte du quota
+firebase emulators:start --only auth,firestore,functions --project demo-fh
+```
+
+`preparer` pose le profil NextDNS d'essai de l'appareil. L'adresse du faux
+NextDNS n'est prise en compte que dans l'émulateur (`FUNCTIONS_EMULATOR`) : en
+production, la fonction ne parle qu'à `api.nextdns.io`.
+
 ## Première fois (à refaire à chaque redémarrage des émulateurs)
 
 1. Dans le hub, **se connecter avec Google** : l'émulateur affiche une fausse

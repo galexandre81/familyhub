@@ -40,6 +40,7 @@ import {
   nouvelleConfigVers,
   nouvelleDemandeVers,
   planningVers,
+  rapportNextdnsDepuis,
   usageDepuis,
   usageVers,
 } from "./conversion.js";
@@ -52,6 +53,7 @@ import type {
   Exception,
   Limite,
   Planning,
+  RapportNextdns,
   TypeDemande,
   UsageJour,
 } from "./types.js";
@@ -303,4 +305,14 @@ export async function creerDemande(
     nouvelleDemandeVers({ ...d, creeeLe: new Date() }),
   );
   return ref.id;
+}
+
+/** Rapport NextDNS de l'appareil (sites du jour, quota du mois). Écrit par la fonction serveur seule. */
+export function ecouterRapportNextdns(
+  db: Firestore,
+  appareilId: string,
+  rappel: (r: RapportNextdns | null) => void,
+  erreur?: (e: Error) => void,
+): Unsubscribe {
+  return onSnapshot(doc(db, chemin.rapportNextdns(appareilId)), (s) => rappel(rapportNextdnsDepuis(s.data())), erreur);
 }

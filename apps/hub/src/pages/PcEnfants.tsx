@@ -44,6 +44,8 @@ import Demandes from "../components/pcEnfants/Demandes";
 import Journee from "../components/pcEnfants/Journee";
 import SiteDuProf from "../components/pcEnfants/SiteDuProf";
 import Reglages from "../components/pcEnfants/Reglages";
+import InternetDuJour from "../components/pcEnfants/InternetDuJour";
+import { useRapportNextdns } from "../lib/controleParental/nextdns";
 
 type Sorte = "debloquer" | "verrouiller" | "ecole";
 
@@ -69,6 +71,7 @@ export default function PcEnfants() {
   const etat = useEtatAppareil(config?.id);
   const usage = useUsageDuJour(config?.id, maintenant);
   const demandes = useDemandesEnAttente(config?.id);
+  const rapport = useRapportNextdns(config?.id);
   const [feuille, setFeuille] = useState<Sorte | null>(null);
 
   const retour = () => (window.history.length > 1 ? navigate(-1) : navigate("/"));
@@ -150,7 +153,8 @@ export default function PcEnfants() {
 
       <SiteDuProf config={config} uid={user.uid} />
       <Journee config={config} usage={usage.donnees} />
-      {fondateur && <Reglages config={config} uid={user.uid} />}
+      <InternetDuJour appareilId={config.id} rapport={rapport} maintenant={maintenant} />
+      {fondateur && <Reglages config={config} uid={user.uid} rapport={rapport} />}
 
       {feuille && (
         <FeuilleEcheance
