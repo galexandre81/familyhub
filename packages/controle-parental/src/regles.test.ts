@@ -6,6 +6,7 @@ import {
   enMinutes,
   etatEffectif,
   exceptionActive,
+  exceptionApresAccordTemps,
   jourLocal,
   prochainChangementPc,
   verrouilleParPlanning,
@@ -129,6 +130,41 @@ describe("prochain changement (« verrouillage à 21h30 »)", () => {
   it("planning vide et pas d'exception : rien ne change", () => {
     const vide = { sun: null, mon: null, tue: null, wed: null, thu: null, fri: null, sat: null };
     expect(prochainChangementPc({ planning: vide, defauts: DEFAUTS, exception: null }, le(26, 15, 0))).toBeNull();
+  });
+});
+
+describe("accorder « plus de temps »", () => {
+  it("le cas vu à l'écran : débloqué jusqu'à 13h55, « +30 min » à 12h55 ne raccourcit pas", () => {
+    const ex = { pc: autorise, jusqua: le(26, 13, 55), par: "parent-2" };
+    const r = exceptionApresAccordTemps(ex, le(26, 13, 25), "parent-2", le(26, 12, 55));
+    expect(r.jusqua).toEqual(le(26, 13, 55));
+  });
+
+  it("un déblocage plus court est prolongé", () => {
+    const ex = { pc: autorise, jusqua: le(26, 22, 0), par: "p" };
+    expect(exceptionApresAccordTemps(ex, le(26, 22, 30), "p", le(26, 21, 50)).jusqua).toEqual(le(26, 22, 30));
+  });
+
+  it("un « verrouiller maintenant » est remplacé par le temps accordé", () => {
+    const ex = { pc: verrouille, jusqua: le(26, 23, 0), par: "p" };
+    const r = exceptionApresAccordTemps(ex, le(26, 16, 30), "p", le(26, 16, 0));
+    expect(r).toEqual({ pc: autorise, jusqua: le(26, 16, 30), par: "p" });
+  });
+
+  it("le mode école en cours est gardé", () => {
+    const ex = { internet: VALEUR.internet.ecole, jusqua: le(26, 17, 0), par: "p" };
+    const r = exceptionApresAccordTemps(ex, le(26, 16, 30), "p", le(26, 16, 0));
+    expect(r.internet).toBe(VALEUR.internet.ecole);
+    expect(r.pc).toBe(autorise);
+  });
+
+  it("une exception échue ne compte pas", () => {
+    const ex = { pc: autorise, internet: VALEUR.internet.ecole, jusqua: le(26, 15, 0), par: "p" };
+    expect(exceptionApresAccordTemps(ex, le(26, 16, 30), "p", le(26, 16, 0))).toEqual({
+      pc: autorise,
+      jusqua: le(26, 16, 30),
+      par: "p",
+    });
   });
 });
 

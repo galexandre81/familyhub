@@ -1,7 +1,10 @@
 import { Link, NavLink, Outlet } from "react-router-dom";
-import { BookOpen, ChefHat, Home, Settings, LogOut, Tablet } from "lucide-react";
+import { BookOpen, ChefHat, Home, Monitor, Settings, LogOut, Tablet } from "lucide-react";
+import type { Household } from "@family-hub/types";
 import { useAuth } from "../lib/auth";
 import { useActiveHouseholdId, useHouseholds } from "../lib/queries";
+import { estParent } from "../lib/personnes";
+import { titrePcEnfants } from "../lib/pcEnfants";
 import { useAmbiance } from "../lib/ambiance";
 import clsx from "clsx";
 import { useEstTelephone } from "../lib/useEstTelephone";
@@ -32,14 +35,23 @@ export default function Layout() {
   const telephone = useEstTelephone();
   return (
     <MinuteursProvider householdId={householdId}>
-      {telephone ? <TelephoneLayout /> : <PcLayout />}
+      {telephone ? <TelephoneLayout /> : <PcLayout household={household} />}
       <VeilleurMinuteurs />
     </MinuteursProvider>
   );
 }
 
-function PcLayout() {
+/** iPad et ordinateur (≥ 768 px). « PC des enfants » : parents seulement, avant les Paramètres. */
+function PcLayout({ household }: { household?: Household }) {
   const { user, signOut } = useAuth();
+  const items =
+    household && user && estParent(household, user.uid)
+      ? [
+          ...navItems.slice(0, -1),
+          { to: "/pc", icon: Monitor, label: titrePcEnfants(household.parametres), end: false },
+          ...navItems.slice(-1),
+        ]
+      : navItems;
   const today = new Date().toLocaleDateString("fr-FR", {
     weekday: "long",
     day: "numeric",
@@ -90,7 +102,7 @@ function PcLayout() {
               </div>
             </Link>
             <nav className="flex items-center gap-1 mb-1">
-              {navItems.map(({ to, icon: Icon, label, end }) => (
+              {items.map(({ to, icon: Icon, label, end }) => (
                 <NavLink
                   key={to}
                   to={to}

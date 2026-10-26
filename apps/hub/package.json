@@ -12,6 +12,7 @@
     "test:watch": "vitest"
   },
   "dependencies": {
+    "@family-hub/controle-parental": "*",
     "@family-hub/design": "^0.1.0",
     "@family-hub/types": "*",
     "@fontsource/atkinson-hyperlegible": "^5.3.0",

@@ -137,8 +137,9 @@ async function admin() {
   if (!PROJET.startsWith("demo-")) throw new Error("Refus : le simulateur ne travaille que sur un projet demo-.");
   process.env.FIRESTORE_EMULATOR_HOST = `${HOTE}:${PORT_FIRESTORE}`;
   process.env.FIREBASE_AUTH_EMULATOR_HOST = `${HOTE}:${PORT_AUTH}`;
-  // Projet déclaré : sans lui, le SDK cherche un serveur Google Cloud (délai, avertissement).
+  // Sans ces deux variables, le SDK cherche un serveur Google Cloud (délai, avertissement).
   process.env.GCLOUD_PROJECT = PROJET;
+  process.env.METADATA_SERVER_DETECTION = "none";
   const { initializeApp: init, getApps } = await import("firebase-admin/app");
   const { getAuth: auth } = await import("firebase-admin/auth");
   const { getFirestore: firestore } = await import("firebase-admin/firestore");

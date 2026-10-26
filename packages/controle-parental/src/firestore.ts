@@ -27,6 +27,7 @@ import {
   type Unsubscribe,
 } from "firebase/firestore";
 import { CHAMP_CONFIG, CHAMP_DEMANDE, COLLECTION_APPAREILS, VALEUR, chemin } from "./schema.js";
+import { exceptionApresAccordTemps } from "./regles.js";
 import {
   appliVers,
   configDepuis,
@@ -223,7 +224,8 @@ export async function refuserDemande(db: Firestore, appareilId: string, demandeI
 
 /**
  * Accepter, en un seul envoi : la décision ET son effet.
- * - temps : PC autorisé jusqu'à l'échéance choisie (exception) ;
+ * - temps : PC autorisé jusqu'à l'échéance choisie (exceptionApresAccordTemps :
+ *   jamais moins qu'un déblocage déjà en cours, mode école conservé) ;
  * - site  : domaine ajouté à la liste école (le déblocage NextDNS viendra en phase 5) ;
  * - appli : appli autorisée.
  */
@@ -240,15 +242,25 @@ export async function accepterDemande(
   ) {
     throw new Error("Plus de temps : choisir jusqu'à quand.");
   }
+  const maintenant = new Date();
+  const exception =
+    demande.type === VALEUR.typeDemande.temps && accordeJusqua
+      ? exceptionApresAccordTemps(config.exception, accordeJusqua, par, maintenant)
+      : null;
   const b = writeBatch(db);
   const refConfig = doc(db, chemin.config(config.id));
   b.update(
     doc(db, chemin.demande(config.id, demande.id)),
-    decisionVers({ statut: VALEUR.statutDemande.acceptee, par, quand: new Date(), accordeJusqua }),
+    decisionVers({
+      statut: VALEUR.statutDemande.acceptee,
+      par,
+      quand: maintenant,
+      accordeJusqua: exception?.jusqua ?? accordeJusqua,
+    }),
   );
-  if (demande.type === VALEUR.typeDemande.temps && accordeJusqua) {
+  if (exception) {
     b.update(refConfig, {
-      [CHAMP_CONFIG.exception]: exceptionVers({ pc: VALEUR.pc.autorise, jusqua: accordeJusqua, par }),
+      [CHAMP_CONFIG.exception]: exceptionVers(exception),
       ...signature(par),
     });
   } else if (demande.type === VALEUR.typeDemande.site && demande.cible) {

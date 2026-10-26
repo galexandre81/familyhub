@@ -20,6 +20,12 @@ import {
 } from "../lib/queries";
 import { estParent } from "../lib/personnes";
 import { titrePcEnfants } from "../lib/pcEnfants";
+import { fraicheur, phraseEtat } from "../lib/controleParental/phrases";
+import {
+  useAppareilDuFoyer,
+  useDemandesEnAttente,
+  useEtatAppareil,
+} from "../lib/controleParental/useControleParental";
 import {
   resumeAujourdhui,
   type AutreRepas,
@@ -102,7 +108,9 @@ export default function Aujourdhui() {
             <p className="text-base text-cream">Pas de menu en cours — il se prépare sur l'ordinateur</p>
           </section>
         )}
-        {parent && <CartePcEnfants titre={titrePcEnfants(household?.parametres)} />}
+        {parent && (
+          <CartePcEnfants titre={titrePcEnfants(household?.parametres)} householdId={householdId} now={now} />
+        )}
       </div>
 
       {resume.autresDuJour.length > 0 && (
@@ -237,18 +245,42 @@ function CarteProchainRepas({
   );
 }
 
-/** `titre` : nom réglé dans Paramètres (données du foyer), sinon « PC des enfants ». */
-function CartePcEnfants({ titre }: { titre: string }) {
+/**
+ * `titre` : nom réglé dans Paramètres (données du foyer), sinon « PC des enfants ».
+ * La carte dit l'état en une phrase et mène à l'écran parent (/pc).
+ */
+function CartePcEnfants({ titre, householdId, now }: { titre: string; householdId: string; now: Date }) {
+  const appareil = useAppareilDuFoyer(householdId);
+  const config = appareil.donnees;
+  const etat = useEtatAppareil(config?.id);
+  const demandes = useDemandesEnAttente(config?.id);
+  const fr = fraicheur(etat.donnees, now);
+  const nb = demandes.donnees.length;
   return (
-    <section className={`${CARTE} p-4 gap-3`} aria-label={titre}>
+    <Link to="/pc" className={`${CARTE} p-4 gap-3`} aria-label={titre}>
       <h2 className="flex items-center gap-2 text-lg font-semibold text-cream">
         <Monitor size={20} aria-hidden="true" />
         {titre}
       </h2>
-      <p className="flex-1 flex items-center text-base text-cream-mute">
-        Bientôt : couper ou remettre le wifi et suivre le temps d'écran
-      </p>
-    </section>
+      {appareil.chargement ? (
+        <p className="flex-1 text-base text-cream-mute">Chargement…</p>
+      ) : config ? (
+        <div className="flex-1 flex flex-col gap-1">
+          <p className="text-base text-cream leading-snug">{phraseEtat(config, now)}</p>
+          <p className="flex items-center gap-2 text-[15px] text-cream-mute">
+            <span aria-hidden="true" className={`h-2 w-2 rounded-full ${fr.enLigne ? "bg-sage" : "bg-copper"}`} />
+            {fr.texte}
+          </p>
+          {nb > 0 && (
+            <p className="text-base font-semibold text-brass">
+              {nb === 1 ? "Une demande en attente" : `${nb} demandes en attente`}
+            </p>
+          )}
+        </div>
+      ) : (
+        <p className="flex-1 flex items-center text-base text-cream-mute">Pas encore relié à Family Hub</p>
+      )}
+    </Link>
   );
 }
 

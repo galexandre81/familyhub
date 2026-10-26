@@ -120,6 +120,24 @@ export function etatEffectif(
   return { pc, raisonPc, internet, raisonInternet };
 }
 
+/**
+ * Exception posée quand un parent accorde « plus de temps » jusqu'à `demandee`.
+ * Accorder du temps n'en retire jamais : un déblocage déjà plus long est
+ * gardé. Et cela ne touche pas à internet : un mode école en cours reste
+ * (au besoin prolongé jusqu'à la même échéance — le sens le plus prudent).
+ */
+export function exceptionApresAccordTemps(
+  actuelle: Exception | null,
+  demandee: Date,
+  par: string,
+  maintenant: Date,
+): Exception {
+  const ex = exceptionActive(actuelle, maintenant) ? actuelle : null;
+  const jusqua =
+    ex?.pc === VALEUR.pc.autorise && ex.jusqua.getTime() > demandee.getTime() ? ex.jusqua : demandee;
+  return { pc: VALEUR.pc.autorise, ...(ex?.internet ? { internet: ex.internet } : {}), jusqua, par };
+}
+
 /** Instants où l'état peut changer : bornes du planning et fin d'exception. */
 function bornes(config: Pick<ConfigAppareil, "planning" | "exception">, depuis: Date, jours: number): Date[] {
   const out: Date[] = [];
