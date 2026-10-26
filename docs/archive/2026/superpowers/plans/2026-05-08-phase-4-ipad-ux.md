@@ -655,7 +655,7 @@ EOF
 
 - [ ] **Step 1 : Identifier les couleurs par thème**
 
-Source de vérité : [apps/hub/src/lib/themes.ts](../../../apps/hub/src/lib/themes.ts). Les 6 thèmes :
+Source de vérité : apps/hub/src/lib/themes.ts *(fichier disparu depuis)*. Les 6 thèmes :
 
 | ID | bg | card | accent | text | border |
 |----|----|----|--------|------|--------|

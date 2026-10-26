@@ -15,7 +15,7 @@ Le display iPad mini 1 (iOS 9.3.6, Safari 9, ES5) est le mode d'usage principal 
 
 ## Cause racine du bug scroll
 
-Le CSS [apps/display/public/css/styles.css](../../../apps/display/public/css/styles.css) impose sur `.tile-overlay-content` :
+Le CSS [apps/display/public/css/styles.css](../../../../../apps/display/public/css/styles.css) impose sur `.tile-overlay-content` :
 
 ```css
 max-width: 720px;
@@ -62,7 +62,7 @@ packages/types/src/tile.ts                ← + "settings" dans TileType union
 
 ### 4.1.a — Classe modifier `--full`
 
-Ajouter dans [styles.css](../../../apps/display/public/css/styles.css) après `.tile-overlay-content` :
+Ajouter dans [styles.css](../../../../../apps/display/public/css/styles.css) après `.tile-overlay-content` :
 
 ```css
 .tile-overlay-content--full {
@@ -77,7 +77,7 @@ Cette classe **opt-in** est ajoutée par les tuiles qui posent leur propre heade
 
 ### 4.1.b — Adoption par les tuiles concernées
 
-- **recipe-today.js** ([apps/display/public/js/tiles/recipe-today.js](../../../apps/display/public/js/tiles/recipe-today.js)) : ligne 306, `container.className = 'tile-overlay-content tile-overlay-content--full tile-recipe-today-expand'`.
+- **recipe-today.js** ([apps/display/public/js/tiles/recipe-today.js](../../../../../apps/display/public/js/tiles/recipe-today.js)) : ligne 306, `container.className = 'tile-overlay-content tile-overlay-content--full tile-recipe-today-expand'`.
 - **weekly-menu.js** : idem ligne 214 et dans `showBatchView()`.
 - **livreRecettes.js** : si elle pose son propre layout, idem.
 
@@ -115,7 +115,7 @@ Test manuel obligatoire avant merge :
 
 ### 4.2.a — recipe-today expand en 2 colonnes (landscape ≥900px)
 
-Dans `renderRecette()` ([recipe-today.js](../../../apps/display/public/js/tiles/recipe-today.js#L468)), enrober ingrédients + étapes dans un wrapper :
+Dans `renderRecette()` ([recipe-today.js](../../../../../apps/display/public/js/tiles/recipe-today.js#L468)), enrober ingrédients + étapes dans un wrapper :
 
 ```js
 var twoCol = window.innerWidth >= 900;
@@ -130,7 +130,7 @@ var etapesStyle = twoCol ? '-webkit-flex:1; flex:1;' : '';
 
 ### 4.2.b — weekly-menu : grille fluide
 
-Dans `buildGridUI()` ([weekly-menu.js](../../../apps/display/public/js/tiles/weekly-menu.js#L437)) :
+Dans `buildGridUI()` ([weekly-menu.js](../../../../../apps/display/public/js/tiles/weekly-menu.js#L437)) :
 - `gridWrap.style.cssText` : retirer `overflow:auto` (garder `overflow-y:auto` seulement).
 - `<table>` : `width:100%`, supprimer `min-width:100px` des `<td>` cellules. Les `<td>` deviennent fluides.
 - Augmenter le `font-size` des noms de recettes de 12px à 13px en landscape (lisibilité depuis le plan de travail).
@@ -149,7 +149,7 @@ Tous les boutons interactifs `<button>` (timer, vote, portions, tabs, back) : `m
 
 ### 4.3.a — Thèmes display (CSS + apply au boot)
 
-**Classes CSS** : ajouter dans [styles.css](../../../apps/display/public/css/styles.css) un bloc par thème (sauf "caractere" qui est le défaut) :
+**Classes CSS** : ajouter dans [styles.css](../../../../../apps/display/public/css/styles.css) un bloc par thème (sauf "caractere" qui est le défaut) :
 
 ```css
 html.theme-foret { background:#0E1A16; color:#F0EAD7; }
@@ -164,7 +164,7 @@ html.theme-foret .tile-overlay-back { color:#D4AF5F; }
 
 **Pas de variables CSS** (Safari 9 ne supporte pas `--prop`). Duplication brute par thème, ~30 lignes par thème, ~150 lignes total. Acceptable, isolé en fin de fichier sous le commentaire `/* ----- Themes ----- */`.
 
-**Apply au boot** : dans [core.js](../../../apps/display/public/js/core.js), au moment où le snapshot household arrive, appeler :
+**Apply au boot** : dans [core.js](../../../../../apps/display/public/js/core.js), au moment où le snapshot household arrive, appeler :
 
 ```js
 function applyDisplayTheme(themeId) {
@@ -183,7 +183,7 @@ Exposer `window.FamilyHubApplyTheme = applyDisplayTheme` pour la tuile settings.
 
 ### 4.3.b — Singleton brightness
 
-Nouveau fichier [apps/display/public/js/brightness.js](../../../apps/display/public/js/brightness.js) :
+Nouveau fichier [apps/display/public/js/brightness.js](../../../../../apps/display/public/js/brightness.js) :
 
 ```js
 (function (global) {
@@ -225,7 +225,7 @@ Nouveau fichier [apps/display/public/js/brightness.js](../../../apps/display/pub
 })(window);
 ```
 
-Charger dans [index.html](../../../apps/display/public/index.html) après `overlay.js`. Appeler `FamilyHubBrightness.init()` dans `core.js` au boot.
+Charger dans [index.html](../../../../../apps/display/public/index.html) après `overlay.js`. Appeler `FamilyHubBrightness.init()` dans `core.js` au boot.
 
 Plage 0..0.6 : au-delà de 0.6 le contenu devient illisible. Limite volontaire.
 
@@ -233,7 +233,7 @@ Stockage **localStorage** (par display) : chaque écran a sa propre lumino — p
 
 ### 4.3.c — Tuile settings
 
-Nouveau fichier [apps/display/public/js/tiles/settings.js](../../../apps/display/public/js/tiles/settings.js) :
+Nouveau fichier [apps/display/public/js/tiles/settings.js](../../../../../apps/display/public/js/tiles/settings.js) :
 
 **Compact (`render`)** :
 - Titre "Réglages".
@@ -252,9 +252,9 @@ Nouveau fichier [apps/display/public/js/tiles/settings.js](../../../apps/display
 
 ### 4.3.d — Hub : type "settings" dans TileEditor
 
-Dans [packages/types/src/tile.ts](../../../packages/types/src/tile.ts), ajouter `'settings'` à l'union `TileType`.
+Dans [packages/types/src/tile.ts](../../../../../packages/types/src/tile.ts), ajouter `'settings'` à l'union `TileType`.
 
-Dans [apps/hub/src/pages/TileEditor.tsx](../../../apps/hub/src/pages/TileEditor.tsx), ajouter une option dans le picker de type avec icône `Settings` (lucide-react). La tuile settings n'a **pas de config spécifique** (juste son placement).
+Dans apps/hub/src/pages/TileEditor.tsx *(fichier disparu depuis)*, ajouter une option dans le picker de type avec icône `Settings` (lucide-react). La tuile settings n'a **pas de config spécifique** (juste son placement).
 
 ## Data flow
 
