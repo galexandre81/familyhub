@@ -46,7 +46,10 @@ const DOSSIERS = ["apps/hub/src", "scripts", "firestore-tests", "functions/src",
 const VISES = DOSSIERS.flatMap(fichiers).filter((f) => {
   if (f === join(ICI, "schema.ts") || f === join(ICI, "isolation.test.ts")) return false;
   if (f.startsWith(ICI)) return true;
-  return readFileSync(f, "utf8").includes("@family-hub/controle-parental");
+  // Import par le nom du paquet (hub) ou par chemin relatif (tests des règles,
+  // qui ont leur propre installation et ne lisent que les fichiers purs).
+  const t = readFileSync(f, "utf8");
+  return t.includes("@family-hub/controle-parental") || t.includes("controle-parental/src/");
 });
 
 describe("isolation du schéma", () => {
