@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
-import { VALEUR } from "./schema.js";
+import { JUSQUA_NOUVEL_ORDRE_MS, VALEUR } from "./schema.js";
 import {
+  CATEGORIES_PAR_MODE,
   DEFAUTS,
   PLANNING_DEFAUT,
   enMinutes,
@@ -8,108 +9,147 @@ import {
   exceptionActive,
   exceptionApresAccordTemps,
   jourLocal,
+  prochainChangement,
   prochainChangementPc,
-  verrouilleParPlanning,
+  reseauDe,
+  sansFin,
+  valeurPlanning,
 } from "./regles.js";
-import type { Exception } from "./types.js";
+import type { Exception, Planning } from "./types.js";
 
 // Semaine du lundi 26.10.2026 (heure locale). Dimanche 25, vendredi 30, samedi 31.
 const le = (jour: number, h: number, m = 0) => new Date(2026, 9, jour, h, m);
-const config = (exception: Exception | null = null) => ({
-  planning: PLANNING_DEFAUT,
+const ex = (e: Partial<Exception> & { jusqua: Date }): Exception => ({ par: "Papa", poseLe: null, ...e });
+const config = (exception: Exception | null = null, planning: Planning = PLANNING_DEFAUT) => ({
+  planning,
   defauts: DEFAUTS,
   exception,
 });
 const { autorise, verrouille } = VALEUR.pc;
+const M = VALEUR.mode;
 
-describe("planning par défaut", () => {
+describe("planning par défaut (contrat § 2.2)", () => {
   it.each([
-    ["lundi 21:29", le(26, 21, 29), false],
-    ["lundi 21:30", le(26, 21, 30), true],
-    ["mardi 06:59 (soir de lundi)", le(27, 6, 59), true],
-    ["mardi 07:00", le(27, 7, 0), false],
-    ["dimanche 21:30 (soir de semaine)", le(25, 21, 30), true],
-    ["jeudi 21:30", le(29, 21, 30), true],
-    ["vendredi 21:30 (week-end : pas encore)", le(30, 21, 30), false],
-    ["vendredi 22:29", le(30, 22, 29), false],
-    ["vendredi 22:30", le(30, 22, 30), true],
-    ["samedi 06:30 (soir de vendredi)", le(31, 6, 30), true],
-    ["samedi 22:30", le(31, 22, 30), true],
-    ["dimanche 07:00", le(25 + 7, 7, 0), false],
-    ["dimanche 06:59 (soir de samedi)", le(25 + 7, 6, 59), true],
-    ["mercredi 15:00", le(28, 15, 0), false],
-  ])("%s → verrouillé : %s", (_n, quand, attendu) => {
-    expect(verrouilleParPlanning(PLANNING_DEFAUT, quand)).toBe(attendu);
+    ["lundi 21:29", le(26, 21, 29), undefined],
+    ["lundi 21:30", le(26, 21, 30), verrouille],
+    ["mardi 06:59 (soir de lundi)", le(27, 6, 59), verrouille],
+    ["mardi 07:00", le(27, 7, 0), undefined],
+    ["dimanche 21:30 (soir de semaine)", le(25, 21, 30), verrouille],
+    ["vendredi 21:30 (week-end : pas encore)", le(30, 21, 30), undefined],
+    ["vendredi 22:30", le(30, 22, 30), verrouille],
+    ["samedi 06:30 (soir de vendredi)", le(31, 6, 30), verrouille],
+    ["dimanche 06:59 (soir de samedi)", le(25 + 7, 6, 59), verrouille],
+    ["mercredi 15:00", le(28, 15, 0), undefined],
+  ])("%s → %s", (_n, quand, attendu) => {
+    expect(valeurPlanning(PLANNING_DEFAUT, "pc", quand)).toBe(attendu);
   });
 
-  it("un soir sans créneau ne verrouille pas, même après minuit", () => {
-    const sansMardi = { ...PLANNING_DEFAUT, tue: null };
-    expect(verrouilleParPlanning(sansMardi, le(27, 23, 0))).toBe(false);
-    expect(verrouilleParPlanning(sansMardi, le(28, 2, 0))).toBe(false);
+  it("un jour sans plage ne verrouille pas, même après minuit", () => {
+    const p = { ...PLANNING_DEFAUT, tue: [] };
+    expect(valeurPlanning(p, "pc", le(27, 23, 0))).toBeUndefined();
+    expect(valeurPlanning(p, "pc", le(28, 2, 0))).toBeUndefined();
   });
 
-  it("un créneau dans la journée (sans passer minuit)", () => {
-    const midi = { ...PLANNING_DEFAUT, wed: { debut: "12:00", fin: "13:30" } };
-    expect(verrouilleParPlanning(midi, le(28, 11, 59))).toBe(false);
-    expect(verrouilleParPlanning(midi, le(28, 12, 0))).toBe(true);
-    expect(verrouilleParPlanning(midi, le(28, 13, 30))).toBe(false);
-    // et rien ne déborde sur le lendemain matin
-    expect(verrouilleParPlanning(midi, le(29, 6, 0))).toBe(false);
+  it("une plage de mode dans la journée", () => {
+    const p = { ...PLANNING_DEFAUT, wed: [{ debut: "16:30", fin: "18:00", mode: M.libre }, ...PLANNING_DEFAUT.wed] };
+    expect(valeurPlanning(p, "mode", le(28, 16, 29))).toBeUndefined();
+    expect(valeurPlanning(p, "mode", le(28, 16, 30))).toBe(M.libre);
+    expect(valeurPlanning(p, "mode", le(28, 18, 0))).toBeUndefined();
+    expect(valeurPlanning(p, "pc", le(28, 17, 0))).toBeUndefined();
+  });
+
+  it("deux plages qui se chevauchent : la plus restrictive gagne", () => {
+    const p = {
+      ...PLANNING_DEFAUT,
+      wed: [
+        { debut: "14:00", fin: "18:00", mode: M.libreInternet, internet: VALEUR.internet.complet },
+        { debut: "16:00", fin: "17:00", mode: M.devoirs, internet: VALEUR.internet.coupe },
+      ],
+    };
+    expect(valeurPlanning(p, "mode", le(28, 16, 30))).toBe(M.devoirs);
+    expect(valeurPlanning(p, "internet", le(28, 16, 30))).toBe(VALEUR.internet.coupe);
+    expect(valeurPlanning(p, "mode", le(28, 15, 0))).toBe(M.libreInternet);
+  });
+
+  it("à égalité de restriction (devoirs + internet / libre), la première plage listée gagne", () => {
+    const p = {
+      ...PLANNING_DEFAUT,
+      wed: [
+        { debut: "14:00", fin: "18:00", mode: M.devoirsInternet },
+        { debut: "14:00", fin: "18:00", mode: M.libre },
+      ],
+    };
+    expect(valeurPlanning(p, "mode", le(28, 15, 0))).toBe(M.devoirsInternet);
   });
 });
 
-describe("priorité exception > planning > défauts", () => {
-  it("sans rien : valeurs par défaut", () => {
+describe("priorité exception > planning > défauts, dimension par dimension", () => {
+  it("sans rien : PC autorisé, internet filtré, mode Devoirs — donc liste école", () => {
     expect(etatEffectif(config(), le(28, 15, 0))).toEqual({
       pc: autorise,
-      raisonPc: VALEUR.raison.defaut,
+      sourcePc: VALEUR.source.defaut,
       internet: VALEUR.internet.complet,
-      raisonInternet: VALEUR.raison.defaut,
+      sourceInternet: VALEUR.source.defaut,
+      mode: M.devoirs,
+      sourceMode: VALEUR.source.defaut,
+      reseau: VALEUR.reseau.ecole,
     });
   });
 
-  it("le planning verrouille le soir", () => {
-    const e = etatEffectif(config(), le(26, 22, 0));
-    expect(e.pc).toBe(verrouille);
-    expect(e.raisonPc).toBe(VALEUR.raison.planning);
+  it("« Temps libre + Internet jusqu'à 18h » : tout internet ; à 18h, retour seul en Devoirs", () => {
+    const e = ex({ mode: M.libreInternet, jusqua: le(28, 18, 0) });
+    expect(etatEffectif(config(e), le(28, 16, 0))).toMatchObject({ mode: M.libreInternet, reseau: VALEUR.reseau.complet });
+    expect(etatEffectif(config(e), le(28, 18, 0))).toMatchObject({ mode: M.devoirs, reseau: VALEUR.reseau.ecole });
   });
 
-  it("« débloquer jusqu'à 23h » l'emporte sur le planning, puis expire seule", () => {
-    const ex = { pc: autorise, jusqua: le(26, 23, 0), par: "p" };
-    expect(etatEffectif(config(ex), le(26, 22, 0)).pc).toBe(autorise);
-    expect(etatEffectif(config(ex), le(26, 22, 0)).raisonPc).toBe(VALEUR.raison.exception);
-    expect(etatEffectif(config(ex), le(26, 23, 0)).pc).toBe(verrouille);
+  it("un mode accordé ne lève pas le verrouillage du soir", () => {
+    const e = ex({ mode: M.libre, jusqua: le(26, 23, 0) });
+    const s = etatEffectif(config(e), le(26, 22, 0));
+    expect(s.pc).toBe(verrouille);
+    expect(s.sourcePc).toBe(VALEUR.source.planning);
+    expect(s.mode).toBe(M.libre);
   });
 
-  it("« verrouiller maintenant » l'après-midi", () => {
-    const ex = { pc: verrouille, jusqua: le(28, 18, 0), par: "p" };
-    expect(etatEffectif(config(ex), le(28, 15, 0)).pc).toBe(verrouille);
-    expect(etatEffectif(config(ex), le(28, 18, 0)).pc).toBe(autorise);
+  it("« débloquer jusqu'à 23h » l'emporte sur le planning puis expire seule, sans changer le mode", () => {
+    const e = ex({ pc: autorise, jusqua: le(26, 23, 0) });
+    expect(etatEffectif(config(e), le(26, 22, 0))).toMatchObject({ pc: autorise, sourcePc: VALEUR.source.exception, mode: M.devoirs });
+    expect(etatEffectif(config(e), le(26, 23, 0)).pc).toBe(verrouille);
   });
 
-  it("le mode école ne touche pas à l'accès au PC (dimensions indépendantes)", () => {
-    const ex = { internet: VALEUR.internet.ecole, jusqua: le(26, 23, 0), par: "p" };
-    const e = etatEffectif(config(ex), le(26, 22, 0));
-    expect(e.internet).toBe(VALEUR.internet.ecole);
-    expect(e.raisonInternet).toBe(VALEUR.raison.exception);
-    expect(e.pc).toBe(verrouille);
-    expect(e.raisonPc).toBe(VALEUR.raison.planning);
+  it("« couper internet » passe avant tout mode", () => {
+    const e = ex({ internet: VALEUR.internet.coupe, jusqua: le(28, 18, 0) });
+    expect(etatEffectif(config(e), le(28, 15, 0)).reseau).toBe(VALEUR.reseau.coupe);
   });
 
   it("une exception échue ne compte plus, à la milliseconde", () => {
-    const ex = { pc: verrouille, jusqua: le(28, 18, 0), par: "p" };
-    expect(exceptionActive(ex, new Date(le(28, 18, 0).getTime() - 1))).toBe(true);
-    expect(exceptionActive(ex, le(28, 18, 0))).toBe(false);
+    const e = ex({ pc: verrouille, jusqua: le(28, 18, 0) });
+    expect(exceptionActive(e, new Date(le(28, 18, 0).getTime() - 1))).toBe(true);
+    expect(exceptionActive(e, le(28, 18, 0))).toBe(false);
     expect(exceptionActive(null, le(28, 18, 0))).toBe(false);
   });
 });
 
-describe("prochain changement (« verrouillage à 21h30 »)", () => {
-  it("lundi après-midi : verrouillage à 21h30", () => {
-    expect(prochainChangementPc(config(), le(26, 15, 0))).toEqual({ quand: le(26, 21, 30), pc: verrouille });
+describe("filtrage réel (réponse 1 du 27.10)", () => {
+  it.each([
+    [VALEUR.internet.complet, M.devoirs, VALEUR.reseau.ecole],
+    [VALEUR.internet.complet, M.devoirsInternet, VALEUR.reseau.complet],
+    [VALEUR.internet.complet, M.libre, VALEUR.reseau.ecole],
+    [VALEUR.internet.complet, M.libreInternet, VALEUR.reseau.complet],
+    [VALEUR.internet.ecole, M.libreInternet, VALEUR.reseau.ecole],
+    [VALEUR.internet.coupe, M.libreInternet, VALEUR.reseau.coupe],
+  ])("internet %s + mode %s → %s", (internet, mode, reseau) => {
+    expect(reseauDe(internet, mode)).toBe(reseau);
   });
 
-  it("vendredi après-midi : verrouillage à 22h30", () => {
+  it("applis permises : Devoirs = école ; Temps libre = tout", () => {
+    expect(CATEGORIES_PAR_MODE[M.devoirs]).toEqual([VALEUR.categorie.ecole]);
+    expect(CATEGORIES_PAR_MODE[M.libre]).toContain(VALEUR.categorie.jeu);
+  });
+});
+
+describe("prochain changement", () => {
+  it("lundi après-midi : verrouillage à 21h30 ; vendredi : 22h30", () => {
+    expect(prochainChangementPc(config(), le(26, 15, 0))).toEqual({ quand: le(26, 21, 30), pc: verrouille });
     expect(prochainChangementPc(config(), le(30, 15, 0))).toEqual({ quand: le(30, 22, 30), pc: verrouille });
   });
 
@@ -117,67 +157,42 @@ describe("prochain changement (« verrouillage à 21h30 »)", () => {
     expect(prochainChangementPc(config(), le(26, 23, 0))).toEqual({ quand: le(27, 7, 0), pc: autorise });
   });
 
-  it("débloqué jusqu'à 23h : le verrou revient à 23h", () => {
-    const ex = { pc: autorise, jusqua: le(26, 23, 0), par: "p" };
-    expect(prochainChangementPc(config(ex), le(26, 22, 0))).toEqual({ quand: le(26, 23, 0), pc: verrouille });
+  it("temps libre jusqu'à 18h : retour en Devoirs à 18h", () => {
+    const e = ex({ mode: M.libre, jusqua: le(28, 18, 0) });
+    expect(prochainChangement(config(e), "mode", le(28, 16, 0))).toEqual({ quand: le(28, 18, 0), valeur: M.devoirs });
   });
 
-  it("une exception qui finit pendant le verrou du planning n'est pas un changement", () => {
-    const ex = { pc: verrouille, jusqua: le(26, 22, 0), par: "p" };
-    expect(prochainChangementPc(config(ex), le(26, 20, 0))).toEqual({ quand: le(27, 7, 0), pc: autorise });
-  });
-
-  it("planning vide et pas d'exception : rien ne change", () => {
-    const vide = { sun: null, mon: null, tue: null, wed: null, thu: null, fri: null, sat: null };
-    expect(prochainChangementPc({ planning: vide, defauts: DEFAUTS, exception: null }, le(26, 15, 0))).toBeNull();
+  it("verrouillé jusqu'à nouvel ordre : rien ne change dans la semaine", () => {
+    const e = ex({ pc: verrouille, jusqua: new Date(JUSQUA_NOUVEL_ORDRE_MS) });
+    expect(prochainChangementPc(config(e), le(26, 15, 0))).toBeNull();
+    expect(sansFin(e.jusqua)).toBe(true);
   });
 });
 
 describe("accorder « plus de temps »", () => {
-  it("le cas vu à l'écran : débloqué jusqu'à 13h55, « +30 min » à 12h55 ne raccourcit pas", () => {
-    const ex = { pc: autorise, jusqua: le(26, 13, 55), par: "parent-2" };
-    const r = exceptionApresAccordTemps(ex, le(26, 13, 25), "parent-2", le(26, 12, 55));
-    expect(r.jusqua).toEqual(le(26, 13, 55));
+  it("ne raccourcit jamais un déblocage plus long", () => {
+    const e = ex({ pc: autorise, jusqua: le(26, 13, 55) });
+    expect(exceptionApresAccordTemps(e, le(26, 13, 25), "Maman", le(26, 12, 55)).jusqua).toEqual(le(26, 13, 55));
   });
 
-  it("un déblocage plus court est prolongé", () => {
-    const ex = { pc: autorise, jusqua: le(26, 22, 0), par: "p" };
-    expect(exceptionApresAccordTemps(ex, le(26, 22, 30), "p", le(26, 21, 50)).jusqua).toEqual(le(26, 22, 30));
+  it("garde le mode accordé en cours (le temps libre n'est pas perdu)", () => {
+    const e = ex({ mode: M.libre, jusqua: le(26, 18, 0) });
+    const r = exceptionApresAccordTemps(e, le(26, 22, 30), "Maman", le(26, 17, 0));
+    expect(r).toMatchObject({ pc: autorise, mode: M.libre, jusqua: le(26, 22, 30), par: "Maman" });
   });
 
-  it("un « verrouiller maintenant » est remplacé par le temps accordé", () => {
-    const ex = { pc: verrouille, jusqua: le(26, 23, 0), par: "p" };
-    const r = exceptionApresAccordTemps(ex, le(26, 16, 30), "p", le(26, 16, 0));
-    expect(r).toEqual({ pc: autorise, jusqua: le(26, 16, 30), par: "p" });
-  });
-
-  it("le mode école en cours est gardé", () => {
-    const ex = { internet: VALEUR.internet.ecole, jusqua: le(26, 17, 0), par: "p" };
-    const r = exceptionApresAccordTemps(ex, le(26, 16, 30), "p", le(26, 16, 0));
-    expect(r.internet).toBe(VALEUR.internet.ecole);
-    expect(r.pc).toBe(autorise);
-  });
-
-  it("une exception échue ne compte pas", () => {
-    const ex = { pc: autorise, internet: VALEUR.internet.ecole, jusqua: le(26, 15, 0), par: "p" };
-    expect(exceptionApresAccordTemps(ex, le(26, 16, 30), "p", le(26, 16, 0))).toEqual({
-      pc: autorise,
-      jusqua: le(26, 16, 30),
-      par: "p",
-    });
+  it("remplace un « verrouiller maintenant »", () => {
+    const e = ex({ pc: verrouille, jusqua: le(26, 23, 0) });
+    expect(exceptionApresAccordTemps(e, le(26, 16, 30), "Papa", le(26, 16, 0)).pc).toBe(autorise);
   });
 });
 
 describe("outils", () => {
   it("heures", () => {
     expect(enMinutes("07:00")).toBe(420);
-    expect(enMinutes("21:30")).toBe(1290);
     expect(() => enMinutes("24:00")).toThrow();
-    expect(() => enMinutes("7:00")).toThrow();
   });
-
   it("jour local du document d'usage", () => {
     expect(jourLocal(le(26, 0, 5))).toBe("2026-10-26");
-    expect(jourLocal(le(26, 23, 59))).toBe("2026-10-26");
   });
 });

@@ -54,6 +54,8 @@ describe("firestore.rules concorde avec le schéma", () => {
       VALEUR.statutDemande.enAttente,
       VALEUR.statutDemande.acceptee,
       VALEUR.statutDemande.refusee,
+      VALEUR.statutDemande.traitee,
+      CHAMP_CONFIG.reinitialiserLocalAvant,
       ...CHAMPS_DEMANDE_PARENT,
     ];
     const manquants = attendus.filter((n) => !bloc.includes(`'${n}'`));
@@ -68,5 +70,6 @@ describe("firestore.rules concorde avec le schéma", () => {
 
   it("l'échéance d'une exception est exigée sous son nom", () => {
     expect(bloc).toContain(`.${CHAMP_CONFIG.exception}.${CHAMP_REGLE.jusqua} is timestamp`);
+    expect(bloc).toContain(`get('${CHAMP_REGLE.par}', '').size() <= 60`);
   });
 });

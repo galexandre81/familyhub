@@ -79,15 +79,53 @@ const db = (uid: string, claims?: Record<string, unknown>) => env.authenticatedC
 const ecran = () => db("display:d1", { isDisplay: true, householdId: FOYER, displayId: "d1" });
 
 const config = (foyer: string, compteAppareil: string | null, par: string) =>
-  nouvelleConfigVers({ foyer, compteAppareil, nom: "PC des enfants", par, quand: new Date() });
+  nouvelleConfigVers({ foyer, compteAppareil, nom: "PC des enfants", nomsParents: { [par]: "Papa" }, par, quand: new Date() });
 const etat = () =>
-  etatVers({ pc: VALEUR.pc.autorise, internet: VALEUR.internet.complet, raison: VALEUR.raison.defaut, vuLe: new Date(), version: "test" });
+  etatVers({
+    pc: VALEUR.pc.autorise,
+    internet: VALEUR.internet.complet,
+    mode: VALEUR.mode.devoirs,
+    raisons: {},
+    sources: {},
+    jusqua: {},
+    libelleMode: "Devoirs",
+    reseau: VALEUR.reseau.ecole,
+    resume: "Mode Devoirs.",
+    minutesDuJour: 30,
+    sessionOuverte: true,
+    applisRefusees: {},
+    vuLe: new Date(),
+    version: "test",
+  });
 const usage = (jour = JOUR) =>
-  usageVers({ jour, minutesSession: 30, minutesParAppli: { krita: 30 }, lancementsRefuses: [], codeParent: [], majLe: new Date() });
+  usageVers({
+    jour,
+    secondesSession: 1800,
+    secondesActives: 1500,
+    secondesParAppli: { krita: 1800 },
+    nomsApplis: {},
+    secondesParCategorie: {},
+    lancementsRefuses: [],
+    codeParent: [],
+    executablesInconnus: [],
+    vpnBloques: [],
+    limitesAtteintes: {},
+    majLe: new Date(),
+  });
 const demande = () =>
-  nouvelleDemandeVers({ type: VALEUR.typeDemande.temps, message: "encore un peu", cible: null, creeeLe: new Date() });
-const decision = (par: string, statut = VALEUR.statutDemande.acceptee) =>
-  decisionVers({ statut, par, quand: new Date(), accordeJusqua: plusTard() });
+  nouvelleDemandeVers({
+    id: DEMANDE,
+    de: "enfant",
+    type: VALEUR.typeDemande.temps,
+    detail: "30",
+    message: "encore un peu",
+    dureeMinutes: 30,
+    creeeLe: new Date(),
+  });
+const decision = (par: string, statut: string = VALEUR.statutDemande.acceptee) =>
+  decisionVers({ statut: statut as never, par, traiteLe: new Date() });
+const exception = (e: Record<string, unknown>) =>
+  exceptionVers({ par: "Papa", poseLe: null, jusqua: plusTard(), ...e } as never, new Date());
 const signe = (par: string) => ({ [CHAMP_CONFIG.modifiePar]: par, [CHAMP_CONFIG.modifieLe]: new Date() });
 
 beforeAll(async () => {
@@ -147,7 +185,7 @@ describe("parents : autorisé", () => {
     const ref = doc(db(PARENT_2), chemin.config(PC));
     await assertSucceeds(
       updateDoc(ref, {
-        [CHAMP_CONFIG.exception]: exceptionVers({ pc: VALEUR.pc.verrouille, jusqua: plusTard(), par: PARENT_2 }),
+        [CHAMP_CONFIG.exception]: exception({ pc: VALEUR.pc.verrouille, par: "Maman" }),
         ...signe(PARENT_2),
       }),
     );
@@ -193,7 +231,7 @@ describe("parents : interdit", () => {
     await assertFails(
       updateDoc(doc(db(PARENT), chemin.config(PC)), {
         [CHAMP_CONFIG.exception]: {
-          ...exceptionVers({ pc: VALEUR.pc.autorise, jusqua: plusTard(), par: PARENT }),
+          ...exception({ pc: VALEUR.pc.autorise }),
           [CHAMP_REGLE.jusqua]: null,
         },
         ...signe(PARENT),
@@ -261,14 +299,14 @@ describe("appareil : interdit", () => {
   it("modifier sa config (se débloquer lui-même)", async () => {
     await assertFails(
       updateDoc(doc(db(APPAREIL), chemin.config(PC)), {
-        [CHAMP_CONFIG.exception]: exceptionVers({ pc: VALEUR.pc.autorise, jusqua: plusTard(), par: APPAREIL }),
+        [CHAMP_CONFIG.exception]: exception({ pc: VALEUR.pc.autorise }),
         ...signe(APPAREIL),
       }),
     );
   });
 
   it("créer un appareil, supprimer sa config", async () => {
-    await assertFails(setDoc(doc(db(APPAREIL), chemin.config("autre")), config(FOYER, APPAREIL, APPAREIL)));
+    await assertFails(setDoc(doc(db(APPAREIL), chemin.config("un-autre-appareil")), config(FOYER, APPAREIL, APPAREIL)));
     await assertFails(deleteDoc(doc(db(APPAREIL), chemin.config(PC))));
   });
 
@@ -302,6 +340,55 @@ describe("appareil : interdit", () => {
   });
 });
 
+describe("cas du contrat réel (27.10)", () => {
+  it("le PC réécrit sa demande tant qu'elle est en attente (renvoi après coupure)", async () => {
+    await assertSucceeds(setDoc(doc(db(APPAREIL), chemin.demande(PC, DEMANDE)), demande()));
+  });
+
+  it("le PC ne peut pas marquer sa demande traitée, ni la réécrire une fois décidée", async () => {
+    await assertFails(updateDoc(doc(db(APPAREIL), chemin.demande(PC, DEMANDE)), decision(APPAREIL)));
+    await assertSucceeds(updateDoc(doc(db(PARENT), chemin.demande(PC, DEMANDE)), decision(PARENT)));
+    await assertFails(setDoc(doc(db(APPAREIL), chemin.demande(PC, DEMANDE)), demande()));
+  });
+
+  it("un parent marque « traitée » une demande sans action (type autre)", async () => {
+    await assertSucceeds(updateDoc(doc(db(PARENT), chemin.demande(PC, DEMANDE)), decision(PARENT, VALEUR.statutDemande.traitee)));
+  });
+
+  it("« Revenir à la normale » : exception effacée et code parent annulé", async () => {
+    await assertSucceeds(
+      updateDoc(doc(db(PARENT_2), chemin.config(PC)), {
+        [CHAMP_CONFIG.exception]: null,
+        [CHAMP_CONFIG.reinitialiserLocalAvant]: new Date(),
+        ...signe(PARENT_2),
+      }),
+    );
+  });
+
+  it("accorder un mode jusqu'à une heure, avec le nom montré à l'enfant", async () => {
+    await assertSucceeds(
+      updateDoc(doc(db(PARENT_2), chemin.config(PC)), {
+        [CHAMP_CONFIG.exception]: exception({ mode: VALEUR.mode.libre, par: "Maman" }),
+        ...signe(PARENT_2),
+      }),
+    );
+  });
+
+  it("un nom montré à l'enfant de plus de 60 caractères est refusé", async () => {
+    await assertFails(
+      updateDoc(doc(db(PARENT), chemin.config(PC)), {
+        [CHAMP_CONFIG.exception]: { ...exception({ pc: VALEUR.pc.verrouille }), [CHAMP_REGLE.par]: "x".repeat(61) },
+        ...signe(PARENT),
+      }),
+    );
+  });
+
+  it("personne ne supprime l'état du PC, pas même le PC", async () => {
+    await assertFails(deleteDoc(doc(db(APPAREIL), chemin.etat(PC))));
+    await assertFails(deleteDoc(doc(db(PARENT), chemin.etat(PC))));
+  });
+});
+
 describe("NextDNS : rapport et profil privé", () => {
   beforeEach(async () => {
     await env.withSecurityRulesDisabled(async (ctx) => {
@@ -327,7 +414,7 @@ describe("NextDNS : rapport et profil privé", () => {
   it("le profil NextDNS n'est lisible par aucun client, même un parent", async () => {
     for (const uid of [PARENT, PARENT_2, APPAREIL, ENFANT]) {
       await assertFails(getDoc(doc(db(uid), chemin.priveNextdns(PC))));
-      await assertFails(setDoc(doc(db(uid), chemin.priveNextdns(PC)), { [CHAMP_PRIVE_NEXTDNS.profil]: "autre" }));
+      await assertFails(setDoc(doc(db(uid), chemin.priveNextdns(PC)), { [CHAMP_PRIVE_NEXTDNS.profil]: "un-autre-profil" }));
     }
   });
 });

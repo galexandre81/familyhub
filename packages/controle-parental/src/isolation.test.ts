@@ -23,7 +23,15 @@ function valeursChaines(o: unknown): string[] {
   return [];
 }
 
-const NOMS_COURANTS = new Set(["pc", "internet", "type", "message", "status", "name", "label", "app", "at", "by", "until", "current", "other", "default", "time", "site"]);
+const NOMS_COURANTS = new Set(["pc", "internet", "mode", "type", "message", "status", "name", "label", "app", "at", "by", "until", "current", "other", "default", "time", "site"]);
+
+/**
+ * Mots de l'API NextDNS (status=blocked, from=…) qui tombent sur des valeurs du
+ * contrat : coïncidence de vocabulaire entre deux systèmes, admise dans les
+ * seuls fichiers qui parlent à NextDNS.
+ */
+const VOCABULAIRE_NEXTDNS = new Set(["blocked", "from"]);
+const parleANextdns = (f: string) => relative(RACINE_DEPOT, f).replace(/\\/g, "/").startsWith("functions/src/controleParental/nextdns");
 const NOMS = [
   ...new Set(
     valeursChaines({ ...schema, chemin: undefined }).filter((n) => n.length >= 4 && !NOMS_COURANTS.has(n)),
@@ -68,7 +76,9 @@ describe("isolation du schéma", () => {
   it.each(VISES.map((f) => [relative(RACINE_DEPOT, f), f]))("%s n'écrit aucun nom stocké", (_r, f) => {
     const texte = readFileSync(f, "utf8");
     // Même guillemet des deux côtés : « d'usage" » dans une phrase n'est pas un nom.
-    const trouves = NOMS.filter((n) => new RegExp(`(["'\`])${n}\\1`).test(texte));
+    const trouves = NOMS.filter((n) => new RegExp(`(["'\`])${n}\\1`).test(texte)).filter(
+      (n) => !(parleANextdns(f) && VOCABULAIRE_NEXTDNS.has(n)),
+    );
     expect(trouves).toEqual([]);
   });
 });

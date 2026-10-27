@@ -25,7 +25,7 @@ function fauxNextdns(options: { erreurSur?: RegExp } = {}) {
     if (options.erreurSur?.test(chemin)) return repondre({ errors: [{ code: "invalid" }] });
     if (init.method === "DELETE") return repondre({}, 204);
     if (init.method === "POST") return repondre({ data: {} });
-    if (chemin === "/profiles") return repondre({ data: [{ id: "pcAdo" }, { id: "autre" }] });
+    if (chemin === "/profiles") return repondre({ data: [{ id: "pcAdo" }, { id: "autreProfil" }] });
     if (chemin.endsWith("/analytics/status")) {
       const n = chemin.includes("pcAdo") ? 1000 : 500;
       return repondre({ data: [{ status: "default", queries: n }, { status: "blocked", queries: 20 }] });
@@ -88,7 +88,7 @@ describe("qui passe", () => {
 
   it("appareil inconnu, NextDNS pas relié, demande invalide", async () => {
     const { d } = deps({ lirePrive: async () => null });
-    expect(await raison(traiter("parent", { appareilId: "autre", action: ACTION_NEXTDNS.rapport }, d))).toBe("appareil-inconnu");
+    expect(await raison(traiter("parent", { appareilId: "inconnu", action: ACTION_NEXTDNS.rapport }, d))).toBe("appareil-inconnu");
     expect(await raison(traiter("parent", { appareilId: "pc", action: ACTION_NEXTDNS.rapport }, d))).toBe("pas-relie");
     expect(await raison(traiter("parent", { appareilId: "pc", action: "deleteProfile" }, d))).toBe("demande-invalide");
     expect(await raison(traiter("parent", { appareilId: "../x", action: ACTION_NEXTDNS.rapport }, d))).toBe("demande-invalide");

@@ -1,167 +1,236 @@
 /**
  * Schéma Firestore du contrôle parental : le SEUL fichier du dépôt qui écrit
  * un chemin, un nom de champ ou une valeur stockée. Tout le reste (hub,
- * simulateur, tests) passe par ces constantes et par `conversion.ts`.
+ * simulateur, tests, fonctions par copie générée) passe par ces constantes et
+ * par `conversion.ts`.
  *
- * Source : le brief « spécification prévue » du 26.10.2026, PAS le contrat
- * réel. Le contrat (CONTRAT-FAMILY-HUB.md, produit par l'agent du PC) fera
- * foi : pour s'y aligner, on ne modifie que ce fichier (et `conversion.ts`
- * si une FORME change, pas seulement un nom). Chaque constante est marquée :
- *   [brief]   nommée telle quelle dans le brief ;
- *   [supposé] le brief nomme la chose mais pas le champ, ou pas les valeurs ;
- *   [hub]     ajout côté Family Hub, absent du brief (à faire connaître à
- *             l'agent s'il doit le lire).
+ * Source : le CONTRAT réel de l'agent du PC (version 1, agent 1.0.0, reçu le
+ * 27.10.2026, réponses vérifiées dans le code de l'agent). Chaque constante
+ * est marquée :
+ *   [contrat] nommée telle quelle dans le contrat ;
+ *   [hub]     ajout côté Family Hub ; l'agent ignore tout champ inconnu, sans
+ *             erreur (réponse a du 27.10).
  *
  * Les règles Firestore (firestore.rules) répètent forcément ces noms, leur
  * langage n'important rien : un test de cohérence les compare à ce fichier.
  */
 
 /**
- * Collection racine des appareils pilotés. [brief] `devices/{id}`. L'id réel
+ * Collection racine des appareils pilotés. [contrat] `devices/{id}`. L'id réel
  * n'est jamais écrit dans le code (dépôt public) : le hub retrouve les
  * appareils de son foyer par requête, le simulateur reçoit l'id en argument.
  */
 export const COLLECTION_APPAREILS = "devices";
 
-/** Sous-collections et document d'état. [brief] */
+/** Sous-collections et document d'état. [contrat] */
 export const SOUS_COLLECTION = {
   etat: "status",
   usage: "usage",
   demandes: "requests",
 } as const;
-/** [brief] `status/current` : un seul document d'état par appareil. */
+/** [contrat] `status/current` : un seul document d'état par appareil. */
 export const DOC_ETAT_COURANT = "current";
 
-/** Document de configuration `devices/{id}` (écrit par les parents). */
+/** Document de configuration `devices/{id}` (écrit par les parents, lu par le PC). */
 export const CHAMP_CONFIG = {
-  /** [hub] Foyer qui possède l'appareil : ses parents le pilotent. */
+  /** [hub] Foyer qui possède l'appareil : ses parents le pilotent (remplace `parentUids`, § 5). */
   foyer: "householdId",
-  /** [hub] Uid du compte Firebase Auth de l'appareil (« badge » du PC). */
+  /** [contrat] Uid du compte Firebase Auth de l'appareil. */
   compteAppareil: "deviceUid",
-  /** [hub] Nom affiché (« PC des enfants »). */
-  nom: "name",
-  /** [brief] Planning hebdomadaire. */
+  /** [contrat] Nom affiché (« PC des enfants »). Ignoré par le PC. */
+  nom: "displayName",
+  /** [contrat] `1`. Ignoré par le PC. */
+  versionSchema: "schemaVersion",
+  /** [contrat] Planning hebdomadaire : plages par jour. */
   planning: "schedule",
-  /** [brief] Valeurs par défaut hors planning et hors exception. */
+  /** [contrat] Valeurs hors planning et hors exception : { pc, internet, mode }. */
   defauts: "defaults",
-  /** [brief] Exception en cours. */
+  /** [contrat] Exception en cours (une seule, une seule échéance) ou null. */
   exception: "override",
-  /** [brief] Liste blanche du mode école (domaines). */
+  /** [contrat] Annule les exceptions posées SUR LE PC (code parent) antérieures. */
+  reinitialiserLocalAvant: "resetLocalBefore",
+  /** [contrat] Domaines ouverts en liste école (et leurs sous-domaines). */
   listeEcole: "schoolAllowlist",
-  /** [brief] Applis contrôlées. */
+  /** [contrat] { idAppli: { allowed, category } }. */
   applis: "apps",
-  /** [brief] Limites quotidiennes par catégorie. */
+  /** [contrat] { catégorie: minutesParJour } ; {} = aucune limite. */
   limites: "categoryLimits",
+  /** [contrat] Programmes hors installation : signaler ou fermer. */
+  executablesInconnus: "unknownExecutables",
+  /** [hub] Nom montré à l'enfant pour chaque parent : { uid: "Papa" }. */
+  nomsParents: "parentLabels",
   /** [hub] Horodatage de la dernière modification par un parent. */
   modifieLe: "updatedAt",
   /** [hub] Uid du parent auteur de la dernière modification. */
   modifiePar: "updatedBy",
 } as const;
 
-/** Champs de `defaults` et de `override`. [brief] `override { pc, internet, until, by }` */
+/**
+ * Champs communs de `defaults`, `override` et des plages du planning. [contrat]
+ * `by` est le NOM MONTRÉ À L'ENFANT (« Papa »), ≤ 60 caractères.
+ */
 export const CHAMP_REGLE = {
   pc: "pc",
   internet: "internet",
+  mode: "mode",
   jusqua: "until",
   par: "by",
+  poseLe: "setAt",
 } as const;
 
-/**
- * Planning : un créneau de verrouillage par SOIR, porté par le jour où il
- * commence (le verrou de dimanche 21h30 se termine lundi 07h00). [supposé]
- * Clé = jour de la semaine, valeur = créneau ou null (pas de verrouillage).
- */
+/** [contrat] Jours du planning, dans l'ordre de Date.getDay(). */
 export const CLE_JOUR = ["sun", "mon", "tue", "wed", "thu", "fri", "sat"] as const;
-export const CHAMP_CRENEAU = {
-  debut: "lockFrom",
-  fin: "lockUntil",
+/**
+ * [contrat] Une plage `[start, end[` qui règle pc, internet et/ou mode. Si
+ * `end` ≤ `start`, elle passe minuit et appartient au jour où elle commence.
+ */
+export const CHAMP_PLAGE = {
+  debut: "start",
+  fin: "end",
 } as const;
 
-/** Applis : `apps { id: { allowed, category } }`. [brief] */
+/** [contrat] `apps { id: { allowed, category } }`. */
 export const CHAMP_APPLI = {
   autorisee: "allowed",
   categorie: "category",
-  /** [hub] Nom lisible, si l'agent le fournit ; sinon l'id est affiché. */
-  nom: "label",
 } as const;
 
-/** Limites : `categoryLimits { categorie: { enabled, minutes } }`. [supposé] */
-export const CHAMP_LIMITE = {
-  active: "enabled",
-  minutes: "minutesPerDay",
-} as const;
-
-/** `status/current` (écrit par l'appareil). [brief] état, raison, lastSeen, version */
+/** `status/current`, écrit par le PC toutes les 60 s. [contrat] */
 export const CHAMP_ETAT = {
   pc: "pc",
   internet: "internet",
-  raison: "reason",
+  mode: "mode",
+  libelleMode: "modeLabel",
+  /** Filtrage réel d'internet : liste école, filtré, coupé. */
+  reseau: "network",
+  /** Phrase prête à afficher. */
+  resume: "summary",
+  prochainChangement: "nextChange",
+  exceptionsActives: "activeOverrides",
+  sessionOuverte: "sessionActive",
+  fermetureA: "lockPendingAt",
+  minutesDuJour: "todayMinutes",
+  applisRefusees: "deniedApps",
   vuLe: "lastSeen",
+  heureSimulee: "simulatedTime",
   version: "version",
+  modeDistant: "remoteMode",
+  erreurDistante: "remoteError",
+  erreursConfig: "configErrors",
+  sauvegarde: "backup",
+  /** [contrat, à venir côté PC] catalogue des applis installées. */
+  catalogue: "apps",
+  /** [contrat, à venir côté PC] horloge du PC (lastSeen deviendra l'heure du serveur). */
+  heurePc: "deviceTime",
+} as const;
+/** Suffixes par dimension dans `status/current` : `pcReason`, `modeSource`, `internetUntil`… [contrat] */
+export const SUFFIXE_ETAT = {
+  raison: "Reason",
+  source: "Source",
+  jusqua: "Until",
+} as const;
+/** `nextChange.{dim}` et `activeOverrides.{dim}`. [contrat] */
+export const CHAMP_CHANGEMENT = { quand: "at", valeur: "value" } as const;
+export const CHAMP_EXCEPTION_ACTIVE = { valeur: "value", jusqua: "until", source: "source", par: "by" } as const;
+/** `backup`. [contrat] */
+export const CHAMP_SAUVEGARDE = { date: "date", resultat: "resultat", code: "code" } as const;
+/** Catalogue publié par le PC (à venir). [contrat, réponse c] */
+export const CHAMP_CATALOGUE = {
+  nom: "name",
+  categorie: "category",
+  categorieParDefaut: "defaultCategory",
+  autorisee: "allowed",
+  raison: "reason",
 } as const;
 
-/** `usage/{AAAA-MM-JJ}` (écrit par l'appareil). [supposé] noms et formes */
+/** `usage/{AAAA-MM-JJ}`, jour de Paris, écrit toutes les 5 min. Durées en SECONDES. [contrat] */
 export const CHAMP_USAGE = {
-  minutesSession: "sessionMinutes",
-  /** { idAppli: minutes } */
-  minutesParAppli: "appMinutes",
-  /** [{ app, at }] */
+  date: "date",
+  secondesSession: "sessionSeconds",
+  secondesActives: "activeSeconds",
+  /** { idAppli | "autre:<classe>": secondes } */
+  secondesParAppli: "apps",
+  nomsApplis: "appNames",
+  secondesParCategorie: "categories",
   lancementsRefuses: "deniedLaunches",
-  /** [{ at }] */
   codeParent: "parentCodeUses",
+  executablesInconnus: "unknownExecutables",
+  vpnBloques: "blockedVpn",
+  limitesAtteintes: "limitReached",
   majLe: "updatedAt",
 } as const;
+/** Champs des événements de `usage`. [contrat] */
 export const CHAMP_EVENEMENT = {
+  quand: "time",
   appli: "app",
-  quand: "at",
+  chemin: "path",
+  resultat: "result",
+  service: "service",
+  executable: "exe",
+  action: "action",
+  date: "date",
+  detail: "detail",
+} as const;
+/** Préfixe des champs internes de `usage`, à ignorer. [contrat] */
+export const PREFIXE_INTERNE = "_";
+/** Préfixe des applis hors catalogue dans `usage.apps`. [contrat] */
+export const PREFIXE_AUTRE_APPLI = "autre:";
+
+/** `requests/{id}`, créées par le PC, statut posé par un parent. [contrat] */
+export const CHAMP_DEMANDE = {
+  id: "id",
+  creeeLe: "createdAt",
+  de: "from",
+  type: "type",
+  /** Durée, adresse du site, id d'appli, ou nom technique du mode demandé. */
+  detail: "detail",
+  message: "message",
+  dureeMinutes: "durationMinutes",
+  statut: "status",
+  reponse: "response",
+  traitePar: "handledBy",
+  traiteLe: "handledAt",
 } as const;
 
-/** `requests/{id}` (créées par l'appareil, statut posé par un parent). [supposé] */
-export const CHAMP_DEMANDE = {
-  type: "type",
-  message: "message",
-  /** Ce que vise la demande : un domaine (site), un id d'appli (appli), rien (temps). */
-  cible: "target",
-  creeeLe: "createdAt",
-  statut: "status",
-  decidePar: "decidedBy",
-  decideLe: "decidedAt",
-  /** Échéance accordée quand la demande est acceptée avec une durée. */
-  accordeJusqua: "grantedUntil",
-} as const;
+/** Les seuls champs d'une demande qu'un parent a le droit d'écrire. [contrat § 5] */
+export const CHAMPS_DEMANDE_PARENT = [
+  CHAMP_DEMANDE.statut,
+  CHAMP_DEMANDE.reponse,
+  CHAMP_DEMANDE.traitePar,
+  CHAMP_DEMANDE.traiteLe,
+] as const;
 
 /**
- * [hub] Échéance d'un verrouillage « jusqu'à ce qu'un parent le déverrouille »
- * (décision du 26.10.2026). Une date lointaine plutôt qu'une absence d'échéance :
- * un agent qui ne connaît que le brief (échéance obligatoire) verrouille quand
- * même, au lieu d'ignorer une exception qu'il jugerait invalide et de débloquer.
- * À confirmer au contrat.
+ * [hub, accepté au contrat le 27.10] Échéance d'un verrouillage « jusqu'à ce
+ * qu'un parent le déverrouille ». Une date lointaine plutôt qu'une absence
+ * d'échéance : l'agent ignore une exception sans échéance (et débloquerait).
  */
 export const JUSQUA_NOUVEL_ORDRE_MS = Date.UTC(2100, 0, 1);
 
-/** Les seuls champs d'une demande qu'un parent a le droit d'écrire. */
-export const CHAMPS_DEMANDE_PARENT = [
-  CHAMP_DEMANDE.statut,
-  CHAMP_DEMANDE.decidePar,
-  CHAMP_DEMANDE.decideLe,
-  CHAMP_DEMANDE.accordeJusqua,
-] as const;
-
-/** Valeurs stockées. Clé = nom côté Family Hub, valeur = ce qui est écrit. */
+/** Valeurs stockées. Clé = nom côté Family Hub, valeur = ce qui est écrit. [contrat] */
 export const VALEUR = {
-  /** [brief] */
   pc: { autorise: "allowed", verrouille: "locked" },
-  /** [brief] */
-  internet: { complet: "filtered", ecole: "school" },
-  /** [brief] catégories : école, création, jeu, autre — valeurs [supposé] */
-  categorie: { ecole: "school", creation: "creative", jeu: "game", autre: "other" },
-  /** [supposé] raison de l'état effectif, par dimension la plus prioritaire */
-  raison: { exception: "override", planning: "schedule", defaut: "default", codeParent: "parentCode" },
-  /** [supposé] */
-  typeDemande: { temps: "time", site: "site", appli: "app" },
-  /** [supposé] */
-  statutDemande: { enAttente: "pending", acceptee: "accepted", refusee: "refused" },
+  internet: { complet: "filtered", ecole: "school", coupe: "blocked" },
+  mode: {
+    devoirs: "devoirs",
+    devoirsInternet: "devoirs_internet",
+    libre: "libre",
+    libreInternet: "libre_internet",
+  },
+  /** Filtrage réel (`status.network`). */
+  reseau: { ecole: "school", complet: "filtered", coupe: "blocked" },
+  categorie: { ecole: "ecole", creation: "creation", jeu: "jeu", autre: "autre" },
+  /** D'où vient l'état d'une dimension. */
+  source: { exception: "override", local: "local", codeParent: "code", planning: "schedule", defaut: "default" },
+  typeDemande: { temps: "time", site: "site", appli: "app", mode: "mode", autre: "other" },
+  statutDemande: { enAttente: "pending", acceptee: "approved", refusee: "denied", traitee: "done" },
+  executablesInconnus: { signaler: "report", fermer: "kill" },
+  resultatCode: { ok: "ok", echec: "echec" },
+  resultatSauvegarde: { ok: "ok", echec: "echec", nonConnecte: "non_connecte" },
 } as const;
+
+/** [contrat] Version du schéma écrite dans la config. */
+export const VERSION_SCHEMA = 1;
 
 // ─── NextDNS (côté Family Hub seulement : l'agent du PC n'y touche pas) ────
 
@@ -229,3 +298,20 @@ export const chemin = {
   demande: (appareilId: string, demandeId: string) =>
     `${COLLECTION_APPAREILS}/${appareilId}/${SOUS_COLLECTION.demandes}/${demandeId}`,
 };
+
+/**
+ * [contrat § 2.5 + réponse f] Liste école du PC au 27.10.2026, pour initialiser
+ * un appareil neuf : si le champ existe dans Firestore, il REMPLACE la liste du PC.
+ */
+export const LISTE_ECOLE_INITIALE = [
+  "index-education.net",
+  "index-education.com",
+  "educonnect.education.gouv.fr",
+  "education.gouv.fr",
+  "gstatic.com",
+  "googleapis.com",
+  "accounts.google.com",
+  "eclat-bfc.fr",
+  "larousse.fr",
+  "lerobert.com",
+] as const;

@@ -169,15 +169,20 @@ service cloud.firestore {
       function estParent() {
         return parentDe(config().householdId);
       }
-      // Config écrite par un parent : champs connus, signée par lui, et toute
-      // exception porte une échéance (sinon elle ne finirait jamais).
+      // Config écrite par un parent (contrat § 2) : champs connus, signée par
+      // lui ; toute exception porte une échéance (le PC ignore une exception
+      // sans échéance) et le nom montré à l'enfant (≤ 60 caractères).
       function configValide(d) {
-        return d.keys().hasOnly(['householdId', 'deviceUid', 'name', 'schedule', 'defaults',
-                                 'override', 'schoolAllowlist', 'apps', 'categoryLimits',
-                                 'updatedAt', 'updatedBy'])
+        return d.keys().hasOnly(['householdId', 'deviceUid', 'displayName', 'schemaVersion',
+                                 'schedule', 'defaults', 'override', 'resetLocalBefore',
+                                 'schoolAllowlist', 'apps', 'categoryLimits', 'unknownExecutables',
+                                 'parentLabels', 'updatedAt', 'updatedBy'])
           && d.householdId is string
           && d.get('updatedBy', null) == request.auth.uid
-          && (d.get('override', null) == null || d.override.until is timestamp)
+          && (d.get('override', null) == null
+              || (d.override.until is timestamp
+                  && d.override.get('by', '') is string
+                  && d.override.get('by', '').size() <= 60))
           && (!('schoolAllowlist' in d) || d.schoolAllowlist is list);
       }
 
@@ -192,10 +197,10 @@ service cloud.firestore {
                     && configValide(request.resource.data);
       allow delete: if parentDe(resource.data.householdId);
 
-      // État effectif : un seul document, écrit par l'appareil seul.
+      // État effectif : un seul document, écrit par l'appareil seul ; personne ne le supprime.
       match /status/{docId} {
         allow read: if estParent() || estAppareil();
-        allow write: if estAppareil() && docId == 'current';
+        allow create, update: if estAppareil() && docId == 'current';
       }
 
       // Usage d'une journée, id AAAA-MM-JJ, écrit par l'appareil seul.
@@ -212,18 +217,23 @@ service cloud.firestore {
         allow read: if estParent();
       }
 
-      // Demandes : l'appareil les crée en attente ; un parent ne pose que la
-      // décision, signée de son uid. Personne ne supprime.
+      // Demandes (contrat § 4.3 et § 5) : l'appareil les crée en attente et peut
+      // les réécrire tant qu'elles le restent (renvoi après coupure) ; un parent
+      // ne pose que la décision, signée de son uid. Personne ne supprime.
       match /requests/{requestId} {
         allow read: if estParent() || estAppareil();
         allow create: if estAppareil()
                       && request.resource.data.get('status', null) == 'pending'
-                      && !('decidedBy' in request.resource.data);
-        allow update: if estParent()
-                      && request.resource.data.diff(resource.data).affectedKeys()
-                           .hasOnly(['status', 'decidedBy', 'decidedAt', 'grantedUntil'])
-                      && request.resource.data.status in ['accepted', 'refused']
-                      && request.resource.data.decidedBy == request.auth.uid;
+                      && !('handledBy' in request.resource.data);
+        allow update: if (estAppareil()
+                          && resource.data.status == 'pending'
+                          && request.resource.data.get('status', null) == 'pending'
+                          && !('handledBy' in request.resource.data))
+                      || (estParent()
+                          && request.resource.data.diff(resource.data).affectedKeys()
+                               .hasOnly(['status', 'response', 'handledBy', 'handledAt'])
+                          && request.resource.data.status in ['approved', 'denied', 'done']
+                          && request.resource.data.handledBy == request.auth.uid);
       }
     }
   }

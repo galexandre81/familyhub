@@ -2,14 +2,14 @@
  * Lectures et écritures Firestore du contrôle parental (SDK modulaire, celui
  * du hub ; utilisable aussi depuis Node par le simulateur). Côté parents :
  * écouter, poser une exception, revenir à la normale, liste école, planning,
- * applis, limites, décider une demande. Côté appareil (simulateur) : lire la
- * config, écrire status, usage et requests.
+ * applis, limites, décider une demande. Côté appareil (simulateur) : écrire
+ * status, usage et requests comme l'agent du PC.
  *
- * Chaque écriture de config signe `modifiePar` / `modifieLe` : les règles
- * Firestore vérifient que l'auteur est bien le parent connecté.
+ * Chaque écriture de config est signée (uid du parent et heure ; les
+ * règles le vérifient) ; une exception porte en plus le nom montré à
+ * l'enfant et l'heure du serveur à laquelle elle est posée (qui départage côté PC).
  */
 import {
-  addDoc,
   arrayRemove,
   arrayUnion,
   collection,
@@ -34,7 +34,6 @@ import {
   decisionVers,
   demandeDepuis,
   etatDepuis,
-  etatVers,
   exceptionVers,
   limitesVers,
   nouvelleConfigVers,
@@ -51,15 +50,16 @@ import type {
   Demande,
   EtatAppareil,
   Exception,
-  Limite,
+  ExecutablesInconnus,
+  Mode,
   Planning,
   RapportNextdns,
   TypeDemande,
   UsageJour,
 } from "./types.js";
 
-const signature = (par: string) => ({
-  [CHAMP_CONFIG.modifiePar]: par,
+const signature = (uid: string) => ({
+  [CHAMP_CONFIG.modifiePar]: uid,
   [CHAMP_CONFIG.modifieLe]: serverTimestamp(),
 });
 
@@ -141,172 +141,6 @@ export function ecouterDemandesEnAttente(
   );
 }
 
-// ---------------------------------------------------------------- parents
-
-export async function creerAppareil(
-  db: Firestore,
-  c: { appareilId: string; foyer: string; compteAppareil: string | null; nom: string | null; par: string },
-): Promise<void> {
-  await setDoc(doc(db, chemin.config(c.appareilId)), {
-    ...nouvelleConfigVers({ ...c, quand: new Date() }),
-    ...signature(c.par),
-  });
-}
-
-/** Relie le compte Firebase de l'appareil (son uid) à sa config. */
-export async function associerCompteAppareil(db: Firestore, appareilId: string, uid: string, par: string) {
-  await updateDoc(doc(db, chemin.config(appareilId)), { [CHAMP_CONFIG.compteAppareil]: uid, ...signature(par) });
-}
-
-/** Toute exception a une échéance future ; l'appelant la choisit. */
-export async function poserException(db: Firestore, appareilId: string, e: Exception) {
-  if (e.jusqua.getTime() <= Date.now()) throw new Error("L'échéance doit être dans le futur.");
-  await updateDoc(doc(db, chemin.config(appareilId)), {
-    [CHAMP_CONFIG.exception]: exceptionVers(e),
-    ...signature(e.par),
-  });
-}
-
-export async function revenirALaNormale(db: Firestore, appareilId: string, par: string) {
-  await updateDoc(doc(db, chemin.config(appareilId)), { [CHAMP_CONFIG.exception]: null, ...signature(par) });
-}
-
-export async function ajouterSiteEcole(db: Firestore, appareilId: string, domaine: string, par: string) {
-  await updateDoc(doc(db, chemin.config(appareilId)), {
-    [CHAMP_CONFIG.listeEcole]: arrayUnion(domaine),
-    ...signature(par),
-  });
-}
-
-export async function retirerSiteEcole(db: Firestore, appareilId: string, domaine: string, par: string) {
-  await updateDoc(doc(db, chemin.config(appareilId)), {
-    [CHAMP_CONFIG.listeEcole]: arrayRemove(domaine),
-    ...signature(par),
-  });
-}
-
-export async function enregistrerPlanning(db: Firestore, appareilId: string, p: Planning, par: string) {
-  await updateDoc(doc(db, chemin.config(appareilId)), {
-    [CHAMP_CONFIG.planning]: planningVers(p),
-    ...signature(par),
-  });
-}
-
-/** L'id d'une appli peut contenir un point (org.kde.krita) : chemin de champ explicite. */
-export async function enregistrerAppli(db: Firestore, appareilId: string, id: string, a: Appli, par: string) {
-  await updateDoc(
-    doc(db, chemin.config(appareilId)),
-    new FieldPath(CHAMP_CONFIG.applis, id),
-    appliVers(a),
-    CHAMP_CONFIG.modifiePar,
-    par,
-    CHAMP_CONFIG.modifieLe,
-    serverTimestamp(),
-  );
-}
-
-export async function enregistrerLimites(
-  db: Firestore,
-  appareilId: string,
-  l: Partial<Record<Categorie, Limite>>,
-  par: string,
-) {
-  await updateDoc(doc(db, chemin.config(appareilId)), {
-    [CHAMP_CONFIG.limites]: limitesVers(l),
-    ...signature(par),
-  });
-}
-
-export async function refuserDemande(db: Firestore, appareilId: string, demandeId: string, par: string) {
-  await updateDoc(
-    doc(db, chemin.demande(appareilId, demandeId)),
-    decisionVers({ statut: VALEUR.statutDemande.refusee, par, quand: new Date(), accordeJusqua: null }),
-  );
-}
-
-/**
- * Accepter, en un seul envoi : la décision ET son effet.
- * - temps : PC autorisé jusqu'à l'échéance choisie (exceptionApresAccordTemps :
- *   jamais moins qu'un déblocage déjà en cours, mode école conservé) ;
- * - site  : domaine ajouté à la liste école (le déblocage NextDNS viendra en phase 5) ;
- * - appli : appli autorisée.
- */
-export async function accepterDemande(
-  db: Firestore,
-  config: ConfigAppareil,
-  demande: Demande,
-  accordeJusqua: Date | null,
-  par: string,
-) {
-  if (
-    demande.type === VALEUR.typeDemande.temps &&
-    (!accordeJusqua || accordeJusqua.getTime() <= Date.now())
-  ) {
-    throw new Error("Plus de temps : choisir jusqu'à quand.");
-  }
-  const maintenant = new Date();
-  const exception =
-    demande.type === VALEUR.typeDemande.temps && accordeJusqua
-      ? exceptionApresAccordTemps(config.exception, accordeJusqua, par, maintenant)
-      : null;
-  const b = writeBatch(db);
-  const refConfig = doc(db, chemin.config(config.id));
-  b.update(
-    doc(db, chemin.demande(config.id, demande.id)),
-    decisionVers({
-      statut: VALEUR.statutDemande.acceptee,
-      par,
-      quand: maintenant,
-      accordeJusqua: exception?.jusqua ?? accordeJusqua,
-    }),
-  );
-  if (exception) {
-    b.update(refConfig, {
-      [CHAMP_CONFIG.exception]: exceptionVers(exception),
-      ...signature(par),
-    });
-  } else if (demande.type === VALEUR.typeDemande.site && demande.cible) {
-    b.update(refConfig, {
-      [CHAMP_CONFIG.listeEcole]: arrayUnion(demande.cible),
-      ...signature(par),
-    });
-  } else if (demande.type === VALEUR.typeDemande.appli && demande.cible) {
-    const actuelle = config.applis[demande.cible];
-    b.update(
-      refConfig,
-      new FieldPath(CHAMP_CONFIG.applis, demande.cible),
-      appliVers({ ...actuelle, categorie: actuelle?.categorie ?? VALEUR.categorie.autre, autorisee: true }),
-      CHAMP_CONFIG.modifiePar,
-      par,
-      CHAMP_CONFIG.modifieLe,
-      serverTimestamp(),
-    );
-  }
-  await b.commit();
-}
-
-// ---------------------------------------------------------------- appareil (simulateur)
-
-export async function ecrireEtat(db: Firestore, appareilId: string, e: EtatAppareil) {
-  await setDoc(doc(db, chemin.etat(appareilId)), etatVers(e));
-}
-
-export async function ecrireUsage(db: Firestore, appareilId: string, u: UsageJour) {
-  await setDoc(doc(db, chemin.usage(appareilId, u.jour)), usageVers(u));
-}
-
-export async function creerDemande(
-  db: Firestore,
-  appareilId: string,
-  d: { type: TypeDemande; message: string; cible: string | null },
-): Promise<string> {
-  const ref = await addDoc(
-    collection(db, chemin.demandes(appareilId)),
-    nouvelleDemandeVers({ ...d, creeeLe: new Date() }),
-  );
-  return ref.id;
-}
-
 /** Rapport NextDNS de l'appareil (sites du jour, quota du mois). Écrit par la fonction serveur seule. */
 export function ecouterRapportNextdns(
   db: Firestore,
@@ -316,3 +150,204 @@ export function ecouterRapportNextdns(
 ): Unsubscribe {
   return onSnapshot(doc(db, chemin.rapportNextdns(appareilId)), (s) => rappel(rapportNextdnsDepuis(s.data())), erreur);
 }
+
+// ---------------------------------------------------------------- parents
+
+export async function creerAppareil(
+  db: Firestore,
+  c: {
+    appareilId: string;
+    foyer: string;
+    compteAppareil: string | null;
+    nom: string | null;
+    nomsParents: Record<string, string>;
+    uid: string;
+  },
+): Promise<void> {
+  await setDoc(doc(db, chemin.config(c.appareilId)), {
+    ...nouvelleConfigVers({ ...c, par: c.uid, quand: new Date() }),
+    ...signature(c.uid),
+  });
+}
+
+/** Relie le compte Firebase de l'appareil (son uid) à sa config ; vide = PC coupé de Family Hub. */
+export async function associerCompteAppareil(db: Firestore, appareilId: string, compte: string, uid: string) {
+  await updateDoc(doc(db, chemin.config(appareilId)), { [CHAMP_CONFIG.compteAppareil]: compte, ...signature(uid) });
+}
+
+/**
+ * Pose l'exception (elle REMPLACE la précédente : une seule à la fois, contrat
+ * § 2.3). `e.par` est le nom montré à l'enfant ; `uid` signe l'écriture.
+ */
+export async function poserException(db: Firestore, appareilId: string, e: Omit<Exception, "poseLe">, uid: string) {
+  if (e.jusqua.getTime() <= Date.now()) throw new Error("L'échéance doit être dans le futur.");
+  await updateDoc(doc(db, chemin.config(appareilId)), {
+    [CHAMP_CONFIG.exception]: exceptionVers({ ...e, poseLe: null }, serverTimestamp()),
+    ...signature(uid),
+  });
+}
+
+/** Retour au planning, et annulation d'un code parent saisi sur le PC (contrat § 2.4). */
+export async function revenirALaNormale(db: Firestore, appareilId: string, uid: string) {
+  await updateDoc(doc(db, chemin.config(appareilId)), {
+    [CHAMP_CONFIG.exception]: null,
+    [CHAMP_CONFIG.reinitialiserLocalAvant]: serverTimestamp(),
+    ...signature(uid),
+  });
+}
+
+export async function ajouterSiteEcole(db: Firestore, appareilId: string, domaine: string, uid: string) {
+  await updateDoc(doc(db, chemin.config(appareilId)), {
+    [CHAMP_CONFIG.listeEcole]: arrayUnion(domaine),
+    ...signature(uid),
+  });
+}
+
+export async function retirerSiteEcole(db: Firestore, appareilId: string, domaine: string, uid: string) {
+  await updateDoc(doc(db, chemin.config(appareilId)), {
+    [CHAMP_CONFIG.listeEcole]: arrayRemove(domaine),
+    ...signature(uid),
+  });
+}
+
+export async function enregistrerPlanning(db: Firestore, appareilId: string, p: Planning, uid: string) {
+  await updateDoc(doc(db, chemin.config(appareilId)), {
+    [CHAMP_CONFIG.planning]: planningVers(p),
+    ...signature(uid),
+  });
+}
+
+/** Un id d'appli pourrait contenir un point : chemin de champ explicite. */
+export async function enregistrerAppli(db: Firestore, appareilId: string, id: string, a: Appli, uid: string) {
+  await updateDoc(
+    doc(db, chemin.config(appareilId)),
+    new FieldPath(CHAMP_CONFIG.applis, id),
+    appliVers(a),
+    CHAMP_CONFIG.modifiePar,
+    uid,
+    CHAMP_CONFIG.modifieLe,
+    serverTimestamp(),
+  );
+}
+
+export async function enregistrerLimites(
+  db: Firestore,
+  appareilId: string,
+  l: Partial<Record<Categorie, number>>,
+  uid: string,
+) {
+  await updateDoc(doc(db, chemin.config(appareilId)), {
+    [CHAMP_CONFIG.limites]: limitesVers(l),
+    ...signature(uid),
+  });
+}
+
+export async function enregistrerNomsParents(db: Firestore, appareilId: string, noms: Record<string, string>, uid: string) {
+  await updateDoc(doc(db, chemin.config(appareilId)), { [CHAMP_CONFIG.nomsParents]: noms, ...signature(uid) });
+}
+
+export async function enregistrerExecutablesInconnus(
+  db: Firestore,
+  appareilId: string,
+  v: ExecutablesInconnus,
+  uid: string,
+) {
+  await updateDoc(doc(db, chemin.config(appareilId)), { [CHAMP_CONFIG.executablesInconnus]: v, ...signature(uid) });
+}
+
+export async function refuserDemande(db: Firestore, appareilId: string, demandeId: string, uid: string, reponse?: string) {
+  await updateDoc(
+    doc(db, chemin.demande(appareilId, demandeId)),
+    decisionVers({ statut: VALEUR.statutDemande.refusee, par: uid, traiteLe: serverTimestamp(), reponse }),
+  );
+}
+
+const MODES = Object.values(VALEUR.mode) as string[];
+
+/**
+ * Accepter, en un seul envoi : la décision ET son effet (contrat § 8.4) —
+ * accepter ne fait rien tout seul côté PC.
+ * - temps : PC autorisé jusqu'à `jusqua` (jamais moins qu'un déblocage en cours) ;
+ * - mode  : le mode demandé jusqu'à `jusqua` (remplace l'exception en cours) ;
+ * - site  : ajouté à la liste école (le hub l'autorise aussi dans NextDNS) ;
+ * - appli : autorisée ;
+ * - autre : marquée traitée, sans action.
+ * `par` est le nom montré à l'enfant, `uid` signe l'écriture.
+ */
+export async function accepterDemande(
+  db: Firestore,
+  config: ConfigAppareil,
+  demande: Demande,
+  o: { jusqua: Date | null; par: string; uid: string },
+) {
+  const maintenant = new Date();
+  const avecDuree = demande.type === VALEUR.typeDemande.temps || demande.type === VALEUR.typeDemande.mode;
+  if (avecDuree && (!o.jusqua || o.jusqua.getTime() <= maintenant.getTime())) {
+    throw new Error("Choisir jusqu'à quand.");
+  }
+  if (demande.type === VALEUR.typeDemande.mode && !MODES.includes(demande.detail)) {
+    throw new Error("Mode demandé inconnu.");
+  }
+  const b = writeBatch(db);
+  const refConfig = doc(db, chemin.config(config.id));
+  b.update(
+    doc(db, chemin.demande(config.id, demande.id)),
+    decisionVers({
+      statut: demande.type === VALEUR.typeDemande.autre ? VALEUR.statutDemande.traitee : VALEUR.statutDemande.acceptee,
+      par: o.uid,
+      traiteLe: serverTimestamp(),
+    }),
+  );
+  if (demande.type === VALEUR.typeDemande.temps && o.jusqua) {
+    const e = exceptionApresAccordTemps(config.exception, o.jusqua, o.par, maintenant);
+    b.update(refConfig, { [CHAMP_CONFIG.exception]: exceptionVers(e, serverTimestamp()), ...signature(o.uid) });
+  } else if (demande.type === VALEUR.typeDemande.mode && o.jusqua) {
+    const e: Exception = { mode: demande.detail as Mode, jusqua: o.jusqua, par: o.par, poseLe: null };
+    b.update(refConfig, { [CHAMP_CONFIG.exception]: exceptionVers(e, serverTimestamp()), ...signature(o.uid) });
+  } else if (demande.type === VALEUR.typeDemande.site && demande.detail) {
+    b.update(refConfig, { [CHAMP_CONFIG.listeEcole]: arrayUnion(demande.detail), ...signature(o.uid) });
+  } else if (demande.type === VALEUR.typeDemande.appli && demande.detail) {
+    const actuelle = config.applis[demande.detail];
+    b.update(
+      refConfig,
+      new FieldPath(CHAMP_CONFIG.applis, demande.detail),
+      appliVers({ ...actuelle, autorisee: true }),
+      CHAMP_CONFIG.modifiePar,
+      o.uid,
+      CHAMP_CONFIG.modifieLe,
+      serverTimestamp(),
+    );
+  }
+  await b.commit();
+}
+
+// ---------------------------------------------------------------- appareil (simulateur)
+
+export async function ecrireEtat(db: Firestore, appareilId: string, brut: Record<string, unknown>) {
+  await setDoc(doc(db, chemin.etat(appareilId)), brut);
+}
+
+export async function ecrireUsage(db: Firestore, appareilId: string, u: UsageJour) {
+  await setDoc(doc(db, chemin.usage(appareilId, u.jour)), usageVers(u));
+}
+
+/** Id au format du PC : AAAAMMJJ-HHMMSS-xxxx. */
+export function idDemande(quand: Date): string {
+  const p = (n: number) => String(n).padStart(2, "0");
+  const hasard = Math.random().toString(36).slice(2, 6).padEnd(4, "0");
+  return `${quand.getFullYear()}${p(quand.getMonth() + 1)}${p(quand.getDate())}-${p(quand.getHours())}${p(
+    quand.getMinutes(),
+  )}${p(quand.getSeconds())}-${hasard}`;
+}
+
+export async function creerDemande(
+  db: Firestore,
+  appareilId: string,
+  d: { de: string; type: TypeDemande; detail: string; message: string; dureeMinutes: number | null },
+): Promise<string> {
+  const creeeLe = new Date();
+  const id = idDemande(creeeLe);
+  await setDoc(doc(db, chemin.demande(appareilId, id)), nouvelleDemandeVers({ ...d, id, creeeLe }));
+  return id;
+}
+
