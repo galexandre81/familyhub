@@ -26,7 +26,15 @@ import {
   type Firestore,
   type Unsubscribe,
 } from "firebase/firestore";
-import { CHAMP_CONFIG, CHAMP_DEMANDE, COLLECTION_APPAREILS, VALEUR, chemin } from "./schema.js";
+import {
+  CHAMP_ABONNE,
+  CHAMP_CONFIG,
+  CHAMP_DEMANDE,
+  COLLECTION_APPAREILS,
+  MAX_JETONS_PAR_PARENT,
+  VALEUR,
+  chemin,
+} from "./schema.js";
 import { exceptionApresAccordTemps } from "./regles.js";
 import {
   appliVers,
@@ -319,6 +327,35 @@ export async function accepterDemande(
     );
   }
   await b.commit();
+}
+
+// ---------------------------------------------------------------- notifications des demandes
+
+/** Liste après ajout : sans doublon, le plus récent à la fin, au plus MAX_JETONS_PAR_PARENT. */
+export function jetonsApresAjout(liste: readonly string[], jeton: string): string[] {
+  return [...liste.filter((j) => j !== jeton), jeton].slice(-MAX_JETONS_PAR_PARENT);
+}
+
+/** Jetons des appareils du parent `uid` prévenus des demandes de cet appareil. */
+export async function lireJetonsDuParent(db: Firestore, appareilId: string, uid: string): Promise<string[]> {
+  const brut = (await getDoc(doc(db, chemin.abonne(appareilId, uid)))).data()?.[CHAMP_ABONNE.jetons];
+  return Array.isArray(brut) ? brut.filter((j): j is string => typeof j === "string") : [];
+}
+
+/** Ce téléphone (ou ce navigateur) sonnera à chaque demande de l'enfant. */
+export async function abonnerAuxDemandes(db: Firestore, appareilId: string, uid: string, jeton: string) {
+  await setDoc(doc(db, chemin.abonne(appareilId, uid)), {
+    [CHAMP_ABONNE.jetons]: jetonsApresAjout(await lireJetonsDuParent(db, appareilId, uid), jeton),
+    [CHAMP_ABONNE.majLe]: serverTimestamp(),
+  });
+}
+
+export async function desabonnerDesDemandes(db: Firestore, appareilId: string, uid: string, jeton: string) {
+  await setDoc(
+    doc(db, chemin.abonne(appareilId, uid)),
+    { [CHAMP_ABONNE.jetons]: arrayRemove(jeton), [CHAMP_ABONNE.majLe]: serverTimestamp() },
+    { merge: true },
+  );
 }
 
 // ---------------------------------------------------------------- appareil (simulateur)

@@ -217,6 +217,17 @@ service cloud.firestore {
         allow read: if estParent();
       }
 
+      // Notifications des demandes : chaque parent tient SA liste de jetons
+      // (un par téléphone ou navigateur), sous son uid. Lue par la fonction
+      // serveur (Admin) ; ni l'appareil, ni l'autre parent n'y touchent.
+      match /notifySubscribers/{parentUid} {
+        allow read, delete: if request.auth != null && parentUid == request.auth.uid && estParent();
+        allow create, update: if request.auth != null && parentUid == request.auth.uid && estParent()
+                              && request.resource.data.keys().hasOnly(['pushTokens', 'updatedAt'])
+                              && request.resource.data.pushTokens is list
+                              && request.resource.data.pushTokens.size() <= 10;
+      }
+
       // Demandes (contrat § 4.3 et § 5) : l'appareil les crée en attente et peut
       // les réécrire tant qu'elles le restent (renvoi après coupure) ; un parent
       // ne pose que la décision, signée de son uid. Personne ne supprime.

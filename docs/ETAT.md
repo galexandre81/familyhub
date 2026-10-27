@@ -17,6 +17,8 @@ Déployé sur le projet Firebase du propriétaire, utilisé par le foyer : un iP
 | 17.06.2026 | Audit complet (navigation, accessibilité, fiabilité kiosque, sécurité, perf) ; CI ; tests des règles Firestore | [archive](archive/INDEX.md) |
 | 28.09.2026 | Correctifs de l'audit du 28.09 (sécurité, appairage, données), Node 22, déploiement des fonctions avec npm 10 | PR #10, #19 |
 | 25.10.2026 | Refonte : ambiance jour/nuit du design system, application de téléphone installable et hors ligne, invitation de l'autre parent, liste de courses cochable hors ligne, nouvel écran de cuisine de l'iPad (tableau, mode recette, minuteurs partagés), rechargement automatique de l'iPad | PR #21 à #30, [archive](archive/INDEX.md) |
+| 27.10.2026 | Contrôle parental du PC des enfants : écran parent `/pc` (modes, verrouillage, demandes, journée, filtre internet NextDNS, réglages), règles, simulateur ; déployé et PC relié | PR #32, [BILAN](controle-parental/BILAN.md) |
+| 27.10.2026 | Notifications des demandes : interrupteur « Me prévenir des demandes » par téléphone ou navigateur, fonction `notifierDemandePc` | [BILAN](controle-parental/BILAN.md) phase 9 |
 
 ## En cours
 
@@ -28,7 +30,7 @@ Rien.
 
 ## Prochaines étapes
 
-- **Wifi du PC des enfants** (projet séparé, Linux) : la carte « PC des enfants » est déjà réservée sur le téléphone et l'iPad, et un champ de rôle (`parent`) existe sur le foyer pour restreindre l'accès. Rien n'est conçu.
+- **PC des enfants** : suite dans [BILAN.md « Ce qui reste »](controle-parental/BILAN.md#ce-qui-reste-dans-lordre) (bascule de l'agent du PC, déploiement des notifications, essai réel).
 - **Mises à jour de dépendances** proposées par Dependabot, en attente : PR #11 à #13, #15 à #18 et #20 (dont des montées de version majeures : Firebase 12, React Router 7, React, actions GitHub). À traiter une par une, CI verte et vérification sur l'iPad.
 - **Amendements proposés au guide [ONBOARDING.md](../ONBOARDING.md)** (26.10.2026, document canonique non modifié par le rangement) : « ~14 fonctions » (§ 7.4) devient « ~22 » (nombre exporté par `functions/src/index.ts`) ; `npm install` (§ 6.3, § 11, § 12.5) pourrait devenir `npm ci`, qui respecte le lockfile (sans gravité pour un foyer qui installe une fois).
 - **Connexion depuis l'application installée sur iPhone** : réglage à faire par le propriétaire (`VITE_FIREBASE_AUTH_DOMAIN` sur le domaine du site), voir [DESIGN.md § Téléphone](DESIGN.md#téléphone-application-installable). Fait ou non : inconnu.

@@ -15,6 +15,7 @@ réel ici (ils sont chez le propriétaire).
 | 6. Bilan | Ce document, checklist contrat ↔ schéma | — |
 | 7. Contrat réel | `schema.ts` aligné sur le contrat de l'agent (version 1, agent 1.0.0, 27.10) : chaque nom marqué [contrat] ou [hub] ; quatre modes, internet coupé, planning en plages, une seule exception avec le nom montré à l'enfant | Module 107 tests, règles 95/95, fonctions 85 |
 | 8. Écran refait | Maquette A « le mode au centre » (validée le 27.10) : carte « Mode en cours », quatre modes, Verrouiller / Débloquer / Couper internet, Revenir à la normale, demandes (« Oui, 45 min »), journée en secondes, lignes repliées internet et site du prof, réglages (planning par plages, applis du catalogue, limites, nom montré à l'enfant, programmes inconnus) | Hub 302 tests (39 sur les phrases) ; parcours joué au format téléphone avec deux parents et le simulateur ; aucun mot technique à l'écran |
+| 9. Notifications des demandes (27.10) | Interrupteur « Me prévenir des demandes » (un par téléphone ou navigateur, pour chaque parent) ; jetons rangés par parent dans `notifySubscribers/{uid}` ; fonction `notifierDemandePc` (création d'une demande en attente → message de données à tous les jetons des parents actuels du foyer, jetons morts retirés) ; `public/notifications-sw.js` affiche et ouvre `/pc` | Fonction 14 tests ; règles 98/98 (brèche plantée « liste de l'autre parent » → échec attendu) ; module 113 ; hub 302 ; build : `sw.js` importe bien le script |
 
 Docs : `COMPTE-APPAREIL.md`, `SIMULATEUR.md`, `NEXTDNS.md`. Les sources (brief,
 prompt de l'agent, contrat) restent hors du dépôt : `sources/`, ignoré.
@@ -39,24 +40,26 @@ prompt de l'agent, contrat) restent hors du dépôt : `sources/`, ignoré.
 
 ## Ce qui reste, dans l'ordre
 
-1. **Pull request** : attendre la CI (jobs `build` et `rules-tests`), fusionner
-   (propriétaire).
-2. **Déployer** dans l'ordre fonctions → règles → hébergement (DESIGN.md).
-   Nouvelle fonction : `nextdnsAppareil` (secret `NEXTDNS_API_KEY`). Vérifier
-   ensuite qu'elle répond 401 sans connexion (403 = droit d'appel manquant, cf.
-   le piège des callables neuves).
-3. **Relier le PC** dans l'appli (fondateur, écran « PC des enfants ») :
-   identifiant de l'appareil convenu avec l'agent, UID du compte du PC, nom
-   montré à l'enfant pour chaque parent.
-4. **Brancher l'agent réel** : passer son mode distant de `file` à `firestore`
+Faits le 27.10 : PR #32 fusionnée, déploiement (fonctions → règles →
+hébergement, `nextdnsAppareil` en 401), PC relié dans l'appli.
+
+1. **Brancher l'agent réel** : passer son mode distant de `file` à `firestore`
    (contrat § 7.6) avec la configuration web publique du projet, l'identifiant
    de l'appareil et le compte du PC (mot de passe posé par le propriétaire, root
    seulement) — voir COMPTE-APPAREIL.md.
-5. **Côté agent, à demander** : publier le catalogue d'applis dans
+2. **Côté agent, à demander** : publier le catalogue d'applis dans
    `status/current.apps` (l'écran des réglages le lit déjà), écrire `deviceTime`
    et passer `lastSeen` à l'heure du serveur, afficher « jusqu'à nouvel ordre »
    pour une échéance ≥ 2100.
-6. **Au bout de deux semaines** : regarder la jauge du filtre internet ; passer
+3. **Notifications (phase 9)** : fusionner, puis déployer dans l'ordre
+   fonctions (`notifierDemandePc`) → règles → hébergement. Première fonction
+   déclenchée par Firestore du projet : si le premier déploiement échoue sur
+   un droit de l'agent de service Eventarc, attendre quelques minutes et
+   relancer. Puis chaque parent active « Me prévenir des demandes » sur ses
+   appareils (sur téléphone : depuis l'appli installée), et l'enfant envoie
+   une demande d'essai. Journal : `notifierDemandePc` écrit `envoyes`,
+   `echecs`, `retires` à chaque demande.
+4. **Au bout de deux semaines** : regarder la jauge du filtre internet ; passer
    NextDNS en Pro si le mois approche la limite.
 
 ## Checklist : le contrat réel face au module
@@ -119,6 +122,10 @@ doit suivre.
 - [x] Procédure du compte de l'appareil : COMPTE-APPAREIL.md.
 
 ## Limites connues
+- Notifications : sur téléphone, seulement depuis l'appli installée sur l'écran
+  d'accueil (obligatoire sur iPhone) ; sur ordinateur, seulement quand le
+  navigateur tourne. Une demande déjà réglée par l'autre parent garde sa
+  notification jusqu'au toucher (l'écran, lui, est à jour).
 - Le rapport NextDNS se met à jour à l'ouverture de l'appli par un parent (au
   plus toutes les 5 minutes) : pas de tâche planifiée, pour ne pas en payer une
   de plus. Sans ouverture, l'alerte de quota attend.

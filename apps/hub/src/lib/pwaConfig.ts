@@ -41,5 +41,7 @@ export const pwaOptions: Partial<VitePWAOptions> = {
     navigateFallbackDenylist: [/^\/display(\/|$)/, /^\/d\//, /^\/__/],
     globPatterns: ["**/*.{js,css,html,woff,woff2,png,svg}"],
     globIgnores: ["display/**"],
+    // Notifications des demandes du PC des enfants (public/notifications-sw.js).
+    importScripts: ["/notifications-sw.js"],
   },
 };
