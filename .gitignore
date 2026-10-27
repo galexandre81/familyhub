@@ -61,3 +61,10 @@ firebase-export-*/
 # Données personnelles locales, jamais versionnées
 Claude outputs/
 scripts/seedRecipes/recettes-*.json
+
+# Contrôle parental : sources et contrat de l'agent du PC (prénom, machine,
+# plan de verrouillage). Le dépôt est public : jamais versionnés.
+docs/controle-parental/sources/
+
+# Secrets des émulateurs Cloud Functions (valeurs locales), jamais versionnés
+**/.secret.local

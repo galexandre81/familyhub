@@ -25,6 +25,7 @@ const Aujourdhui = lazy(() => import("./pages/Aujourdhui"));
 const Semaine = lazy(() => import("./pages/Semaine"));
 const Courses = lazy(() => import("./pages/Courses"));
 const BatchCooking = lazy(() => import("./pages/BatchCooking"));
+const PcEnfants = lazy(() => import("./pages/PcEnfants"));
 
 /** `/` : Aujourd'hui sur téléphone, tableau de bord sur PC. */
 function Accueil() {
@@ -80,6 +81,7 @@ export default function App() {
           <Route path="semaine" element={<Semaine />} />
           <Route path="courses" element={<Courses />} />
           <Route path="batch/:planId/:batchId" element={<BatchCooking />} />
+          <Route path="pc" element={<PcEnfants />} />
           <Route path="ipad" element={<PcSeulement><IpadCuisine /></PcSeulement>} />
           {/* Anciens onglets « Écrans » et « Tuiles » : regroupés dans « iPad de cuisine ». */}
           <Route path="displays/*" element={<Navigate to="/ipad" replace />} />

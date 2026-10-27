@@ -1,0 +1,31 @@
+{
+  "name": "@family-hub/controle-parental",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Schéma Firestore du contrôle parental (appareils) : chemins, champs, valeurs, priorités. Seul endroit où ces noms sont écrits.",
+  "main": "dist/index.js",
+  "types": "dist/index.d.ts",
+  "exports": {
+    ".": {
+      "types": "./dist/index.d.ts",
+      "import": "./dist/index.js"
+    }
+  },
+  "files": [
+    "dist"
+  ],
+  "scripts": {
+    "build": "tsc",
+    "test": "vitest run",
+    "watch": "tsc --watch"
+  },
+  "peerDependencies": {
+    "firebase": "^11.0.0"
+  },
+  "devDependencies": {
+    "firebase": "^11.0.2",
+    "typescript": "^5.4.0",
+    "vitest": "^2.1.8"
+  }
+}
