@@ -657,6 +657,12 @@
       if (window.FamilyHubTimers) {
         window.FamilyHubTimers.init(state.db, hid);
       }
+      /* PC des enfants (lecture seule) : la carte du tableau suit ses changements. */
+      if (window.FamilyHubPc) {
+        window.FamilyHubPc.demarrer(state.db, state.functions, hid, function () {
+          if (state.tableau) state.tableau.actualiser();
+        });
+      }
       /* Marque qu'on a au moins un grid valide affiché — désactive le
          hard-reload sur échec d'auth ultérieur (anti reload-spiral). */
       hasLoadedOnce = true;

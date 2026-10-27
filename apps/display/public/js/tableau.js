@@ -21,8 +21,9 @@
      barre qui se vide, plat, accompagnements, présents, « Commencer » → mode
      recette ; dessous, l'agenda de la semaine (toucher → agenda) ;
    - colonne droite : minuteurs (1 / 5 / 10 min, Autre, en cours ; la carte
-     ne grandit qu'avec les minuteurs en cours), « PC des enfants » (place
-     réservée au temps d'écran, projet à venir), précédée du batch cooking du
+     ne grandit qu'avec les minuteurs en cours), « PC des enfants » (mode en
+     cours, en ligne ou non, demande en attente — js/pc-enfants.js ; toucher →
+     rapport de la journée, en lecture seule), précédée du batch cooking du
      jour ou du lendemain s'il y en a un (toucher → mode recette avec toutes
      ses recettes — à gauche, il écrasait le plat du repas) ; les boutons
      1 / 5 / 10 min et Autre tiennent sur une ligne pour faire la place) puis « Menu de la semaine »
@@ -462,14 +463,36 @@
     batchEl.style.display = 'none';
     batchEl.addEventListener('click', cuisinerBatch);
     droite.appendChild(batchEl);
-    /* Place réservée : le temps d'écran du PC des enfants (projet à venir). */
+    /* PC des enfants : état en lecture seule (js/pc-enfants.js). Toucher →
+       rapport plein écran ; aucune décision ne se prend sur l'iPad. */
     var pcEl = el('div', 'tab-pc tab-carte fh-carte fh-bordure');
-    function rendrePc() {
+    pcEl.setAttribute('role', 'button');
+    function titrePcCourant() {
       var foyer = null;
       try { foyer = typeof ctx.foyer === 'function' ? ctx.foyer() : null; } catch (e) { foyer = null; }
+      return titrePc(foyer);
+    }
+    pcEl.addEventListener('click', function () {
+      if (!root.FamilyHubPc || !root.FamilyHubPc.carte() || !root.FamilyHubOverlay) return;
+      root.FamilyHubOverlay.open('pc-enfants', { titre: titrePcCourant() }, {}, null);
+    });
+    function rendrePc() {
+      var c = root.FamilyHubPc ? root.FamilyHubPc.carte(Date.now()) : null;
       var html = '<div class="tab-pc-titre fh-texte">' + svg(ICONES.ecran, 24) +
-        '<span>' + echapper(titrePc(foyer)) + '</span>' +
-        '<span class="tab-pc-texte fh-texte-doux">&nbsp;· bientôt</span></div>';
+        '<span class="tab-pc-nom">' + echapper(titrePcCourant()) + '</span>';
+      if (!c) {
+        html += '<span class="tab-pc-texte fh-texte-doux">&nbsp;· pas encore relié</span></div>';
+      } else {
+        html += '<span class="tab-pc-etat ' + (c.enLigne ? 'pce-vert' : 'fh-texte-doux') + '">' +
+          '<span class="pce-point"></span>' + echapper(c.ligne) + '</span></div>' +
+          '<div class="tab-pc-mode fh-texte' + (c.rouge ? ' pce-rouge' : '') + '">' + echapper(c.titre) + '</div>' +
+          '<div class="tab-pc-detail fh-texte-doux">' + echapper(c.detail) + '</div>';
+        if (c.demandes > 0) {
+          html += '<div class="tab-pc-demande fh-maintenant">' +
+            echapper(c.demandes === 1 ? 'Une demande' : c.demandes + ' demandes') +
+            ' · à valider sur un téléphone</div>';
+        }
+      }
       if (cles.pc !== html) { cles.pc = html; pcEl.innerHTML = html; }
     }
     droite.appendChild(pcEl);

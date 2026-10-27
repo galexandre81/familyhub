@@ -95,6 +95,30 @@ describe("qui passe", () => {
   });
 });
 
+describe("écran de cuisine (lecture seule)", () => {
+  const ecran = "display:d1";
+  it("son foyer : le rapport, oui", async () => {
+    const { d, ecrits } = deps();
+    expect(await raison(traiter(ecran, { appareilId: "pc", action: ACTION_NEXTDNS.rapport }, d, "f1"))).toBe("accepté");
+    expect(ecrits).toHaveLength(1);
+  });
+
+  it("débloquer, bloquer, retirer un site : jamais, même pour son foyer, sans appel NextDNS", async () => {
+    const { d, appels } = deps();
+    for (const action of [ACTION_NEXTDNS.debloquer, ACTION_NEXTDNS.bloquer, ACTION_NEXTDNS.retirer]) {
+      expect(await raison(traiter(ecran, { appareilId: "pc", action, domaine: "jeu.example" }, d, "f1"))).toBe("pas-parent");
+    }
+    expect(appels).toEqual([]);
+  });
+
+  it("l'écran d'un autre foyer, ou sans foyer : refusé", async () => {
+    const { d, appels } = deps();
+    expect(await raison(traiter(ecran, { appareilId: "pc", action: ACTION_NEXTDNS.rapport }, d, "f2"))).toBe("pas-parent");
+    expect(await raison(traiter(ecran, { appareilId: "pc", action: ACTION_NEXTDNS.rapport }, d, ""))).toBe("pas-parent");
+    expect(appels).toEqual([]);
+  });
+});
+
 describe("rapport", () => {
   it("sites du jour, listes, et quota du COMPTE (tous les profils additionnés)", async () => {
     const { d, appels, ecrits } = deps();

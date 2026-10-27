@@ -1,0 +1,173 @@
+/* pc-enfants.css — « PC des enfants » : carte du tableau (js/tableau.js) et
+   rapport plein écran (js/pc-enfants.js, maquette 3B du 27.10.2026).
+   Safari 9 : ni var(, ni gap, ni grid ; flex préfixé, espacements par marges.
+   Couleurs : classes fh-* de ambiance.css ; vert et rouge posés ici pour le
+   jour et la nuit (teintes sapin et tôle rouge du design system). */
+
+html.amb-jour .pce-vert { color: #2B7A4B; }
+html.amb-nuit .pce-vert { color: #5BC08A; }
+html.amb-jour .pce-rouge { color: #C8462B; }
+html.amb-nuit .pce-rouge { color: #F2836A; }
+.pce-point {
+  display: inline-block;
+  width: 12px;
+  height: 12px;
+  border-radius: 6px;
+  background: currentColor;
+  margin-right: 6px;
+  vertical-align: middle;
+}
+
+/* --- Carte du tableau --- */
+.tab-pc { cursor: pointer; overflow: hidden; }
+.tab-pc:active { opacity: 0.7; }
+.tab-pc-nom {
+  -webkit-flex: 1 1 auto;
+  flex: 1 1 auto;
+  min-width: 0;
+  margin-left: 8px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tab-pc-etat { font-size: 17px; font-weight: 700; white-space: nowrap; margin-left: 8px; }
+.tab-pc-mode {
+  font-size: 28px;
+  font-weight: 700;
+  line-height: 1.1;
+  margin-top: 6px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tab-pc-detail {
+  font-size: 18px;
+  line-height: 1.25;
+  margin-top: 2px;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.tab-pc-demande {
+  font-size: 18px;
+  font-weight: 700;
+  border-radius: 12px;
+  line-height: 1.25;
+  padding: 6px 10px;
+  margin-top: 8px;
+}
+
+/* --- Rapport plein écran --- */
+.pce-titre { font-size: 30px; font-weight: 800; }
+/* Tout l'écran (les autres vues plein écran s'arrêtent à 720 px). */
+.tile-overlay-content.pce {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  max-width: none;
+  width: 100%;
+  box-sizing: border-box;
+  padding: 20px 24px;
+  overflow: hidden;
+}
+.pce-bandeau {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  border-width: 3px;
+  border-style: solid;
+  border-radius: 28px;
+  padding: 18px 24px;
+}
+.pce-bandeau-mode { -webkit-flex: 1 1 auto; flex: 1 1 auto; min-width: 0; }
+.pce-mode { font-size: 44px; font-weight: 800; line-height: 1; }
+.pce-sous { font-size: 21px; line-height: 1.3; margin-top: 6px; }
+.pce-chiffre {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  text-align: center;
+  border-left: 2px solid #C9D6C6;
+  padding-left: 28px;
+  margin-left: 28px;
+}
+html.amb-nuit .pce-chiffre { border-left-color: #2C3F5C; }
+.pce-temps { font-size: 40px; font-weight: 800; line-height: 1; }
+.pce-ligne { font-size: 22px; font-weight: 700; white-space: nowrap; }
+.pce-legende { font-size: 18px; margin-top: 4px; }
+
+.pce-attente {
+  -webkit-flex: 0 0 auto;
+  flex: 0 0 auto;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+  border-radius: 20px;
+  padding: 14px 22px;
+  margin-top: 14px;
+}
+.pce-attente svg { -webkit-flex: 0 0 auto; flex: 0 0 auto; margin-right: 14px; }
+.pce-attente-texte { -webkit-flex: 1 1 auto; flex: 1 1 auto; min-width: 0; font-size: 22px; line-height: 1.3; }
+.pce-attente-ou { -webkit-flex: 0 0 auto; flex: 0 0 auto; font-size: 18px; font-weight: 700; margin-left: 14px; }
+
+.pce-blocs {
+  -webkit-flex: 1 1 0%;
+  flex: 1 1 0%;
+  min-height: 0;
+  display: -webkit-flex;
+  display: flex;
+  margin-top: 16px;
+}
+.pce-bloc {
+  -webkit-flex: 1 1 0%;
+  flex: 1 1 0%;
+  min-width: 0;
+  display: -webkit-flex;
+  display: flex;
+  -webkit-flex-direction: column;
+  flex-direction: column;
+  border-width: 3px;
+  border-style: solid;
+  border-radius: 24px;
+  padding: 16px 18px;
+  margin-left: 16px;
+}
+.pce-bloc:first-child { margin-left: 0; }
+.pce-bloc-titre { font-size: 18px; font-weight: 700; margin-bottom: 10px; }
+/* Une longue journée défile dans son bloc ; le reste de l'écran ne bouge pas. */
+.pce-bloc-corps {
+  -webkit-flex: 1 1 0%;
+  flex: 1 1 0%;
+  min-height: 0;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+}
+.pce-appli { margin-bottom: 10px; }
+.pce-appli-ligne, .pce-site {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-justify-content: space-between;
+  justify-content: space-between;
+  font-size: 19px;
+  line-height: 1.35;
+}
+.pce-appli-ligne span:first-child, .pce-site span:first-child {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-right: 8px;
+}
+.pce-barre { height: 10px; border-radius: 5px; background: #E3EBDF; overflow: hidden; margin-top: 4px; }
+html.amb-nuit .pce-barre { background: #2C3F5C; }
+.pce-barre-plein { height: 100%; border-radius: 5px; background: #2B7A4B; }
+html.amb-nuit .pce-barre-plein { background: #5BC08A; }
+.pce-sous-titre { font-size: 18px; font-weight: 700; margin: 12px 0 4px; }
+.pce-evt { display: -webkit-flex; display: flex; font-size: 18px; line-height: 1.35; margin-bottom: 8px; }
+.pce-evt-heure { -webkit-flex: 0 0 56px; flex: 0 0 56px; }
+.pce-evt-texte { -webkit-flex: 1 1 auto; flex: 1 1 auto; min-width: 0; }
+.pce-vide { font-size: 18px; line-height: 1.35; }

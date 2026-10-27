@@ -18,7 +18,8 @@ Déployé sur le projet Firebase du propriétaire, utilisé par le foyer : un iP
 | 28.09.2026 | Correctifs de l'audit du 28.09 (sécurité, appairage, données), Node 22, déploiement des fonctions avec npm 10 | PR #10, #19 |
 | 25.10.2026 | Refonte : ambiance jour/nuit du design system, application de téléphone installable et hors ligne, invitation de l'autre parent, liste de courses cochable hors ligne, nouvel écran de cuisine de l'iPad (tableau, mode recette, minuteurs partagés), rechargement automatique de l'iPad | PR #21 à #30, [archive](archive/INDEX.md) |
 | 27.10.2026 | Contrôle parental du PC des enfants : écran parent `/pc` (modes, verrouillage, demandes, journée, filtre internet NextDNS, réglages), règles, simulateur ; déployé et PC relié | PR #32, [BILAN](controle-parental/BILAN.md) |
-| 27.10.2026 | Notifications des demandes : interrupteur « Me prévenir des demandes » par téléphone ou navigateur, fonction `notifierDemandePc` | [BILAN](controle-parental/BILAN.md) phase 9 |
+| 27.10.2026 | Notifications des demandes : interrupteur « Me prévenir des demandes » par téléphone ou navigateur, fonction `notifierDemandePc` | PR #33, [BILAN](controle-parental/BILAN.md) phase 9 |
+| 27.10.2026 | iPad de cuisine : carte « PC des enfants » et rapport de la journée, en lecture seule (aucune décision sur l'iPad) | [BILAN](controle-parental/BILAN.md) phase 10 |
 
 ## En cours
 

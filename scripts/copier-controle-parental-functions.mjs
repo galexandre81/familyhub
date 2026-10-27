@@ -7,11 +7,15 @@
  * functions/src/controleParental/genere/. Un test (copie-functions.test.ts)
  * échoue si la copie diffère de l'original : relancer ce script.
  *
+ * Il écrit aussi, pour l'iPad (ES5, sans module), les VALEURS du schéma
+ * (pas les fonctions) dans apps/display/public/js/genere/schema-controle-parental.js,
+ * sous `window.FamilyHubSchemaPc` (copie-ipad.test.ts la compare au schéma).
+ *
  *   node scripts/copier-controle-parental-functions.mjs
  */
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { dirname, join, resolve } from "node:path";
-import { fileURLToPath } from "node:url";
+import { fileURLToPath, pathToFileURL } from "node:url";
 
 const RACINE = resolve(dirname(fileURLToPath(import.meta.url)), "..");
 const SOURCE = join(RACINE, "packages/controle-parental/src");
@@ -28,3 +32,21 @@ for (const nom of FICHIERS) {
   writeFileSync(join(CIBLE, nom), ENTETE(nom) + texte);
   console.log(`copié : ${nom}`);
 }
+
+// iPad : les valeurs du schéma en ES5 (Node lit le .ts directement, types retirés).
+const schema = await import(pathToFileURL(join(SOURCE, "schema.ts")).href);
+const valeurs = Object.fromEntries(Object.entries(schema).filter(([, v]) => typeof v !== "function" && !(typeof v === "object" && v && Object.values(v).some((x) => typeof x === "function"))));
+const CIBLE_IPAD = join(RACINE, "apps/display/public/js/genere");
+mkdirSync(CIBLE_IPAD, { recursive: true });
+writeFileSync(
+  join(CIBLE_IPAD, "schema-controle-parental.js"),
+  [
+    "/* FICHIER GÉNÉRÉ — ne pas modifier. Valeurs de packages/controle-parental/src/schema.ts",
+    "   (node scripts/copier-controle-parental-functions.mjs). ES5 : lu par l'iPad. */",
+    "(function (root) {",
+    "  root.FamilyHubSchemaPc = " + JSON.stringify(valeurs, null, 2).split("\n").join("\n  ") + ";",
+    "})(typeof window !== 'undefined' ? window : this);",
+    "",
+  ].join("\n"),
+);
+console.log("copié : schema-controle-parental.js (iPad)");

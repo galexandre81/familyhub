@@ -5,6 +5,7 @@ Format [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), par date (le pr
 ## [Non publié]
 
 ### Ajouté
+- iPad de cuisine : la carte « PC des enfants » du tableau montre le mode en cours, si le PC est en ligne et s'il y a une demande en attente ; un toucher ouvre le rapport de la journée (applis, internet, demandes et réponses). Lecture seule : les règles interdisent à l'iPad toute écriture sur le PC, et `nextdnsAppareil` ne lui sert que le rapport de son foyer.
 - PC des enfants : notifications des demandes. Chaque parent active « Me prévenir des demandes » sur ses téléphones et ordinateurs ; une demande de l'enfant les fait tous sonner, et un toucher ouvre l'écran du PC. Fonction `notifierDemandePc`, liste de jetons par parent (`devices/{id}/notifySubscribers/{uid}`), service worker `notifications-sw.js`.
 
 ### Documentation

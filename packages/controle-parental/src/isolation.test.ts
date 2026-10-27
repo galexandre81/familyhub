@@ -47,13 +47,19 @@ function fichiers(dossier: string): string[] {
   });
 }
 
-const DOSSIERS = ["apps/hub/src", "scripts", "firestore-tests", "functions/src", "packages"].map((d) =>
-  join(RACINE_DEPOT, d),
+const DOSSIERS = ["apps/hub/src", "apps/display/public/js", "scripts", "firestore-tests", "functions/src", "packages"].map(
+  (d) => join(RACINE_DEPOT, d),
 );
 
 const VISES = DOSSIERS.flatMap(fichiers).filter((f) => {
   if (f === join(ICI, "schema.ts") || f === join(ICI, "isolation.test.ts")) return false;
   if (f.startsWith(ICI)) return true;
+  // iPad : la copie générée EST le schéma (copie-ipad.test.ts) ; tout fichier
+  // qui lit ses noms par window.FamilyHubSchemaPc est surveillé.
+  if (f.startsWith(join(RACINE_DEPOT, "apps/display/public/js/genere"))) return false;
+  if (f.startsWith(join(RACINE_DEPOT, "apps/display/public/js"))) {
+    return readFileSync(f, "utf8").includes("FamilyHubSchemaPc");
+  }
   // Côté fonctions : la copie générée EST le schéma (copie-functions.test.ts la
   // compare à l'original) ; tout le reste du dossier est surveillé.
   const fonctions = join(RACINE_DEPOT, "functions/src/controleParental");
