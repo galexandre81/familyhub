@@ -22,7 +22,7 @@ import {
 } from "../lib/queries";
 import { estParent } from "../lib/personnes";
 import { titrePcEnfants } from "../lib/pcEnfants";
-import { fraicheur, phraseEtat } from "../lib/controleParental/phrases";
+import { fraicheur, resumeCarte } from "../lib/controleParental/phrases";
 import {
   useAppareilDuFoyer,
   useDemandesEnAttente,
@@ -269,7 +269,7 @@ function CartePcEnfants({ titre, householdId, now }: { titre: string; householdI
         <p className="flex-1 text-base text-cream-mute">Chargement…</p>
       ) : config ? (
         <div className="flex-1 flex flex-col gap-1">
-          <p className="text-base text-cream leading-snug">{phraseEtat(config, now)}</p>
+          <p className="text-base text-cream leading-snug">{resumeCarte(config, now)}</p>
           <p className="flex items-center gap-2 text-[15px] text-cream-mute">
             <span aria-hidden="true" className={`h-2 w-2 rounded-full ${fr.enLigne ? "bg-sage" : "bg-copper"}`} />
             {fr.texte}

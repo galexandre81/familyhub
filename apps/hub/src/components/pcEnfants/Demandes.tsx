@@ -1,4 +1,3 @@
-import { Check, Clock, Globe, AppWindow, X } from "lucide-react";
 import {
   ACTION_NEXTDNS,
   VALEUR,
@@ -10,100 +9,77 @@ import {
 import { db } from "../../lib/firebase";
 import { envoyer } from "../../lib/controleParental/envoyer";
 import { changerSite } from "../../lib/controleParental/nextdns";
-import { ilYA, titreDemande } from "../../lib/controleParental/phrases";
+import { boutonOui, dureeDemandee, ilYA, titreDemande } from "../../lib/controleParental/phrases";
 
-const ICONE = {
-  [VALEUR.typeDemande.temps]: Clock,
-  [VALEUR.typeDemande.site]: Globe,
-  [VALEUR.typeDemande.appli]: AppWindow,
-};
-
-/** « Plus de temps » s'accepte en un geste : la durée est le bouton. */
-const DUREES = [
-  { libelle: "+30 min", minutes: 30 },
-  { libelle: "+1 h", minutes: 60 },
-];
-
+/**
+ * Ce que l'enfant demande depuis le PC : un toucher pour répondre. Accepter
+ * pose aussi l'effet (contrat § 8.4) : du temps, un mode pour la durée
+ * demandée (il remplace la décision en cours), un site ouvert, une appli
+ * autorisée. `par` est le nom montré à l'enfant (« Papa »).
+ */
 export default function Demandes({
   config,
   demandes,
   uid,
+  par,
+  nomAppli,
   maintenant,
 }: {
   config: ConfigAppareil;
   demandes: Demande[];
   uid: string;
+  par: string;
+  nomAppli: (id: string) => string;
   maintenant: Date;
 }) {
   if (demandes.length === 0) return null;
-  const nomAppli = (id: string) => config.applis[id]?.nom ?? id;
 
-  /**
-   * Un seul toucher. Un site accepté va dans la liste école ET est autorisé
-   * par le filtre internet : la demande vient presque toujours d'un blocage.
-   */
-  const accepter = (d: Demande, minutes: number | null) => {
-    const jusqua = minutes ? new Date(Date.now() + minutes * 60_000) : null;
-    envoyer(accepterDemande(db, config, d, jusqua, uid), `Accepté : ${titreDemande(d, nomAppli).toLowerCase()}`);
-    if (d.type === VALEUR.typeDemande.site && d.cible) {
-      void changerSite(config.id, ACTION_NEXTDNS.debloquer, d.cible, `${d.cible} est autorisé sur internet`);
+  const accepter = (d: Demande) => {
+    const avecDuree = d.type === VALEUR.typeDemande.temps || d.type === VALEUR.typeDemande.mode;
+    const jusqua = avecDuree ? new Date(Date.now() + dureeDemandee(d) * 60_000) : null;
+    envoyer(accepterDemande(db, config, d, { jusqua, par, uid }), `Accepté : ${titreDemande(d, nomAppli).toLowerCase()}`);
+    // Un site demandé vient presque toujours d'un blocage : ouvert aussi par le filtre internet.
+    if (d.type === VALEUR.typeDemande.site && d.detail) {
+      void changerSite(config.id, ACTION_NEXTDNS.debloquer, d.detail, `${d.detail} est autorisé sur internet`);
     }
   };
-  const refuserLa = (d: Demande) =>
+  const refuser = (d: Demande) =>
     envoyer(refuserDemande(db, config.id, d.id, uid), `Refusé : ${titreDemande(d, nomAppli).toLowerCase()}`);
 
   return (
-    <section aria-labelledby="demandes" className="flex flex-col gap-2">
+    <section aria-labelledby="demandes" className="rounded-2xl bg-ebony-card border-2 border-brass p-4 flex flex-col gap-4">
       <h2 id="demandes" className="text-lg font-semibold text-cream">
-        {demandes.length === 1 ? "Une demande" : `${demandes.length} demandes`} en attente
+        {demandes.length === 1 ? "Une demande" : `${demandes.length} demandes`}
       </h2>
-      <ul className="flex flex-col gap-3">
-        {demandes.map((d) => {
-          const Icone = ICONE[d.type];
-          return (
-            <li key={d.id} className="rounded-2xl bg-ebony-card border border-brass/60 p-4 flex flex-col gap-3">
-              <div className="flex items-start gap-3">
-                <Icone size={22} aria-hidden="true" className="shrink-0 mt-0.5 text-brass" />
-                <div className="min-w-0">
-                  <p className="text-lg text-cream leading-snug break-words">{titreDemande(d, nomAppli)}</p>
-                  {d.message && <p className="text-base text-cream-mute break-words">« {d.message} »</p>}
-                  <p className="text-[15px] text-cream-mute">{ilYA(d.creeeLe, maintenant)}</p>
-                </div>
-              </div>
-              <div className="flex flex-wrap gap-2">
-                {d.type === VALEUR.typeDemande.temps ? (
-                  DUREES.map((x) => (
-                    <button
-                      key={x.minutes}
-                      type="button"
-                      onClick={() => accepter(d, x.minutes)}
-                      className="min-h-12 flex-1 rounded-xl px-4 text-base font-semibold bg-brass text-ebony"
-                    >
-                      {x.libelle}
-                    </button>
-                  ))
-                ) : (
-                  <button
-                    type="button"
-                    onClick={() => accepter(d, null)}
-                    className="min-h-12 flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-4 text-base font-semibold bg-brass text-ebony"
-                  >
-                    <Check size={20} aria-hidden="true" />
-                    Accepter
-                  </button>
-                )}
-                <button
-                  type="button"
-                  onClick={() => refuserLa(d)}
-                  className="min-h-12 flex-1 inline-flex items-center justify-center gap-2 rounded-xl px-4 text-base text-cream bg-ebony-ridge border border-hairline"
-                >
-                  <X size={20} aria-hidden="true" />
-                  Refuser
-                </button>
-              </div>
-            </li>
-          );
-        })}
+      <ul className="flex flex-col gap-5">
+        {demandes.map((d) => (
+          <li key={d.id} className="flex flex-col gap-3">
+            <p className="text-[17px] leading-snug break-words">
+              <strong className="text-cream">{titreDemande(d, nomAppli)}</strong>
+              <br />
+              <span className="text-cream-mute">
+                {d.message && `« ${d.message} » · `}
+                {ilYA(d.creeeLe, maintenant)}
+              </span>
+            </p>
+            <div className="grid grid-cols-2 gap-2.5">
+              <button
+                type="button"
+                onClick={() => accepter(d)}
+                className="min-h-12 rounded-xl px-3 text-base font-semibold bg-brass text-ebony"
+              >
+                {boutonOui(d)}
+              </button>
+              <button
+                type="button"
+                onClick={() => refuser(d)}
+                className="min-h-12 rounded-xl px-3 text-base text-cream bg-ebony-ridge"
+              >
+                Non
+              </button>
+            </div>
+          </li>
+        ))}
       </ul>
     </section>
   );

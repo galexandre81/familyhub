@@ -10,6 +10,7 @@ import {
 import { db } from "../../lib/firebase";
 import { envoyer, refuser } from "../../lib/controleParental/envoyer";
 import { changerSite } from "../../lib/controleParental/nextdns";
+import LigneRepliee from "./LigneRepliee";
 
 /** « Le prof demande ce site » : on colle l'adresse telle quelle, le hub garde le nom du site. */
 export default function SiteDuProf({ config, uid }: { config: ConfigAppareil; uid: string }) {
@@ -20,18 +21,15 @@ export default function SiteDuProf({ config, uid }: { config: ConfigAppareil; ui
   const ajouter = () => {
     if (!domaine) return refuser("Cette adresse n'est pas lisible. Copie-la depuis le message du prof.");
     if (dejaLa) return refuser(`${domaine} est déjà dans la liste.`);
-    // Un toucher : ouvert en mode école ET autorisé par le filtre internet le reste du temps.
+    // Un toucher : ajouté aux sites de l'école ET autorisé par le filtre internet le reste du temps.
     envoyer(ajouterSiteEcole(db, config.id, domaine, uid), `Ajouté : ${domaine}`);
     void changerSite(config.id, ACTION_NEXTDNS.debloquer, domaine, `${domaine} est autorisé sur internet`);
     setSaisie("");
   };
 
   return (
-    <section aria-labelledby="site-prof" className="rounded-2xl bg-ebony-card border border-hairline p-4 flex flex-col gap-3">
-      <div>
-        <h2 id="site-prof" className="text-lg font-semibold text-cream">Le prof demande ce site</h2>
-        <p className="text-[15px] text-cream-mute">Il sera ouvert, même en mode école.</p>
-      </div>
+    <LigneRepliee titre="Le prof demande un site" resume="Coller une adresse">
+      <p className="text-[15px] text-cream-mute">Il sera ouvert dans tous les modes, Devoirs compris.</p>
       <form
         className="flex gap-2"
         onSubmit={(e) => {
@@ -68,7 +66,7 @@ export default function SiteDuProf({ config, uid }: { config: ConfigAppareil; ui
       {config.listeEcole.length > 0 && (
         <details className="group">
           <summary className="min-h-12 flex items-center text-base text-cream-mute cursor-pointer">
-            Sites ouverts en mode école ({config.listeEcole.length})
+            Sites de l'école ({config.listeEcole.length})
           </summary>
           <ul className="flex flex-col gap-1">
             {config.listeEcole.map((d) => (
@@ -91,6 +89,6 @@ export default function SiteDuProf({ config, uid }: { config: ConfigAppareil; ui
           </ul>
         </details>
       )}
-    </section>
+    </LigneRepliee>
   );
 }
