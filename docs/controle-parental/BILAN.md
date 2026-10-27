@@ -41,26 +41,19 @@ prompt de l'agent, contrat) restent hors du dépôt : `sources/`, ignoré.
 
 ## Ce qui reste, dans l'ordre
 
-Faits le 27.10 : PR #32 fusionnée, déploiement (fonctions → règles →
-hébergement, `nextdnsAppareil` en 401), PC relié dans l'appli.
+Faits le 27.10 : PR #32, #33 et #34 fusionnées et déployées ; PC relié dans
+l'appli ; **agent du PC branché en mode `firestore`** (vérifié dans Firestore :
+`lastSeen` à l'heure du serveur, `deviceTime`, catalogue `status/current.apps`,
+« jusqu'à nouvel ordre » pour une échéance ≥ 2100 ; l'agent relit chaque
+minute la réponse des parents aux demandes en attente, contrat § 4.1 et § 13).
+Notifications : trois demandes d'essai ont fait sonner un appareil chacune
+(journal de `notifierDemandePc`, un jeton mort retiré).
 
-1. **Brancher l'agent réel** : passer son mode distant de `file` à `firestore`
-   (contrat § 7.6) avec la configuration web publique du projet, l'identifiant
-   de l'appareil et le compte du PC (mot de passe posé par le propriétaire, root
-   seulement) — voir COMPTE-APPAREIL.md.
-2. **Côté agent, à demander** : publier le catalogue d'applis dans
-   `status/current.apps` (l'écran des réglages le lit déjà), écrire `deviceTime`
-   et passer `lastSeen` à l'heure du serveur, afficher « jusqu'à nouvel ordre »
-   pour une échéance ≥ 2100.
-3. **Notifications (phase 9)** : déployées le 27.10 (`notifierDemandePc`
-   active ; le premier essai a buté sur l'agent de service Eventarc, le
-   second est passé). Reste l'essai réel : chaque parent active « Me prévenir
-   des demandes », l'enfant envoie une demande ; le journal de
-   `notifierDemandePc` donne `envoyes`, `echecs`, `retires`.
-4. **iPad (phase 10)** : déployer règles → `nextdnsAppareil` → hébergement ;
-   l'iPad se recharge seul. Vérifier sur l'iPad mini réel : carte, toucher,
-   rapport, défilement de « La journée ».
-5. **Au bout de deux semaines** : regarder la jauge du filtre internet ; passer
+1. **iPad (phase 10)** : vérifier sur l'iPad mini réel (Safari 9) : carte,
+   toucher, rapport, défilement de « La journée ».
+2. **Une vraie décision** depuis le téléphone (ex. Temps libre 30 min) :
+   le PC l'applique, l'iPad la montre.
+3. **Au bout de deux semaines** : regarder la jauge du filtre internet ; passer
    NextDNS en Pro si le mois approche la limite.
 
 ## Checklist : le contrat réel face au module
@@ -94,16 +87,16 @@ doit suivre.
       `unknownExecutables` (`report` | `kill`).
 - [x] Champs ajoutés par Family Hub (`householdId`, `parentLabels`, `updatedAt`,
       `updatedBy`) : ignorés par l'agent sans erreur.
-- [ ] **Catalogue d'applis publié par l'agent** (`status/current.apps`) : prévu
-      au contrat, pas encore écrit par l'agent (point 5 ci-dessus).
+- [x] **Catalogue d'applis publié par l'agent** (`status/current.apps`) : prévu
+      au contrat, écrit par l'agent depuis le 27.10 (vérifié dans Firestore).
 
 ### État (écrit par l'agent)
 - [x] Par dimension (`pc`, `internet`, `mode`) : valeur, `…Reason`, `…Source`,
       `…Until` ; `network` (filtrage réel), `summary`, `nextChange`,
       `lockPendingAt`, `configErrors`, `backup`, `lastSeen`, `version`.
 - [x] Hors ligne : seuil 10 min (accepté).
-- [ ] **Horloge** : `deviceTime` + `lastSeen` à l'heure du serveur — accepté,
-      pas encore écrit par l'agent (point 5).
+- [x] **Horloge** : `deviceTime` + `lastSeen` à l'heure du serveur — accepté,
+      écrits par l'agent depuis le 27.10 (vérifié dans Firestore).
 
 ### Usage (écrit par l'agent)
 - [x] Secondes : `sessionSeconds`, `activeSeconds`, `apps`, `appNames`,

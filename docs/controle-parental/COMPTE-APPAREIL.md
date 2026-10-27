@@ -64,9 +64,16 @@ l'agent du PC lit : il est convenu avec lui, et n'apparaît pas dans le code.
 L'adresse et le mot de passe vont sur le PC, **lisibles par root seulement**
 (fichier `chmod 600`, propriétaire root), jamais dans le compte de l'enfant.
 L'agent se connecte par l'API REST d'authentification
-(`accounts:signInWithPassword`, avec la clé web publique du projet), reçoit un
+(`accounts:signInWithPassword`), reçoit un
 jeton d'une heure et un jeton de renouvellement, et parle à Firestore avec ce
 jeton. Aucune clé d'administration n'est nécessaire.
+
+**Clé d'API du PC** : pas la clé web du hub, restreinte aux sites du hub
+(référents HTTP) et donc refusée au PC (403). Le PC a sa propre clé, sans
+restriction d'application mais limitée à trois API : Identity Toolkit, Token
+Service et Cloud Firestore (créée le 27.10.2026 ; son nom et sa valeur ne
+sont pas dans ce dépôt). La sécurité vient des règles : la clé ne donne
+aucun droit par elle-même.
 
 ## 5. Révoquer ou remplacer
 
