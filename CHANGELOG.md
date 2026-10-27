@@ -4,6 +4,9 @@ Format [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), par date (le pr
 
 ## [Non publié]
 
+### Ajouté
+- PC des enfants : notifications des demandes. Chaque parent active « Me prévenir des demandes » sur ses téléphones et ordinateurs ; une demande de l'enfant les fait tous sonner, et un toucher ouvre l'écran du PC. Fonction `notifierDemandePc`, liste de jetons par parent (`devices/{id}/notifySubscribers/{uid}`), service worker `notifications-sw.js`.
+
 ### Documentation
 - Rangement de la documentation : `CLAUDE.md`, `docs/ETAT.md`, `docs/architecture.md`, `docs/decisions/`, `docs/exploitation/`, archive des specs et plans livrés (`docs/archive/INDEX.md`). Aucun changement de code.
 

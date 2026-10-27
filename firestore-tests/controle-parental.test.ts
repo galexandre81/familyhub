@@ -33,6 +33,7 @@ import {
 } from "firebase/firestore";
 import { afterAll, beforeAll, beforeEach, describe, it } from "vitest";
 import {
+  CHAMP_ABONNE,
   CHAMP_CONFIG,
   CHAMP_DEMANDE,
   CHAMP_PRIVE_NEXTDNS,
@@ -416,6 +417,35 @@ describe("NextDNS : rapport et profil privé", () => {
       await assertFails(getDoc(doc(db(uid), chemin.priveNextdns(PC))));
       await assertFails(setDoc(doc(db(uid), chemin.priveNextdns(PC)), { [CHAMP_PRIVE_NEXTDNS.profil]: "un-autre-profil" }));
     }
+  });
+});
+
+describe("notifications des demandes : la liste de jetons de chaque parent", () => {
+  const liste = (jetons: string[]) => ({ [CHAMP_ABONNE.jetons]: jetons, [CHAMP_ABONNE.majLe]: new Date() });
+
+  it("un parent écrit, relit et efface SA liste", async () => {
+    const p = db(PARENT);
+    await assertSucceeds(setDoc(doc(p, chemin.abonne(PC, PARENT)), liste(["jeton-tel"])));
+    await assertSucceeds(getDoc(doc(p, chemin.abonne(PC, PARENT))));
+    await assertSucceeds(setDoc(doc(p, chemin.abonne(PC, PARENT)), liste(["jeton-tel", "jeton-pc"])));
+    await assertSucceeds(deleteDoc(doc(p, chemin.abonne(PC, PARENT))));
+  });
+
+  it("ni la liste de l'autre parent, ni un champ inconnu, ni plus de 10 jetons", async () => {
+    await assertFails(setDoc(doc(db(PARENT_2), chemin.abonne(PC, PARENT)), liste(["intrus"])));
+    await assertFails(setDoc(doc(db(PARENT), chemin.abonne(PC, PARENT)), { ...liste(["a"]), autre: 1 }));
+    await assertFails(setDoc(doc(db(PARENT), chemin.abonne(PC, PARENT)), liste(Array.from({ length: 11 }, (_, i) => `j${i}`))));
+  });
+
+  it("ni l'enfant, ni le PC, ni un parent d'un autre foyer, ni un écran", async () => {
+    await env.withSecurityRulesDisabled((ctx) => setDoc(doc(ctx.firestore(), chemin.abonne(PC, PARENT)), liste(["jeton-tel"])));
+    for (const c of [db(ENFANT), db(APPAREIL), db(PARENT_B), ecran()]) {
+      await assertFails(getDoc(doc(c, chemin.abonne(PC, PARENT))));
+      await assertFails(getDocs(collection(c, chemin.abonnes(PC))));
+    }
+    await assertFails(setDoc(doc(db(ENFANT), chemin.abonne(PC, ENFANT)), liste(["x"])));
+    await assertFails(setDoc(doc(db(APPAREIL), chemin.abonne(PC, APPAREIL)), liste(["x"])));
+    await assertFails(setDoc(doc(db(PARENT_B), chemin.abonne(PC, PARENT_B)), liste(["x"])));
   });
 });
 

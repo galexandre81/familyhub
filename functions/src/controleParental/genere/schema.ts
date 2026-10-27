@@ -283,8 +283,27 @@ export const SEUIL_ALERTE_QUOTA = 0.7;
 /** Un rapport plus récent est servi tel quel, sans rappeler NextDNS. */
 export const FRAICHEUR_RAPPORT_MS = 5 * 60_000;
 
+// ─── Notifications des demandes (côté Family Hub seulement) ─────────────────
+
+/**
+ * [hub] Appareils d'un parent prévenus quand l'enfant envoie une demande :
+ * `devices/{id}/notifySubscribers/{uid parent}`. Chaque parent tient SA
+ * liste (un jeton par téléphone ou navigateur) ; la fonction serveur la lit
+ * à chaque demande créée et retire les jetons morts.
+ */
+export const SOUS_COLLECTION_ABONNES = "notifySubscribers";
+export const CHAMP_ABONNE = {
+  jetons: "pushTokens",
+  majLe: "updatedAt",
+} as const;
+/** Au-delà, le plus ancien jeton du parent est oublié. */
+export const MAX_JETONS_PAR_PARENT = 10;
+
 /** Chemins. Les identifiants sont passés par l'appelant, jamais écrits en dur. */
 export const chemin = {
+  abonnes: (appareilId: string) => `${COLLECTION_APPAREILS}/${appareilId}/${SOUS_COLLECTION_ABONNES}`,
+  abonne: (appareilId: string, uid: string) =>
+    `${COLLECTION_APPAREILS}/${appareilId}/${SOUS_COLLECTION_ABONNES}/${uid}`,
   rapportNextdns: (appareilId: string) =>
     `${COLLECTION_APPAREILS}/${appareilId}/${SOUS_COLLECTION_RAPPORTS}/${DOC_RAPPORT_NEXTDNS}`,
   priveNextdns: (appareilId: string) =>

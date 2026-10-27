@@ -49,3 +49,5 @@ export { createInvitation, acceptInvitation } from "./household/invitations";
 
 // Contrôle parental : NextDNS du PC des enfants (parents seulement, clé en secret)
 export { nextdnsAppareil } from "./controleParental/nextdns";
+// Contrôle parental : une demande du PC fait sonner les téléphones des parents abonnés
+export { notifierDemandePc } from "./controleParental/notifications";

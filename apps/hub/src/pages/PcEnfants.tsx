@@ -61,6 +61,7 @@ import Journee from "../components/pcEnfants/Journee";
 import SiteDuProf from "../components/pcEnfants/SiteDuProf";
 import Reglages from "../components/pcEnfants/Reglages";
 import InternetDuJour from "../components/pcEnfants/InternetDuJour";
+import PrevenirDemandes from "../components/pcEnfants/PrevenirDemandes";
 import { useRapportNextdns } from "../lib/controleParental/nextdns";
 
 type Decision = { sorte: "mode"; mode: Mode } | { sorte: Exclude<SorteDecision, "mode"> };
@@ -304,6 +305,7 @@ export default function PcEnfants() {
       <Journee usage={usage.donnees} etat={etat.donnees} />
       <InternetDuJour appareilId={config.id} rapport={rapport} maintenant={maintenant} />
       <SiteDuProf config={config} uid={user.uid} />
+      <PrevenirDemandes appareilId={config.id} uid={user.uid} />
 
       {fondateur && (
         <details className="flex flex-col gap-2">

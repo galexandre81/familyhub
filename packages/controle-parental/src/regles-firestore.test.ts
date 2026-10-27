@@ -9,13 +9,16 @@ import { readFileSync } from "node:fs";
 import { resolve } from "node:path";
 import { describe, expect, it } from "vitest";
 import {
+  CHAMP_ABONNE,
   CHAMP_CONFIG,
   CHAMP_DEMANDE,
   CHAMP_REGLE,
   CHAMPS_DEMANDE_PARENT,
   COLLECTION_APPAREILS,
   DOC_ETAT_COURANT,
+  MAX_JETONS_PAR_PARENT,
   SOUS_COLLECTION,
+  SOUS_COLLECTION_ABONNES,
   SOUS_COLLECTION_PRIVE,
   SOUS_COLLECTION_RAPPORTS,
   VALEUR,
@@ -34,6 +37,7 @@ describe("firestore.rules concorde avec le schéma", () => {
     `/${SOUS_COLLECTION.usage}/`,
     `/${SOUS_COLLECTION.demandes}/`,
     `/${SOUS_COLLECTION_RAPPORTS}/`,
+    `/${SOUS_COLLECTION_ABONNES}/`,
   ])("sous-collection %s", (s) => {
     expect(bloc).toContain(`match ${s}`);
   });
@@ -57,6 +61,8 @@ describe("firestore.rules concorde avec le schéma", () => {
       VALEUR.statutDemande.traitee,
       CHAMP_CONFIG.reinitialiserLocalAvant,
       ...CHAMPS_DEMANDE_PARENT,
+      CHAMP_ABONNE.jetons,
+      CHAMP_ABONNE.majLe,
     ];
     const manquants = attendus.filter((n) => !bloc.includes(`'${n}'`));
     expect(manquants).toEqual([]);
@@ -71,5 +77,9 @@ describe("firestore.rules concorde avec le schéma", () => {
   it("l'échéance d'une exception est exigée sous son nom", () => {
     expect(bloc).toContain(`.${CHAMP_CONFIG.exception}.${CHAMP_REGLE.jusqua} is timestamp`);
     expect(bloc).toContain(`get('${CHAMP_REGLE.par}', '').size() <= 60`);
+  });
+
+  it("le plafond de jetons d'un parent est celui du schéma", () => {
+    expect(bloc).toContain(`.${CHAMP_ABONNE.jetons}.size() <= ${MAX_JETONS_PAR_PARENT}`);
   });
 });
