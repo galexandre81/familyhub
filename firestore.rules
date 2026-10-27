@@ -148,6 +148,9 @@ service cloud.firestore {
     //     crée ses demandes. Rien d'autre.
     //   - Les PARENTS du foyer `householdId` lisent tout, écrivent la config et
     //     le statut des demandes. Ni les écrans, ni un membre non parent.
+    //   - L'ÉCRAN DE CUISINE du foyer (iPad, jeton isDisplay) LIT la config,
+    //     l'état, l'usage, les demandes et le rapport internet, et n'écrit
+    //     RIEN : l'enfant ne peut pas s'accorder une demande depuis l'iPad.
     // Parent : membre du foyer avec le rôle parent ; foyer ancien sans `roles`,
     // tout membre (même règle que estParent dans le hub).
     function parentDe(hid) {
@@ -169,6 +172,10 @@ service cloud.firestore {
       function estParent() {
         return parentDe(config().householdId);
       }
+      // Lecture seule : aucune règle d'écriture ci-dessous ne cite l'écran.
+      function estEcran() {
+        return isDisplayOfHousehold(config().householdId);
+      }
       // Config écrite par un parent (contrat § 2) : champs connus, signée par
       // lui ; toute exception porte une échéance (le PC ignore une exception
       // sans échéance) et le nom montré à l'enfant (≤ 60 caractères).
@@ -188,8 +195,10 @@ service cloud.firestore {
 
       allow get: if request.auth != null
                  && (resource.data.get('deviceUid', null) == request.auth.uid
-                     || parentDe(resource.data.householdId));
-      allow list: if parentDe(resource.data.householdId);
+                     || parentDe(resource.data.householdId)
+                     || isDisplayOfHousehold(resource.data.householdId));
+      allow list: if parentDe(resource.data.householdId)
+                  || isDisplayOfHousehold(resource.data.householdId);
       allow create: if parentDe(request.resource.data.householdId)
                     && configValide(request.resource.data);
       allow update: if parentDe(resource.data.householdId)
@@ -199,22 +208,23 @@ service cloud.firestore {
 
       // État effectif : un seul document, écrit par l'appareil seul ; personne ne le supprime.
       match /status/{docId} {
-        allow read: if estParent() || estAppareil();
+        allow read: if estParent() || estAppareil() || estEcran();
         allow create, update: if estAppareil() && docId == 'current';
       }
 
       // Usage d'une journée, id AAAA-MM-JJ, écrit par l'appareil seul.
       match /usage/{jour} {
-        allow read: if estParent() || estAppareil();
+        allow read: if estParent() || estAppareil() || estEcran();
         allow create, update: if estAppareil() && jour.matches('^[0-9]{4}-[0-9]{2}-[0-9]{2}$');
       }
 
       // Rapport NextDNS (sites du jour, quota du mois) : écrit par la fonction
-      // serveur (Admin), lu par les parents. Ni l'appareil ni personne d'autre.
+      // serveur (Admin), lu par les parents et l'écran de cuisine. Ni
+      // l'appareil ni personne d'autre.
       // `private/nextdns` (profil NextDNS) n'a volontairement AUCUNE règle :
       // refusé à tous les clients, lu par la fonction seule.
       match /reports/{docId} {
-        allow read: if estParent();
+        allow read: if estParent() || estEcran();
       }
 
       // Notifications des demandes : chaque parent tient SA liste de jetons
@@ -232,7 +242,7 @@ service cloud.firestore {
       // les réécrire tant qu'elles le restent (renvoi après coupure) ; un parent
       // ne pose que la décision, signée de son uid. Personne ne supprime.
       match /requests/{requestId} {
-        allow read: if estParent() || estAppareil();
+        allow read: if estParent() || estAppareil() || estEcran();
         allow create: if estAppareil()
                       && request.resource.data.get('status', null) == 'pending'
                       && !('handledBy' in request.resource.data);

@@ -16,6 +16,7 @@ réel ici (ils sont chez le propriétaire).
 | 7. Contrat réel | `schema.ts` aligné sur le contrat de l'agent (version 1, agent 1.0.0, 27.10) : chaque nom marqué [contrat] ou [hub] ; quatre modes, internet coupé, planning en plages, une seule exception avec le nom montré à l'enfant | Module 107 tests, règles 95/95, fonctions 85 |
 | 8. Écran refait | Maquette A « le mode au centre » (validée le 27.10) : carte « Mode en cours », quatre modes, Verrouiller / Débloquer / Couper internet, Revenir à la normale, demandes (« Oui, 45 min »), journée en secondes, lignes repliées internet et site du prof, réglages (planning par plages, applis du catalogue, limites, nom montré à l'enfant, programmes inconnus) | Hub 302 tests (39 sur les phrases) ; parcours joué au format téléphone avec deux parents et le simulateur ; aucun mot technique à l'écran |
 | 9. Notifications des demandes (27.10) | Interrupteur « Me prévenir des demandes » (un par téléphone ou navigateur, pour chaque parent) ; jetons rangés par parent dans `notifySubscribers/{uid}` ; fonction `notifierDemandePc` (création d'une demande en attente → message de données à tous les jetons des parents actuels du foyer, jetons morts retirés) ; `public/notifications-sw.js` affiche et ouvre `/pc` | Fonction 14 tests ; règles 98/98 (brèche plantée « liste de l'autre parent » → échec attendu) ; module 113 ; hub 302 ; build : `sw.js` importe bien le script |
+| 10. iPad de cuisine (27.10) | Carte « PC des enfants » du tableau (mode en cours, en ligne ou non, demande en attente) et rapport plein écran (maquette 3B : bandeau, demande en attente, applis, internet, la journée) ; `apps/display/public/js/pc-enfants.js` (ES5) + copie générée des valeurs du schéma (`js/genere/schema-controle-parental.js`) ; règles : l'écran du foyer LIT config, état, usage, demandes, rapport internet et n'écrit RIEN ; `nextdnsAppareil` : l'écran n'a droit qu'au rapport de son foyer | Règles 101/101 (brèche plantée « l'iPad décide une demande » → échec attendu) ; fonctions 3 tests écran ; iPad 9 tests (vm, comme Safari 9) ; garde d'isolation étendue à l'iPad ; capture 1024×768 conforme à 3B |
 
 Docs : `COMPTE-APPAREIL.md`, `SIMULATEUR.md`, `NEXTDNS.md`. Les sources (brief,
 prompt de l'agent, contrat) restent hors du dépôt : `sources/`, ignoré.
@@ -51,15 +52,15 @@ hébergement, `nextdnsAppareil` en 401), PC relié dans l'appli.
    `status/current.apps` (l'écran des réglages le lit déjà), écrire `deviceTime`
    et passer `lastSeen` à l'heure du serveur, afficher « jusqu'à nouvel ordre »
    pour une échéance ≥ 2100.
-3. **Notifications (phase 9)** : fusionner, puis déployer dans l'ordre
-   fonctions (`notifierDemandePc`) → règles → hébergement. Première fonction
-   déclenchée par Firestore du projet : si le premier déploiement échoue sur
-   un droit de l'agent de service Eventarc, attendre quelques minutes et
-   relancer. Puis chaque parent active « Me prévenir des demandes » sur ses
-   appareils (sur téléphone : depuis l'appli installée), et l'enfant envoie
-   une demande d'essai. Journal : `notifierDemandePc` écrit `envoyes`,
-   `echecs`, `retires` à chaque demande.
-4. **Au bout de deux semaines** : regarder la jauge du filtre internet ; passer
+3. **Notifications (phase 9)** : déployées le 27.10 (`notifierDemandePc`
+   active ; le premier essai a buté sur l'agent de service Eventarc, le
+   second est passé). Reste l'essai réel : chaque parent active « Me prévenir
+   des demandes », l'enfant envoie une demande ; le journal de
+   `notifierDemandePc` donne `envoyes`, `echecs`, `retires`.
+4. **iPad (phase 10)** : déployer règles → `nextdnsAppareil` → hébergement ;
+   l'iPad se recharge seul. Vérifier sur l'iPad mini réel : carte, toucher,
+   rapport, défilement de « La journée ».
+5. **Au bout de deux semaines** : regarder la jauge du filtre internet ; passer
    NextDNS en Pro si le mois approche la limite.
 
 ## Checklist : le contrat réel face au module
@@ -122,6 +123,11 @@ doit suivre.
 - [x] Procédure du compte de l'appareil : COMPTE-APPAREIL.md.
 
 ## Limites connues
+- iPad : il montre ce que le PC APPLIQUE (`status/current`), jusqu'à ~90 s après
+  une décision ; PC hors ligne, il garde le dernier état connu, en gris.
+  Le relevé internet n'est refait qu'à l'ouverture du rapport (au plus toutes
+  les 5 min). Testé dans Chromium au format de l'iPad, pas encore sur l'iPad
+  mini réel (Safari 9).
 - Notifications : sur téléphone, seulement depuis l'appli installée sur l'écran
   d'accueil (obligatoire sur iPhone) ; sur ordinateur, seulement quand le
   navigateur tourne. Une demande déjà réglée par l'autre parent garde sa

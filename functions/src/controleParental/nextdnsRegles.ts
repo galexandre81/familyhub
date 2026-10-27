@@ -202,20 +202,36 @@ function dateDe(v: unknown): Date | null {
  * Traite une demande d'un parent. `rapport` : sert le rapport s'il a moins de
  * cinq minutes, sinon le refait. Débloquer, bloquer, retirer : modifient les
  * listes du profil, puis refait le rapport (les listes affichées suivent).
+ *
+ * `ecranDuFoyer` : l'appel vient de l'écran de cuisine (jeton isDisplay) de
+ * ce foyer. Il n'a droit qu'au rapport, LECTURE SEULE : jamais débloquer,
+ * bloquer ni retirer un site (l'enfant a accès à l'iPad).
  */
-export async function traiter(uid: string | undefined, demande: Demande, d: Dependances): Promise<{ fait: true }> {
+export async function traiter(
+  uid: string | undefined,
+  demande: Demande,
+  d: Dependances,
+  ecranDuFoyer?: string,
+): Promise<{ fait: true }> {
   if (!uid) throw new RefusNextdns("non-connecte", "Connexion requise");
   const appareilId = typeof demande.appareilId === "string" ? demande.appareilId : "";
   const action = typeof demande.action === "string" ? demande.action : "";
   if (!/^[A-Za-z0-9_-]{1,64}$/.test(appareilId) || !ACTIONS.includes(action)) {
     throw new RefusNextdns("demande-invalide", "Demande invalide");
   }
+  if (ecranDuFoyer !== undefined && action !== ACTION_NEXTDNS.rapport) {
+    throw new RefusNextdns("pas-parent", "Réservé aux parents du foyer");
+  }
 
   const config = await d.lireConfig(appareilId);
   if (!config) throw new RefusNextdns("appareil-inconnu", "Appareil inconnu");
   const foyerId = config[CHAMP_CONFIG.foyer];
-  const foyer = typeof foyerId === "string" ? await d.lireFoyer(foyerId) : null;
-  if (!estParentDuFoyer(foyer, uid)) throw new RefusNextdns("pas-parent", "Réservé aux parents du foyer");
+  if (ecranDuFoyer !== undefined) {
+    if (!ecranDuFoyer || foyerId !== ecranDuFoyer) throw new RefusNextdns("pas-parent", "Réservé aux parents du foyer");
+  } else {
+    const foyer = typeof foyerId === "string" ? await d.lireFoyer(foyerId) : null;
+    if (!estParentDuFoyer(foyer, uid)) throw new RefusNextdns("pas-parent", "Réservé aux parents du foyer");
+  }
 
   const profil = (await d.lirePrive(appareilId))?.[CHAMP_PRIVE_NEXTDNS.profil];
   if (typeof profil !== "string" || !new RegExp(`^${PROFIL}$`).test(profil)) {

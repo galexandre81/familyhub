@@ -26,6 +26,8 @@ import {
   doc,
   getDoc,
   getDocs,
+  limit,
+  orderBy,
   query,
   setDoc,
   updateDoc,
@@ -459,10 +461,12 @@ describe("personne d'autre", () => {
     await assertFails(updateDoc(doc(e, chemin.demande(PC, DEMANDE)), decision(ENFANT)));
   });
 
-  it("l'écran de cuisine ne voit pas le PC", async () => {
-    await assertFails(getDoc(doc(ecran(), chemin.config(PC))));
-    await assertFails(getDoc(doc(ecran(), chemin.etat(PC))));
-    await assertFails(getDocs(query(collection(ecran(), COLLECTION_APPAREILS), where(CHAMP_CONFIG.foyer, "==", FOYER))));
+  it("l'écran de cuisine d'un AUTRE foyer ne voit pas le PC", async () => {
+    const autre = db("display:d2", { isDisplay: true, householdId: FOYER_B, displayId: "d2" });
+    await assertFails(getDoc(doc(autre, chemin.config(PC))));
+    await assertFails(getDoc(doc(autre, chemin.etat(PC))));
+    await assertFails(getDoc(doc(autre, chemin.demande(PC, DEMANDE))));
+    await assertFails(getDocs(query(collection(autre, COLLECTION_APPAREILS), where(CHAMP_CONFIG.foyer, "==", FOYER))));
   });
 
   it("un compte inconnu, ou personne de connecté", async () => {
@@ -471,5 +475,52 @@ describe("personne d'autre", () => {
     const anonyme = env.unauthenticatedContext().firestore();
     await assertFails(getDoc(doc(anonyme, chemin.config(PC))));
     await assertFails(addDoc(collection(anonyme, chemin.demandes(PC)), demande()));
+  });
+});
+
+describe("écran de cuisine du foyer : il lit tout, il n'écrit rien", () => {
+  beforeEach(async () => {
+    await env.withSecurityRulesDisabled(async (ctx) => {
+      const d = ctx.firestore();
+      await setDoc(doc(d, chemin.rapportNextdns(PC)), { [CHAMP_RAPPORT.jour]: JOUR, [CHAMP_RAPPORT.requetesDuMois]: 1000 });
+      await setDoc(doc(d, chemin.priveNextdns(PC)), { [CHAMP_PRIVE_NEXTDNS.profil]: "abc123" });
+    });
+  });
+
+  it("lit la config, l'état, l'usage, les demandes et le rapport internet", async () => {
+    const e = ecran();
+    await assertSucceeds(getDocs(query(collection(e, COLLECTION_APPAREILS), where(CHAMP_CONFIG.foyer, "==", FOYER), limit(1))));
+    await assertSucceeds(getDoc(doc(e, chemin.config(PC))));
+    await assertSucceeds(getDoc(doc(e, chemin.etat(PC))));
+    await assertSucceeds(getDoc(doc(e, chemin.usage(PC, JOUR))));
+    await assertSucceeds(getDocs(query(collection(e, chemin.demandes(PC)), orderBy(CHAMP_DEMANDE.creeeLe, "desc"), limit(40))));
+    await assertSucceeds(getDoc(doc(e, chemin.rapportNextdns(PC))));
+  });
+
+  it("ne s'accorde rien : ni décision sur une demande, ni exception, ni mode, ni déverrouillage", async () => {
+    const e = ecran();
+    await assertFails(updateDoc(doc(e, chemin.demande(PC, DEMANDE)), decision("display:d1")));
+    await assertFails(
+      updateDoc(doc(e, chemin.config(PC)), {
+        [CHAMP_CONFIG.exception]: exception({ [CHAMP_REGLE.pc]: VALEUR.pc.autorise }),
+        ...signe("display:d1"),
+      }),
+    );
+    await assertFails(
+      updateDoc(doc(e, chemin.config(PC)), { [CHAMP_CONFIG.exception]: null, ...signe("display:d1") }),
+    );
+    await assertFails(setDoc(doc(e, chemin.config(PC)), config(FOYER, APPAREIL, "display:d1")));
+    await assertFails(deleteDoc(doc(e, chemin.config(PC))));
+  });
+
+  it("n'écrit ni à la place du PC, ni le rapport, ni les notifications ; ne lit pas le profil privé", async () => {
+    const e = ecran();
+    await assertFails(setDoc(doc(e, chemin.etat(PC)), etat()));
+    await assertFails(setDoc(doc(e, chemin.usage(PC, JOUR)), usage()));
+    await assertFails(setDoc(doc(e, chemin.demande(PC, "demande-ecran")), demande()));
+    await assertFails(deleteDoc(doc(e, chemin.demande(PC, DEMANDE))));
+    await assertFails(setDoc(doc(e, chemin.rapportNextdns(PC)), { [CHAMP_RAPPORT.requetesDuMois]: 0 }));
+    await assertFails(getDoc(doc(e, chemin.priveNextdns(PC))));
+    await assertFails(setDoc(doc(e, chemin.abonne(PC, "display:d1")), { [CHAMP_ABONNE.jetons]: ["x"] }));
   });
 });

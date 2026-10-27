@@ -32,6 +32,8 @@
   <link rel="stylesheet" href="css/tableau.css?v=__DISPLAY_VERSION__">
   <!-- Vues plein écran ouvertes depuis le tableau (agenda, menu de la semaine, livre de recettes) : APRÈS styles.css, dont elles remplacent l'ancien habillage. -->
   <link rel="stylesheet" href="css/plein-ecran.css?v=__DISPLAY_VERSION__">
+  <!-- PC des enfants : carte du tableau et rapport plein écran (lecture seule). -->
+  <link rel="stylesheet" href="css/pc-enfants.css?v=__DISPLAY_VERSION__">
   <link rel="apple-touch-icon" href="icons/icon-180.png">
   <link rel="manifest" href="manifest.json">
 </head>
@@ -100,6 +102,9 @@
   <script src="js/render.js?v=__DISPLAY_VERSION__"></script>
   <script src="js/ambiance.js?v=__DISPLAY_VERSION__"></script>
   <script src="js/repas.js?v=__DISPLAY_VERSION__"></script>
+  <!-- PC des enfants (lecture seule) : noms du schéma générés, puis la carte et le rapport ; AVANT tableau.js. -->
+  <script src="js/genere/schema-controle-parental.js?v=__DISPLAY_VERSION__"></script>
+  <script src="js/pc-enfants.js?v=__DISPLAY_VERSION__"></script>
   <!-- Tableau de cuisine (écran principal) : APRÈS repas.js, le panneau des minuteurs et le mode recette qu'il utilise. -->
   <script src="js/tableau.js?v=__DISPLAY_VERSION__"></script>
   <script src="js/core.js?v=__DISPLAY_VERSION__"></script>

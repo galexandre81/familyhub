@@ -30,7 +30,10 @@ const CODE: Record<RefusNextdns["raison"], ConstructorParameters<typeof HttpsErr
 const lire = async (p: string) => (await db.doc(p).get()).data() ?? null;
 
 export const nextdnsAppareil = onCall({ secrets: [NEXTDNS_API_KEY] }, async (req) => {
-  if (req.auth?.token?.isDisplay === true) throw new HttpsError("permission-denied", "Réservé aux parents");
+  // Écran de cuisine : rapport seulement, pour son propre foyer (vérifié dans traiter).
+  const token = req.auth?.token;
+  const ecranDuFoyer =
+    token?.isDisplay === true ? (typeof token.householdId === "string" ? token.householdId : "") : undefined;
   try {
     return await traiter(req.auth?.uid, req.data ?? {}, {
       lireConfig: (id) => lire(chemin.config(id)),
@@ -44,7 +47,7 @@ export const nextdnsAppareil = onCall({ secrets: [NEXTDNS_API_KEY] }, async (req
       cle: NEXTDNS_API_KEY.value(),
       base: base(),
       maintenant: () => new Date(),
-    });
+    }, ecranDuFoyer);
   } catch (e) {
     if (e instanceof RefusNextdns) {
       logger.warn(`${FONCTION_NEXTDNS} refusé`, { raison: e.raison, message: e.message, uid: req.auth?.uid });
