@@ -26,6 +26,7 @@ export type RepasType =
   | "petit-dej-sucre"
   | "dejeuner"
   | "diner"
+  | "dessert"
   | "tout";
 
 export interface SeedContext {

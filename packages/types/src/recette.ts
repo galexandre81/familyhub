@@ -85,7 +85,7 @@ export interface Recette {
      * Sert au meal planner pour filtrer les recettes éligibles à un slot
      * (petit-déj vs déj vs dîner). Une recette peut convenir partout = "tout".
      */
-    repas?: "petit-dej-sale" | "petit-dej-sucre" | "dejeuner" | "diner" | "tout";
+    repas?: "petit-dej-sale" | "petit-dej-sucre" | "dejeuner" | "diner" | "dessert" | "tout";
     /**
      * Liste des presets de règles nutrition pour lesquels cette recette est
      * adaptée (renseigné par le seed selon le preset actif au moment de la

@@ -89,7 +89,7 @@ export const recetteGenereeSchema = z.object({
    * besoin de le produire), mais on l'accepte aussi en entrée si présent.
    */
   repas: z
-    .enum(["petit-dej-sale", "petit-dej-sucre", "dejeuner", "diner", "tout"])
+    .enum(["petit-dej-sale", "petit-dej-sucre", "dejeuner", "diner", "dessert", "tout"])
     .optional(),
 });
 

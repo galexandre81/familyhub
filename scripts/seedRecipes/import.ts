@@ -13,7 +13,7 @@
  *
  * Usage :
  *   npm run import -- --household HID --file path/to/recettes.json
- *                     [--repas dejeuner|diner|petit-dej-sale|petit-dej-sucre|tout]
+ *                     [--repas dejeuner|diner|dessert|petit-dej-sale|petit-dej-sucre|tout]
  *                     [--no-strict-constraints]
  *                     [--source "Claude.ai web — pull du 2026-05-03"]
  *
@@ -52,7 +52,7 @@ import {
 } from "./reglesNutrition.ts";
 import { normalizeNom, parseSeedOutput, type RecetteGeneree } from "./validation.ts";
 
-type RepasType = "petit-dej-sale" | "petit-dej-sucre" | "dejeuner" | "diner" | "tout";
+type RepasType = "petit-dej-sale" | "petit-dej-sucre" | "dejeuner" | "diner" | "dessert" | "tout";
 
 interface CliOptions {
   household: string;
@@ -68,7 +68,7 @@ function parseCli(): CliOptions {
     .option("--file <path>", "Chemin du fichier JSON à importer")
     .option(
       "--repas <r>",
-      "Type de repas par défaut si pas dans le JSON (petit-dej-sale | petit-dej-sucre | dejeuner | diner | tout)",
+      "Type de repas par défaut si pas dans le JSON (petit-dej-sale | petit-dej-sucre | dejeuner | diner | dessert | tout)",
       "tout",
     )
     .option(
@@ -94,6 +94,7 @@ function parseCli(): CliOptions {
     "petit-dej-sucre",
     "dejeuner",
     "diner",
+    "dessert",
     "tout",
   ];
   if (!validRepas.includes(opts.repas)) {
