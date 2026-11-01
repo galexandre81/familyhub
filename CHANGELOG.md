@@ -5,6 +5,9 @@ Format [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), par date (le pr
 ## [Non publié]
 
 ### Ajouté
+- Livre de recettes : types de repas « dessert » et « technique » (fiche d'un geste de base), exemptés des règles nutrition ; champ `techniques` (gestes utilisés par une recette, par nom).
+- iPad de cuisine, livre de recettes : bouton « Dessert / Goûter » (les desserts n'avaient aucune entrée) et parcours « Je cuisine seule » pour un ado : recettes tagguées `ado`, par catégorie (gestes, petit-déj, repas, desserts) et par niveau ; la fiche d'une recette propose « Les gestes à connaître ». Les fiches de gestes restent hors du parcours classique.
+- Import de recettes (`scripts/seedRecipes`) : option `--maj-source` qui enrichit (tags, gestes) les recettes d'un import précédent au lieu de les écarter comme doublons ; les recettes saisies à la main ne sont jamais modifiées.
 - iPad de cuisine : la carte « PC des enfants » du tableau montre le mode en cours, si le PC est en ligne et s'il y a une demande en attente ; un toucher ouvre le rapport de la journée (applis, internet, demandes et réponses). Lecture seule : les règles interdisent à l'iPad toute écriture sur le PC, et `nextdnsAppareil` ne lui sert que le rapport de son foyer.
 - PC des enfants : notifications des demandes. Chaque parent active « Me prévenir des demandes » sur ses téléphones et ordinateurs ; une demande de l'enfant les fait tous sonner, et un toucher ouvre l'écran du PC. Fonction `notifierDemandePc`, liste de jetons par parent (`devices/{id}/notifySubscribers/{uid}`), service worker `notifications-sw.js`.
 

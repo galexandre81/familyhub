@@ -736,6 +736,59 @@ html.amb-jour .fh-lv-carte-btn { -webkit-box-shadow: 0 4px 0 #1E2B22; box-shadow
 .fh-lv-vide-icone svg { display: block; margin: 0 auto 12px; }
 .fh-lv-plus { text-align: center; font-size: 20px; margin: 12px 0 0; }
 
+/* « Je cuisine seule » : grande entrée de l'étape 1, titres de niveau,
+   gestes à connaître sur la fiche. Pas de flex sur les boutons (Safari 9) :
+   la mise en ligne est portée par le span intérieur. */
+.fh-lv-seule-btn {
+  display: block;
+  width: 100%;
+  margin: 4px 0 26px;
+  padding: 18px 22px;
+  border-width: 3px;
+  border-style: solid;
+  border-radius: 22px;
+  font-family: inherit;
+  text-align: left;
+  cursor: pointer;
+  -webkit-appearance: none;
+  -webkit-tap-highlight-color: rgba(0, 0, 0, 0);
+}
+.fh-lv-seule-btn:active { opacity: 0.8; }
+html.amb-jour .fh-lv-seule-btn { -webkit-box-shadow: 0 4px 0 #1E2B22; box-shadow: 0 4px 0 #1E2B22; }
+.fh-lv-seule-dedans {
+  display: -webkit-flex;
+  display: flex;
+  -webkit-align-items: center;
+  align-items: center;
+}
+.fh-lv-seule-icone { -webkit-flex-shrink: 0; flex-shrink: 0; line-height: 0; margin-right: 20px; }
+.fh-lv-seule-icone svg { display: block; width: 76px; height: 76px; }
+.fh-lv-seule-textes { display: block; -webkit-flex: 1 1 auto; flex: 1 1 auto; min-width: 0; }
+.fh-lv-seule-titre { display: block; font-size: 32px; font-weight: 700; line-height: 1.15; }
+.fh-lv-seule-aide { display: block; font-size: 21px; line-height: 1.35; margin-top: 4px; }
+.fh-lv-niveau { font-size: 28px; font-weight: 700; line-height: 1.2; margin: 18px 0 12px; }
+.fh-lv-gestes {
+  margin-top: 18px;
+  padding: 14px 18px 4px;
+  border-width: 3px;
+  border-style: solid;
+  border-radius: 22px;
+}
+.fh-lv-gestes-liste { margin: 0 -6px; }
+.fh-lv-geste-btn {
+  display: inline-block;
+  margin: 0 6px 12px;
+  padding: 0 18px;
+  min-height: 72px;
+  border-width: 2px;
+  border-style: solid;
+  border-radius: 16px;
+  font-size: 22px;
+  font-weight: 700;
+}
+.fh-lv-gestes-liste .fh-pe-btn + .fh-pe-btn { margin-left: 6px; }
+.fh-lv-geste-btn svg { display: block; width: 34px; height: 34px; margin-right: 10px; -webkit-flex-shrink: 0; flex-shrink: 0; }
+
 /* Fiche recette */
 .fh-lv-fiche-nom { font-size: 40px; font-weight: 700; line-height: 1.1; margin: 4px 0 6px; }
 .fh-lv-fiche-meta { font-size: 22px; line-height: 1.3; }

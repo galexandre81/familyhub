@@ -3,6 +3,12 @@
    Expand : wizard 2 étapes (Repas → Envies + Résultats inline).
    Logique contextuelle : petit-déj seul affiche Sucré/Salé + Type au lieu
    de ingrédient/accompagnement/inspiration.
+   Parcours « Je cuisine seule » (ado) : recettes tagguées « ado », rangées
+   par catégorie (gestes, petit-déj, repas, desserts) et par niveau
+   (difficulte 1 à 3). Les fiches « technique » (seedTags.repas) sont des
+   gestes de base ; une recette les cite par nom dans `techniques` et la
+   fiche propose de les revoir. Les gestes n'apparaissent pas dans le
+   parcours classique (ce ne sont pas des recettes à servir).
    ES5 vanilla, Firebase JS SDK v8 compat (iOS 9.3.6 OK).
    Toutes les icônes sont en SVG inline (couleur du texte) pour éviter les
    tofus d'emojis Unicode > 8.0 sur Safari 9. Plein écran au design
@@ -34,6 +40,19 @@
 
   function tempsTotal(r) {
     return (+r.tempsPrepMinutes || 0) + (+r.tempsCuissonMinutes || 0);
+  }
+
+  /* Nom comparable (même règle que normalizeNom du seed) : sans accents,
+     sans ponctuation, espaces simples. */
+  function cleNom(s) {
+    return deburr(s).replace(/[^a-z0-9 ]/g, ' ').replace(/\s+/g, ' ')
+      .replace(/^\s+|\s+$/g, '');
+  }
+
+  function aTag(r, tag) {
+    var t = r.tags || [];
+    for (var i = 0; i < t.length; i++) if (t[i] === tag) return true;
+    return false;
   }
 
   /* ---------- SVG icons (couleur du texte, viewBox 50x50, taille via CSS) ----------
@@ -108,6 +127,21 @@
     '<circle cx="33" cy="30" r="2" fill="' + BRASS + '" opacity="0.85"/>' +
     '<circle cx="22" cy="32" r="1.8" fill="' + BRASS + '" opacity="0.85"/>' +
     '<circle cx="26" cy="26" r="1.5" fill="' + BRASS + '" opacity="0.65"/>'
+  );
+
+  var ICON_FOUET = svg(
+    /* Fouet : manche + boucles */
+    '<path d="M25 46 L25 30" fill="none" stroke="' + BRASS + '" stroke-width="3" stroke-linecap="round"/>' +
+    '<path d="M25 30 C14 24, 14 6, 25 5 C36 6, 36 24, 25 30 Z" fill="rgba(217,160,91,0.12)" stroke="' + BRASS + '" stroke-width="2"/>' +
+    '<path d="M25 30 C19 24, 19 8, 25 5 C31 8, 31 24, 25 30" fill="none" stroke="' + BRASS + '" stroke-width="1.6"/>' +
+    '<path d="M25 30 L25 5" fill="none" stroke="' + BRASS + '" stroke-width="1.4"/>'
+  );
+
+  var ICON_TOQUE = svg(
+    /* Toque de chef */
+    '<path d="M15 30 C7 29, 7 16, 16 17 C16 9, 28 7, 30 14 C36 9, 45 15, 40 23 C43 28, 38 31, 35 30 Z" fill="rgba(217,160,91,0.14)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
+    '<path d="M15 30 L15 40 L35 40 L35 30" fill="rgba(217,160,91,0.10)" stroke="' + BRASS + '" stroke-width="2" stroke-linejoin="round"/>' +
+    '<path d="M15 35 L35 35" fill="none" stroke="' + BRASS + '" stroke-width="1.6"/>'
   );
 
   /* === Ingrédients === */
@@ -385,6 +419,7 @@
             statut: d.statut || 'accepted',
             ingredients: d.ingredients || [],
             etapes: d.etapes || [],
+            techniques: d.techniques || [],
             createdAtMs: (d.createdAt && d.createdAt.toMillis) ? d.createdAt.toMillis() : 0,
             seedTags: seedTags,
             repas: seedTags.repas || '',
@@ -439,10 +474,34 @@
     { key: 'diner',     svg: ICON_DINER,     label: 'Dîner',
       keywords: ['diner', 'dinner', 'soir'],
       seedRepas: ['diner'] },
-    { key: 'encas',     svg: ICON_ENCAS,     label: 'Goûter / Encas',
+    { key: 'encas',     svg: ICON_ENCAS,     label: 'Dessert / Goûter',
       keywords: ['gouter', 'encas', 'snack', 'collation'],
-      seedRepas: [] }
+      seedRepas: ['dessert'] }
   ];
+
+  /* Parcours « Je cuisine seule » : recettes tagguées « ado ». */
+  var TAG_ADO = 'ado';
+  var SEULE_CATS = [
+    { key: 'gestes',    svg: ICON_FOUET,     label: 'Les gestes',
+      aide: 'Les gestes de base. Chaque recette te dit lesquels elle utilise : apprends-les d\'abord.',
+      repas: ['technique'] },
+    { key: 'petit-dej', svg: ICON_PETIT_DEJ, label: 'Petit-déj',
+      aide: 'Pour le matin ou le goûter.',
+      repas: ['petit-dej-sale', 'petit-dej-sucre'] },
+    { key: 'repas',     svg: ICON_DINER,     label: 'Repas',
+      aide: 'Un vrai repas, pour toi ou pour toute la famille.',
+      repas: ['dejeuner', 'diner', 'tout'] },
+    { key: 'desserts',  svg: ICON_ENCAS,     label: 'Desserts',
+      aide: 'Gâteaux, crèmes, biscuits : de quoi régaler tout le monde.',
+      repas: ['dessert'] }
+  ];
+  var NIVEAUX = ['', 'Niveau 1 · pour commencer', 'Niveau 2 · quand tu es à l\'aise',
+    'Niveau 3 · le défi'];
+
+  function dansCategorie(r, cat) {
+    for (var i = 0; i < cat.repas.length; i++) if (r.repas === cat.repas[i]) return true;
+    return false;
+  }
 
   function matchRepas(r, key) {
     var def = null;
@@ -670,13 +729,19 @@
     var pickedGout  = {};
     var pickedType  = {};
     var pickedFrigo = []; /* Liste libre d'ingrédients tapés par l'utilisateur (chips) */
-    var allRecettes = [];
+    var allRecettes = [];   /* recettes à servir (sans les gestes) */
+    var toutLeLivre = [];   /* y compris les fiches « technique » */
+    var pickedSeule = 'gestes';
     /* Scroll de la liste de résultats mémorisé avant d'ouvrir un détail, pour
        restaurer la position au retour (container = conteneur scrollable de l'overlay). */
     var savedListScrollTop = 0;
 
     fetchRecettes().then(function (list) {
-      allRecettes = applyConfigFilter(list, config);
+      toutLeLivre = applyConfigFilter(list, config);
+      allRecettes = [];
+      for (var i = 0; i < toutLeLivre.length; i++) {
+        if (toutLeLivre[i].repas !== 'technique') allRecettes.push(toutLeLivre[i]);
+      }
       goStep1();
     });
 
@@ -739,6 +804,16 @@
         (allRecettes.length > 1 ? ' recettes' : ' recette'));
 
       var html = '' +
+        '<button type="button" class="fh-lv-seule-btn fh-carte fh-texte fh-bordure fh-corps" data-act="seule">' +
+          '<span class="fh-lv-seule-dedans">' +
+            '<span class="fh-lv-seule-icone">' + ICON_TOQUE + '</span>' +
+            '<span class="fh-lv-seule-textes">' +
+              '<span class="fh-lv-seule-titre fh-titre">Je cuisine seule</span>' +
+              '<span class="fh-lv-seule-aide fh-texte-doux">Les gestes de base et des recettes à faire sans aide, du plus facile au défi.</span>' +
+            '</span>' +
+            ICONE_DROITE +
+          '</span>' +
+        '</button>' +
         '<h1 class="fh-lv-question fh-titre fh-texte">Quel repas&nbsp;?</h1>' +
         '<p class="fh-lv-aide fh-texte-doux">Tu peux en choisir plusieurs, ou aucun pour tout voir.</p>' +
         '<div class="fh-lv-choix fh-lv-cols-4">';
@@ -778,6 +853,128 @@
         goStep2();
       });
       wrap.querySelector('[data-act="next"]').addEventListener('click', goStep2);
+      wrap.querySelector('[data-act="seule"]').addEventListener('click', function () {
+        goSeule();
+      });
+    }
+
+    /* ===== Je cuisine seule =====
+       Une catégorie à la fois, recettes tagguées « ado » par niveau. */
+
+    function goSeule(scrollTop) {
+      var cat = SEULE_CATS[0];
+      for (var c = 0; c < SEULE_CATS.length; c++) {
+        if (SEULE_CATS[c].key === pickedSeule) cat = SEULE_CATS[c];
+      }
+      var t = tete();
+      boutonTete(t, 'fh-pe-retour-btn fh-carte fh-texte fh-bordure',
+        ICONE_GAUCHE + '<span>Le livre</span>', 'back-seule', 'Retour au livre');
+      var dIt = document.createElement('div');
+      dIt.className = 'fh-pe-titres';
+      dIt.innerHTML = '<div class="fh-pe-titre fh-titre fh-texte">Je cuisine seule</div>';
+      t.appendChild(dIt);
+
+      var html = '' +
+        '<h1 class="fh-lv-question fh-titre fh-texte">Qu\'est-ce que tu veux faire&nbsp;?</h1>' +
+        '<div class="fh-lv-choix fh-lv-cols-4">';
+      for (var i = 0; i < SEULE_CATS.length; i++) {
+        html += boutonChoix(' fh-lv-choix-petit-btn', ' data-cat="' + SEULE_CATS[i].key + '"',
+          SEULE_CATS[i].key === cat.key, SEULE_CATS[i]);
+      }
+      html += '</div>';
+
+      var liste = [];
+      for (var r = 0; r < toutLeLivre.length; r++) {
+        var rec = toutLeLivre[r];
+        if (aTag(rec, TAG_ADO) && dansCategorie(rec, cat)) liste.push(rec);
+      }
+      liste.sort(function (a, b) {
+        return ((a.difficulte || 1) - (b.difficulte || 1)) ||
+          (a.nom < b.nom ? -1 : a.nom > b.nom ? 1 : 0);
+      });
+
+      html += '<div class="fh-lv-resultats">' +
+        '<p class="fh-lv-aide fh-texte-doux">' + escapeHTML(cat.aide) + '</p>';
+      if (liste.length === 0) {
+        html += '<div class="fh-lv-vide fh-texte-doux">' +
+          '<div class="fh-lv-vide-icone">' + ICON_EMPTY + '</div>' +
+          '<p>Pas encore de recette ici. Demande à tes parents d\'en ajouter.</p></div>';
+      }
+      var niveau = 0;
+      for (var k = 0; k < liste.length; k++) {
+        var x = liste[k];
+        var n = x.difficulte || 1;
+        if (n !== niveau) {
+          if (niveau) html += '</div>';
+          niveau = n;
+          html += '<h2 class="fh-lv-niveau fh-titre fh-texte">' + escapeHTML(NIVEAUX[n] || ('Niveau ' + n)) + '</h2>' +
+            '<div class="fh-lv-cartes">';
+        }
+        var meta = [];
+        var tm = tempsTotal(x); if (tm > 0) meta.push(tm + ' min');
+        if (cat.key !== 'gestes' && x.techniques && x.techniques.length) {
+          meta.push(x.techniques.length + (x.techniques.length > 1 ? ' gestes' : ' geste'));
+        }
+        html += '<button type="button" class="fh-lv-carte-btn fh-carte fh-texte fh-bordure fh-corps" data-rid="' + escapeHTML(x.id) + '">' +
+          '<span class="fh-lv-carte-nom">' + escapeHTML(x.nom) + '</span>' +
+          '<span class="fh-lv-carte-meta fh-texte-doux">' + meta.join(' · ') + '</span>' +
+          '</button>';
+      }
+      if (niveau) html += '</div>';
+      html += '</div>';
+      wrap.innerHTML = html;
+
+      t.querySelector('[data-act="back-seule"]').addEventListener('click', function () {
+        goStep1();
+        container.scrollTop = 0;
+      });
+      var cats = wrap.querySelectorAll('[data-cat]');
+      for (var b = 0; b < cats.length; b++) {
+        cats[b].addEventListener('click', (function (key) {
+          return function () { pickedSeule = key; goSeule(); };
+        })(cats[b].getAttribute('data-cat')));
+      }
+      var cards = wrap.querySelectorAll('.fh-lv-carte-btn');
+      for (var cc = 0; cc < cards.length; cc++) {
+        cards[cc].addEventListener('click', (function (rid) {
+          return function () {
+            var haut = container.scrollTop || 0;
+            var rr = trouverParId(rid);
+            if (rr) {
+              showDetail(rr, {
+                libelle: 'Je cuisine seule',
+                retour: function () { goSeule(haut); }
+              });
+            }
+          };
+        })(cards[cc].getAttribute('data-rid')));
+      }
+      container.scrollTop = scrollTop || 0;
+    }
+
+    function trouverParId(rid) {
+      for (var x = 0; x < toutLeLivre.length; x++) {
+        if (toutLeLivre[x].id === rid) return toutLeLivre[x];
+      }
+      return null;
+    }
+
+    /* Fiches « technique » citées par une recette, dans l'ordre de la recette ;
+       les noms sans fiche dans le livre sont ignorés. */
+    function gestesDe(r) {
+      var out = [];
+      var noms = r.techniques || [];
+      for (var i = 0; i < noms.length; i++) {
+        var cle = cleNom(noms[i]);
+        for (var j = 0; j < toutLeLivre.length; j++) {
+          var g = toutLeLivre[j];
+          if (g.repas === 'technique' && g.id !== r.id && cleNom(g.nom) === cle) {
+            out.push(g);
+            break;
+          }
+        }
+      }
+      return out;
     }
 
     /* ===== Étape 2 — envies + résultats inline ===== */
@@ -1244,9 +1441,13 @@
        Contenu : nom, temps, description ; ingrédients à gauche, étapes
        numérotées à droite (mêmes pastilles que le mode recette). */
 
-    function showDetail(r) {
-      /* Mémorise la position de scroll de la liste pour la restaurer au retour. */
-      savedListScrollTop = container.scrollTop || 0;
+    /* origine (facultatif) : { libelle, retour } ; sans origine, retour à la
+       liste de l'étape 2 en restaurant sa position de défilement. */
+    function showDetail(r, origine) {
+      if (!origine) {
+        /* Mémorise la position de scroll de la liste pour la restaurer au retour. */
+        savedListScrollTop = container.scrollTop || 0;
+      }
       var ingHtml = '';
       for (var i = 0; i < r.ingredients.length; i++) {
         var ing = r.ingredients[i];
@@ -1265,16 +1466,33 @@
           (st.dureeMinutes ? ' <span class="fh-lv-etape-duree fh-texte-doux">(' + st.dureeMinutes + ' min)</span>' : '') +
           '</span></li>';
       }
+      var estGeste = r.repas === 'technique';
       var meta = [];
       var t = tempsTotal(r); if (t > 0) meta.push(t + ' min');
-      if (r.portions) meta.push(r.portions + ' pers.');
+      if (r.portions && !estGeste) meta.push(r.portions + ' pers.');
       var difStr = ['', 'Facile', 'Moyen', 'Difficile'][r.difficulte] || '';
       if (difStr) meta.push(difStr);
 
+      var gestes = gestesDe(r);
+      var gestesHtml = '';
+      if (gestes.length) {
+        gestesHtml = '<div class="fh-lv-gestes fh-carte fh-bordure">' +
+          '<h2 class="fh-lv-fiche-h2 fh-titre fh-texte">Les gestes à connaître</h2>' +
+          '<div class="fh-lv-gestes-liste">';
+        for (var g = 0; g < gestes.length; g++) {
+          gestesHtml += '<button type="button" class="fh-pe-btn fh-lv-geste-btn fh-carte fh-texte fh-bordure fh-corps" data-geste="' +
+            escapeHTML(gestes[g].id) + '"><span class="fh-pe-dedans">' + ICON_FOUET +
+            '<span>' + escapeHTML(gestes[g].nom) + '</span></span></button>';
+        }
+        gestesHtml += '</div></div>';
+      }
+
       var tt = tete();
+      var libRetour = origine ? origine.libelle : 'La liste';
       boutonTete(tt, 'fh-pe-retour-btn fh-carte fh-texte fh-bordure',
-        ICONE_GAUCHE + '<span>La liste</span>', 'back-detail', 'Retour à la liste');
-      titresTete(tt, 'Fiche recette');
+        ICONE_GAUCHE + '<span>' + escapeHTML(libRetour) + '</span>', 'back-detail',
+        'Retour : ' + libRetour);
+      titresTete(tt, estGeste ? 'Fiche geste' : 'Fiche recette');
       if (global.FamilyHubModeRecette) {
         boutonTete(tt, 'fh-pe-action-btn fh-lv-cuisiner-btn fh-action',
           ICONE_CUISINER + '<span>Cuisiner</span>', 'cuisiner');
@@ -1284,9 +1502,10 @@
         '<h1 class="fh-lv-fiche-nom fh-titre fh-texte">' + escapeHTML(r.nom) + '</h1>' +
         (meta.length ? '<div class="fh-lv-fiche-meta fh-texte-doux">' + meta.join(' · ') + '</div>' : '') +
         (r.description ? '<p class="fh-lv-fiche-desc fh-texte">' + escapeHTML(r.description) + '</p>' : '') +
+        gestesHtml +
         '<div class="fh-lv-fiche-corps">' +
           '<div class="fh-lv-fiche-ing fh-carte fh-bordure">' +
-            '<h2 class="fh-lv-fiche-h2 fh-titre fh-texte">Ingrédients</h2>' +
+            '<h2 class="fh-lv-fiche-h2 fh-titre fh-texte">' + (estGeste ? 'Ce qu\'il te faut' : 'Ingrédients') + '</h2>' +
             (ingHtml ? '<ul class="fh-lv-ing-liste">' + ingHtml + '</ul>'
                      : '<p class="fh-lv-aide fh-texte-doux">Aucun ingrédient.</p>') +
           '</div>' +
@@ -1307,10 +1526,25 @@
         });
       }
       tt.querySelector('[data-act="back-detail"]').addEventListener('click', function () {
+        if (origine) { origine.retour(); return; }
         goStep2();
         /* Restaure la position de scroll de la liste après le re-render. */
         container.scrollTop = savedListScrollTop;
       });
+      var boutonsGestes = wrap.querySelectorAll('[data-geste]');
+      for (var bg = 0; bg < boutonsGestes.length; bg++) {
+        boutonsGestes[bg].addEventListener('click', (function (gid) {
+          return function () {
+            var geste = trouverParId(gid);
+            if (geste) {
+              showDetail(geste, {
+                libelle: 'La recette',
+                retour: function () { showDetail(r, origine); }
+              });
+            }
+          };
+        })(boutonsGestes[bg].getAttribute('data-geste')));
+      }
       container.scrollTop = 0;
     }
   }

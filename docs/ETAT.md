@@ -1,6 +1,6 @@
 # État du projet
 
-Mis à jour le 26.10.2026. Seul document d'état du dépôt : le tenir à jour dans le même commit que tout changement de comportement.
+Mis à jour le 01.11.2026. Seul document d'état du dépôt : le tenir à jour dans le même commit que tout changement de comportement.
 
 ## En service
 
@@ -20,6 +20,7 @@ Déployé sur le projet Firebase du propriétaire, utilisé par le foyer : un iP
 | 27.10.2026 | Contrôle parental du PC des enfants : écran parent `/pc` (modes, verrouillage, demandes, journée, filtre internet NextDNS, réglages), règles, simulateur ; déployé et PC relié | PR #32, [BILAN](controle-parental/BILAN.md) |
 | 27.10.2026 | Notifications des demandes : interrupteur « Me prévenir des demandes » par téléphone ou navigateur, fonction `notifierDemandePc` | PR #33, [BILAN](controle-parental/BILAN.md) phase 9 |
 | 27.10.2026 | iPad de cuisine : carte « PC des enfants » et rapport de la journée, en lecture seule (aucune décision sur l'iPad) | [BILAN](controle-parental/BILAN.md) phase 10 |
+| 01.11.2026 | Livre de recettes : desserts et gestes de base (types de repas « dessert » et « technique »), parcours « Je cuisine seule » sur l'iPad (tag `ado`, niveaux, gestes liés depuis la fiche), import qui enrichit un lot déjà importé (`--maj-source`). Choix techniques : un tag plutôt qu'un filtre de difficulté (la difficulté mesure la technique, pas la sécurité) ; gestes reliés par nom pour rester importables depuis un JSON. Rien à déployer côté fonctions ni règles. | branche `feat/repas-dessert` |
 
 ## En cours
 

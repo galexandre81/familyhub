@@ -58,6 +58,8 @@ export const recetteGenereeSchema = z.object({
   tags: z.array(z.string()).max(8).default([]),
   saison: z.array(z.enum(SAISONS)).default(["toutes"]),
   estBatch: z.boolean().default(false),
+  /** Noms des fiches « technique » (gestes de base) utilisées par la recette. */
+  techniques: z.array(z.string().min(2)).max(8).default([]),
   styleCulinaire: z.string().optional(),
   proteinePrincipale: z
     .enum([
@@ -89,7 +91,7 @@ export const recetteGenereeSchema = z.object({
    * besoin de le produire), mais on l'accepte aussi en entrée si présent.
    */
   repas: z
-    .enum(["petit-dej-sale", "petit-dej-sucre", "dejeuner", "diner", "dessert", "tout"])
+    .enum(["petit-dej-sale", "petit-dej-sucre", "dejeuner", "diner", "dessert", "technique", "tout"])
     .optional(),
 });
 

@@ -79,7 +79,10 @@ Champs énumérés (utilise EXACTEMENT ces valeurs) :
 - proteinePrincipale : "viande-blanche" | "viande-rouge" | "poisson" | "oeufs" | "legumineuses" | "tofu" | "fromage" | "aucune"
 - modeCuissonPrincipal : "poele" | "four" | "vapeur" | "mijote" | "grillade" | "cru" | "wok" | "papillote"
 - tempsTotal : "<15min" | "15-30min" | "30-60min" | ">60min"
-- repas : "petit-dej-sale" | "petit-dej-sucre" | "dejeuner" | "diner" | "tout"
+- repas : "petit-dej-sale" | "petit-dej-sucre" | "dejeuner" | "diner" | "dessert" | "technique" | "tout"
+  ("dessert" et "technique" = fiche d'un geste de base : exemptés de la structure du repas)
+- techniques (facultatif) : noms exacts des fiches "technique" utilisées par la recette
+- tag "ado" : recette qu'un ado peut faire seul (parcours « Je cuisine seule » de l'iPad)
 - difficulte : 1 | 2 | 3
 
 Génère les 60 recettes en JSON. Pas de texte autour.
