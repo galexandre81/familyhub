@@ -13,7 +13,8 @@
  *
  * Usage :
  *   npm run import -- --household HID --file path/to/recettes.json
- *                     [--repas dejeuner|diner|petit-dej-sale|petit-dej-sucre|tout]
+ *                     [--repas dejeuner|diner|dessert|technique|petit-dej-sale|petit-dej-sucre|tout]
+ *                     [--maj-source "<source d'un import précédent>"]
  *                     [--no-strict-constraints]
  *                     [--source "Claude.ai web — pull du 2026-05-03"]
  *
@@ -52,13 +53,21 @@ import {
 } from "./reglesNutrition.ts";
 import { normalizeNom, parseSeedOutput, type RecetteGeneree } from "./validation.ts";
 
-type RepasType = "petit-dej-sale" | "petit-dej-sucre" | "dejeuner" | "diner" | "tout";
+type RepasType =
+  | "petit-dej-sale"
+  | "petit-dej-sucre"
+  | "dejeuner"
+  | "diner"
+  | "dessert"
+  | "technique"
+  | "tout";
 
 interface CliOptions {
   household: string;
   file: string;
   repas: RepasType;
   source?: string;
+  majSource?: string;
   strictConstraints: boolean;
 }
 
@@ -68,12 +77,17 @@ function parseCli(): CliOptions {
     .option("--file <path>", "Chemin du fichier JSON à importer")
     .option(
       "--repas <r>",
-      "Type de repas par défaut si pas dans le JSON (petit-dej-sale | petit-dej-sucre | dejeuner | diner | tout)",
+      "Type de repas par défaut si pas dans le JSON (petit-dej-sale | petit-dej-sucre | dejeuner | diner | dessert | technique | tout)",
       "tout",
     )
     .option(
       "--source <s>",
       'Origine pour l\'attribut origine.llmModel (ex: "Claude.ai web — Sonnet 4.5")',
+    )
+    .option(
+      "--maj-source <s>",
+      "Doublon dont origine.llmModel vaut exactement <s> (import précédent du même lot) : " +
+        "fusionne tags et techniques au lieu de l'écarter. Les recettes saisies à la main ne sont jamais touchées.",
     )
     .option(
       "--no-strict-constraints",
@@ -94,6 +108,8 @@ function parseCli(): CliOptions {
     "petit-dej-sucre",
     "dejeuner",
     "diner",
+    "dessert",
+    "technique",
     "tout",
   ];
   if (!validRepas.includes(opts.repas)) {
@@ -128,16 +144,39 @@ async function loadProfils(
   return out;
 }
 
-async function loadExistingRecetteNames(
+interface RecetteExistante {
+  id: string;
+  llmModel?: string;
+  tags: string[];
+  techniques: string[];
+}
+
+/** Recettes déjà en base, par nom normalisé (la première trouvée l'emporte). */
+async function loadExistingRecettes(
   db: Firestore,
   householdId: string,
-): Promise<Set<string>> {
+): Promise<Map<string, RecetteExistante>> {
   const snap = await db.collection(`households/${householdId}/recettes`).get();
-  const out = new Set<string>();
+  const out = new Map<string, RecetteExistante>();
   for (const doc of snap.docs) {
-    const nom = doc.data().nom;
-    if (typeof nom === "string") out.add(normalizeNom(nom));
+    const d = doc.data();
+    if (typeof d.nom !== "string") continue;
+    const norm = normalizeNom(d.nom);
+    if (out.has(norm)) continue;
+    out.set(norm, {
+      id: doc.id,
+      llmModel: typeof d.origine?.llmModel === "string" ? d.origine.llmModel : undefined,
+      tags: Array.isArray(d.tags) ? d.tags : [],
+      techniques: Array.isArray(d.techniques) ? d.techniques : [],
+    });
   }
+  return out;
+}
+
+/** Union qui garde l'ordre : d'abord l'existant, puis les nouveautés. */
+function union(a: string[], b: string[]): string[] {
+  const out = a.slice();
+  for (const x of b) if (!out.includes(x)) out.push(x);
   return out;
 }
 
@@ -145,6 +184,7 @@ interface ImportStats {
   totalInFile: number;
   written: number;
   skippedDuplicates: number;
+  updated: number;
   skippedConstraints: number;
   skippedRegles: number;
   skippedSchema: number;
@@ -160,6 +200,7 @@ async function main() {
   console.log(`   Repas  : ${opts.repas} (par défaut, écrasé si présent dans le JSON)`);
   console.log(`   Source : ${opts.source ?? "(non précisée)"}`);
   console.log(`   Strict : ${opts.strictConstraints ? "OUI (rejets)" : "non (warning)"}`);
+  if (opts.majSource) console.log(`   Mise à jour des doublons venant de : ${opts.majSource}`);
 
   // 1. Lecture + parse JSON
   if (!fs.existsSync(opts.file)) {
@@ -211,7 +252,8 @@ async function main() {
 
   // 3. Charge profils + recettes existantes + règles nutrition
   const profils = await loadProfils(db, opts.household);
-  const existingNames = await loadExistingRecetteNames(db, opts.household);
+  const existing = await loadExistingRecettes(db, opts.household);
+  const existingNames = new Set(existing.keys());
   const regles = await loadReglesNutrition(db, opts.household);
   console.log(`   Profils chargés : ${profils.map((p) => p.nom).join(", ")}`);
   console.log(`   Recettes déjà en base : ${existingNames.size}`);
@@ -236,6 +278,7 @@ async function main() {
     totalInFile: parsed.data.recettes.length,
     written: 0,
     skippedDuplicates: 0,
+    updated: 0,
     skippedConstraints: 0,
     skippedRegles: 0,
     skippedSchema: parsed.errors.length,
@@ -246,6 +289,22 @@ async function main() {
   for (const r of parsed.data.recettes) {
     const norm = normalizeNom(r.nom);
     if (existingNames.has(norm)) {
+      const ex = existing.get(norm);
+      if (opts.majSource && ex && ex.llmModel === opts.majSource) {
+        const tags = union(ex.tags, r.tags).slice(0, 8);
+        const techniques = union(ex.techniques, r.techniques);
+        try {
+          await db
+            .doc(`households/${opts.household}/recettes/${ex.id}`)
+            .update({ tags, techniques, updatedAt: FieldValue.serverTimestamp() });
+          stats.updated += 1;
+          console.log(`   ↻ mise à jour : "${r.nom}" (tags + gestes)`);
+        } catch (err) {
+          stats.errors += 1;
+          console.error(`   ❌ Firestore update : ${err instanceof Error ? err.message : err}`);
+        }
+        continue;
+      }
       stats.skippedDuplicates += 1;
       console.log(`   ⏭️  doublon : "${r.nom}"`);
       continue;
@@ -297,6 +356,7 @@ async function main() {
   console.log("\n──────────── Résumé ────────────");
   console.log(`Recettes dans le fichier        : ${stats.totalInFile}`);
   console.log(`Recettes écrites dans Firestore : ${stats.written}`);
+  console.log(`Recettes existantes enrichies   : ${stats.updated}`);
   console.log(`Doublons écartés                : ${stats.skippedDuplicates}`);
   console.log(`Contraintes profils rejetées    : ${stats.skippedConstraints}`);
   console.log(`Règles famille rejetées         : ${stats.skippedRegles}`);
@@ -328,6 +388,7 @@ function buildFirestoreRecette(
     tags: r.tags,
     saison: r.saison.length ? r.saison : ["toutes"],
     estBatch: r.estBatch,
+    ...(r.techniques.length ? { techniques: r.techniques } : {}),
     statut: "accepted",
     excluded: false,
     seedTags: {

@@ -49,6 +49,12 @@ export interface Recette {
   saison: RecetteSaison[];
   /** True si recette pensée pour batch cooking. */
   estBatch: boolean;
+  /**
+   * Gestes de base utilisés par la recette : noms de fiches du livre dont
+   * `seedTags.repas` vaut "technique" (ex. « Monter des blancs en neige »).
+   * L'iPad les propose depuis la fiche recette (parcours « Je cuisine seule »).
+   */
+  techniques?: string[];
   statut: RecetteStatut;
   /**
    * Si true, recette downvotée par l'utilisateur — exclue des futures piochées
@@ -84,8 +90,10 @@ export interface Recette {
      * Type de repas ciblé par le batch qui a généré cette recette.
      * Sert au meal planner pour filtrer les recettes éligibles à un slot
      * (petit-déj vs déj vs dîner). Une recette peut convenir partout = "tout".
+     * "dessert" et "technique" (fiche d'un geste de base) ne sont jamais des
+     * repas : exemptés des règles nutrition.
      */
-    repas?: "petit-dej-sale" | "petit-dej-sucre" | "dejeuner" | "diner" | "tout";
+    repas?: "petit-dej-sale" | "petit-dej-sucre" | "dejeuner" | "diner" | "dessert" | "technique" | "tout";
     /**
      * Liste des presets de règles nutrition pour lesquels cette recette est
      * adaptée (renseigné par le seed selon le preset actif au moment de la

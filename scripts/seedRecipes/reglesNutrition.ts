@@ -174,14 +174,19 @@ export interface RatiosCheckResult {
 export function checkReglesNutrition(
   recette: RecetteGeneree,
   regles: ReglesNutrition,
-  repas: "petit-dej-sale" | "petit-dej-sucre" | "dejeuner" | "diner" | "tout",
+  repas: "petit-dej-sale" | "petit-dej-sucre" | "dejeuner" | "diner" | "dessert" | "technique" | "tout",
 ): RatiosCheckResult {
   const violations: string[] = [];
 
-  // Petit-déj exempté de la règle des ratios stricts.
-  const isPetitDej = repas === "petit-dej-sale" || repas === "petit-dej-sucre";
+  // Petit-déj, desserts et techniques exemptés de la règle des ratios stricts
+  // (ce ne sont pas des repas : pas de légumes ni de protéine exigés).
+  const isExempte =
+    repas === "petit-dej-sale" ||
+    repas === "petit-dej-sucre" ||
+    repas === "dessert" ||
+    repas === "technique";
 
-  if (!isPetitDej) {
+  if (!isExempte) {
     // Max féculents
     const groups = detectFeculentGroups(recette);
     if (groups.length > regles.maxFeculentsParRepas) {
