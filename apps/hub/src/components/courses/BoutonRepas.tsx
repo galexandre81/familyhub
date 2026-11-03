@@ -18,7 +18,7 @@ export default function BoutonRepas({ libelle, nom, onClick }: Props) {
         e.stopPropagation();
         onClick();
       }}
-      aria-label={`Voir les repas de ${nom}`}
+      aria-label={`${libelle}, voir les repas de ${nom}`}
       className="shrink-0 min-h-12 px-3 rounded-xl border border-hairline bg-ebony text-brass text-[15px] whitespace-nowrap hover:border-brass active:bg-ebony-ridge"
     >
       {libelle}

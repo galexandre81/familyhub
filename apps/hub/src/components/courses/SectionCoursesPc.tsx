@@ -267,12 +267,14 @@ function ApercuMagasin({
                   key={a.id}
                   className={clsx(
                     "text-[15px] leading-snug flex items-center justify-between gap-2",
-                    a.checked ? "line-through text-cream-mute" : "text-cream",
+                    a.checked ? "text-cream-mute" : "text-cream",
                   )}
                 >
                   <span className="min-w-0">
-                    <NomArticle article={a} />
-                    {q && <span className="ml-2 text-cream-mute">{q}</span>}
+                    <span className={a.checked ? "line-through" : undefined}>
+                      <NomArticle article={a} />
+                      {q && <span className="ml-2 text-cream-mute">{q}</span>}
+                    </span>
                     {a.destination === "a-trier" && (
                       <span className="ml-2 text-xs text-cream-mute">(pas encore trié)</span>
                     )}
