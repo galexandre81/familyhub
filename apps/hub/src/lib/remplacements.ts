@@ -62,6 +62,11 @@ export function remplacementsDeRecette(actifs: RemplacementActif[], recetteId: s
   return actifs.filter((a) => a.recetteIds.includes(recetteId));
 }
 
+/** « Cette semaine : yaourt à la place de Crème » (rappel dans les recettes). */
+export function texteRappel(a: RemplacementActif): string {
+  return `Cette semaine : ${a.remplacement} à la place de ${a.nomArticle}`;
+}
+
 /** Libellé exact d'une ligne → remplacement ; le premier actif gagne. */
 export function carteRemplacements(
   ingredients: Array<{ libelle: string }>,

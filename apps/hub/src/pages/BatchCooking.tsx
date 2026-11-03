@@ -20,6 +20,9 @@ import { dureeTexte, jourDuBatch, repasDuBatch } from "../lib/batch";
 import { etapesTriees, libelleEtape, titreRepas } from "../lib/repasCuisine";
 import { useMinuteurs } from "../lib/MinuteursContext";
 import ListeIngredients from "../components/recette/ListeIngredients";
+import RappelRemplacements from "../components/recette/RappelRemplacements";
+import { useRemplacementsEnCours } from "../lib/useRemplacementsEnCours";
+import { remplacementsDeRecette, type RemplacementActif } from "../lib/remplacements";
 import { useMaintenant } from "../lib/useMaintenant";
 import { toast } from "../components/Toast";
 import { LoadingState } from "../components/states";
@@ -31,6 +34,7 @@ export default function BatchCooking() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const householdId = useActiveHouseholdId(user?.uid);
+  const actifs = useRemplacementsEnCours(householdId);
   const { data: sessions, isLoading: sessionsLoading } = usePlanBatchSessions(householdId, planId);
   const { data: slots } = usePlanSlots(householdId, planId);
   const batch = sessions?.find((s) => s.id === batchId);
@@ -119,7 +123,7 @@ export default function BatchCooking() {
               }
               return (
                 <li key={id}>
-                  <RecetteDepliable recette={recette} />
+                  <RecetteDepliable recette={recette} actifs={actifs} recetteId={id} />
                 </li>
               );
             })}
@@ -167,7 +171,16 @@ function BoutonRetour({ onClick }: { onClick: () => void }) {
 }
 
 /** Une recette du batch : touchée, elle déplie ses ingrédients et ses étapes. */
-function RecetteDepliable({ recette }: { recette: Recette }) {
+function RecetteDepliable({
+  recette,
+  actifs,
+  recetteId,
+}: {
+  recette: Recette;
+  actifs: RemplacementActif[];
+  recetteId: string;
+}) {
+  const remplacements = remplacementsDeRecette(actifs, recetteId);
   const { lancer } = useMinuteurs();
   const etapes = etapesTriees(recette.etapes);
   const lancerEtape = (description: string, minutes: number) => {
@@ -190,7 +203,8 @@ function RecetteDepliable({ recette }: { recette: Recette }) {
       <div className="px-4 pb-4 space-y-4 border-t border-hairline pt-3">
         <section aria-label={`Ingrédients — ${recette.nom}`}>
           <h3 className="text-base font-semibold text-cream mb-2">Ingrédients</h3>
-          <ListeIngredients recette={recette} portions={recette.portions} />
+          <RappelRemplacements remplacements={remplacements} />
+          <ListeIngredients recette={recette} portions={recette.portions} remplacements={remplacements} />
         </section>
         <section aria-label={`Étapes — ${recette.nom}`}>
           <h3 className="text-base font-semibold text-cream mb-2">Étapes</h3>

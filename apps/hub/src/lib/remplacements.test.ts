@@ -7,6 +7,7 @@ import {
   libelleArticleTexte,
   remplacementsDeRecette,
   semaineEnCours,
+  texteRappel,
   texteRemplacement,
 } from "./remplacements";
 
@@ -102,5 +103,13 @@ describe("lectureTolerante", () => {
   it("une lecture à null est absente", async () => {
     const res = await lectureTolerante(["a", "b"], async (id) => (id === "a" ? null : 1));
     expect(res).toEqual({ b: 1 });
+  });
+});
+
+describe("texteRappel", () => {
+  it("dit le remplacement de la semaine", () => {
+    expect(texteRappel({ nomArticle: "Crème", remplacement: "yaourt", recetteIds: [] })).toBe(
+      "Cette semaine : yaourt à la place de Crème",
+    );
   });
 });

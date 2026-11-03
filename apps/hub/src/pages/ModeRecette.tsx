@@ -43,6 +43,9 @@ import { MinuteurPanneau } from "../components/MinuteurPanneau";
 import { toast } from "../components/Toast";
 import { useEstTelephone } from "../lib/useEstTelephone";
 import ListeIngredients from "../components/recette/ListeIngredients";
+import RappelRemplacements from "../components/recette/RappelRemplacements";
+import { useRemplacementsEnCours } from "../lib/useRemplacementsEnCours";
+import { remplacementsDeRecette, type RemplacementActif } from "../lib/remplacements";
 
 interface WakeLockSentinelLike {
   release(): Promise<void>;
@@ -89,6 +92,7 @@ export default function ModeRecette() {
   const navigate = useNavigate();
   const { user } = useAuth();
   const householdId = useActiveHouseholdId(user?.uid);
+  const actifs = useRemplacementsEnCours(householdId);
 
   // Entrée « repas du menu ».
   const slotsQ = usePlanSlots(householdId, slotId ? planId : undefined);
@@ -256,7 +260,7 @@ export default function ModeRecette() {
       ) : telephone ? (
         <>
           <div className="flex-1 min-h-0 overflow-y-auto px-4 pt-4 pb-28 space-y-6">
-            <Ingredients repas={repas} portions={portionsAffichees} />
+            <Ingredients repas={repas} portions={portionsAffichees} actifs={actifs} />
             <Etapes repas={repas} onLancer={lancerEtape} />
           </div>
           <div className="fixed inset-x-0 bottom-0 z-[55] p-3 bg-ebony border-t border-hairline pb-[max(0.75rem,env(safe-area-inset-bottom))]">
@@ -317,7 +321,7 @@ export default function ModeRecette() {
               ingrédients restent en haut, limités à la moitié de l'écran. */}
           <aside className="col-span-1 min-h-0 overflow-y-auto flex flex-col gap-4 pr-1">
             <div className="shrink-0 max-h-[50vh] overflow-y-auto rounded-2xl">
-              <Ingredients repas={repas} portions={portionsAffichees} />
+              <Ingredients repas={repas} portions={portionsAffichees} actifs={actifs} />
             </div>
             {householdId && <MinuteurPanneau compact className="shrink-0" />}
           </aside>
@@ -328,7 +332,15 @@ export default function ModeRecette() {
 }
 
 /** `portions` null : chaque recette à ses propres portions (batch). */
-function Ingredients({ repas, portions }: { repas: RepasAssemble; portions: number | null }) {
+function Ingredients({
+  repas,
+  portions,
+  actifs,
+}: {
+  repas: RepasAssemble;
+  portions: number | null;
+  actifs: RemplacementActif[];
+}) {
   const plusieurs = repas.presentes.length + repas.manquantes.length > 1;
   return (
     <section aria-label="Ingrédients" className="bg-ebony-card rounded-2xl p-4 space-y-4">
@@ -343,7 +355,8 @@ function Ingredients({ repas, portions }: { repas: RepasAssemble; portions: numb
               )}
             </h3>
           )}
-          <ListeIngredients recette={recette} portions={portions ?? recette.portions} />
+          <RappelRemplacements remplacements={remplacementsDeRecette(actifs, id)} />
+          <ListeIngredients recette={recette} portions={portions ?? recette.portions} remplacements={remplacementsDeRecette(actifs, id)} />
         </div>
       ))}
       {repas.manquantes.map((id) => (

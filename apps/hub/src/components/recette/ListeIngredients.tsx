@@ -4,8 +4,19 @@
  */
 import type { Recette } from "@family-hub/types";
 import { quantiteAjustee } from "../../lib/repasCuisine";
+import { carteRemplacements, type RemplacementActif } from "../../lib/remplacements";
+import NomIngredient from "./NomIngredient";
 
-export default function ListeIngredients({ recette, portions }: { recette: Recette; portions: number }) {
+export default function ListeIngredients({
+  recette,
+  portions,
+  remplacements = [],
+}: {
+  recette: Recette;
+  portions: number;
+  remplacements?: RemplacementActif[];
+}) {
+  const carte = carteRemplacements(recette.ingredients, remplacements);
   if (recette.ingredients.length === 0) {
     return <p className="text-base text-cream-mute">Aucun ingrédient indiqué.</p>;
   }
@@ -17,7 +28,9 @@ export default function ListeIngredients({ recette, portions }: { recette: Recet
             {quantiteAjustee(ing.quantite, recette.portions, portions)}
             {ing.unite ? ` ${ing.unite}` : ""}
           </span>
-          <span className="min-w-0">{ing.libelle}</span>
+          <span className="min-w-0">
+            <NomIngredient libelle={ing.libelle} remplacement={carte.get(ing.libelle)} />
+          </span>
         </li>
       ))}
     </ul>

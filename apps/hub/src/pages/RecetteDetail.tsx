@@ -35,6 +35,10 @@ import { PORTIONS_MAX, PORTIONS_MIN, clampPortions } from "../lib/recipeConstant
 import { etapesTriees, quantiteAjustee } from "../lib/repasCuisine";
 import { ingredientsParRayon } from "../lib/ficheRecette";
 import { LoadingState } from "../components/states";
+import { useRemplacementsEnCours } from "../lib/useRemplacementsEnCours";
+import { carteRemplacements, remplacementsDeRecette } from "../lib/remplacements";
+import RappelRemplacements from "../components/recette/RappelRemplacements";
+import NomIngredient from "../components/recette/NomIngredient";
 import { toast } from "../components/Toast";
 
 const BOUTON =
@@ -70,6 +74,15 @@ export default function RecetteDetail() {
   }, [portionsFromUrl]);
 
   const groupes = useMemo(() => (recette ? ingredientsParRayon(recette.ingredients) : []), [recette]);
+  const actifs = useRemplacementsEnCours(householdId);
+  const remplacementsRecette = useMemo(
+    () => (recetteId ? remplacementsDeRecette(actifs, recetteId) : []),
+    [actifs, recetteId],
+  );
+  const carte = useMemo(
+    () => carteRemplacements(recette?.ingredients ?? [], remplacementsRecette),
+    [recette, remplacementsRecette],
+  );
 
   /** Retour : page précédente (livre, menu…), sinon le livre. */
   const retour = () => {
@@ -273,6 +286,8 @@ export default function RecetteDetail() {
         </div>
       )}
 
+      <RappelRemplacements remplacements={remplacementsRecette} />
+
       <div className="flex flex-col gap-5 md:grid md:grid-cols-5 md:items-start md:gap-6">
         {/* Ingrédients */}
         <section aria-labelledby="fiche-ingredients" className={`${CARTE} md:col-span-2 flex flex-col gap-4`}>
@@ -292,7 +307,9 @@ export default function RecetteDetail() {
                         {quantiteAjustee(ing.quantite, recette.portions, targetPortions)}
                         {ing.unite ? ` ${ing.unite}` : ""}
                       </span>
-                      <span className="min-w-0">{ing.libelle}</span>
+                      <span className="min-w-0">
+                        <NomIngredient libelle={ing.libelle} remplacement={carte.get(ing.libelle)} />
+                      </span>
                     </li>
                   ))}
                 </ul>
