@@ -24,7 +24,7 @@ Déployé sur le projet Firebase du propriétaire, utilisé par le foyer : un iP
 
 ## En cours
 
-**Courses : voir les repas d'un article et noter un remplacement** (branche `courses-recettes-remplacement`, construite le 03.11.2026, vérifiée en partie (voir « Vérification » ci-dessous), ni fusionnée ni déployée). Spec : [2026-11-03-courses-recettes-remplacement-design.md](archive/2026/superpowers/specs/2026-11-03-courses-recettes-remplacement-design.md) ; plan : [2026-11-03-courses-recettes-remplacement.md](archive/2026/superpowers/plans/2026-11-03-courses-recettes-remplacement.md).
+**Courses : voir les repas d'un article et noter un remplacement** (PR #37 fusionnée et Hosting déployé le 03.11.2026 ; vérifiée en partie, voir « Vérification » ci-dessous, reste l'essai sur les vrais appareils). Spec : [2026-11-03-courses-recettes-remplacement-design.md](archive/2026/superpowers/specs/2026-11-03-courses-recettes-remplacement-design.md) ; plan : [2026-11-03-courses-recettes-remplacement.md](archive/2026/superpowers/plans/2026-11-03-courses-recettes-remplacement.md).
 
 - Sur la liste (Trier, Magasin, colonnes du PC), chaque article issu du menu a un bouton « 3 repas » (ou « Voir ») qui ouvre un panneau : les repas de la semaine qui l'utilisent, jour, repas, quantité ajustée aux personnes présentes. Les repas annulés restent barrés et ne comptent pas ; une recette de batch forme une seule ligne (« Cuisiné lundi · mangé samedi et dimanche »). Un article ajouté à la main n'a pas ce bouton.
 - Le panneau permet, sans obligation, de noter un remplacement (texte libre, 100 caractères au plus). Il ne coche pas l'article et ne change pas sa destination. Fermer sans écrire n'écrit rien ; « Annuler le remplacement » l'efface.
