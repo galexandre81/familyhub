@@ -304,6 +304,7 @@ export function fusionnerReimport(
         checked: e.checked,
         checkedBy: e.checkedBy ?? null,
         checkedAt: e.checkedAt ?? null,
+        remplacement: e.remplacement,
         createdAt: e.createdAt,
       }),
     });

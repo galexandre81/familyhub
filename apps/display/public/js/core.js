@@ -966,6 +966,12 @@
     }
     return null;
   };
+  /* Données du snapshot de la première tuile d'un type donné (ex. 'weekly-menu'
+     : plans de la semaine, lus par remplacements.js), sinon null. */
+  window.FamilyHubGetTileSnapshotByType = function (type) {
+    var src = sourcesParType()[type];
+    return (src && src.data) || null;
+  };
   /* Patch partiel sur tile.config (utilisé par weather expand pour basculer la ville sélectionnée). */
   window.FamilyHubUpdateTileConfig = function (tileId, patch) {
     if (!tileId || !patch) return;

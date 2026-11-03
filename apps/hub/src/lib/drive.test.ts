@@ -43,6 +43,13 @@ describe("lienRechercheDrive", () => {
     expect(lienRechercheDrive("gousse d’ail")).toBe("https://www.intermarche.com/recherche/gousse%20d%27ail");
   });
 
+  it("cherche le remplacement noté à la place du nom de l'article", () => {
+    const article = { nom: "crème fraîche", remplacement: "yaourt grec" };
+    expect(lienRechercheDrive(article.remplacement ?? article.nom)).toBe(
+      "https://www.intermarche.com/recherche/yaourt%20grec",
+    );
+  });
+
   it("retire les espaces autour du nom", () => {
     expect(lienRechercheDrive("  pâtes  ")).toBe("https://www.intermarche.com/recherche/p%C3%A2tes");
   });
@@ -96,6 +103,14 @@ describe("texteListeDrive", () => {
   });
 });
 
+describe("texteListeDrive avec remplacement", () => {
+  it("écrit le remplacement sans tiret", () => {
+    expect(
+      texteListeDrive([art("a", { nom: "Crème", quantite: 40, unite: "cl", remplacement: "yaourt" })]),
+    ).toBe("yaourt (à la place de : Crème, 40 cl)");
+  });
+});
+
 describe("htmlListeMagasin", () => {
   const date = new Date(2026, 9, 26);
 
@@ -120,6 +135,15 @@ describe("htmlListeMagasin", () => {
     expect(html.indexOf("Fruits et légumes")).toBeGreaterThan(-1);
     expect(html.indexOf("Fruits et légumes")).toBeLessThan(html.indexOf("Épicerie"));
     expect(html).toContain("lundi 26 octobre 2026");
+  });
+
+  it("écrit le remplacement échappé, l'origine dans .q", () => {
+    const html = htmlListeMagasin(
+      [art("a", { nom: "Crème", destination: "magasin", quantite: 40, unite: "cl", remplacement: "a<b" })],
+      date,
+    );
+    expect(html).toContain('<span class="n">a&lt;b</span>');
+    expect(html).toContain('<span class="q"> — à la place de : Crème, 40 cl</span>');
   });
 
   it("vide s'il n'y a rien à acheter au magasin", () => {

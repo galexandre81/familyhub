@@ -6,6 +6,7 @@
 import { useCallback, useMemo } from "react";
 import { grouperParRayon, vueMagasin, type ArticleAvecId } from "../../lib/listeCourses";
 import { libellePastille } from "../../lib/coursesTelephone";
+import type { RepasDeLArticle } from "../../lib/repasArticle";
 import LigneArticle, { type QuiACoche } from "./LigneArticle";
 
 interface Props {
@@ -15,6 +16,8 @@ interface Props {
   onCocher(id: string, coche: boolean): void;
   /** Retirer un oubli (ajout manuel seulement). */
   onRetirer(id: string): void;
+  repasDe?(article: ArticleAvecId): RepasDeLArticle;
+  onVoirRepas?(article: ArticleAvecId): void;
 }
 
 const idRayon = (rayon: string) => `rayon-${rayon}`;
@@ -24,7 +27,7 @@ function restantsTexte(n: number): string {
   return n === 1 ? "1 restant" : `${n} restants`;
 }
 
-export default function VueMagasin({ articles, quiACoche, onCocher, onRetirer }: Props) {
+export default function VueMagasin({ articles, quiACoche, onCocher, onRetirer, repasDe, onVoirRepas }: Props) {
   const groupes = useMemo(() => grouperParRayon(vueMagasin(articles)), [articles]);
 
   const allerAuRayon = useCallback((rayon: string) => {
@@ -71,6 +74,8 @@ export default function VueMagasin({ articles, quiACoche, onCocher, onRetirer }:
                   couleur={qui?.couleur}
                   onBasculer={onCocher}
                   onRetirer={a.ajoutManuel ? onRetirer : undefined}
+                  repasDe={repasDe}
+                  onVoirRepas={onVoirRepas}
                 />
               );
             })}

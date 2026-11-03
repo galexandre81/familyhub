@@ -2,12 +2,14 @@ import { describe, expect, it } from "vitest";
 import type { Profil } from "@family-hub/types";
 import type { ArticleAvecId } from "./listeCourses";
 import {
+  encoderScroll,
   libellePastille,
   libelleQuantite,
   modeEnregistre,
   modeParDefaut,
   prenomQuiACoche,
   progressionMagasin,
+  scrollARestaurer,
   texteAPartager,
   titreSemaine,
 } from "./coursesTelephone";
@@ -27,6 +29,23 @@ const art = (id: string, extra: Partial<ArticleAvecId> = {}): ArticleAvecId => (
   checkedBy: null,
   ordre: Number(id) || 0,
   ...extra,
+});
+
+describe("position de défilement au retour d'une recette", () => {
+  const t0 = 1_000_000;
+  it("une position enregistrée est relue au retour", () => {
+    expect(scrollARestaurer(encoderScroll(3209.4, t0), t0 + 60_000)).toBe(3209);
+  });
+  it("une position trop ancienne (on est parti ailleurs) est ignorée", () => {
+    expect(scrollARestaurer(encoderScroll(3209, t0), t0 + 11 * 60_000)).toBeNull();
+  });
+  it("valeur absente, illisible ou négative : rien à restaurer", () => {
+    expect(scrollARestaurer(null, t0)).toBeNull();
+    expect(scrollARestaurer("n'importe quoi", t0)).toBeNull();
+    expect(scrollARestaurer('{"y":-5,"t":1000000}', t0)).toBeNull();
+    expect(scrollARestaurer('{"y":"a","t":1000000}', t0)).toBeNull();
+    expect(scrollARestaurer('{"y":0,"t":1000000}', t0)).toBeNull();
+  });
 });
 
 describe("modeParDefaut", () => {
@@ -100,6 +119,12 @@ describe("texteAPartager", () => {
         "- Pâtes (500 g)",
       ].join("\n"),
     );
+  });
+  it("écrit le remplacement avec l'article d'origine", () => {
+    const texte = texteAPartager([
+      art("1", { nom: "Crème", rayon: "cremerie", quantite: 40, unite: "cl", remplacement: "yaourt" }),
+    ]);
+    expect(texte).toContain("- yaourt (à la place de : Crème, 40 cl)");
   });
   it("vide quand tout est coché", () => {
     expect(texteAPartager([art("1", { checked: true })])).toBe("");

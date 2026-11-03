@@ -10,6 +10,9 @@ import { Check, X } from "lucide-react";
 import clsx from "clsx";
 import type { ArticleAvecId } from "../../lib/listeCourses";
 import { libelleQuantite } from "../../lib/coursesTelephone";
+import type { RepasDeLArticle } from "../../lib/repasArticle";
+import NomArticle from "./NomArticle";
+import BoutonRepas from "./BoutonRepas";
 
 export interface QuiACoche {
   prenom: string;
@@ -26,9 +29,12 @@ interface Props {
   onBasculer(id: string, coche: boolean): void;
   /** Présent pour un oubli (ajout manuel) seulement. */
   onRetirer?(id: string): void;
+  /** Repas qui utilisent l'article (libellé du bouton) ; avec `onVoirRepas`, affiche le bouton. */
+  repasDe?(article: ArticleAvecId): RepasDeLArticle;
+  onVoirRepas?(article: ArticleAvecId): void;
 }
 
-function LigneArticle({ article, prenom, couleur: couleurQui, onBasculer, onRetirer }: Props) {
+function LigneArticle({ article, prenom, couleur: couleurQui, onBasculer, onRetirer, repasDe, onVoirRepas }: Props) {
   const coche = article.checked;
   const quantite = libelleQuantite(article);
   const couleur = couleurQui ?? "rgb(var(--c-cream-mute))";
@@ -54,7 +60,7 @@ function LigneArticle({ article, prenom, couleur: couleurQui, onBasculer, onReti
         </span>
         <span className="flex-1 min-w-0 leading-tight">
           <span className={clsx("block text-lg", coche ? "line-through text-cream-mute" : "text-cream")}>
-            {article.nom}
+            <NomArticle article={article} />
           </span>
           {quantite && (
             <span className={clsx("block text-[15px] text-cream-mute", coche && "line-through")}>
@@ -68,6 +74,13 @@ function LigneArticle({ article, prenom, couleur: couleurQui, onBasculer, onReti
           </span>
         )}
       </button>
+      {repasDe && onVoirRepas && (article.recetteIds?.length ?? 0) > 0 && (
+        <BoutonRepas
+          libelle={repasDe(article).libelleBouton}
+          nom={article.nom}
+          onClick={() => onVoirRepas(article)}
+        />
+      )}
       {onRetirer && (
         <button
           type="button"

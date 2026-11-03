@@ -5,12 +5,39 @@
 import type { ArticleCourses, Profil } from "@family-hub/types";
 import { profilDuCompte } from "./personnes";
 import { grouperParRayon, vueMagasin, type ArticleAvecId } from "./listeCourses";
+import { libelleArticleTexte } from "./remplacements";
 
 /** « Trier » à la maison, « Magasin » pour cocher. */
 export type ModeCourses = "trier" | "magasin";
 
 /** Clé `sessionStorage` du mode choisi. */
 export const CLE_MODE_COURSES = "courses.mode";
+
+/** Clé `sessionStorage` de la position de défilement, gardée quand on ouvre une recette depuis le panneau. */
+export const CLE_SCROLL_COURSES = "courses.scroll";
+
+const VALIDITE_SCROLL_MS = 10 * 60 * 1000;
+
+/** Valeur à enregistrer : position verticale arrondie et heure. */
+export function encoderScroll(y: number, maintenant: number): string {
+  return JSON.stringify({ y: Math.round(y), t: maintenant });
+}
+
+/**
+ * Position à rétablir au retour sur la liste : celle enregistrée il y a moins de
+ * 10 minutes, positive ; sinon `null` (valeur absente, illisible, périmée ou nulle).
+ */
+export function scrollARestaurer(brut: string | null | undefined, maintenant: number): number | null {
+  if (!brut) return null;
+  try {
+    const v = JSON.parse(brut) as { y?: unknown; t?: unknown };
+    if (typeof v.y !== "number" || typeof v.t !== "number") return null;
+    if (!(v.y > 0) || maintenant - v.t > VALIDITE_SCROLL_MS || maintenant < v.t) return null;
+    return v.y;
+  } catch {
+    return null;
+  }
+}
 
 /** « Trier » s'il reste des articles à trier, sinon « Magasin ». */
 export function modeParDefaut(articles: Array<Pick<ArticleCourses, "destination">>): ModeCourses {
@@ -53,8 +80,7 @@ export function texteAPartager(articles: ArticleAvecId[]): string {
   for (const g of grouperParRayon(restants)) {
     lignes.push("", g.libelle);
     for (const a of g.articles) {
-      const q = libelleQuantite(a);
-      lignes.push(q ? `- ${a.nom} (${q})` : `- ${a.nom}`);
+      lignes.push(`- ${libelleArticleTexte(a)}`);
     }
   }
   return lignes.join("\n");

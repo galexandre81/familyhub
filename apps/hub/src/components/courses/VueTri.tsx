@@ -11,6 +11,9 @@ import clsx from "clsx";
 import type { ArticleCourses, DestinationArticle } from "@family-hub/types";
 import { vueTri, type ArticleAvecId } from "../../lib/listeCourses";
 import { libelleQuantite } from "../../lib/coursesTelephone";
+import type { RepasDeLArticle } from "../../lib/repasArticle";
+import NomArticle from "./NomArticle";
+import BoutonRepas from "./BoutonRepas";
 
 const CHOIX: Array<{ destination: DestinationArticle; libelle: string; icone: LucideIcon }> = [
   { destination: "deja", libelle: "On l'a", icone: Home },
@@ -26,13 +29,23 @@ interface Props {
   onRetirer(id: string): void;
   /** Tout est trié : passer en mode magasin. */
   onAllerAuMagasin(): void;
+  repasDe?(article: ArticleAvecId): RepasDeLArticle;
+  onVoirRepas?(article: ArticleAvecId): void;
 }
 
-type Actions = Pick<Props, "onTrier" | "onRetirer">;
+type Actions = Pick<Props, "onTrier" | "onRetirer" | "repasDe" | "onVoirRepas">;
 
-export default function VueTri({ articles, estPlacard, onTrier, onRetirer, onAllerAuMagasin }: Props) {
+export default function VueTri({
+  articles,
+  estPlacard,
+  onTrier,
+  onRetirer,
+  onAllerAuMagasin,
+  repasDe,
+  onVoirRepas,
+}: Props) {
   const { placard, aTrier, tries } = vueTri(articles, estPlacard);
-  const actions = { onTrier, onRetirer };
+  const actions = { onTrier, onRetirer, repasDe, onVoirRepas };
 
   return (
     <div className="flex flex-col gap-5">
@@ -90,15 +103,26 @@ const LigneTri = memo(function LigneTri({
   article,
   onTrier,
   onRetirer,
+  repasDe,
+  onVoirRepas,
 }: { article: ArticleAvecId } & Actions) {
   const quantite = libelleQuantite(article);
   return (
     <li className="py-2 flex flex-col gap-1.5">
       <div className="min-h-[28px] flex items-center gap-2 leading-tight">
         <span className="flex-1 min-w-0">
-          <span className="text-lg text-cream">{article.nom}</span>
+          <span className="text-lg text-cream">
+            <NomArticle article={article} />
+          </span>
           {quantite && <span className="ml-2 text-[15px] text-cream-mute">{quantite}</span>}
         </span>
+        {repasDe && onVoirRepas && (article.recetteIds?.length ?? 0) > 0 && (
+          <BoutonRepas
+            libelle={repasDe(article).libelleBouton}
+            nom={article.nom}
+            onClick={() => onVoirRepas(article)}
+          />
+        )}
         {article.ajoutManuel && (
           <button
             type="button"

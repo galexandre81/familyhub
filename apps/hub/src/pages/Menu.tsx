@@ -251,6 +251,8 @@ export default function Menu() {
           {!isArchived && courses.liste && !courses.chargement && !estTelephone && (
             <SectionCoursesPc
               courses={courses}
+              householdId={householdId}
+              plan={currentPlan}
               profils={profils ?? []}
               modeleDrive={parametresFoyer?.modeleRechercheDrive}
             />

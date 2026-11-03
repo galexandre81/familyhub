@@ -1,6 +1,6 @@
 # État du projet
 
-Mis à jour le 01.11.2026. Seul document d'état du dépôt : le tenir à jour dans le même commit que tout changement de comportement.
+Mis à jour le 03.11.2026. Seul document d'état du dépôt : le tenir à jour dans le même commit que tout changement de comportement.
 
 ## En service
 
@@ -24,7 +24,14 @@ Déployé sur le projet Firebase du propriétaire, utilisé par le foyer : un iP
 
 ## En cours
 
-Rien. Aucune spec ni aucun plan ouvert dans `docs/superpowers/`.
+**Courses : voir les repas d'un article et noter un remplacement** (branche `courses-recettes-remplacement`, construite le 03.11.2026, vérifiée en partie (voir « Vérification » ci-dessous), ni fusionnée ni déployée). Spec : [2026-11-03-courses-recettes-remplacement-design.md](archive/2026/superpowers/specs/2026-11-03-courses-recettes-remplacement-design.md) ; plan : [2026-11-03-courses-recettes-remplacement.md](archive/2026/superpowers/plans/2026-11-03-courses-recettes-remplacement.md).
+
+- Sur la liste (Trier, Magasin, colonnes du PC), chaque article issu du menu a un bouton « 3 repas » (ou « Voir ») qui ouvre un panneau : les repas de la semaine qui l'utilisent, jour, repas, quantité ajustée aux personnes présentes. Les repas annulés restent barrés et ne comptent pas ; une recette de batch forme une seule ligne (« Cuisiné lundi · mangé samedi et dimanche »). Un article ajouté à la main n'a pas ce bouton.
+- Le panneau permet, sans obligation, de noter un remplacement (texte libre, 100 caractères au plus). Il ne coche pas l'article et ne change pas sa destination. Fermer sans écrire n'écrit rien ; « Annuler le remplacement » l'efface.
+- Le remplacement s'affiche barré → remplaçant sur la liste, dans le texte partagé, la liste Drive copiée (et sa recherche) et le fichier HTML du magasin ; dans les recettes (fiche, fenêtre du menu, mode recette, batch cooking, et sur l'iPad le mode recette et la fiche du livre) sous forme d'un rappel « Cette semaine : … » et d'une ligne d'ingrédient barrée, du premier jour du plan (ou de son batch s'il est cuisiné la veille du premier repas) au dernier, pas au-delà. La fiche `recettes/{id}` n'est jamais écrite : un remplacement ne vaut que pour la semaine.
+- Stockage : champ facultatif `remplacement` sur l'article (`shoppingLists/{id}/items/{id}`), écrit sans attente comme les coches (marche hors ligne, part au retour du réseau), conservé au ré-import du même plan. Aucun changement de règles Firestore (un test le confirme, y compris la lecture par l'écran), aucune fonction : rien à déployer hors Hosting.
+- **Vérification** : le hub a été exercé dans Chromium sur l'émulateur (téléphone 390 px et PC). **Démarrage à froid en magasin** : application rechargée dans un navigateur neuf (mémoire vide), toutes les connexions à Firestore et à l'authentification refusées, Vite servant l'application ; seul le cache persistant de Firestore pouvait répondre. Observé : liste et bouton « 6 repas » à 0,37 s (« Voir » n'a pas été vu, moins de 60 ms), panneau complet (repas, quantités, noms de recettes) dès l'ouverture, sans « Chargement des repas… » visible, recette ouverte depuis le panneau en 0,08 s, remplacement noté et visible sur la liste tout de suite, écrit sur le serveur 0,5 s après le retour du réseau. Retour d'une recette ouverte depuis le panneau : la position dans une longue liste Magasin est retrouvée (perdue avant ce correctif). **Non couvert** : le service worker (Vite en développement n'en a pas), un démarrage hors ligne dans un navigateur sans aucun cache (l'état « Repas indisponibles sans réseau » n'est couvert que par test unitaire), le texte partagé, la liste Drive et sa recherche, et le fichier HTML du magasin (tests unitaires seulement). L'iPad a été vu dans Chromium, pas sur Safari 9.
+- **Reste à vérifier** : le clavier du téléphone par-dessus le panneau (sur un vrai téléphone), un démarrage à froid en mode avion sur le vrai téléphone, et l'iPad mini réel (Safari 9 : rappel dans le mode recette et la fiche du livre, ligne barrée, lecture des listes de courses). Sans réseau l'iPad n'a pas la recette (comportement d'avant), donc pas de rappel.
 
 ## Bloqué
 

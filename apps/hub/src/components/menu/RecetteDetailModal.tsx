@@ -11,6 +11,10 @@ import {
   X,
 } from "lucide-react";
 import { useRecette } from "../../lib/queries";
+import { useRemplacementsEnCours } from "../../lib/useRemplacementsEnCours";
+import { carteRemplacements, remplacementsDeRecette } from "../../lib/remplacements";
+import RappelRemplacements from "../recette/RappelRemplacements";
+import NomIngredient from "../recette/NomIngredient";
 import {
   useDownvoteRecette,
   useUpvoteRecette,
@@ -52,6 +56,9 @@ export default function RecetteDetailModal({
   onClose: () => void;
 }) {
   const { data: recette, isLoading } = useRecette(householdId, recetteId);
+  const actifs = useRemplacementsEnCours(householdId);
+  const remplacementsRecette = remplacementsDeRecette(actifs, recetteId);
+  const carte = carteRemplacements(recette?.ingredients ?? [], remplacementsRecette);
   const upvote = useUpvoteRecette();
   const downvote = useDownvoteRecette();
   const [portions, setPortions] = useState<number>(initialPortions);
@@ -273,6 +280,7 @@ export default function RecetteDetailModal({
 
             {/* Body scrollable : ingrédients + étapes */}
             <div className="flex-1 overflow-y-auto p-5 space-y-6">
+              <RappelRemplacements remplacements={remplacementsRecette} />
               <section>
                 <h3 className="eyebrow mb-2">Ingrédients</h3>
                 <ul className="space-y-1">
@@ -285,7 +293,7 @@ export default function RecetteDetailModal({
                         {scaleQuantite(ing.quantite, ratio)} {ing.unite}
                       </span>
                       <span className="flex-1">
-                        {ing.libelle}
+                        <NomIngredient libelle={ing.libelle} remplacement={carte.get(ing.libelle)} />
                         <span className="text-cream-mute text-xs ml-2">
                           · {RAYON_LABELS[ing.rayon] ?? ing.rayon}
                         </span>

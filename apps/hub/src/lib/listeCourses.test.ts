@@ -331,6 +331,11 @@ describe("fusionnerReimport", () => {
     ]);
   });
 
+  it("garde le remplacement noté sur un article repris", () => {
+    const r = fusionnerReimport([art("x1", { nom: "Crème", remplacement: "yaourt" })], [nouveau("crème")]);
+    expect(r.aEcrire[0].data.remplacement).toBe("yaourt");
+  });
+
   it("un oubli (ajout manuel) absent du nouveau plan est conservé, après les articles du plan", () => {
     const existants = [art("o1", { nom: "Piles", ajoutManuel: true, destination: "magasin", ordre: 1 })];
     const r = fusionnerReimport(existants, [nouveau("Riz", { ordre: 0 }), nouveau("Pâtes", { ordre: 1 })]);
@@ -447,6 +452,11 @@ describe("oublisAReporter", () => {
       ["Piles", 1],
       ["Lampe", 2],
     ]);
+  });
+
+  it("ne reporte pas le remplacement", () => {
+    const r = oublisAReporter([art("o1", { nom: "Piles", ajoutManuel: true, remplacement: "accus" })]);
+    expect(r[0]).not.toHaveProperty("remplacement");
   });
 
   it("deux oublis identiques ne sont reportés qu'une fois", () => {

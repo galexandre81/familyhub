@@ -735,6 +735,8 @@
     /* Scroll de la liste de résultats mémorisé avant d'ouvrir un détail, pour
        restaurer la position au retour (container = conteneur scrollable de l'overlay). */
     var savedListScrollTop = 0;
+    /* Invalide la réponse tardive des remplacements d'une fiche déjà quittée. */
+    var jetonFiche = 0;
 
     fetchRecettes().then(function (list) {
       toutLeLivre = applyConfigFilter(list, config);
@@ -1443,6 +1445,28 @@
 
     /* origine (facultatif) : { libelle, retour } ; sans origine, retour à la
        liste de l'étape 2 en restaurant sa position de défilement. */
+    /* Rappel en tête de la zone des ingrédients, et lignes concernées réécrites
+       « <s>crème</s> → yaourt ». Les textes saisis passent par escapeHTML. */
+    function appliquerRemplacements(zoneIng, r, actifs) {
+      var R = global.FamilyHubRemplacements;
+      var siens = R.remplacementsDeRecetteEs5(actifs || [], r.id);
+      if (siens.length === 0) return;
+      var carte = R.carteRemplacementsEs5(r.ingredients || [], siens);
+      var rappels = '';
+      for (var a = 0; a < siens.length; a++) {
+        rappels += '<p class="fh-lv-rappel fh-texte">' + escapeHTML(R.texteRappelEs5(siens[a])) + '</p>';
+      }
+      var lignes = zoneIng.querySelectorAll('.fh-lv-ing');
+      for (var l = 0; l < lignes.length; l++) {
+        var libelle = lignes[l].getAttribute('data-libelle') || '';
+        if (!Object.prototype.hasOwnProperty.call(carte, libelle)) continue;
+        var qte = lignes[l].querySelector('.fh-lv-ing-qte');
+        lignes[l].innerHTML = (qte ? '<strong class="fh-lv-ing-qte">' + escapeHTML(qte.textContent) + '</strong> ' : '') +
+          '<s>' + escapeHTML(libelle) + '</s> → ' + escapeHTML(carte[libelle]);
+      }
+      zoneIng.insertAdjacentHTML('afterbegin', rappels);
+    }
+
     function showDetail(r, origine) {
       if (!origine) {
         /* Mémorise la position de scroll de la liste pour la restaurer au retour. */
@@ -1452,7 +1476,7 @@
       for (var i = 0; i < r.ingredients.length; i++) {
         var ing = r.ingredients[i];
         var qty = ((ing.quantite || '') + (ing.unite ? ' ' + ing.unite : '')).replace(/^\s+|\s+$/g, '');
-        ingHtml += '<li class="fh-lv-ing fh-texte">' +
+        ingHtml += '<li class="fh-lv-ing fh-texte" data-libelle="' + escapeHTML(ing.libelle || '') + '">' +
           (qty ? '<strong class="fh-lv-ing-qte">' + escapeHTML(qty) + '</strong> ' : '') +
           escapeHTML(ing.libelle || '') + '</li>';
       }
@@ -1515,6 +1539,17 @@
                       : '<p class="fh-lv-aide fh-texte-doux">Pas d\'étapes pour cette recette.</p>') +
           '</div>' +
         '</div>';
+
+      /* Remplacements de la semaine : lus après coup, la fiche s'affiche sans
+         les attendre. La réponse ne compte que si cette fiche est encore là. */
+      var monJetonFiche = ++jetonFiche;
+      var zoneIng = wrap.querySelector('.fh-lv-fiche-ing');
+      if (!estGeste && zoneIng && global.FamilyHubRemplacements) {
+        global.FamilyHubRemplacements.lire().then(function (actifs) {
+          if (monJetonFiche !== jetonFiche || !wrap.contains(zoneIng)) return;
+          appliquerRemplacements(zoneIng, r, actifs);
+        });
+      }
 
       /* Même mode recette que depuis le tableau et le menu ; la recette déjà
          lue est confiée à son cache (pas de relecture, marche hors ligne). */

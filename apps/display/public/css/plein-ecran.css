@@ -826,6 +826,7 @@ html.amb-jour .fh-lv-ing { border-color: #C9D6C6; }
 html.amb-nuit .fh-lv-ing { border-color: #2C3F5C; }
 .fh-lv-ing:last-child { border-bottom-width: 0; }
 .fh-lv-ing-qte { font-weight: 700; }
+.fh-lv-rappel { font-size: 22px; font-weight: 700; line-height: 1.3; margin: 0 0 10px; }
 .fh-lv-etapes-liste { list-style: none; margin: 0; padding: 0; }
 .fh-lv-etape {
   display: -webkit-flex;

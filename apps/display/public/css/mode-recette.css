@@ -189,6 +189,7 @@
 .fh-mr-ing-liste { list-style: none; margin: 0 0 6px; padding: 0; }
 .fh-mr-ing { font-size: 21px; line-height: 1.3; padding: 5px 0; }
 .fh-mr-ing-qte { font-weight: 700; }
+.fh-mr-rappel { font-size: 21px; font-weight: 700; line-height: 1.3; margin: 0 0 8px; }
 
 .fh-mr-minuteur {
   -webkit-flex: 0 1 auto;
