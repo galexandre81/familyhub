@@ -3,6 +3,7 @@ import {
   carteRemplacements,
   cleIngredient,
   indicesIngredient,
+  lectureTolerante,
   libelleArticleTexte,
   remplacementsDeRecette,
   semaineEnCours,
@@ -86,5 +87,20 @@ describe("libelleArticleTexte", () => {
       "yaourt (à la place de : Crème)",
     );
     expect(libelleArticleTexte({ nom: "Crème", quantite: 40, unite: "cl" })).toBe("Crème (40 cl)");
+  });
+});
+
+describe("lectureTolerante", () => {
+  it("une lecture rejetée est absente, la réussie est gardée", async () => {
+    const res = await lectureTolerante(["a", "b"], async (id) => {
+      if (id === "a") throw new Error("refus");
+      return { id };
+    });
+    expect(res).toEqual({ b: { id: "b" } });
+  });
+
+  it("une lecture à null est absente", async () => {
+    const res = await lectureTolerante(["a", "b"], async (id) => (id === "a" ? null : 1));
+    expect(res).toEqual({ b: 1 });
   });
 });

@@ -26,6 +26,7 @@
  * demandent de se reconnecter.
  */
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useQueryClient } from "@tanstack/react-query";
 import {
   collection,
   deleteDoc,
@@ -59,6 +60,7 @@ import {
   statutPlacard,
   type ArticleAvecId,
 } from "./listeCourses";
+import { texteRemplacement } from "./remplacements";
 
 export type ListeCoursesAvecId = ShoppingList & { id: string };
 
@@ -75,6 +77,8 @@ export interface ListeCoursesApi {
   cocher(id: string, coche: boolean): void;
   ajouterOubli(nom: string): void;
   supprimer(id: string): void;
+  /** Note (ou efface, si vide) le produit de remplacement d'un article. */
+  remplacer(id: string, brut: string): void;
   /**
    * Article « placard » (`statutPlacard`) : liste du foyer si personnalisée,
    * sinon drapeau stocké OU liste par défaut. À passer à `vueTri`.
@@ -151,6 +155,7 @@ export function useListeCourses(
 ): ListeCoursesApi {
   const { user } = useAuth();
   const uid = user?.uid;
+  const queryClient = useQueryClient();
 
   const placardFoyer = options.placardFoyer;
   const placardFoyerRef = useRef(placardFoyer);
@@ -309,6 +314,27 @@ export function useListeCourses(
     [refArticle],
   );
 
+  const remplacer = useCallback(
+    (id: string, brut: string) => {
+      const ref = refArticle(id);
+      if (!ref) return;
+      const remplacement = texteRemplacement(brut);
+      let patch: { remplacement: string | ReturnType<typeof deleteField> };
+      if (remplacement === null) {
+        // Rien à effacer si l'article n'en a pas.
+        if (!docsArticles.find((a) => a.id === id)?.remplacement) return;
+        patch = { remplacement: deleteField() };
+      } else {
+        patch = { remplacement };
+      }
+      updateDoc(ref, patch).catch((err) =>
+        signalerErreur(err, "Le remplacement n'a pas pu être enregistré."),
+      );
+      void queryClient.invalidateQueries({ queryKey: ["remplacementsEnCours", householdId] });
+    },
+    [refArticle, docsArticles, queryClient, householdId],
+  );
+
   const estPlacardArticle = useCallback(
     (article: ArticleCourses) => statutPlacard(article, placardFoyer),
     [placardFoyer],
@@ -323,6 +349,7 @@ export function useListeCourses(
     cocher,
     ajouterOubli,
     supprimer,
+    remplacer,
     estPlacardArticle,
   };
 }

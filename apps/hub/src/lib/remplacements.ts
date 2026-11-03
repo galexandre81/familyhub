@@ -101,3 +101,19 @@ export function libelleArticleTexte(
   const q = libelleQuantite(a);
   return q ? `${a.nom} (${q})` : a.nom;
 }
+
+/**
+ * Lit chaque id ; un échec (refus, réseau) ou une absence (`null`) est
+ * simplement absent du résultat : un écran partiel vaut mieux qu'aucun.
+ */
+export async function lectureTolerante<T>(
+  ids: string[],
+  lire: (id: string) => Promise<T | null>,
+): Promise<Record<string, T>> {
+  const resultats = await Promise.allSettled(ids.map((id) => lire(id)));
+  const sortie: Record<string, T> = {};
+  resultats.forEach((r, i) => {
+    if (r.status === "fulfilled" && r.value !== null) sortie[ids[i]] = r.value;
+  });
+  return sortie;
+}

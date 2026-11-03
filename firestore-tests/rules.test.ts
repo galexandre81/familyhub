@@ -118,6 +118,10 @@ beforeEach(async () => {
       items: [],
       updatedAt: 1,
     });
+    await setDoc(doc(db, "households", HID, "shoppingLists", "sl1", "items", "i1"), {
+      nom: "Crème",
+      updatedAt: 1,
+    });
     await setDoc(doc(db, "households", HID, "timers", "tm1"), {
       label: "Pâtes",
       durationSeconds: 600,
@@ -168,6 +172,13 @@ describe("member access", () => {
     const db = memberDb();
     await assertSucceeds(getDoc(doc(db, "households", HID)));
     await assertSucceeds(updateDoc(doc(db, "households", HID), { updatedAt: 2 }));
+  });
+
+  it("can set the remplacement of a shopping item", async () => {
+    const db = memberDb();
+    await assertSucceeds(
+      updateDoc(doc(db, "households", HID, "shoppingLists", "sl1", "items", "i1"), { remplacement: "yaourt" }),
+    );
   });
 
   it("can read + write profils (medical data)", async () => {
@@ -273,6 +284,14 @@ describe("display (kiosk) allowed reads", () => {
   });
   it("can read shoppingLists", async () => {
     await assertSucceeds(getDoc(doc(displayDb(), "households", HID, "shoppingLists", "sl1")));
+  });
+  it("can read a shopping item", async () => {
+    await assertSucceeds(getDoc(doc(displayDb(), "households", HID, "shoppingLists", "sl1", "items", "i1")));
+  });
+  it("CANNOT write a shopping item", async () => {
+    await assertFails(
+      updateDoc(doc(displayDb(), "households", HID, "shoppingLists", "sl1", "items", "i1"), { remplacement: "x" }),
+    );
   });
   it("can read timers", async () => {
     await assertSucceeds(getDoc(doc(displayDb(), "households", HID, "timers", "tm1")));
