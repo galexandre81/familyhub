@@ -5,6 +5,7 @@ Format [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), par date (le pr
 ## [Non publié]
 
 ### Ajouté
+- Courses : bouton « N repas » sur chaque article issu du menu, qui ouvre la liste des repas de la semaine qui l'utilisent (jour, repas, quantité ajustée aux personnes présentes ; repas annulés barrés et non comptés ; recette de batch en une seule ligne), et permet de noter un remplacement facultatif (« yaourt grec à la place de crème »). Le remplacement ne coche rien, marche hors ligne, se voit sur la liste, dans les textes partagés et dans les recettes de la semaine (hub et iPad : rappel en haut et ingrédient barré), sans jamais modifier la fiche du livre. Nouveau champ `remplacement` sur les articles de la liste ; aucun changement de règles ni de fonctions.
 - Livre de recettes : types de repas « dessert » et « technique » (fiche d'un geste de base), exemptés des règles nutrition ; champ `techniques` (gestes utilisés par une recette, par nom).
 - iPad de cuisine, livre de recettes : bouton « Dessert / Goûter » (les desserts n'avaient aucune entrée) et parcours « Je cuisine seule » pour un ado : recettes tagguées `ado`, par catégorie (gestes, petit-déj, repas, desserts) et par niveau ; la fiche d'une recette propose « Les gestes à connaître ». Les fiches de gestes restent hors du parcours classique.
 - Import de recettes (`scripts/seedRecipes`) : option `--maj-source` qui enrichit (tags, gestes) les recettes d'un import précédent au lieu de les écarter comme doublons ; les recettes saisies à la main ne sont jamais modifiées.
