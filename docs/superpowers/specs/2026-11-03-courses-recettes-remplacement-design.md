@@ -1,6 +1,6 @@
 # Courses : voir les repas d'un article et noter un remplacement
 
-Date : 2026-11-03. Statut : à valider par le propriétaire.
+Date : 2026-11-03. Statut : validée par le propriétaire le 03.11.2026.
 
 ## Pourquoi
 
@@ -116,12 +116,17 @@ d'ingrédient n'est pas retrouvée. Le texte des étapes garde le mot d'origine 
 ### Quand un remplacement s'applique aux recettes
 
 La règle suit **les dates de la semaine du plan, pas son statut** : un remplacement s'affiche dans une recette du
-`dateDebut` au `dateFin` de son plan, dates comprises. Rien n'archive un plan à la fin de sa semaine, et un plan
+début au `dateFin` de son plan, dates comprises. Le début est le plus ancien de `dateDebut` (premier repas) et de la
+date de la plus ancienne session batch du plan : on cuisine parfois le dimanche d'avant (l'import accepte une
+session la veille du premier repas), et ce batch doit déjà porter le rappel. Rien n'archive un plan à la fin de sa semaine, et un plan
 est archivé dès l'import du suivant, d'où ces cas à couvrir et à tester :
 
 - Pas de nouveau menu importé : le remplacement quitte les recettes après `dateFin`, même si le plan reste actif.
+- Batch cuisiné la veille du premier repas : le remplacement s'applique dès ce jour-là (pas seulement à partir
+  du premier repas).
+- Aucun batch : le début reste `dateDebut`. Batch dans la semaine : le début ne change pas.
 - Menu de la semaine suivante importé avant la fin de la semaine : les remplacements du plan archivé restent
-  visibles dans les recettes jusqu'à son `dateFin`, et le nouveau plan n'a aucun effet avant son `dateDebut`.
+  visibles dans les recettes jusqu'à son `dateFin`, et le nouveau plan n'a aucun effet avant son début (batch de la veille compris).
 
 La liste de courses n'applique pas cette règle : elle affiche toujours les remplacements de ses propres articles.
 

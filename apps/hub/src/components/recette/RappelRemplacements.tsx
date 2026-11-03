@@ -6,7 +6,7 @@ export default function RappelRemplacements({ remplacements }: { remplacements: 
   return (
     <div className="space-y-1 rounded-xl border border-hairline bg-ebony-card px-3 py-2 text-base text-brass">
       {remplacements.map((r) => (
-        <p key={r.nomArticle}>{texteRappel(r)}</p>
+        <p key={`${r.nomArticle}|${r.remplacement}`}>{texteRappel(r)}</p>
       ))}
     </div>
   );

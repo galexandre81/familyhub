@@ -58,8 +58,21 @@ export interface RemplacementActif {
   recetteIds: string[];
 }
 
+/** Identité d'un rappel : même article et même remplacement, sans égard à la casse ni à la ponctuation. */
+function cleRappel(a: RemplacementActif): string {
+  return `${cleIngredient(a.nomArticle)}|${a.remplacement.trim().toLowerCase()}`;
+}
+
+/** Remplacements d'une recette ; deux plans en cours qui disent la même chose ne donnent qu'un rappel. */
 export function remplacementsDeRecette(actifs: RemplacementActif[], recetteId: string): RemplacementActif[] {
-  return actifs.filter((a) => a.recetteIds.includes(recetteId));
+  const vus = new Set<string>();
+  return actifs.filter((a) => {
+    if (!a.recetteIds.includes(recetteId)) return false;
+    const cle = cleRappel(a);
+    if (vus.has(cle)) return false;
+    vus.add(cle);
+    return true;
+  });
 }
 
 /** « Cette semaine : yaourt à la place de Crème » (rappel dans les recettes). */
@@ -90,6 +103,44 @@ export function semaineEnCours(
 ): boolean {
   if (!debutISO || !finISO) return false;
   return debutISO <= aujourdhuiISO && aujourdhuiISO <= finISO;
+}
+
+/**
+ * Début d'application d'un remplacement : le plus ancien du premier repas du
+ * plan (`dateDebut`) et des sessions batch du plan (on cuisine parfois le
+ * dimanche d'avant). Sans début de plan, indéfini ; les dates vides sont ignorées.
+ */
+export function debutRemplacement(debutPlanISO: string | undefined, datesBatchISO: string[]): string | undefined {
+  if (!debutPlanISO) return undefined;
+  return datesBatchISO.reduce((min, d) => (d && d < min ? d : min), debutPlanISO);
+}
+
+export interface PlanDates {
+  id: string;
+  debutISO: string | undefined;
+  finISO: string | undefined;
+}
+
+/** Plans à qui lire les batchs : pas encore commencés (par leurs repas) mais pas finis. */
+export function planIdsCandidatsBatch(plans: PlanDates[], aujourdhuiISO: string): string[] {
+  return plans
+    .filter((p) => !!p.debutISO && !!p.finISO && p.debutISO > aujourdhuiISO && p.finISO >= aujourdhuiISO)
+    .map((p) => p.id)
+    .sort();
+}
+
+/** Plans dont la semaine (batchs compris, voir `debutRemplacement`) contient aujourd'hui. */
+export function planIdsEnCours(
+  plans: PlanDates[],
+  datesBatchParPlan: Record<string, string[]>,
+  aujourdhuiISO: string,
+): string[] {
+  return plans
+    .filter((p) =>
+      semaineEnCours(debutRemplacement(p.debutISO, datesBatchParPlan[p.id] ?? []), p.finISO, aujourdhuiISO),
+    )
+    .map((p) => p.id)
+    .sort();
 }
 
 /** « à la place de : Crème, 40 cl » (sans la quantité si elle est vide). */

@@ -7,10 +7,12 @@
 import { readFileSync } from "node:fs";
 import { fileURLToPath } from "node:url";
 import { runInNewContext } from "node:vm";
-import { describe, expect, it } from "vitest";
+import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   carteRemplacements as carteTs,
   cleIngredient as cleTs,
+  debutRemplacement as debutTs,
+  planIdsEnCours as planIdsTs,
   indicesIngredient as indicesTs,
   remplacementsDeRecette as deRecetteTs,
   semaineEnCours as semaineTs,
@@ -25,6 +27,7 @@ interface Plan {
   planId: string;
   dateDebutISO: string;
   dateFinISO: string;
+  batchSessions?: Array<{ date: string }>;
 }
 interface ApiRemplacements {
   cleIngredientEs5(nom: string): string;
@@ -33,6 +36,7 @@ interface ApiRemplacements {
   remplacementsDeRecetteEs5(actifs: RemplacementActif[], recetteId: string): RemplacementActif[];
   semaineEnCoursEs5(debut: string | undefined, fin: string | undefined, aujourdhui: string): boolean;
   plansEnCoursEs5(plans: Plan[] | undefined, aujourdhui: string): Plan[];
+  debutRemplacementEs5(debut: string | undefined, datesBatch: string[]): string | undefined;
   texteRappelEs5(a: RemplacementActif): string;
   dateISOLocaleEs5(d: Date): string;
   lire(): Promise<RemplacementActif[]>;
@@ -135,6 +139,15 @@ describe("carteRemplacementsEs5 et remplacementsDeRecetteEs5", () => {
     expect(carte["toString"]).toBe("y");
     expect(Object.prototype.hasOwnProperty.call(carte, "valueOf")).toBe(false);
   });
+  it("deux plans en cours qui disent la même chose : un seul rappel, comme le hub", () => {
+    const doubles: RemplacementActif[] = [
+      { nomArticle: "Crème", remplacement: "yaourt", recetteIds: ["r1"] },
+      { nomArticle: "crème", remplacement: "Yaourt ", recetteIds: ["r1"] },
+      { nomArticle: "Crème", remplacement: "skyr", recetteIds: ["r1"] },
+    ];
+    expect(r.remplacementsDeRecetteEs5(doubles, "r1")).toEqual(deRecetteTs(doubles, "r1"));
+    expect(r.remplacementsDeRecetteEs5(doubles, "r1")).toEqual([doubles[0], doubles[2]]);
+  });
   it("filtre par recette comme le hub", () => {
     expect(r.remplacementsDeRecetteEs5(actifs, "r2")).toEqual(deRecetteTs(actifs, "r2"));
     expect(r.remplacementsDeRecetteEs5(actifs, "zz")).toEqual([]);
@@ -188,6 +201,43 @@ describe("plansEnCoursEs5", () => {
   });
 });
 
+/* Mêmes cas que « debutRemplacement : le batch de la veille compte » du hub. */
+describe("debutRemplacementEs5 : parité avec le hub", () => {
+  const cas: Array<[string | undefined, string[], string | undefined]> = [
+    ["2026-11-02", ["2026-11-01"], "2026-11-01"],
+    ["2026-11-02", [], "2026-11-02"],
+    ["2026-11-02", ["2026-11-04", "2026-11-06"], "2026-11-02"],
+    ["2026-11-02", ["", "2026-10-31", "2026-11-01"], "2026-10-31"],
+    [undefined, ["2026-11-01"], undefined],
+  ];
+  it.each(cas)("%s + %j", (debut, batchs, attendu) => {
+    expect(r.debutRemplacementEs5(debut, batchs)).toBe(attendu);
+    expect(debutTs(debut, batchs)).toBe(attendu);
+  });
+});
+
+describe("plansEnCoursEs5 avec les batchs du snapshot", () => {
+  const plans: Plan[] = [
+    { planId: "courant", dateDebutISO: "2026-11-02", dateFinISO: "2026-11-08" },
+    { planId: "suivant", dateDebutISO: "2026-11-09", dateFinISO: "2026-11-15", batchSessions: [{ date: "2026-11-08" }] },
+    { planId: "sans-batch", dateDebutISO: "2026-11-09", dateFinISO: "2026-11-15", batchSessions: [] },
+  ];
+  const cas: Array<[string, string[]]> = [
+    ["2026-11-08", ["courant", "suivant"]],
+    ["2026-11-07", ["courant"]],
+    ["2026-11-09", ["suivant", "sans-batch"]],
+  ];
+  it.each(cas)("le %s", (jour, attendus) => {
+    expect(r.plansEnCoursEs5(plans, jour).map((p) => p.planId)).toEqual(attendus);
+    const hub = planIdsTs(
+      plans.map((p) => ({ id: p.planId, debutISO: p.dateDebutISO, finISO: p.dateFinISO })),
+      Object.fromEntries(plans.map((p) => [p.planId, (p.batchSessions ?? []).map((b) => b.date)])),
+      jour,
+    );
+    expect(hub).toEqual([...attendus].sort());
+  });
+});
+
 describe("dateISOLocaleEs5", () => {
   it("jour civil local, mois et jour sur deux chiffres", () => {
     expect(r.dateISOLocaleEs5(new Date(2026, 0, 5, 23, 59))).toBe("2026-01-05");
@@ -218,22 +268,92 @@ describe("lire()", () => {
     });
     expect(await api.lire()).toEqual([]);
   });
-  it("résout [] si la lecture ne répond jamais (3 s)", async () => {
+  afterEach(() => {
+    vi.useRealTimers();
+  });
+  const plansEnCours = { plans: [{ planId: "P", dateDebutISO: "2000-01-01", dateFinISO: "2999-01-01" }] };
+  const dbQuiNeRepondJamais = () => ({
+    collection: () => ({
+      doc: () => ({
+        collection: () => ({ where: () => ({ get: () => new Promise(() => undefined) }) }),
+      }),
+    }),
+  });
+  it("résout [] si la lecture ne répond jamais : seulement après 20 s, pas avant", async () => {
+    vi.useFakeTimers();
+    const api = charger({
+      FamilyHubGetDb: dbQuiNeRepondJamais,
+      FamilyHubGetHouseholdId: () => "h",
+      FamilyHubGetTileSnapshotByType: () => plansEnCours,
+      setTimeout: (f: () => void, ms: number) => globalThis.setTimeout(f, ms),
+      clearTimeout: (id: unknown) => globalThis.clearTimeout(id as number),
+    });
+    let fini = false;
+    const p = api.lire().then((v) => {
+      fini = true;
+      return v;
+    });
+    await vi.advanceTimersByTimeAsync(19_999);
+    expect(fini).toBe(false);
+    await vi.advanceTimersByTimeAsync(1);
+    expect(fini).toBe(true);
+    expect(await p).toEqual([]);
+  });
+  it("une réponse à 10 s est bien rendue, avec les articles (plus de coupure à 3 s)", async () => {
+    vi.useFakeTimers();
+    const articles = [{ data: () => ({ nom: "Crème", remplacement: "yaourt", recetteIds: ["r1"] }) }];
+    const lente = <T,>(valeur: T) =>
+      new Promise<T>((resolve) => {
+        globalThis.setTimeout(() => resolve(valeur), 10_000);
+      });
+    const db = {
+      collection: () => ({
+        doc: () => ({
+          collection: () => ({
+            where: () => ({ get: () => lente({ docs: [{ id: "L1" }] }) }),
+            doc: () => ({ collection: () => ({ get: () => Promise.resolve({ docs: articles }) }) }),
+          }),
+        }),
+      }),
+    };
+    const api = charger({
+      FamilyHubGetDb: () => db,
+      FamilyHubGetHouseholdId: () => "h",
+      FamilyHubGetTileSnapshotByType: () => plansEnCours,
+      setTimeout: (f: () => void, ms: number) => globalThis.setTimeout(f, ms),
+      clearTimeout: (id: unknown) => globalThis.clearTimeout(id as number),
+    });
+    const p = api.lire();
+    await vi.advanceTimersByTimeAsync(10_000);
+    expect(await p).toEqual([{ nomArticle: "Crème", remplacement: "yaourt", recetteIds: ["r1"] }]);
+  });
+  it("après une réponse rapide, la minuterie est annulée et ne rien résoudre de plus", async () => {
+    const posees: unknown[] = [];
+    const annulees: unknown[] = [];
     const api = charger({
       FamilyHubGetDb: () => ({
         collection: () => ({
           doc: () => ({
-            collection: () => ({ where: () => ({ get: () => new Promise(() => undefined) }) }),
+            collection: () => ({
+              where: () => ({ get: () => Promise.resolve({ docs: [] }) }),
+            }),
           }),
         }),
       }),
       FamilyHubGetHouseholdId: () => "h",
-      FamilyHubGetTileSnapshotByType: () => ({ plans: [{ planId: "P", dateDebutISO: "2000-01-01", dateFinISO: "2999-01-01" }] }),
-      setTimeout,
-      clearTimeout,
+      FamilyHubGetTileSnapshotByType: () => plansEnCours,
+      setTimeout: (_f: () => void, ms: number) => {
+        posees.push(ms);
+        return 42;
+      },
+      clearTimeout: (id: unknown) => {
+        annulees.push(id);
+      },
     });
     expect(await api.lire()).toEqual([]);
-  }, 6000);
+    expect(posees).toEqual([20000]);
+    expect(annulees).toEqual([42]);
+  });
   it("lit les articles des listes du plan en cours et ne garde que les remplacements", async () => {
     const demandes: string[] = [];
     const articles = [

@@ -4,7 +4,7 @@
 
    API : FamilyHubRemplacements.lire() : Promise<actifs>, ne rejette jamais.
            actifs : [{ nomArticle, remplacement, recetteIds }]. Résout [] sans
-           snapshot « weekly-menu », sans base, en erreur, ou après 3 s.
+           snapshot « weekly-menu », sans base, en erreur, ou après 20 s (seulement pour libérer la promesse : une réponse tardive reste affichée par les écrans qui attendent encore).
            Lit les plans du snapshot dont la semaine contient aujourd'hui, les
            listes de courses de ces plans (planId), puis leurs articles.
          Fonctions pures *Es5, testées contre apps/hub/src/lib/remplacements.ts
@@ -96,11 +96,25 @@
     return proches.length === 1 ? proches : [];
   }
 
+  /* Identité d'un rappel : même article et même remplacement (casse et
+     ponctuation sans effet), comme `cleRappel` du hub. */
+  function cleRappelEs5(a) {
+    return cleIngredientEs5(a.nomArticle) + '|' +
+      String(a.remplacement == null ? '' : a.remplacement).replace(/^\s+|\s+$/g, '').toLowerCase();
+  }
+
+  /* Remplacements d'une recette ; deux plans en cours qui disent la même chose
+     ne donnent qu'un rappel. */
   function remplacementsDeRecetteEs5(actifs, recetteId) {
     var liste = actifs || [];
     var out = [];
+    var vus = {};
     for (var i = 0; i < liste.length; i++) {
-      if (liste[i] && contientEs5(liste[i].recetteIds || [], recetteId)) out.push(liste[i]);
+      if (!liste[i] || !contientEs5(liste[i].recetteIds || [], recetteId)) continue;
+      var cle = cleRappelEs5(liste[i]);
+      if (Object.prototype.hasOwnProperty.call(vus, cle)) continue;
+      vus[cle] = true;
+      out.push(liste[i]);
     }
     return out;
   }
@@ -128,13 +142,29 @@
     return debutISO <= aujourdhuiISO && aujourdhuiISO <= finISO;
   }
 
-  /* Plans du snapshot dont la semaine contient aujourd'hui (actifs ou archivés). */
+  /* Début d'application : le plus ancien du premier repas du plan et de ses
+     sessions batch (on cuisine parfois le dimanche d'avant) ; comme
+     `debutRemplacement` du hub. Sans début de plan : indéfini. */
+  function debutRemplacementEs5(debutPlanISO, datesBatchISO) {
+    if (!debutPlanISO) return undefined;
+    var min = debutPlanISO;
+    var dates = datesBatchISO || [];
+    for (var i = 0; i < dates.length; i++) if (dates[i] && dates[i] < min) min = dates[i];
+    return min;
+  }
+
+  /* Plans du snapshot dont la semaine contient aujourd'hui (actifs ou archivés),
+     batchs compris : `batchSessions[].date` du snapshot « weekly-menu ». */
   function plansEnCoursEs5(plans, aujourdhuiISO) {
     var liste = plans || [];
     var out = [];
     for (var i = 0; i < liste.length; i++) {
       var p = liste[i];
-      if (p && p.planId && semaineEnCoursEs5(p.dateDebutISO, p.dateFinISO, aujourdhuiISO)) out.push(p);
+      if (!p || !p.planId) continue;
+      var dates = [];
+      var batchs = p.batchSessions || [];
+      for (var b = 0; b < batchs.length; b++) dates.push(batchs[b] && batchs[b].date);
+      if (semaineEnCoursEs5(debutRemplacementEs5(p.dateDebutISO, dates), p.dateFinISO, aujourdhuiISO)) out.push(p);
     }
     return out;
   }
@@ -152,7 +182,7 @@
 
   /* ===================== Lecture (Firestore compat) ===================== */
 
-  var DELAI_MS = 3000;
+  var DELAI_MS = 20000;
   var PLANS_MAX = 3;
 
   /* Articles d'une liste portant un remplacement ; un échec = aucun article. */
@@ -201,7 +231,7 @@
     });
   }
 
-  /* Ne rejette jamais ; [] après DELAI_MS sans réponse. */
+  /* Ne rejette jamais ; [] après DELAI_MS (20 s) sans réponse, pour libérer la promesse. */
   function lire() {
     return new Promise(function (resolve) {
       var fini = false;
@@ -228,6 +258,7 @@
     remplacementsDeRecetteEs5: remplacementsDeRecetteEs5,
     semaineEnCoursEs5: semaineEnCoursEs5,
     plansEnCoursEs5: plansEnCoursEs5,
+    debutRemplacementEs5: debutRemplacementEs5,
     texteRappelEs5: texteRappelEs5,
     dateISOLocaleEs5: dateISOLocaleEs5,
     lire: lire

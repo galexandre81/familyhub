@@ -3,6 +3,7 @@
  * annoter les recettes (« yaourt à la place de crème »).
  *
  * Plans récents (`useAllPlans`, 3) → ceux dont la semaine contient aujourd'hui
+ * (du plus ancien du premier repas et des batchs du plan jusqu'à `dateFin`)
  * → leurs listes (`planId in`) → leurs articles ayant un `remplacement`.
  * Aucun plan en cours : `[]`, sans lecture.
  */
@@ -14,27 +15,56 @@ import { db } from "./firebase";
 import { dateISOLocale } from "./aujourdhui";
 import { dateDuTimestamp } from "./semaine";
 import { useAllPlans } from "./queries";
-import { semaineEnCours, type RemplacementActif } from "./remplacements";
+import {
+  planIdsCandidatsBatch,
+  planIdsEnCours,
+  type PlanDates,
+  type RemplacementActif,
+} from "./remplacements";
 
 export function useRemplacementsEnCours(householdId?: string): RemplacementActif[] {
   const plansQ = useAllPlans(householdId, 3);
   const aujourdhuiISO = dateISOLocale(new Date());
 
-  const ids = useMemo(
+  const plans = useMemo<PlanDates[]>(
     () =>
-      (plansQ.data ?? [])
-        .filter((p) => {
-          const debut = dateDuTimestamp(p.dateDebut);
-          const fin = dateDuTimestamp(p.dateFin);
-          return semaineEnCours(
-            debut ? dateISOLocale(debut) : undefined,
-            fin ? dateISOLocale(fin) : undefined,
-            aujourdhuiISO,
-          );
-        })
-        .map((p) => p.id)
-        .sort(),
-    [plansQ.data, aujourdhuiISO],
+      (plansQ.data ?? []).map((p) => {
+        const debut = dateDuTimestamp(p.dateDebut);
+        const fin = dateDuTimestamp(p.dateFin);
+        return {
+          id: p.id,
+          debutISO: debut ? dateISOLocale(debut) : undefined,
+          finISO: fin ? dateISOLocale(fin) : undefined,
+        };
+      }),
+    [plansQ.data],
+  );
+
+  /* Un batch cuisiné avant le premier repas (la veille) compte : on ne lit les
+     batchs que des plans qui n'ont pas encore commencé. */
+  const candidats = useMemo(() => planIdsCandidatsBatch(plans, aujourdhuiISO), [plans, aujourdhuiISO]);
+  const batchsQ = useQuery({
+    enabled: !!householdId && candidats.length > 0,
+    queryKey: ["remplacementsBatchsCandidats", householdId, candidats],
+    queryFn: async (): Promise<Record<string, string[]>> => {
+      if (!householdId) return {};
+      const lots = await Promise.all(
+        candidats.map(async (id) => {
+          try {
+            const snap = await getDocs(collection(db, `households/${householdId}/mealPlans/${id}/batchSessions`));
+            return [id, snap.docs.map((d) => String(d.data().date ?? ""))] as const;
+          } catch {
+            return [id, [] as string[]] as const;
+          }
+        }),
+      );
+      return Object.fromEntries(lots);
+    },
+  });
+
+  const ids = useMemo(
+    () => planIdsEnCours(plans, batchsQ.data ?? {}, aujourdhuiISO),
+    [plans, batchsQ.data, aujourdhuiISO],
   );
 
   const q = useQuery({

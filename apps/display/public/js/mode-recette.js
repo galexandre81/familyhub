@@ -551,7 +551,7 @@
     monterPanneau(e);
 
     /* Remplacements de la semaine, en parallèle : jamais bloquants (la lecture
-       ne rejette pas et abandonne seule après 3 s). */
+       ne rejette pas ; sa réponse, même tardive, s'affiche si l'écran est encore là). */
     if (root.FamilyHubRemplacements) {
       root.FamilyHubRemplacements.lire().then(function (actifs) {
         if (monJeton !== jeton || ecran !== e) return;

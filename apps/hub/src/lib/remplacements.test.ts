@@ -2,8 +2,11 @@ import { describe, expect, it } from "vitest";
 import {
   carteRemplacements,
   cleIngredient,
+  debutRemplacement,
   indicesIngredient,
   lectureTolerante,
+  planIdsCandidatsBatch,
+  planIdsEnCours,
   libelleArticleTexte,
   remplacementsDeRecette,
   semaineEnCours,
@@ -111,5 +114,57 @@ describe("texteRappel", () => {
     expect(texteRappel({ nomArticle: "Crème", remplacement: "yaourt", recetteIds: [] })).toBe(
       "Cette semaine : yaourt à la place de Crème",
     );
+  });
+});
+
+describe("debutRemplacement : le batch de la veille compte", () => {
+  it("un batch le dimanche avant le premier repas avance le début", () => {
+    expect(debutRemplacement("2026-11-02", ["2026-11-01"])).toBe("2026-11-01");
+    expect(semaineEnCours(debutRemplacement("2026-11-02", ["2026-11-01"]), "2026-11-08", "2026-11-01")).toBe(true);
+  });
+  it("sans batch, le début reste celui du plan", () => {
+    expect(debutRemplacement("2026-11-02", [])).toBe("2026-11-02");
+  });
+  it("un batch dans la semaine ne change pas le début", () => {
+    expect(debutRemplacement("2026-11-02", ["2026-11-04", "2026-11-06"])).toBe("2026-11-02");
+  });
+  it("dates de batch vides ignorées, plusieurs batchs : le plus ancien", () => {
+    expect(debutRemplacement("2026-11-02", ["", "2026-10-31", "2026-11-01"])).toBe("2026-10-31");
+  });
+  it("sans début de plan : indéfini", () => {
+    expect(debutRemplacement(undefined, ["2026-11-01"])).toBeUndefined();
+  });
+});
+
+describe("remplacementsDeRecette : rappels identiques fusionnés", () => {
+  it("deux plans en cours, même article et même remplacement : un seul rappel", () => {
+    const a = [
+      { nomArticle: "Crème", remplacement: "yaourt", recetteIds: ["r1"] },
+      { nomArticle: "crème", remplacement: "Yaourt ", recetteIds: ["r1"] },
+      { nomArticle: "Crème", remplacement: "skyr", recetteIds: ["r1"] },
+    ];
+    expect(remplacementsDeRecette(a, "r1")).toEqual([a[0], a[2]]);
+  });
+});
+
+describe("plans en cours avec leurs batchs", () => {
+  const plans = [
+    { id: "fini", debutISO: "2026-10-19", finISO: "2026-10-25" },
+    { id: "courant", debutISO: "2026-11-02", finISO: "2026-11-08" },
+    { id: "suivant", debutISO: "2026-11-09", finISO: "2026-11-15" },
+    { id: "sans-dates", debutISO: undefined, finISO: undefined },
+  ];
+  it("candidats au batch : seulement les plans pas encore commencés mais pas finis", () => {
+    expect(planIdsCandidatsBatch(plans, "2026-11-07")).toEqual(["suivant"]);
+  });
+  it("le batch du dimanche avant le plan suivant le fait entrer en cours ce dimanche", () => {
+    expect(planIdsEnCours(plans, { suivant: ["2026-11-08"] }, "2026-11-08")).toEqual(["courant", "suivant"]);
+  });
+  it("sans batch, le plan suivant n'est pas en cours la veille", () => {
+    expect(planIdsEnCours(plans, {}, "2026-11-08")).toEqual(["courant"]);
+  });
+  it("un batch ne ressuscite pas un plan fini ni ne devance de plus que sa date", () => {
+    expect(planIdsEnCours(plans, { suivant: ["2026-11-08"] }, "2026-11-07")).toEqual(["courant"]);
+    expect(planIdsEnCours(plans, { fini: ["2026-10-18"] }, "2026-11-03")).toEqual(["courant"]);
   });
 });
