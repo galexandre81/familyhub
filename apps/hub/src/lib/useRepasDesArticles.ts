@@ -15,7 +15,12 @@ import { dateISOLocale } from "./aujourdhui";
 import { dateDuTimestamp } from "./semaine";
 import { usePlanBatchSessions, usePlanSlots, type MealPlanWithId } from "./queries";
 import { lectureTolerante } from "./remplacements";
-import { recetteIdsAChargerPourRepas, repasDeLArticle, type RepasDeLArticle } from "./repasArticle";
+import {
+  recetteIdsAChargerPourRepas,
+  repasDeLArticle,
+  repasIndisponibles,
+  type RepasDeLArticle,
+} from "./repasArticle";
 
 export interface RepasDesArticlesApi {
   resume(article: Pick<ArticleCourses, "nom" | "recetteIds">): RepasDeLArticle;
@@ -60,13 +65,23 @@ export function useRepasDesArticles(
   }, [plan?.dateDebut]);
   const aujourdhuiISO = dateISOLocale(new Date());
 
-  const resume = useCallback(
-    (article: Pick<ArticleCourses, "nom" | "recetteIds">) =>
-      repasDeLArticle(article, slots, batchs, recettes ?? {}, aujourdhuiISO, debutPlanISO),
-    [slots, batchs, recettes, aujourdhuiISO, debutPlanISO],
-  );
-
   const chargement =
     !!planId && (slotsQ.isLoading || batchsQ.isLoading || (recetteIds.length > 0 && recettesQ.isLoading));
+
+  /* Un plan avec une liste a toujours des repas : zéro repas, ou une lecture en
+     erreur, veut dire « illisible » (hors réseau sans cache), pas « hors menu ». */
+  const indisponible = repasIndisponibles({
+    planId,
+    chargement: slotsQ.isLoading || batchsQ.isLoading,
+    erreur: slotsQ.isError || batchsQ.isError,
+    nombreSlots: slots.length,
+  });
+
+  const resume = useCallback(
+    (article: Pick<ArticleCourses, "nom" | "recetteIds">) =>
+      repasDeLArticle(article, slots, batchs, recettes ?? {}, aujourdhuiISO, debutPlanISO, { indisponible }),
+    [slots, batchs, recettes, aujourdhuiISO, debutPlanISO, indisponible],
+  );
+
   return { resume, chargement };
 }

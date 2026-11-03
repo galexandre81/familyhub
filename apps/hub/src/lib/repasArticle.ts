@@ -38,6 +38,22 @@ export interface RepasDeLArticle {
   entrees: EntreeRepasArticle[];
   nombreRepas: number;
   libelleBouton: string;
+  /** Les repas du plan n'ont pas pu être lus (hors réseau, erreur) : ne rien affirmer sur l'article. */
+  indisponible: boolean;
+}
+
+/**
+ * Les repas sont illisibles : lecture en erreur, ou aucun repas alors qu'un plan
+ * avec une liste en a toujours (hors réseau sans cache, la lecture est vide sans erreur).
+ */
+export function repasIndisponibles(lecture: {
+  planId: string | undefined;
+  chargement: boolean;
+  erreur: boolean;
+  nombreSlots: number;
+}): boolean {
+  if (!lecture.planId || lecture.chargement) return false;
+  return lecture.erreur || lecture.nombreSlots === 0;
 }
 
 const RANG_REPAS: Record<Repas, number> = { petitDej: 0, dej: 1, diner: 2 };
@@ -74,17 +90,19 @@ function dateDuSlot(slot: MealPlanSlot, debutPlanISO: string | undefined): strin
   return undefined;
 }
 
-/** Une ligne par ingrédient correspondant, ajustée aux portions, jointes par « + » (sans addition). */
+/**
+ * Une ligne par ingrédient correspondant, ajustée aux portions, jointes par « + » (sans addition).
+ * Si une des lignes n'a pas de quantité, rien : un chiffre partiel (« 20 g + ») tromperait.
+ */
 function quantiteDeLaRecette(nomArticle: string, recette: Recette | undefined, portions: number): string | null {
   if (!recette) return null;
   const indices = indicesIngredient(nomArticle, recette.ingredients ?? []);
   if (indices.length === 0) return null;
-  return indices
-    .map((i) => {
-      const ligne = recette.ingredients[i];
-      return `${quantiteAjustee(ligne.quantite, recette.portions, portions)} ${ligne.unite ?? ""}`.trim();
-    })
-    .join(" + ");
+  const morceaux = indices.map((i) => {
+    const ligne = recette.ingredients[i];
+    return `${quantiteAjustee(ligne.quantite, recette.portions, portions)} ${ligne.unite ?? ""}`.trim();
+  });
+  return morceaux.some((m) => m === "") ? null : morceaux.join(" + ");
 }
 
 interface Tri {
@@ -108,7 +126,11 @@ export function repasDeLArticle(
   recettes: Record<string, Recette | undefined>,
   aujourdhuiISO: string,
   debutPlanISO?: string,
+  lecture: { indisponible?: boolean } = {},
 ): RepasDeLArticle {
+  if (lecture.indisponible) {
+    return { entrees: [], nombreRepas: 0, libelleBouton: "Voir", indisponible: true };
+  }
   const enTri: Array<{ entree: EntreeRepasArticle; tri: Tri }> = [];
   const repasComptes = new Set<string>();
   const batchsSansRepas = new Set<string>();
@@ -193,7 +215,12 @@ export function repasDeLArticle(
   const entrees = enTri.map((e) => e.entree);
   const nombreRepas = repasComptes.size + batchsSansRepas.size;
   const seulementHorsMenu = entrees.length > 0 && entrees.every((e) => e.type === "hors-menu");
-  return { entrees, nombreRepas, libelleBouton: seulementHorsMenu ? "Voir" : `${nombreRepas} repas` };
+  return {
+    entrees,
+    nombreRepas,
+    libelleBouton: seulementHorsMenu ? "Voir" : `${nombreRepas} repas`,
+    indisponible: false,
+  };
 }
 
 /** « dimanche 8 » pour une date ISO AAAA-MM-JJ ; vide si la date manque ou est illisible. */
@@ -210,9 +237,27 @@ export function enumerer(mots: string[]): string {
   return `${mots.slice(0, -1).join(", ")} et ${mots[mots.length - 1]}`;
 }
 
+/**
+ * Jours où l'on mange un batch, sans doublon (midi et soir du même jour = un jour).
+ * Un jour est annulé seulement si tous ses repas le sont.
+ */
+export function joursDuBatch(
+  entree: Extract<EntreeRepasArticle, { type: "batch" }>,
+): Array<{ libelle: string; annule: boolean }> {
+  const jours: Array<{ libelle: string; annule: boolean }> = [];
+  for (const m of entree.mange) {
+    const libelle = libelleJour(m.date);
+    if (!libelle) continue;
+    const deja = jours.find((j) => j.libelle === libelle);
+    if (deja) deja.annule = deja.annule && m.annule;
+    else jours.push({ libelle, annule: m.annule });
+  }
+  return jours;
+}
+
 /** « Cuisiné dimanche 8 · mangé mardi 10 et jeudi 12 », ou « Cuisiné dimanche 8 » sans repas rattaché. */
 export function titreEntreeBatch(entree: Extract<EntreeRepasArticle, { type: "batch" }>): string {
   const cuisine = `Cuisiné ${libelleJour(entree.dateCuisine)}`.trim();
-  const jours = entree.mange.map((m) => libelleJour(m.date)).filter(Boolean);
+  const jours = joursDuBatch(entree).map((j) => j.libelle);
   return jours.length > 0 ? `${cuisine} · mangé ${enumerer(jours)}` : cuisine;
 }

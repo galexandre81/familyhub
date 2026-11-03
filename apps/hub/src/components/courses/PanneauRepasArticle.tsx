@@ -12,7 +12,7 @@ import clsx from "clsx";
 import type { ArticleCourses } from "@family-hub/types";
 import { libelleQuantite } from "../../lib/coursesTelephone";
 import { titreRepas } from "../../lib/repasCuisine";
-import { libelleJour, titreEntreeBatch, type EntreeRepasArticle, type RepasDeLArticle } from "../../lib/repasArticle";
+import { joursDuBatch, titreEntreeBatch, type EntreeRepasArticle, type RepasDeLArticle } from "../../lib/repasArticle";
 import NomArticle from "./NomArticle";
 
 interface Props {
@@ -116,7 +116,11 @@ export default function PanneauRepasArticle({ article, repas, onRemplacer, onFer
 
         {repas.entrees.length === 0 ? (
           <p role="status" className="text-[15px] text-cream-mute">
-            {chargement ? "Chargement des repas…" : "Aucun repas trouvé"}
+            {chargement
+              ? "Chargement des repas…"
+              : repas.indisponible
+                ? "Repas indisponibles sans réseau"
+                : "Aucun repas trouvé"}
           </p>
         ) : (
           <ul className="flex flex-col divide-y divide-hairline">
@@ -211,15 +215,15 @@ function Entree({ entree }: { entree: EntreeRepasArticle }) {
 
 /** « Cuisiné dimanche 8 · mangé mardi 10 et jeudi 12 » ; un jour annulé y est barré. */
 function TitreBatch({ entree }: { entree: Extract<EntreeRepasArticle, { type: "batch" }> }) {
-  if (!entree.mange.some((m) => m.annule)) return <>{titreEntreeBatch(entree)}</>;
-  const jours = entree.mange.filter((m) => libelleJour(m.date));
+  const jours = joursDuBatch(entree);
+  if (!jours.some((j) => j.annule)) return <>{titreEntreeBatch(entree)}</>;
   const dernier = jours.length - 1;
   return (
     <>
-      Cuisiné {libelleJour(entree.dateCuisine)} · mangé{" "}
+      {titreEntreeBatch({ ...entree, mange: [] })} · mangé{" "}
       {jours.map((m, i) => (
-        <span key={i}>
-          <span className={m.annule ? "line-through" : undefined}>{libelleJour(m.date)}</span>
+        <span key={m.libelle}>
+          <span className={m.annule ? "line-through" : undefined}>{m.libelle}</span>
           {i < dernier - 1 ? ", " : i === dernier - 1 ? " et " : ""}
         </span>
       ))}

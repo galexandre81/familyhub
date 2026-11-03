@@ -1,6 +1,12 @@
 import { describe, expect, it } from "vitest";
 import type { BatchSession, MealPlanSlot, Recette, Repas } from "@family-hub/types";
-import { recetteIdsAChargerPourRepas, repasDeLArticle, titreEntreeBatch } from "./repasArticle";
+import {
+  joursDuBatch,
+  recetteIdsAChargerPourRepas,
+  repasDeLArticle,
+  repasIndisponibles,
+  titreEntreeBatch,
+} from "./repasArticle";
 
 type Slot = MealPlanSlot & { id: string };
 type Batch = BatchSession & { id: string };
@@ -368,6 +374,79 @@ describe("titreEntreeBatch", () => {
 
   it("sans repas rattaché, ne dit que le jour de cuisine", () => {
     expect(titreEntreeBatch(entree([]))).toBe("Cuisiné dimanche 8");
+  });
+
+  it("midi et soir du même jour : le jour n'est dit qu'une fois", () => {
+    expect(
+      titreEntreeBatch(
+        entree([
+          { date: "2026-11-10", repas: "dej", annule: false },
+          { date: "2026-11-10", repas: "diner", annule: false },
+        ]),
+      ),
+    ).toBe("Cuisiné dimanche 8 · mangé mardi 10");
+  });
+
+  it("joursDuBatch : un jour n'est barré que si tous ses repas sont annulés", () => {
+    expect(
+      joursDuBatch(
+        entree([
+          { date: "2026-11-10", repas: "dej", annule: true },
+          { date: "2026-11-10", repas: "diner", annule: false },
+          { date: "2026-11-12", repas: "dej", annule: true },
+          { date: "2026-11-12", repas: "diner", annule: true },
+          { date: undefined, repas: "dej", annule: false },
+        ]),
+      ),
+    ).toEqual([
+      { libelle: "mardi 10", annule: false },
+      { libelle: "jeudi 12", annule: true },
+    ]);
+  });
+});
+
+describe("quantité d'une ligne sans quantité", () => {
+  const sansQuantite: Record<string, Recette | undefined> = {
+    r1: recette("Gratin", 4, [ing("Crème", "20", "g"), ing("Crème", "", "")]),
+    r2: recette("Soupe", 4, [ing("Crème", "", "")]),
+    r3: recette("Quiche", 4, [ing("Crème", "20", "g"), ing("Crème", "5", "cl")]),
+  };
+  const une = (recetteId: string) =>
+    repasDeLArticle({ nom: "Crème", recetteIds: [recetteId] }, [slot("a", "2026-11-05", "dej", [recetteId])], [], sansQuantite, AUJ)
+      .entrees[0];
+
+  it("une ligne sans quantité parmi d'autres : rien, pas « 20 g + »", () => {
+    expect(une("r1")).toMatchObject({ type: "repas", quantite: null });
+  });
+  it("une seule ligne sans quantité : rien", () => {
+    expect(une("r2")).toMatchObject({ type: "repas", quantite: null });
+  });
+  it("toutes les lignes ont une quantité : jointes par « + »", () => {
+    expect(une("r3")).toMatchObject({ type: "repas", quantite: "20 g + 5 cl" });
+  });
+});
+
+describe("repas illisibles (hors réseau, erreur)", () => {
+  it("repasIndisponibles : plan sans repas lus ou lecture en erreur", () => {
+    expect(repasIndisponibles({ planId: "p", chargement: false, erreur: false, nombreSlots: 0 })).toBe(true);
+    expect(repasIndisponibles({ planId: "p", chargement: false, erreur: true, nombreSlots: 12 })).toBe(true);
+    expect(repasIndisponibles({ planId: "p", chargement: false, erreur: false, nombreSlots: 12 })).toBe(false);
+    expect(repasIndisponibles({ planId: "p", chargement: true, erreur: false, nombreSlots: 0 })).toBe(false);
+    expect(repasIndisponibles({ planId: undefined, chargement: false, erreur: false, nombreSlots: 0 })).toBe(false);
+  });
+
+  it("indisponible : bouton « Voir », aucune entrée hors-menu, état signalé", () => {
+    const r = repasDeLArticle(article, [], [], recettes, AUJ, undefined, { indisponible: true });
+    expect(r.indisponible).toBe(true);
+    expect(r.entrees).toEqual([]);
+    expect(r.libelleBouton).toBe("Voir");
+    expect(r.nombreRepas).toBe(0);
+  });
+
+  it("sans l'indicateur, des slots vides donnent toujours « hors-menu » (comportement inchangé)", () => {
+    const r = repasDeLArticle(article, [], [], recettes, AUJ);
+    expect(r.indisponible).toBe(false);
+    expect(r.entrees[0]).toMatchObject({ type: "hors-menu" });
   });
 });
 
