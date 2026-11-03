@@ -21,11 +21,13 @@ interface Props {
   /** Note le remplacement ; texte vide = l'efface. */
   onRemplacer(texte: string): void;
   onFermer(): void;
+  /** Repas encore en lecture : on ne dit pas « aucun repas » trop tôt. */
+  chargement?: boolean;
 }
 
 const MAX_REMPLACEMENT = 100;
 
-export default function PanneauRepasArticle({ article, repas, onRemplacer, onFermer }: Props) {
+export default function PanneauRepasArticle({ article, repas, onRemplacer, onFermer, chargement }: Props) {
   const carteRef = useRef<HTMLDivElement>(null);
   const fermerRef = useRef<HTMLButtonElement>(null);
   const [texte, setTexte] = useState(article.remplacement ?? "");
@@ -81,6 +83,7 @@ export default function PanneauRepasArticle({ article, repas, onRemplacer, onFer
   const valider = (e: FormEvent) => {
     e.preventDefault();
     onRemplacer(texte);
+    onFermer();
   };
 
   return (
@@ -111,13 +114,19 @@ export default function PanneauRepasArticle({ article, repas, onRemplacer, onFer
           </button>
         </div>
 
-        <ul className="flex flex-col divide-y divide-hairline">
-          {repas.entrees.map((e) => (
-            <li key={e.cle}>
-              <Entree entree={e} />
-            </li>
-          ))}
-        </ul>
+        {repas.entrees.length === 0 ? (
+          <p role="status" className="text-[15px] text-cream-mute">
+            {chargement ? "Chargement des repas…" : "Aucun repas trouvé"}
+          </p>
+        ) : (
+          <ul className="flex flex-col divide-y divide-hairline">
+            {repas.entrees.map((e) => (
+              <li key={e.cle}>
+                <Entree entree={e} />
+              </li>
+            ))}
+          </ul>
+        )}
 
         <form onSubmit={valider} className="flex flex-col gap-2">
           <label htmlFor="panneau-repas-remplacement" className="text-[15px] text-cream-mute">
@@ -147,6 +156,7 @@ export default function PanneauRepasArticle({ article, repas, onRemplacer, onFer
               onClick={() => {
                 setTexte("");
                 onRemplacer("");
+                onFermer();
               }}
               className="self-start min-h-12 px-3 -ml-3 rounded-xl text-[15px] text-cream-mute underline underline-offset-2 active:bg-ebony-ridge"
             >

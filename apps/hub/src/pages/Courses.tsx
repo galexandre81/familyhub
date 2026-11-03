@@ -264,6 +264,7 @@ export default function Courses() {
           repas={repasDe(articleOuvert)}
           onRemplacer={(texte) => remplacer(articleOuvert.id, texte)}
           onFermer={fermerRepas}
+          chargement={repasEnChargement}
         />
       )}
 

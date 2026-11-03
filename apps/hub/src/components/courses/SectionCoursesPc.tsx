@@ -201,6 +201,7 @@ export default function SectionCoursesPc({ courses, householdId, plan, profils, 
           repas={repasDe(articleOuvert)}
           onRemplacer={(texte) => remplacer(articleOuvert.id, texte)}
           onFermer={fermerRepas}
+          chargement={repasEnChargement}
         />
       )}
     </section>
