@@ -12,7 +12,7 @@ import type { Profil } from "@family-hub/types";
 import type { ListeCoursesApi } from "../../lib/useListeCourses";
 import type { MealPlanWithId } from "../../lib/queries";
 import { useRepasDesArticles } from "../../lib/useRepasDesArticles";
-import type { RepasDeLArticle } from "../../lib/repasArticle";
+import { REPAS_EN_LECTURE, type RepasDeLArticle } from "../../lib/repasArticle";
 import { grouperParRayon, vueDrive, vueMagasin, type ArticleAvecId } from "../../lib/listeCourses";
 import { libelleQuantite, prenomQuiACoche } from "../../lib/coursesTelephone";
 import { htmlListeMagasin, modeleDriveValide, texteListeDrive } from "../../lib/drive";
@@ -74,7 +74,7 @@ export default function SectionCoursesPc({ courses, householdId, plan, profils, 
   /* Tant que les repas se chargent, un nombre serait faux : le bouton dit « Voir ». */
   const repasDe = useCallback(
     (a: ArticleAvecId): RepasDeLArticle =>
-      repasEnChargement ? { entrees: [], nombreRepas: 0, libelleBouton: "Voir" } : resume(a),
+      repasEnChargement ? REPAS_EN_LECTURE : resume(a),
     [resume, repasEnChargement],
   );
   const [repasId, setRepasId] = useState<string | null>(null);

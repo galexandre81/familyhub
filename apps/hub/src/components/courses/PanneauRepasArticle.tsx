@@ -23,11 +23,13 @@ interface Props {
   onFermer(): void;
   /** Repas encore en lecture : on ne dit pas « aucun repas » trop tôt. */
   chargement?: boolean;
+  /** Appelé juste avant de quitter la page pour une recette (garder la position de la liste). */
+  onOuvrirRecette?(): void;
 }
 
 const MAX_REMPLACEMENT = 100;
 
-export default function PanneauRepasArticle({ article, repas, onRemplacer, onFermer, chargement }: Props) {
+export default function PanneauRepasArticle({ article, repas, onRemplacer, onFermer, chargement, onOuvrirRecette }: Props) {
   const carteRef = useRef<HTMLDivElement>(null);
   const fermerRef = useRef<HTMLButtonElement>(null);
   const [texte, setTexte] = useState(article.remplacement ?? "");
@@ -126,7 +128,7 @@ export default function PanneauRepasArticle({ article, repas, onRemplacer, onFer
           <ul className="flex flex-col divide-y divide-hairline">
             {repas.entrees.map((e) => (
               <li key={e.cle}>
-                <Entree entree={e} />
+                <Entree entree={e} onOuvrirRecette={onOuvrirRecette} />
               </li>
             ))}
           </ul>
@@ -174,18 +176,30 @@ export default function PanneauRepasArticle({ article, repas, onRemplacer, onFer
 }
 
 /** Une ligne qui ouvre la recette, ou un bloc sans lien si le nom de la recette est inconnu. */
-function Cible({ entree, children }: { entree: EntreeRepasArticle; children: ReactNode }) {
+function Cible({
+  entree,
+  children,
+  onOuvrirRecette,
+}: {
+  entree: EntreeRepasArticle;
+  children: ReactNode;
+  onOuvrirRecette?(): void;
+}) {
   const classes = "min-h-12 py-2 flex items-center gap-3 text-left";
   if (!entree.nomRecette) return <div className={classes}>{children}</div>;
   const portions = entree.type === "hors-menu" ? "" : `?portions=${entree.portions}`;
   return (
-    <Link to={`/livre-recettes/${entree.recetteId}${portions}`} className={clsx(classes, "active:bg-ebony-ridge")}>
+    <Link
+      to={`/livre-recettes/${entree.recetteId}${portions}`}
+      onClick={onOuvrirRecette}
+      className={clsx(classes, "active:bg-ebony-ridge")}
+    >
       {children}
     </Link>
   );
 }
 
-function Entree({ entree }: { entree: EntreeRepasArticle }) {
+function Entree({ entree, onOuvrirRecette }: { entree: EntreeRepasArticle; onOuvrirRecette?(): void }) {
   const attenue = entree.type !== "hors-menu" && entree.passe;
   const barre = entree.type !== "hors-menu" && entree.annule;
   const nom = entree.nomRecette ?? "Recette indisponible sans réseau";
@@ -196,7 +210,7 @@ function Entree({ entree }: { entree: EntreeRepasArticle }) {
   else sur = "Pas prévue dans le menu";
 
   return (
-    <Cible entree={entree}>
+    <Cible entree={entree} onOuvrirRecette={onOuvrirRecette}>
       <span className={clsx("flex-1 min-w-0 leading-tight", attenue ? "text-cream-mute" : "text-cream")}>
         <span className={clsx("block text-[15px] text-cream-mute", barre && "line-through")}>{sur}</span>
         <span className={clsx("block text-lg", barre && "line-through")}>{nom}</span>

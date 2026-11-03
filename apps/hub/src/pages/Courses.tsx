@@ -6,23 +6,26 @@
  * « Magasin » : on coche par rayon ; le cache Firestore garde les coches et
  * les envoie au retour du réseau. Un oubli s'ajoute en bas de l'écran.
  */
-import { useCallback, useEffect, useMemo, useState, type FormEvent } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, type FormEvent } from "react";
 import { ListChecks, Plus, Share2, ShoppingCart, Store, Wifi, WifiOff } from "lucide-react";
 import clsx from "clsx";
 import { useAuth } from "../lib/auth";
 import { useActiveHouseholdId, useActivePlan, useHouseholds, useProfils } from "../lib/queries";
 import { MESSAGE_MIGRATION, useListeCourses } from "../lib/useListeCourses";
 import { useRepasDesArticles } from "../lib/useRepasDesArticles";
-import type { RepasDeLArticle } from "../lib/repasArticle";
+import { REPAS_EN_LECTURE, type RepasDeLArticle } from "../lib/repasArticle";
 import type { ArticleAvecId } from "../lib/listeCourses";
 import { couleurDuProfil } from "../lib/personnes";
 import { dateDuTimestamp } from "../lib/semaine";
 import {
   CLE_MODE_COURSES,
+  CLE_SCROLL_COURSES,
+  encoderScroll,
   modeEnregistre,
   modeParDefaut,
   prenomQuiACoche,
   progressionMagasin,
+  scrollARestaurer,
   texteAPartager,
   titreSemaine,
   type ModeCourses,
@@ -48,6 +51,26 @@ function ecrireMode(mode: ModeCourses): void {
     window.sessionStorage.setItem(CLE_MODE_COURSES, mode);
   } catch {
     /* stockage indisponible : le mode reste en mémoire */
+  }
+}
+
+/** Garde la position de la liste avant de partir sur une recette (retour en arrière : même endroit). */
+function garderPosition(): void {
+  try {
+    window.sessionStorage.setItem(CLE_SCROLL_COURSES, encoderScroll(window.scrollY, Date.now()));
+  } catch {
+    /* stockage indisponible : le retour revient en haut */
+  }
+}
+
+/** Position gardée, lue une seule fois (puis effacée) ; `null` si absente ou trop ancienne. */
+function reprendrePosition(): number | null {
+  try {
+    const brut = window.sessionStorage.getItem(CLE_SCROLL_COURSES);
+    window.sessionStorage.removeItem(CLE_SCROLL_COURSES);
+    return scrollARestaurer(brut, Date.now());
+  } catch {
+    return null;
   }
 }
 
@@ -115,7 +138,7 @@ export default function Courses() {
   /* Tant que les repas se chargent, un nombre serait faux : le bouton dit « Voir ». */
   const repasDe = useCallback(
     (a: ArticleAvecId): RepasDeLArticle =>
-      repasEnChargement ? { entrees: [], nombreRepas: 0, libelleBouton: "Voir" } : resume(a),
+      repasEnChargement ? REPAS_EN_LECTURE : resume(a),
     [resume, repasEnChargement],
   );
   const [repasId, setRepasId] = useState<string | null>(null);
@@ -133,6 +156,16 @@ export default function Courses() {
     if (pret && modeChoisi === undefined) setModeChoisi(modeParDefaut(articles));
   }, [pret, modeChoisi, articles]);
   const mode = modeChoisi ?? modeParDefaut(articles);
+
+  /* Retour d'une recette ouverte depuis le panneau : on retrouve sa place dans la liste (une seule fois). */
+  const positionReprise = useRef(false);
+  const afficheListe = !!householdId && !!plan && !!liste && !householdsLoading && !planLoading && !chargement;
+  useEffect(() => {
+    if (!afficheListe || positionReprise.current) return;
+    positionReprise.current = true;
+    const y = reprendrePosition();
+    if (y !== null) window.requestAnimationFrame(() => window.scrollTo(0, y));
+  }, [afficheListe]);
   const choisirMode = useCallback((m: ModeCourses) => {
     setModeChoisi(m);
     ecrireMode(m);
@@ -265,6 +298,7 @@ export default function Courses() {
           onRemplacer={(texte) => remplacer(articleOuvert.id, texte)}
           onFermer={fermerRepas}
           chargement={repasEnChargement}
+          onOuvrirRecette={garderPosition}
         />
       )}
 

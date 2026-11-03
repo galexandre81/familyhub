@@ -42,6 +42,14 @@ export interface RepasDeLArticle {
   indisponible: boolean;
 }
 
+/** Repas en cours de lecture : aucun nombre à annoncer, le bouton dit « Voir ». */
+export const REPAS_EN_LECTURE: RepasDeLArticle = {
+  entrees: [],
+  nombreRepas: 0,
+  libelleBouton: "Voir",
+  indisponible: false,
+};
+
 /**
  * Les repas sont illisibles : lecture en erreur, ou aucun repas alors qu'un plan
  * avec une liste en a toujours (hors réseau sans cache, la lecture est vide sans erreur).
