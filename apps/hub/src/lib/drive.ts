@@ -7,6 +7,7 @@
 import type { ArticleCourses } from "@family-hub/types";
 import { grouperParRayon, vueDrive, vueMagasin, type ArticleAvecId } from "./listeCourses";
 import { libelleQuantite } from "./coursesTelephone";
+import { libelleArticleTexte, origineRemplacement } from "./remplacements";
 
 /**
  * Recherche Intermarché. L'adresse exacte n'a pas pu être vérifiée (le site
@@ -35,9 +36,8 @@ export function lienRechercheDrive(nom: string, modele: string = RECHERCHE_DRIVE
   return gabarit.split(TERME).join(terme);
 }
 
-function ligneArticle(a: Pick<ArticleCourses, "nom" | "quantite" | "unite">): string {
-  const q = libelleQuantite(a);
-  return q ? `${a.nom} (${q})` : a.nom;
+function ligneArticle(a: Pick<ArticleCourses, "nom" | "quantite" | "unite" | "remplacement">): string {
+  return libelleArticleTexte(a);
 }
 
 /** « Copier la liste drive » : un article du drive pas encore au panier par ligne. Vide si rien. */
@@ -68,8 +68,9 @@ export function htmlListeMagasin(articles: ArticleAvecId[], date: Date = new Dat
     .map((g) => {
       const lignes = g.articles
         .map((a) => {
-          const q = libelleQuantite(a);
-          return `<li><label><input type="checkbox"> <span class="n">${echapper(a.nom)}</span>${q ? `<span class="q"> — ${echapper(q)}</span>` : ""}</label></li>`;
+          const q = a.remplacement ? origineRemplacement(a) : libelleQuantite(a);
+          const nom = a.remplacement ?? a.nom;
+          return `<li><label><input type="checkbox"> <span class="n">${echapper(nom)}</span>${q ? `<span class="q"> — ${echapper(q)}</span>` : ""}</label></li>`;
         })
         .join("\n");
       return `<section><h2>${echapper(g.libelle)}</h2><ul>${lignes}</ul></section>`;

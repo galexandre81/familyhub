@@ -101,6 +101,12 @@ describe("texteAPartager", () => {
       ].join("\n"),
     );
   });
+  it("écrit le remplacement avec l'article d'origine", () => {
+    const texte = texteAPartager([
+      art("1", { nom: "Crème", rayon: "cremerie", quantite: 40, unite: "cl", remplacement: "yaourt" }),
+    ]);
+    expect(texte).toContain("- yaourt (à la place de : Crème, 40 cl)");
+  });
   it("vide quand tout est coché", () => {
     expect(texteAPartager([art("1", { checked: true })])).toBe("");
   });

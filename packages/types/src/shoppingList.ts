@@ -52,6 +52,8 @@ export interface ArticleCourses {
   checkedAt?: Timestamp | null;
   /** uid du compte qui a coché. */
   checkedBy?: string | null;
+  /** Produit de remplacement noté par la famille (« yaourt » pour la crème) ; propre aux téléphones. */
+  remplacement?: string;
   /** Position d'origine (import) ; les oublis prennent max + 1. */
   ordre: number;
   createdAt?: Timestamp;

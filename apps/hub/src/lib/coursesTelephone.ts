@@ -5,6 +5,7 @@
 import type { ArticleCourses, Profil } from "@family-hub/types";
 import { profilDuCompte } from "./personnes";
 import { grouperParRayon, vueMagasin, type ArticleAvecId } from "./listeCourses";
+import { libelleArticleTexte } from "./remplacements";
 
 /** « Trier » à la maison, « Magasin » pour cocher. */
 export type ModeCourses = "trier" | "magasin";
@@ -53,8 +54,7 @@ export function texteAPartager(articles: ArticleAvecId[]): string {
   for (const g of grouperParRayon(restants)) {
     lignes.push("", g.libelle);
     for (const a of g.articles) {
-      const q = libelleQuantite(a);
-      lignes.push(q ? `- ${a.nom} (${q})` : `- ${a.nom}`);
+      lignes.push(`- ${libelleArticleTexte(a)}`);
     }
   }
   return lignes.join("\n");
