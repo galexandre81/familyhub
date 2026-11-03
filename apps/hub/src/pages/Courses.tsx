@@ -12,6 +12,9 @@ import clsx from "clsx";
 import { useAuth } from "../lib/auth";
 import { useActiveHouseholdId, useActivePlan, useHouseholds, useProfils } from "../lib/queries";
 import { MESSAGE_MIGRATION, useListeCourses } from "../lib/useListeCourses";
+import { useRepasDesArticles } from "../lib/useRepasDesArticles";
+import type { RepasDeLArticle } from "../lib/repasArticle";
+import type { ArticleAvecId } from "../lib/listeCourses";
 import { couleurDuProfil } from "../lib/personnes";
 import { dateDuTimestamp } from "../lib/semaine";
 import {
@@ -29,6 +32,7 @@ import { LoadingState } from "../components/states";
 import { toast } from "../components/Toast";
 import VueTri from "../components/courses/VueTri";
 import VueMagasin from "../components/courses/VueMagasin";
+import PanneauRepasArticle from "../components/courses/PanneauRepasArticle";
 import type { QuiACoche } from "../components/courses/LigneArticle";
 
 function lireMode(): ModeCourses | undefined {
@@ -103,8 +107,21 @@ export default function Courses() {
     cocher,
     ajouterOubli,
     supprimer,
+    remplacer,
     estPlacardArticle,
   } = useListeCourses(householdId, plan?.id, { placardFoyer: household?.parametres?.placard });
+
+  const { resume, chargement: repasEnChargement } = useRepasDesArticles(householdId, plan ?? undefined);
+  /* Tant que les repas se chargent, un nombre serait faux : le bouton dit « Voir ». */
+  const repasDe = useCallback(
+    (a: ArticleAvecId): RepasDeLArticle =>
+      repasEnChargement ? { entrees: [], nombreRepas: 0, libelleBouton: "Voir" } : resume(a),
+    [resume, repasEnChargement],
+  );
+  const [repasId, setRepasId] = useState<string | null>(null);
+  const voirRepas = useCallback((a: ArticleAvecId) => setRepasId(a.id), []);
+  const fermerRepas = useCallback(() => setRepasId(null), []);
+  const articleOuvert = repasId ? articles.find((a) => a.id === repasId) : undefined;
 
   const [modeChoisi, setModeChoisi] = useState<ModeCourses | undefined>(lireMode);
   /*
@@ -227,9 +244,27 @@ export default function Courses() {
           onTrier={trier}
           onRetirer={supprimer}
           onAllerAuMagasin={() => choisirMode("magasin")}
+          repasDe={repasDe}
+          onVoirRepas={voirRepas}
         />
       ) : (
-        <VueMagasin articles={articles} quiACoche={quiACoche} onCocher={cocher} onRetirer={supprimer} />
+        <VueMagasin
+          articles={articles}
+          quiACoche={quiACoche}
+          onCocher={cocher}
+          onRetirer={supprimer}
+          repasDe={repasDe}
+          onVoirRepas={voirRepas}
+        />
+      )}
+
+      {articleOuvert && (
+        <PanneauRepasArticle
+          article={articleOuvert}
+          repas={repasDe(articleOuvert)}
+          onRemplacer={(texte) => remplacer(articleOuvert.id, texte)}
+          onFermer={fermerRepas}
+        />
       )}
 
       <button

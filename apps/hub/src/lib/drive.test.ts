@@ -43,6 +43,13 @@ describe("lienRechercheDrive", () => {
     expect(lienRechercheDrive("gousse d’ail")).toBe("https://www.intermarche.com/recherche/gousse%20d%27ail");
   });
 
+  it("cherche le remplacement noté à la place du nom de l'article", () => {
+    const article = { nom: "crème fraîche", remplacement: "yaourt grec" };
+    expect(lienRechercheDrive(article.remplacement ?? article.nom)).toBe(
+      "https://www.intermarche.com/recherche/yaourt%20grec",
+    );
+  });
+
   it("retire les espaces autour du nom", () => {
     expect(lienRechercheDrive("  pâtes  ")).toBe("https://www.intermarche.com/recherche/p%C3%A2tes");
   });

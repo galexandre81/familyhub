@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BatchSession, MealPlanSlot, Recette, Repas } from "@family-hub/types";
-import { repasDeLArticle } from "./repasArticle";
+import { repasDeLArticle, titreEntreeBatch } from "./repasArticle";
 
 type Slot = MealPlanSlot & { id: string };
 type Batch = BatchSession & { id: string };
@@ -339,5 +339,34 @@ describe("repasDeLArticle", () => {
     const e = r.entrees[0];
     expect(e.type === "repas" && e.date).toBe("2026-11-02");
     expect(e.type === "repas" && e.passe).toBe(true);
+  });
+});
+
+describe("titreEntreeBatch", () => {
+  const entree = (mange: Array<{ date?: string; repas: Repas; annule: boolean }>) => ({
+    type: "batch" as const,
+    cle: "b",
+    recetteId: "r",
+    dateCuisine: "2026-11-08",
+    mange,
+    annule: false,
+    passe: false,
+    quantite: null,
+    portions: 4,
+  });
+
+  it("dit le jour de cuisine et les jours où l'on mange", () => {
+    expect(
+      titreEntreeBatch(
+        entree([
+          { date: "2026-11-10", repas: "diner", annule: false },
+          { date: "2026-11-12", repas: "dej", annule: false },
+        ]),
+      ),
+    ).toBe("Cuisiné dimanche 8 · mangé mardi 10 et jeudi 12");
+  });
+
+  it("sans repas rattaché, ne dit que le jour de cuisine", () => {
+    expect(titreEntreeBatch(entree([]))).toBe("Cuisiné dimanche 8");
   });
 });

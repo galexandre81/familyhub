@@ -176,3 +176,24 @@ export function repasDeLArticle(
   const seulementHorsMenu = entrees.length > 0 && entrees.every((e) => e.type === "hors-menu");
   return { entrees, nombreRepas, libelleBouton: seulementHorsMenu ? "Voir" : `${nombreRepas} repas` };
 }
+
+/** « dimanche 8 » pour une date ISO AAAA-MM-JJ ; vide si la date manque ou est illisible. */
+export function libelleJour(dateISO: string | undefined): string {
+  const m = dateISO?.match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (!m) return "";
+  const jour = new Date(Date.UTC(Number(m[1]), Number(m[2]) - 1, Number(m[3])));
+  return new Intl.DateTimeFormat("fr-FR", { weekday: "long", day: "numeric", timeZone: "UTC" }).format(jour);
+}
+
+/** « a », « a et b », « a, b et c ». */
+export function enumerer(mots: string[]): string {
+  if (mots.length <= 1) return mots.join("");
+  return `${mots.slice(0, -1).join(", ")} et ${mots[mots.length - 1]}`;
+}
+
+/** « Cuisiné dimanche 8 · mangé mardi 10 et jeudi 12 », ou « Cuisiné dimanche 8 » sans repas rattaché. */
+export function titreEntreeBatch(entree: Extract<EntreeRepasArticle, { type: "batch" }>): string {
+  const cuisine = `Cuisiné ${libelleJour(entree.dateCuisine)}`.trim();
+  const jours = entree.mange.map((m) => libelleJour(m.date)).filter(Boolean);
+  return jours.length > 0 ? `${cuisine} · mangé ${enumerer(jours)}` : cuisine;
+}

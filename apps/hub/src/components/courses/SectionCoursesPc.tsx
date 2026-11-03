@@ -10,17 +10,26 @@ import { Car, ClipboardCopy, Download, ListChecks, Plus, ShoppingCart, Store } f
 import clsx from "clsx";
 import type { Profil } from "@family-hub/types";
 import type { ListeCoursesApi } from "../../lib/useListeCourses";
-import { grouperParRayon, vueDrive, vueMagasin } from "../../lib/listeCourses";
+import type { MealPlanWithId } from "../../lib/queries";
+import { useRepasDesArticles } from "../../lib/useRepasDesArticles";
+import type { RepasDeLArticle } from "../../lib/repasArticle";
+import { grouperParRayon, vueDrive, vueMagasin, type ArticleAvecId } from "../../lib/listeCourses";
 import { libelleQuantite, prenomQuiACoche } from "../../lib/coursesTelephone";
 import { htmlListeMagasin, modeleDriveValide, texteListeDrive } from "../../lib/drive";
 import { couleurDuProfil } from "../../lib/personnes";
 import { toast } from "../Toast";
 import VueTri from "./VueTri";
 import ListeDrive from "./ListeDrive";
+import NomArticle from "./NomArticle";
+import BoutonRepas from "./BoutonRepas";
+import PanneauRepasArticle from "./PanneauRepasArticle";
 import type { QuiACoche } from "./LigneArticle";
 
 interface Props {
   courses: ListeCoursesApi;
+  householdId: string;
+  /** Plan affiché : ses repas alimentent le bouton « n repas » de chaque article. */
+  plan?: MealPlanWithId;
   profils: Array<Profil & { id: string }>;
   /** `parametres.modeleRechercheDrive` du foyer. */
   modeleDrive?: string;
@@ -57,9 +66,21 @@ function telechargerHtml(html: string): void {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export default function SectionCoursesPc({ courses, profils, modeleDrive }: Props) {
-  const { articles, trier, cocher, ajouterOubli, supprimer, estPlacardArticle } = courses;
+export default function SectionCoursesPc({ courses, householdId, plan, profils, modeleDrive }: Props) {
+  const { articles, trier, cocher, ajouterOubli, supprimer, remplacer, estPlacardArticle } = courses;
   const modelePerso = modeleDriveValide(modeleDrive) ? modeleDrive : undefined;
+
+  const { resume, chargement: repasEnChargement } = useRepasDesArticles(householdId, plan);
+  /* Tant que les repas se chargent, un nombre serait faux : le bouton dit « Voir ». */
+  const repasDe = useCallback(
+    (a: ArticleAvecId): RepasDeLArticle =>
+      repasEnChargement ? { entrees: [], nombreRepas: 0, libelleBouton: "Voir" } : resume(a),
+    [resume, repasEnChargement],
+  );
+  const [repasId, setRepasId] = useState<string | null>(null);
+  const voirRepas = useCallback((a: ArticleAvecId) => setRepasId(a.id), []);
+  const fermerRepas = useCallback(() => setRepasId(null), []);
+  const articleOuvert = repasId ? articles.find((a) => a.id === repasId) : undefined;
 
   const quiACoche = useCallback(
     (uid: string | null | undefined): QuiACoche => {
@@ -121,6 +142,8 @@ export default function SectionCoursesPc({ courses, profils, modeleDrive }: Prop
             onAllerAuMagasin={() =>
               document.getElementById(ID_MAGASIN)?.scrollIntoView({ behavior: "smooth", block: "start" })
             }
+            repasDe={repasDe}
+            onVoirRepas={voirRepas}
           />
         </Colonne>
 
@@ -146,6 +169,8 @@ export default function SectionCoursesPc({ courses, profils, modeleDrive }: Prop
             quiACoche={quiACoche}
             onCocher={cocher}
             onPasDispo={pasDispo}
+            repasDe={repasDe}
+            onVoirRepas={voirRepas}
           />
         </Colonne>
 
@@ -166,9 +191,18 @@ export default function SectionCoursesPc({ courses, profils, modeleDrive }: Prop
             </button>
           }
         >
-          <ApercuMagasin groupes={groupesMagasin} />
+          <ApercuMagasin groupes={groupesMagasin} repasDe={repasDe} onVoirRepas={voirRepas} />
         </Colonne>
       </div>
+
+      {articleOuvert && (
+        <PanneauRepasArticle
+          article={articleOuvert}
+          repas={repasDe(articleOuvert)}
+          onRemplacer={(texte) => remplacer(articleOuvert.id, texte)}
+          onFermer={fermerRepas}
+        />
+      )}
     </section>
   );
 }
@@ -204,7 +238,15 @@ function Colonne({
 }
 
 /** Aperçu en lecture : ce qui sera acheté au magasin, par rayon (cochés barrés, en bas). */
-function ApercuMagasin({ groupes }: { groupes: ReturnType<typeof grouperParRayon> }) {
+function ApercuMagasin({
+  groupes,
+  repasDe,
+  onVoirRepas,
+}: {
+  groupes: ReturnType<typeof grouperParRayon>;
+  repasDe(article: ArticleAvecId): RepasDeLArticle;
+  onVoirRepas(article: ArticleAvecId): void;
+}) {
   if (groupes.length === 0) {
     return <p className="py-6 text-center text-cream-mute">Rien à acheter au magasin</p>;
   }
@@ -222,12 +264,20 @@ function ApercuMagasin({ groupes }: { groupes: ReturnType<typeof grouperParRayon
               return (
                 <li
                   key={a.id}
-                  className={clsx("text-[15px] leading-snug", a.checked ? "line-through text-cream-mute" : "text-cream")}
+                  className={clsx(
+                    "text-[15px] leading-snug flex items-center justify-between gap-2",
+                    a.checked ? "line-through text-cream-mute" : "text-cream",
+                  )}
                 >
-                  {a.nom}
-                  {q && <span className="ml-2 text-cream-mute">{q}</span>}
-                  {a.destination === "a-trier" && (
-                    <span className="ml-2 text-xs text-cream-mute">(pas encore trié)</span>
+                  <span className="min-w-0">
+                    <NomArticle article={a} />
+                    {q && <span className="ml-2 text-cream-mute">{q}</span>}
+                    {a.destination === "a-trier" && (
+                      <span className="ml-2 text-xs text-cream-mute">(pas encore trié)</span>
+                    )}
+                  </span>
+                  {(a.recetteIds?.length ?? 0) > 0 && (
+                    <BoutonRepas libelle={repasDe(a).libelleBouton} nom={a.nom} onClick={() => onVoirRepas(a)} />
                   )}
                 </li>
               );

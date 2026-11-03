@@ -11,7 +11,10 @@ import clsx from "clsx";
 import { vueDrive, type ArticleAvecId } from "../../lib/listeCourses";
 import { libelleQuantite } from "../../lib/coursesTelephone";
 import { lienRechercheDrive } from "../../lib/drive";
+import type { RepasDeLArticle } from "../../lib/repasArticle";
 import type { QuiACoche } from "./LigneArticle";
+import NomArticle from "./NomArticle";
+import BoutonRepas from "./BoutonRepas";
 
 interface Props {
   articles: ArticleAvecId[];
@@ -22,9 +25,20 @@ interface Props {
   quiACoche(uid: string | null | undefined): QuiACoche;
   onCocher(id: string, coche: boolean): void;
   onPasDispo(id: string): void;
+  repasDe?(article: ArticleAvecId): RepasDeLArticle;
+  onVoirRepas?(article: ArticleAvecId): void;
 }
 
-export default function ListeDrive({ articles, modele, libelleRecherche, quiACoche, onCocher, onPasDispo }: Props) {
+export default function ListeDrive({
+  articles,
+  modele,
+  libelleRecherche,
+  quiACoche,
+  onCocher,
+  onPasDispo,
+  repasDe,
+  onVoirRepas,
+}: Props) {
   const lignes = useMemo(() => {
     const drive = vueDrive(articles);
     return [...drive.filter((a) => !a.checked), ...drive.filter((a) => a.checked)];
@@ -44,11 +58,13 @@ export default function ListeDrive({ articles, modele, libelleRecherche, quiACoc
         <LigneDrive
           key={a.id}
           article={a}
-          lien={lienRechercheDrive(a.nom, modele)}
+          lien={lienRechercheDrive(a.remplacement ?? a.nom, modele)}
           libelleRecherche={libelleRecherche}
           qui={a.checked ? quiACoche(a.checkedBy) : undefined}
           onCocher={onCocher}
           onPasDispo={onPasDispo}
+          repasDe={repasDe}
+          onVoirRepas={onVoirRepas}
         />
       ))}
     </ul>
@@ -62,6 +78,8 @@ const LigneDrive = memo(function LigneDrive({
   qui,
   onCocher,
   onPasDispo,
+  repasDe,
+  onVoirRepas,
 }: {
   article: ArticleAvecId;
   lien: string;
@@ -69,8 +87,14 @@ const LigneDrive = memo(function LigneDrive({
   qui?: QuiACoche;
   onCocher(id: string, coche: boolean): void;
   onPasDispo(id: string): void;
+  repasDe?(article: ArticleAvecId): RepasDeLArticle;
+  onVoirRepas?(article: ArticleAvecId): void;
 }) {
   const coche = article.checked;
+  const boutonRepas =
+    repasDe && onVoirRepas && (article.recetteIds?.length ?? 0) > 0 ? (
+      <BoutonRepas libelle={repasDe(article).libelleBouton} nom={article.nom} onClick={() => onVoirRepas(article)} />
+    ) : null;
   const quantite = libelleQuantite(article);
   const couleur = qui?.couleur ?? "rgb(var(--c-cream-mute))";
 
@@ -96,7 +120,7 @@ const LigneDrive = memo(function LigneDrive({
         </span>
         <span className="flex-1 min-w-0 leading-tight">
           <span className={clsx("text-lg", coche ? "line-through text-cream-mute" : "text-cream")}>
-            {article.nom}
+            <NomArticle article={article} />
           </span>
           {quantite && (
             <span className={clsx("ml-2 text-[15px] text-cream-mute", coche && "line-through")}>{quantite}</span>
@@ -128,8 +152,10 @@ const LigneDrive = memo(function LigneDrive({
             <Store size={16} aria-hidden="true" />
             Pas dispo → Magasin
           </button>
+          {boutonRepas}
         </div>
       )}
+      {coche && boutonRepas && <div className="flex pl-[38px]">{boutonRepas}</div>}
     </li>
   );
 });
