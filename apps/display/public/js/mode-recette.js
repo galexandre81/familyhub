@@ -357,7 +357,8 @@
   /* --- Colonne droite : ingrédients --- */
 
   /* portions null : chaque recette à ses propres portions (batch). */
-  function rendreIngredients(zone, repas, portions) {
+  function rendreIngredients(zone, repas, portions, actifs) {
+    var R = root.FamilyHubRemplacements;
     zone.innerHTML = '';
     var p = repas.presentes;
     if (p.length === 0) {
@@ -374,6 +375,12 @@
           (portions == null && base > 0 ? ' · ' + base + ' pers.' : '')));
       }
       var ings = r.ingredients || [];
+      /* Remplacements de la semaine qui touchent cette recette. */
+      var siens = R && actifs ? R.remplacementsDeRecetteEs5(actifs, p[i].id) : [];
+      var carte = siens.length > 0 ? R.carteRemplacementsEs5(ings, siens) : {};
+      for (var s = 0; s < siens.length; s++) {
+        zone.appendChild(el('p', 'fh-mr-rappel fh-texte', echapper(R.texteRappelEs5(siens[s]))));
+      }
       if (ings.length === 0) {
         zone.appendChild(el('p', 'fh-mr-vide fh-texte-doux', 'Aucun ingrédient.'));
         continue;
@@ -383,9 +390,13 @@
         var ing = ings[k] || {};
         var q = texteSeul(quantiteAjusteeEs5(ing.quantite, base, pour));
         var qte = texteSeul(q + (ing.unite ? ' ' + ing.unite : ''));
+        var libelle = ing.libelle || '';
+        var remplace = Object.prototype.hasOwnProperty.call(carte, libelle);
         ul.appendChild(el('li', 'fh-mr-ing fh-texte',
           (qte ? '<strong class="fh-mr-ing-qte">' + echapper(qte) + '</strong> ' : '') +
-          echapper(ing.libelle || '')));
+          (remplace
+            ? '<s>' + echapper(libelle) + '</s> → ' + echapper(carte[libelle])
+            : echapper(libelle))));
       }
       zone.appendChild(ul);
     }
@@ -455,7 +466,9 @@
     e.valeurPortions.textContent = libellePortions(e.portions);
     e.moins.disabled = e.portions <= PORTIONS_MIN;
     e.plus.disabled = e.portions >= PORTIONS_MAX;
-    if (e.repas) rendreIngredients(e.zoneIngredients, e.repas, e.portionsPropres ? null : e.portions);
+    if (e.repas) {
+      rendreIngredients(e.zoneIngredients, e.repas, e.portionsPropres ? null : e.portions, e.remplacements);
+    }
   }
 
   function fermer() {
@@ -481,6 +494,7 @@
       portionsImposees: +opts.portions > 0,
       portionsPropres: !!opts.portionsPropres,
       repas: null,
+      remplacements: null, /* posé quand la lecture répond ; le rendu n'en dépend pas */
       minuteur: null,
       retour: null,
       nomMinuteur: texteSeul(opts.titre) || null,
@@ -535,6 +549,16 @@
     document.body.appendChild(e.racine);
     majPortions(e);
     monterPanneau(e);
+
+    /* Remplacements de la semaine, en parallèle : jamais bloquants (la lecture
+       ne rejette pas et abandonne seule après 3 s). */
+    if (root.FamilyHubRemplacements) {
+      root.FamilyHubRemplacements.lire().then(function (actifs) {
+        if (monJeton !== jeton || ecran !== e) return;
+        e.remplacements = actifs;
+        majPortions(e);
+      });
+    }
 
     /* Lecture des recettes, puis rendu complet. */
     var lectures = [];
