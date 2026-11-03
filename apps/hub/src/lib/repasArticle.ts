@@ -92,7 +92,7 @@ export function repasDeLArticle(
 ): RepasDeLArticle {
   const enTri: Array<{ entree: EntreeRepasArticle; tri: Tri }> = [];
   const repasComptes = new Set<string>();
-  let batchsSansRepas = 0;
+  const batchsSansRepas = new Set<string>();
 
   const estPasse = (date: string | undefined) => date !== undefined && date < aujourdhuiISO;
 
@@ -131,11 +131,11 @@ export function repasDeLArticle(
 
     for (const session of sessions) {
       const consommateurs = slots
-        .filter((s) => s.batchSessionId === session.id)
+        .filter((s) => s.batchSessionId === session.id && s.recetteIds.includes(recetteId))
         .map((s) => ({ id: s.id, date: dateDuSlot(s, debutPlanISO), repas: s.repas, annule: s.annule === true }))
         .sort((a, b) => comparer({ date: a.date, rang: RANG_REPAS[a.repas] }, { date: b.date, rang: RANG_REPAS[b.repas] }));
       for (const c of consommateurs) if (!c.annule) repasComptes.add(c.id);
-      if (consommateurs.length === 0) batchsSansRepas++;
+      if (consommateurs.length === 0) batchsSansRepas.add(session.id);
       trouvees++;
       const portions = recette?.portions && recette.portions > 0 ? recette.portions : 4;
       enTri.push({
@@ -172,7 +172,7 @@ export function repasDeLArticle(
   });
 
   const entrees = enTri.map((e) => e.entree);
-  const nombreRepas = repasComptes.size + batchsSansRepas;
+  const nombreRepas = repasComptes.size + batchsSansRepas.size;
   const seulementHorsMenu = entrees.length > 0 && entrees.every((e) => e.type === "hors-menu");
   return { entrees, nombreRepas, libelleBouton: seulementHorsMenu ? "Voir" : `${nombreRepas} repas` };
 }

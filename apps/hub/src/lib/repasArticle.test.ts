@@ -157,6 +157,39 @@ describe("repasDeLArticle", () => {
     expect(r.libelleBouton).toBe("1 repas");
   });
 
+  it("session [r1, r2] : seuls les repas qui contiennent la recette de l'article sont rattachés", () => {
+    const slots = [
+      slot("a", "2026-11-10", "dej", ["r1"], { batchSessionId: "b1" }),
+      slot("b", "2026-11-12", "dej", ["r2"], { batchSessionId: "b1" }),
+    ];
+    const sessions = [batch("b1", "2026-11-08", ["r1", "r2"])];
+    const r = repasDeLArticle(article, slots, sessions, recettes, AUJ);
+    expect(r.entrees).toHaveLength(1);
+    const e = r.entrees[0];
+    expect(e.type === "batch" && e.mange).toHaveLength(1);
+    expect(r.libelleBouton).toBe("1 repas");
+
+    const annuleR2 = [slots[0], { ...slots[1], annule: true }];
+    const r2 = repasDeLArticle(article, annuleR2, sessions, recettes, AUJ);
+    const e2 = r2.entrees[0];
+    expect(e2.type === "batch" && e2.annule).toBe(false);
+    expect(e2.type === "batch" && e2.mange[0].annule).toBe(false);
+    expect(r2.libelleBouton).toBe("1 repas");
+  });
+
+  it("deux recettes d'une même session sans repas : 1 repas", () => {
+    const r = repasDeLArticle(
+      { nom: "Crème", recetteIds: ["r1", "r2"] },
+      [],
+      [batch("b1", "2026-11-08", ["r1", "r2"])],
+      recettes,
+      AUJ,
+    );
+    expect(r.entrees).toHaveLength(2);
+    expect(r.nombreRepas).toBe(1);
+    expect(r.libelleBouton).toBe("1 repas");
+  });
+
   it("batch plus un repas ordinaire de la même recette : 2 entrées", () => {
     const r = repasDeLArticle(
       article,
