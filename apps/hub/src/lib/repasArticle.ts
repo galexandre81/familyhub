@@ -42,6 +42,25 @@ export interface RepasDeLArticle {
 
 const RANG_REPAS: Record<Repas, number> = { petitDej: 0, dej: 1, diner: 2 };
 
+/**
+ * Recettes à lire pour le panneau : celles des repas et des batchs, plus celles
+ * des articles (une recette liée à un article mais absente du menu garde son nom
+ * dans le panneau : « Pas prévue dans le menu »). Triées, sans doublon.
+ */
+export function recetteIdsAChargerPourRepas(
+  slots: Array<Pick<MealPlanSlot, "recetteIds">>,
+  batchs: Array<Pick<BatchSession, "recetteIds">>,
+  articles: Array<Pick<ArticleCourses, "recetteIds">> = [],
+): string[] {
+  return Array.from(
+    new Set([
+      ...slots.flatMap((s) => s.recetteIds ?? []),
+      ...batchs.flatMap((b) => b.recetteIds ?? []),
+      ...articles.flatMap((a) => a.recetteIds ?? []),
+    ]),
+  ).sort();
+}
+
 /** `debutISO` + `jours` jours, en ISO (calcul en UTC : pas de décalage d'heure d'été). */
 function ajouterJours(debutISO: string, jours: number): string | undefined {
   const [a, m, j] = debutISO.split("-").map(Number);

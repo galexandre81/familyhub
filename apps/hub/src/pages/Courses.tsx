@@ -111,7 +111,7 @@ export default function Courses() {
     estPlacardArticle,
   } = useListeCourses(householdId, plan?.id, { placardFoyer: household?.parametres?.placard });
 
-  const { resume, chargement: repasEnChargement } = useRepasDesArticles(householdId, plan ?? undefined);
+  const { resume, chargement: repasEnChargement } = useRepasDesArticles(householdId, plan ?? undefined, articles);
   /* Tant que les repas se chargent, un nombre serait faux : le bouton dit « Voir ». */
   const repasDe = useCallback(
     (a: ArticleAvecId): RepasDeLArticle =>

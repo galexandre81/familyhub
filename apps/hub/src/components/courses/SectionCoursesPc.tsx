@@ -70,7 +70,7 @@ export default function SectionCoursesPc({ courses, householdId, plan, profils, 
   const { articles, trier, cocher, ajouterOubli, supprimer, remplacer, estPlacardArticle } = courses;
   const modelePerso = modeleDriveValide(modeleDrive) ? modeleDrive : undefined;
 
-  const { resume, chargement: repasEnChargement } = useRepasDesArticles(householdId, plan);
+  const { resume, chargement: repasEnChargement } = useRepasDesArticles(householdId, plan, articles);
   /* Tant que les repas se chargent, un nombre serait faux : le bouton dit « Voir ». */
   const repasDe = useCallback(
     (a: ArticleAvecId): RepasDeLArticle =>

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { BatchSession, MealPlanSlot, Recette, Repas } from "@family-hub/types";
-import { repasDeLArticle, titreEntreeBatch } from "./repasArticle";
+import { recetteIdsAChargerPourRepas, repasDeLArticle, titreEntreeBatch } from "./repasArticle";
 
 type Slot = MealPlanSlot & { id: string };
 type Batch = BatchSession & { id: string };
@@ -368,5 +368,25 @@ describe("titreEntreeBatch", () => {
 
   it("sans repas rattaché, ne dit que le jour de cuisine", () => {
     expect(titreEntreeBatch(entree([]))).toBe("Cuisiné dimanche 8");
+  });
+});
+
+describe("recetteIdsAChargerPourRepas", () => {
+  it("réunit les recettes des repas, des batchs et des articles, sans doublon, triées", () => {
+    expect(
+      recetteIdsAChargerPourRepas(
+        [{ recetteIds: ["b", "a"] }],
+        [{ recetteIds: ["c"] }],
+        [{ recetteIds: ["a", "d"] }, { recetteIds: [] }],
+      ),
+    ).toEqual(["a", "b", "c", "d"]);
+  });
+
+  it("garde une recette liée à un article mais absente du menu (pour afficher son nom)", () => {
+    expect(recetteIdsAChargerPourRepas([], [], [{ recetteIds: ["hors-menu"] }])).toEqual(["hors-menu"]);
+  });
+
+  it("sans articles, ne lit que les repas et les batchs", () => {
+    expect(recetteIdsAChargerPourRepas([{ recetteIds: ["x"] }], [])).toEqual(["x"]);
   });
 });

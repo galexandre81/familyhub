@@ -15,14 +15,18 @@ import { dateISOLocale } from "./aujourdhui";
 import { dateDuTimestamp } from "./semaine";
 import { usePlanBatchSessions, usePlanSlots, type MealPlanWithId } from "./queries";
 import { lectureTolerante } from "./remplacements";
-import { repasDeLArticle, type RepasDeLArticle } from "./repasArticle";
+import { recetteIdsAChargerPourRepas, repasDeLArticle, type RepasDeLArticle } from "./repasArticle";
 
 export interface RepasDesArticlesApi {
   resume(article: Pick<ArticleCourses, "nom" | "recetteIds">): RepasDeLArticle;
   chargement: boolean;
 }
 
-export function useRepasDesArticles(householdId?: string, plan?: MealPlanWithId): RepasDesArticlesApi {
+export function useRepasDesArticles(
+  householdId?: string,
+  plan?: MealPlanWithId,
+  articles: Array<Pick<ArticleCourses, "recetteIds">> = [],
+): RepasDesArticlesApi {
   const planId = plan?.id;
   const slotsQ = usePlanSlots(householdId, planId);
   const batchsQ = usePlanBatchSessions(householdId, planId);
@@ -30,12 +34,11 @@ export function useRepasDesArticles(householdId?: string, plan?: MealPlanWithId)
   const slots = useMemo(() => slotsQ.data ?? [], [slotsQ.data]);
   const batchs = useMemo(() => batchsQ.data ?? [], [batchsQ.data]);
 
+  /* Les articles passent par une clé texte : un tableau neuf à chaque rendu ne relance rien. */
+  const cleArticles = articles.flatMap((a) => a.recetteIds ?? []).sort().join(",");
   const recetteIds = useMemo(
-    () =>
-      Array.from(
-        new Set([...slots.flatMap((s) => s.recetteIds ?? []), ...batchs.flatMap((b) => b.recetteIds ?? [])]),
-      ).sort(),
-    [slots, batchs],
+    () => recetteIdsAChargerPourRepas(slots, batchs, cleArticles ? [{ recetteIds: cleArticles.split(",") }] : []),
+    [slots, batchs, cleArticles],
   );
 
   const recettesQ = useQuery({
