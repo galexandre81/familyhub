@@ -280,6 +280,13 @@
     return nom ? nom.slice(0, 30) : 'PC des enfants';
   }
 
+  /* La carte « PC des enfants » est un rapport pour les parents : elle n'a pas
+     sa place sur l'écran d'un enfant (type d'écran « desktop », son
+     ordinateur). Partout ailleurs, et sans document d'écran, on la montre. */
+  function montrerCartePc(ecran) {
+    return !(ecran && ecran.type === 'desktop');
+  }
+
   /* « 2 h 30 », « 2 h », « 45 min » ; '' si la durée n'est pas connue. */
   function dureeTexte(minutes) {
     var m = +minutes;
@@ -464,7 +471,11 @@
     batchEl.addEventListener('click', cuisinerBatch);
     droite.appendChild(batchEl);
     /* PC des enfants : état en lecture seule (js/pc-enfants.js). Toucher →
-       rapport plein écran ; aucune décision ne se prend sur l'iPad. */
+       rapport plein écran ; aucune décision ne se prend sur l'iPad. Pas de
+       carte du tout sur l'écran d'un enfant (montrerCartePc). */
+    var ecran = null;
+    try { ecran = typeof ctx.ecran === 'function' ? ctx.ecran() : null; } catch (e0) { ecran = null; }
+    var avecCartePc = montrerCartePc(ecran);
     var pcEl = el('div', 'tab-pc tab-carte fh-carte fh-bordure');
     pcEl.setAttribute('role', 'button');
     function titrePcCourant() {
@@ -477,6 +488,7 @@
       root.FamilyHubOverlay.open('pc-enfants', { titre: titrePcCourant() }, {}, null);
     });
     function rendrePc() {
+      if (!avecCartePc) return;
       var c = root.FamilyHubPc ? root.FamilyHubPc.carte(Date.now()) : null;
       var html = '<div class="tab-pc-titre fh-texte">' + svg(ICONES.ecran, 24) +
         '<span class="tab-pc-nom">' + echapper(titrePcCourant()) + '</span>';
@@ -495,7 +507,7 @@
       }
       if (cles.pc !== html) { cles.pc = html; pcEl.innerHTML = html; }
     }
-    droite.appendChild(pcEl);
+    if (avecCartePc) droite.appendChild(pcEl);
     var ensuiteEl = el('div', 'tab-ensuite tab-carte fh-carte fh-bordure');
     ensuiteEl.setAttribute('role', 'button');
     ensuiteEl.setAttribute('aria-label', 'Menu de la semaine');
@@ -775,6 +787,7 @@
     meteoResume: meteoResume,
     resumeBatch: resumeBatch,
     titrePc: titrePc,
+    montrerCartePc: montrerCartePc,
     monter: monter
   };
 
