@@ -21,8 +21,7 @@ export interface PhrasesAppairage {
   qr: boolean;
 }
 
-const NULLE_PART_AILLEURS =
-  "Le code ne sert qu'une fois : l'appareil qui ouvre le lien devient l'écran. N'ouvre jamais ce lien sur ton téléphone ni sur un autre ordinateur.";
+const UNE_SEULE_FOIS = "Le code ne sert qu'une fois : l'appareil qui ouvre le lien devient l'écran.";
 
 export function phrasesAppairage(cible: CibleAppairage): PhrasesAppairage {
   if (cible === "ordinateur") {
@@ -30,7 +29,7 @@ export function phrasesAppairage(cible: CibleAppairage): PhrasesAppairage {
       appareil: "l'ordinateur des enfants",
       navigateur: "Chrome",
       intro: "Deux façons de relier l'ordinateur des enfants. Le code est valide 30 minutes.",
-      avertissement: `À ouvrir uniquement sur l'ordinateur des enfants. ${NULLE_PART_AILLEURS}`,
+      avertissement: `À ouvrir uniquement sur l'ordinateur des enfants. ${UNE_SEULE_FOIS} N'ouvre jamais ce lien sur ton téléphone ni sur un autre ordinateur.`,
       code: "Sur l'ordinateur des enfants, tape dans Chrome :",
       lien: "À taper ou coller dans Chrome sur l'ordinateur des enfants, et nulle part ailleurs.",
       qr: false,
@@ -40,7 +39,7 @@ export function phrasesAppairage(cible: CibleAppairage): PhrasesAppairage {
     appareil: "l'iPad",
     navigateur: "Safari",
     intro: "Trois façons de transférer la config sur ton iPad. Le code est valide 30 minutes.",
-    avertissement: `À ouvrir uniquement sur l'iPad. ${NULLE_PART_AILLEURS}`,
+    avertissement: `À ouvrir uniquement sur l'iPad. ${UNE_SEULE_FOIS} N'ouvre jamais ce lien sur ton téléphone ou ton ordinateur.`,
     code: "Tape sur l'iPad dans Safari :",
     lien: "À taper ou coller dans Safari sur l'iPad. Tu peux l'envoyer à l'iPad par AirDrop / iMessage, mais ne l'ouvre nulle part ailleurs.",
     qr: true,

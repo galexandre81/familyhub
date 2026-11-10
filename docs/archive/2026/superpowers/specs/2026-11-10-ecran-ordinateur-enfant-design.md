@@ -5,8 +5,8 @@ retenue, carte « PC des enfants » cachée sur cet écran).
 
 ## Pourquoi
 
-Adèle (13 ans) veut voir les menus de la semaine et les recettes depuis son PC Linux (Chrome,
-icône déjà sur son bureau). Elle n'a pas de compte Family Hub et n'en aura pas pour l'instant :
+Une enfant du foyer (13 ans) veut voir les menus de la semaine et les recettes depuis son PC Linux
+(Chrome, icône déjà sur son bureau). Elle n'a pas de compte Family Hub et n'en aura pas pour l'instant :
 le rôle « enfant » n'existe que de nom (les règles Firestore donnent tout le foyer à tout membre,
 les invitations ne créent que des parents, l'inscription Firebase est fermée). Lui ouvrir un
 compte demanderait de réécrire les règles par collection et par rôle.
@@ -80,8 +80,9 @@ dans les types) sait déjà vivre avec plusieurs écrans.
 
 ## Côté propriétaire, après déploiement
 
-1. Réglages du PC des enfants : ajouter `family-hub-guillaume.web.app` et `cloudfunctions.net`
-   à la liste du mode devoirs (`googleapis.com` et `gstatic.com` y sont déjà).
-2. Page « iPad de cuisine » : « Ajouter l'ordinateur des enfants », puis « Appairer », et ouvrir
-   le lien `/d/<code>` dans Chrome sur son PC.
-3. Faire pointer l'icône de son bureau vers `https://family-hub-guillaume.web.app/display/`.
+1. Réglages du PC des enfants : ajouter le domaine du site (`<projet>.web.app`) et
+   `cloudfunctions.net` à la liste du mode devoirs (`googleapis.com` et `gstatic.com` y sont déjà).
+2. Page « iPad de cuisine » : « Ajouter l'ordinateur des enfants », puis « Relier », et ouvrir
+   le lien `/d/<code>` dans Chrome sur son PC. Si un écran y apparaît déjà comme relié (un
+   ordinateur appairé avant la refonte), le retirer d'abord.
+3. Faire pointer l'icône de son bureau vers `https://<projet>.web.app/display/`.

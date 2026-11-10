@@ -254,8 +254,11 @@ export default function IpadCuisine() {
               Pour qu'un enfant voie les menus et les recettes sur son ordinateur, en lecture seule : le même
               tableau que l'iPad, sans la carte du PC des enfants. L'iPad garde son propre appairage.
             </p>
+            {ordinateur && (
+              <p className="text-base text-cream mt-2 font-semibold">{ordinateur.nom}</p>
+            )}
             {etatOrdinateur?.etat === "appaire" && (
-              <p className="flex items-center gap-2 text-base text-cream mt-2">
+              <p className="flex items-center gap-2 text-base text-cream mt-1">
                 <Check size={18} aria-hidden="true" className="text-brass" />
                 Relié
                 {etatOrdinateur.jusquau !== null && (

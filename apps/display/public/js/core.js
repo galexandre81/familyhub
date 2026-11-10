@@ -659,7 +659,8 @@
       }
       /* PC des enfants (lecture seule) : la carte du tableau suit ses changements.
          Pas sur l'écran d'un enfant : rien n'y est lu ni affiché. */
-      var avecPc = !window.FamilyHubTableau || window.FamilyHubTableau.montrerCartePc(state.displayConfig);
+      var T = window.FamilyHubTableau;
+      var avecPc = !(T && typeof T.montrerCartePc === 'function') || T.montrerCartePc(state.displayConfig);
       if (window.FamilyHubPc && avecPc) {
         window.FamilyHubPc.demarrer(state.db, state.functions, hid, function () {
           if (state.tableau) state.tableau.actualiser();
