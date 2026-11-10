@@ -58,12 +58,12 @@ Notifications : trois demandes d'essai ont fait sonner un appareil chacune
    0 requête sur 300 000, aucun appareil, aucune IP sur 30 jours, journaux
    activés. Le PC sert depuis le 27.10 : il ne résout donc pas par ce profil.
    - **Écart documenté** : le contrat de l'agent (25.10, agent 1.0.0, § NextDNS)
-     dit que le PC envoie son DNS au profil du **compte NextDNS d'origine** de
-     Guillaume, sous le nom d'appareil `pcAdele`. Le compte séparé (décision du
+     dit que le PC envoie son DNS au profil du **compte NextDNS d'origine** du
+     propriétaire, sous un nom d'appareil convenu. Le compte séparé (décision du
      26.10, NEXTDNS.md) a été créé après : rien dans le dépôt ni dans le contrat
      ne dit que le PC a été rebranché sur son profil. Cause la plus probable.
      Vérification sans toucher au PC : le profil d'origine montre-t-il du trafic
-     `pcAdele` depuis le 27.10 ?
+     de cet appareil depuis le 27.10 ?
    - Autres causes à écarter avec le rapport du script, par ordre de
      probabilité : dnsmasq de la liste devoirs ou systemd-resolved qui tient le
      port 53 et renvoie vers le DNS de la box au lieu du client NextDNS ; étape
@@ -71,10 +71,11 @@ Notifications : trois demandes d'essai ont fait sonner un appareil chacune
      service désactivé ; DNS du DHCP repris par NetworkManager ; DNS sécurisé
      de Chrome (politique `DnsOverHttpsMode` absente, Chrome parle alors à
      Google en DoH et court-circuite le système) ; configuration faite dans la
-     session de Guillaume et pas pour le compte de l'enfant (la règle nftables
+     session du parent et pas pour le compte de l'enfant (la règle nftables
      par UID ne s'applique qu'à elle).
    - **À faire ce soir sur le PC** : `sudo bash scripts/diagnostic-dns-pc.sh
-     <id du profil attendu> adele` (lecture seule : resolvectl, résolveur en
+     <id du profil attendu> <compte de l'enfant> <préfixe de l'agent>` (lecture
+     seule : resolvectl, résolveur en
      place, NetworkManager, client NextDNS, dnsmasq, nftables, agent et ses
      journaux, politiques Chrome, réponse de test.nextdns.io depuis root et
      depuis le compte de l'enfant). Coller le rapport dans la session ; aucun
@@ -85,7 +86,7 @@ Notifications : trois demandes d'essai ont fait sonner un appareil chacune
      concorde avec le constat.
    - Accès à distance : aucun SSH prévu (ni dans le prompt du 25.10, ni dans le
      contrat, ni sur ce poste) ; l'agent a été construit dans une session Claude
-     Code pilotée par Remote Control sur le compte de Guillaume.
+     Code pilotée par Remote Control sur le compte administrateur du PC.
 4. **Au bout de deux semaines de filtrage effectif** : regarder la jauge du
    filtre internet ; passer NextDNS en Pro si le mois approche la limite.
 

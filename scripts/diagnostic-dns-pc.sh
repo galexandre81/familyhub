@@ -4,9 +4,10 @@
 # fichier de rapport dans le dossier personnel de celui qui le lance.
 #
 # Usage, sur le PC, depuis le compte administrateur :
-#   sudo bash diagnostic-dns-pc.sh <id du profil NextDNS attendu> [compte de l'enfant]
-# Exemple :
-#   sudo bash diagnostic-dns-pc.sh abc123 adele
+#   sudo bash diagnostic-dns-pc.sh <id du profil NextDNS attendu> <compte de l'enfant> [préfixe de l'agent]
+# Le préfixe de l'agent est le nom donné au service et aux dossiers du contrôle
+# parental sur ce PC (service <préfixe>-agent, /etc/<préfixe>, <préfixe>-ctl) ;
+# défaut : pc-enfant. Aucun identifiant réel dans ce script (dépôt public).
 # Le rapport est écrit dans ~/diagnostic-dns-<date>.txt : le coller tel quel
 # dans la session Family Hub. Les mots de passe, clés et jetons rencontrés
 # dans les fichiers lus sont masqués (***) avant écriture.
@@ -14,13 +15,14 @@
 set -u -o pipefail
 
 PROFIL_ATTENDU="${1:-}"
-ENFANT="${2:-adele}"
+ENFANT="${2:-}"
+AGENT="${3:-pc-enfant}"
 MAISON="${SUDO_USER:+$(getent passwd "$SUDO_USER" | cut -d: -f6)}"
 MAISON="${MAISON:-$HOME}"
 RAPPORT="$MAISON/diagnostic-dns-$(date +%F-%H%M).txt"
 
-if [ -z "$PROFIL_ATTENDU" ]; then
-  echo "Donne l'ID du profil NextDNS attendu en premier argument." >&2
+if [ -z "$PROFIL_ATTENDU" ] || [ -z "$ENFANT" ]; then
+  echo "Usage : sudo bash diagnostic-dns-pc.sh <id du profil NextDNS attendu> <compte de l'enfant> [préfixe de l'agent]" >&2
   exit 1
 fi
 
@@ -136,16 +138,16 @@ run "Service nftables" systemctl status nftables --no-pager -l
 run "Jeu de règles complet" nft list ruleset
 fichier /etc/nftables.conf
 
-section "7. Agent du contrôle parental (pc-adele)"
-run "Unités pc-adele" bash -c 'systemctl list-units --all --no-pager 2>/dev/null | grep -i "pc-adele"; systemctl list-unit-files --no-pager 2>/dev/null | grep -i "pc-adele"'
-run "Service pc-adele-agent" systemctl status pc-adele-agent --no-pager -l
-run "Journal pc-adele-agent (150 dernières lignes)" journalctl -u pc-adele-agent -n 150 --no-pager
-run "Journal de l'agent : lignes DNS / NextDNS / internet" bash -c 'journalctl -u pc-adele-agent -n 3000 --no-pager 2>/dev/null | grep -i -E "dns|nextdns|internet|network|school|allowlist" | tail -n 60'
-run "pc-adele-ctl status" pc-adele-ctl status
-run "Contenu de /etc/pc-adele (noms et droits seulement)" ls -la /etc/pc-adele
-fichier /etc/pc-adele/agent.json
-run "Fichiers de l'agent mentionnant nextdns ou un profil" bash -c 'grep -rn -i -E "nextdns|profile|profil" /etc/pc-adele /usr/local/lib/pc-adele /usr/local/bin/pc-adele* /opt/pc-adele 2>/dev/null | grep -v -i -E "password|apikey|api_key|token|secret" | head -n 80'
-run "README de l'agent : passages DNS" bash -c 'f=$(ls /home/*/pc-adele/README.md 2>/dev/null | head -n1); [ -n "$f" ] && grep -n -i -E "nextdns|dns|resolv|doh|profil" "$f" | head -n 80'
+section "7. Agent du contrôle parental ($AGENT)"
+run "Unités $AGENT" bash -c 'systemctl list-units --all --no-pager 2>/dev/null | grep -i "'"$AGENT"'"; systemctl list-unit-files --no-pager 2>/dev/null | grep -i "'"$AGENT"'"'
+run "Service $AGENT-agent" systemctl status "$AGENT-agent" --no-pager -l
+run "Journal $AGENT-agent (150 dernières lignes)" journalctl -u "$AGENT-agent" -n 150 --no-pager
+run "Journal de l'agent : lignes DNS / NextDNS / internet" bash -c 'journalctl -u "'"$AGENT"'-agent" -n 3000 --no-pager 2>/dev/null | grep -i -E "dns|nextdns|internet|network|school|allowlist" | tail -n 60'
+run "$AGENT-ctl status" "$AGENT-ctl" status
+run "Contenu de /etc/$AGENT (noms et droits seulement)" ls -la "/etc/$AGENT"
+fichier "/etc/$AGENT/agent.json"
+run "Fichiers de l'agent mentionnant nextdns ou un profil" bash -c 'grep -rn -i -E "nextdns|profile|profil" /etc/"'"$AGENT"'" /usr/local/lib/"'"$AGENT"'" /usr/local/bin/"'"$AGENT"'"* /opt/"'"$AGENT"'" 2>/dev/null | grep -v -i -E "password|apikey|api_key|token|secret" | head -n 80'
+run "README de l'agent : passages DNS" bash -c 'f=$(ls /home/*/"'"$AGENT"'"/README.md 2>/dev/null | head -n1); [ -n "$f" ] && grep -n -i -E "nextdns|dns|resolv|doh|profil" "$f" | head -n 80'
 
 section "8. Chrome : politiques et DNS sécurisé"
 run "Politiques gérées" bash -c 'for f in /etc/opt/chrome/policies/managed/*.json /etc/opt/chrome/policies/recommended/*.json; do [ -f "$f" ] && { echo "== $f"; cat "$f"; echo; }; done'
@@ -163,8 +165,8 @@ run "Les serveurs DNS joignables en direct ? (port 53 UDP vers le résolveur du 
 run "Un domaine de catégorie bloquée répond-il ? (doit donner 0.0.0.0 si NextDNS filtre)" bash -c 'dig +short +time=5 +tries=1 pornhub.com 2>/dev/null | head -n 3'
 
 section "10. Recherche de l'ID de profil dans toute la configuration"
-run "Fichiers système citant le profil attendu ($PROFIL_ATTENDU)" bash -c 'grep -rl -F "'"$PROFIL_ATTENDU"'" /etc /usr/local /opt /var/lib/pc-adele 2>/dev/null | head -n 30'
-run "Tout ID de profil NextDNS présent dans /etc (6 caractères hexadécimaux après dns.nextdns.io ou profile)" bash -c 'grep -rhoE "([0-9a-f]{6})\.dns\.nextdns\.io|dns\.nextdns\.io/[0-9a-f]{6}|(profile|-profile|profil)[\"'"'"'= :]+[0-9a-f]{6}" /etc /usr/local/lib/pc-adele /opt/pc-adele 2>/dev/null | sort | uniq -c'
+run "Fichiers système citant le profil attendu ($PROFIL_ATTENDU)" bash -c 'grep -rl -F "'"$PROFIL_ATTENDU"'" /etc /usr/local /opt /var/lib/"'"$AGENT"'" 2>/dev/null | head -n 30'
+run "Tout ID de profil NextDNS présent dans /etc (6 caractères hexadécimaux après dns.nextdns.io ou profile)" bash -c 'grep -rhoE "([0-9a-f]{6})\.dns\.nextdns\.io|dns\.nextdns\.io/[0-9a-f]{6}|(profile|-profile|profil)[\"'"'"'= :]+[0-9a-f]{6}" /etc /usr/local/lib/"'"$AGENT"'" /opt/"'"$AGENT"'" 2>/dev/null | sort | uniq -c'
 
 section "Fin"
 echo "Rapport : $RAPPORT" >>"$RAPPORT"
