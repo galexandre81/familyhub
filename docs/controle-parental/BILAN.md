@@ -53,8 +53,41 @@ Notifications : trois demandes d'essai ont fait sonner un appareil chacune
    toucher, rapport, défilement de « La journée ».
 2. **Une vraie décision** depuis le téléphone (ex. Temps libre 30 min) :
    le PC l'applique, l'iPad la montre.
-3. **Au bout de deux semaines** : regarder la jauge du filtre internet ; passer
-   NextDNS en Pro si le mois approche la limite.
+3. **Le filtre DNS n'est pas actif** (constat du 10.11, remplace « surveiller
+   le quota »). Sur le compte NextDNS séparé du PC, profil « PC des enfants » :
+   0 requête sur 300 000, aucun appareil, aucune IP sur 30 jours, journaux
+   activés. Le PC sert depuis le 27.10 : il ne résout donc pas par ce profil.
+   - **Écart documenté** : le contrat de l'agent (25.10, agent 1.0.0, § NextDNS)
+     dit que le PC envoie son DNS au profil du **compte NextDNS d'origine** de
+     Guillaume, sous le nom d'appareil `pcAdele`. Le compte séparé (décision du
+     26.10, NEXTDNS.md) a été créé après : rien dans le dépôt ni dans le contrat
+     ne dit que le PC a été rebranché sur son profil. Cause la plus probable.
+     Vérification sans toucher au PC : le profil d'origine montre-t-il du trafic
+     `pcAdele` depuis le 27.10 ?
+   - Autres causes à écarter avec le rapport du script, par ordre de
+     probabilité : dnsmasq de la liste devoirs ou systemd-resolved qui tient le
+     port 53 et renvoie vers le DNS de la box au lieu du client NextDNS ; étape
+     « client NextDNS en service système » (phase 5 du prompt) jamais faite ou
+     service désactivé ; DNS du DHCP repris par NetworkManager ; DNS sécurisé
+     de Chrome (politique `DnsOverHttpsMode` absente, Chrome parle alors à
+     Google en DoH et court-circuite le système) ; configuration faite dans la
+     session de Guillaume et pas pour le compte de l'enfant (la règle nftables
+     par UID ne s'applique qu'à elle).
+   - **À faire ce soir sur le PC** : `sudo bash scripts/diagnostic-dns-pc.sh
+     <id du profil attendu> adele` (lecture seule : resolvectl, résolveur en
+     place, NetworkManager, client NextDNS, dnsmasq, nftables, agent et ses
+     journaux, politiques Chrome, réponse de test.nextdns.io depuis root et
+     depuis le compte de l'enfant). Coller le rapport dans la session ; aucun
+     correctif avant.
+   - Le hub lit le profil dans `devices/{id}/private/nextdns` : si ce champ
+     porte le profil du compte séparé pendant que le PC parle à l'autre, le
+     rapport « Internet aujourd'hui » reste vide et la jauge à zéro, ce qui
+     concorde avec le constat.
+   - Accès à distance : aucun SSH prévu (ni dans le prompt du 25.10, ni dans le
+     contrat, ni sur ce poste) ; l'agent a été construit dans une session Claude
+     Code pilotée par Remote Control sur le compte de Guillaume.
+4. **Au bout de deux semaines de filtrage effectif** : regarder la jauge du
+   filtre internet ; passer NextDNS en Pro si le mois approche la limite.
 
 ## Checklist : le contrat réel face au module
 

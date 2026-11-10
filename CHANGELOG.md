@@ -13,6 +13,7 @@ Format [Keep a Changelog](https://keepachangelog.com/fr/1.1.0/), par date (le pr
 - PC des enfants : notifications des demandes. Chaque parent active « Me prévenir des demandes » sur ses téléphones et ordinateurs ; une demande de l'enfant les fait tous sonner, et un toucher ouvre l'écran du PC. Fonction `notifierDemandePc`, liste de jetons par parent (`devices/{id}/notifySubscribers/{uid}`), service worker `notifications-sw.js`.
 
 ### Documentation
+- PC des enfants : constat du 10.11 (le filtre NextDNS ne reçoit aucune requête depuis la mise en service), écart relevé entre le profil du contrat de l'agent et le compte séparé, causes à écarter, dans `docs/controle-parental/BILAN.md` ; script de diagnostic en lecture seule `scripts/diagnostic-dns-pc.sh` à lancer sur le PC.
 - Rangement de la documentation : `CLAUDE.md`, `docs/ETAT.md`, `docs/architecture.md`, `docs/decisions/`, `docs/exploitation/`, archive des specs et plans livrés (`docs/archive/INDEX.md`). Aucun changement de code.
 
 ## 2026-10-25 — Refonte iPad de cuisine + téléphone (PR #21 à #30)
