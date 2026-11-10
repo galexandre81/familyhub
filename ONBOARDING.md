@@ -799,7 +799,7 @@ Le tableau de l'iPad a une disposition **fixe** (en-tête avec l'heure et la mé
 
 L'appairage se renouvelle tout seul tant que l'iPad est allumé au moins une fois tous les 90 jours. La page **iPad de cuisine** indique son état (« Appairé », « Appairage expiré »).
 
-> ⚠️ **Un seul iPad à la fois** : appairer un autre appareil déconnecte le premier, qui affiche « Écran appairé ailleurs — à reconfigurer ».
+> ⚠️ **Un seul iPad à la fois** : appairer un autre iPad avec ce bouton déconnecte le premier, qui affiche « Écran appairé ailleurs — à reconfigurer ». L'ordinateur d'un enfant, lui, a sa propre section « Ordinateur des enfants » sur la même page, avec son propre code : il n'entre pas en concurrence avec l'iPad, et la carte « PC des enfants » n'y apparaît pas.
 
 > ⚠️ **Le code s'utilise une seule fois.** Si tu te trompes d'appareil, clique à nouveau **Appairer l'iPad** et recommence sur le bon.
 

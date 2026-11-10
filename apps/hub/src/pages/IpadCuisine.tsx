@@ -6,12 +6,14 @@
  * 1. L'iPad : état de l'appairage, « Appairer l'iPad » (code à taper sur
  *    l'iPad), « Mettre à jour l'iPad », « Préparer l'écran de cuisine » s'il
  *    lui manque des sources (ou s'il en garde d'anciennes).
- * 2. Ce qu'il affiche : les sources du tableau, et l'adresse de l'agenda.
- * 3. Anciens écrans (téléphones, PC appairés avant la refonte) : à supprimer.
+ * 2. L'ordinateur des enfants : un second écran de cuisine, en lecture seule
+ *    (même tableau, sans la carte « PC des enfants »), avec son propre code.
+ * 3. Ce qu'il affiche : les sources du tableau, et l'adresse de l'agenda.
+ * 4. Anciens écrans (téléphones, PC appairés avant la refonte) : à supprimer.
  */
 import { useState } from "react";
-import { Check, RefreshCw, Tablet, Trash2, TriangleAlert, Wand2 } from "lucide-react";
-import type { TileType } from "@family-hub/types";
+import { Check, Monitor, RefreshCw, Tablet, Trash2, TriangleAlert, Wand2 } from "lucide-react";
+import type { DisplayLayoutEntry, TileType } from "@family-hub/types";
 import { useAuth } from "../lib/auth";
 import { useActiveHouseholdId, useDisplays, useHouseholds, useTiles } from "../lib/queries";
 import {
@@ -27,7 +29,8 @@ import {
   tuileParDefaut,
   typesPresents,
 } from "../lib/ecranCuisine";
-import { autresEcrans, choisirIpad, etatAppairage } from "../lib/ipadCuisine";
+import { TYPE_ORDINATEUR, autresEcrans, choisirIpad, choisirOrdinateur, etatAppairage } from "../lib/ipadCuisine";
+import type { CibleAppairage } from "../lib/appairage";
 import { rafraichirEcransSansAttendre } from "../lib/rafraichirEcrans";
 import SetupTokenModal from "../components/SetupTokenModal";
 import CalendarUrlSection from "../components/CalendarUrlSection";
@@ -54,9 +57,10 @@ export default function IpadCuisine() {
   const updateLayout = useUpdateDisplayLayout();
   const deleteDisplay = useDeleteDisplay();
 
-  const [appairageOuvert, setAppairageOuvert] = useState(false);
+  /* Fenêtre d'appairage ouverte pour un écran donné (l'iPad ou l'ordinateur). */
+  const [appairage, setAppairage] = useState<{ id: string; nom: string; cible: CibleAppairage } | null>(null);
   const [message, setMessage] = useState<string | null>(null);
-  const [preparation, setPreparation] = useState(false);
+  const [preparation, setPreparation] = useState<string | null>(null);
 
   if (!householdId) {
     return (
@@ -68,12 +72,18 @@ export default function IpadCuisine() {
   }
 
   const ipad = choisirIpad(ecrans ?? []);
-  const anciens = autresEcrans(ecrans ?? [], ipad);
+  const ordinateur = choisirOrdinateur(ecrans ?? []);
+  const anciens = autresEcrans(ecrans ?? [], ipad, ordinateur);
   const tuiles = tiles ?? [];
   const layout = ipad?.layout ?? [];
   const presents = typesPresents(layout, tuiles);
   const manquantes = TYPES_TABLEAU.filter((t) => !presents.has(t));
   const aJour = manquantes.length === 0 && layoutCuisine(layout, tuiles).retirees.length === 0;
+  const layoutOrdinateur = ordinateur?.layout ?? [];
+  const ordinateurAJour =
+    !!ordinateur &&
+    TYPES_TABLEAU.every((t) => typesPresents(layoutOrdinateur, tuiles).has(t)) &&
+    layoutCuisine(layoutOrdinateur, tuiles).retirees.length === 0;
   const localisation = households?.find((h) => h.id === householdId)?.parametres?.localisation;
   const tuileAgenda = tuiles.find((t) => t.type === "calendar");
 
@@ -96,32 +106,52 @@ export default function IpadCuisine() {
     }
   }
 
-  async function preparer() {
-    if (!ipad) return;
-    setPreparation(true);
+  /** Ajoute l'ordinateur des enfants et lui donne tout de suite les sources du tableau. */
+  async function ajouterOrdinateur() {
+    try {
+      const id = await createDisplay.mutateAsync({
+        householdId: householdId!,
+        nom: "Ordinateur des enfants",
+        type: TYPE_ORDINATEUR,
+        resolution: { w: 1280, h: 800 },
+        gridConfig: { cols: 4, rows: 3, gap: 16 },
+      });
+      await preparerEcran(id, []);
+    } catch {
+      afficher("Impossible d'ajouter l'ordinateur pour l'instant. Réessaie dans un moment.");
+    }
+  }
+
+  /** Donne à un écran les sources du tableau (crée celles qui manquent au foyer). */
+  async function preparerEcran(displayId: string, layoutActuel: DisplayLayoutEntry[]) {
+    setPreparation(displayId);
     setMessage(null);
     try {
-      const { aCreer } = layoutCuisine(layout, tuiles);
+      const { aCreer } = layoutCuisine(layoutActuel, tuiles);
       const creees: Array<{ id: string; type: string }> = [];
       for (const type of aCreer) {
         const def = tuileParDefaut(type as TileType, localisation);
         const id = await createTile.mutateAsync({ householdId: householdId!, type: type as TileType, ...def });
         creees.push({ id, type });
       }
-      const { layout: nouveau } = layoutCuisine(layout, [...tuiles, ...creees]);
-      await updateLayout.mutateAsync({ householdId: householdId!, displayId: ipad.id, layout: nouveau });
+      const { layout: nouveau } = layoutCuisine(layoutActuel, [...tuiles, ...creees]);
+      await updateLayout.mutateAsync({ householdId: householdId!, displayId, layout: nouveau });
       rafraichirEcransSansAttendre(householdId!, "tout");
-      afficher("L'écran de cuisine est prêt. Les données arrivent dans un instant.");
+      afficher("L'écran est prêt. Les données arrivent dans un instant.");
     } catch {
       afficher("Impossible de préparer l'écran pour l'instant. Réessaie dans un moment.");
     } finally {
-      setPreparation(false);
+      setPreparation(null);
     }
+  }
+
+  function preparer() {
+    if (ipad) return preparerEcran(ipad.id, layout);
   }
 
   function mettreAJour() {
     rafraichirEcransSansAttendre(householdId!, "tout");
-    afficher("Mise à jour demandée : l'iPad se met à jour dans un instant.");
+    afficher("Mise à jour demandée : les écrans se mettent à jour dans un instant.");
   }
 
   function supprimer(id: string, nom: string) {
@@ -130,6 +160,7 @@ export default function IpadCuisine() {
   }
 
   const etat = ipad ? etatAppairage(ipad, Date.now()) : null;
+  const etatOrdinateur = ordinateur ? etatAppairage(ordinateur, Date.now()) : null;
 
   return (
     <div className="space-y-6 max-w-3xl">
@@ -188,7 +219,11 @@ export default function IpadCuisine() {
             )}
           </div>
           <div className="flex flex-wrap gap-3">
-            <button type="button" onClick={() => setAppairageOuvert(true)} className={etat.etat === "appaire" ? SECONDAIRE : PRINCIPAL}>
+            <button
+              type="button"
+              onClick={() => setAppairage({ id: ipad.id, nom: ipad.nom, cible: "ipad" })}
+              className={etat.etat === "appaire" ? SECONDAIRE : PRINCIPAL}
+            >
               Appairer l'iPad
             </button>
             <button type="button" onClick={mettreAJour} className={SECONDAIRE}>
@@ -196,15 +231,99 @@ export default function IpadCuisine() {
               Mettre à jour l'iPad
             </button>
             {!aJour && (
-              <button type="button" onClick={() => void preparer()} disabled={preparation} className={PRINCIPAL}>
+              <button type="button" onClick={() => void preparer()} disabled={preparation !== null} className={PRINCIPAL}>
                 <Wand2 size={18} aria-hidden="true" />
-                {preparation ? "Préparation…" : "Préparer l'écran de cuisine"}
+                {preparation === ipad.id ? "Préparation…" : "Préparer l'écran de cuisine"}
               </button>
             )}
           </div>
           <p className="text-[15px] text-cream-mute">
             « Appairer » donne un code à 6 caractères à taper sur l'iPad (bandeau « à reconfigurer »), dans Safari.
           </p>
+        </section>
+      )}
+
+      {!isLoading && !isError && (
+        <section className={`${CARTE} space-y-4`} aria-labelledby="ordinateur-titre">
+          <div>
+            <h2 id="ordinateur-titre" className="text-xl font-semibold text-cream flex items-center gap-2">
+              <Monitor size={22} aria-hidden="true" className="text-brass" />
+              Ordinateur des enfants
+            </h2>
+            <p className="text-base text-cream-mute mt-1">
+              Pour qu'un enfant voie les menus et les recettes sur son ordinateur, en lecture seule : le même
+              tableau que l'iPad, sans la carte du PC des enfants. L'iPad garde son propre appairage.
+            </p>
+            {ordinateur && (
+              <p className="text-base text-cream mt-2 font-semibold">{ordinateur.nom}</p>
+            )}
+            {etatOrdinateur?.etat === "appaire" && (
+              <p className="flex items-center gap-2 text-base text-cream mt-1">
+                <Check size={18} aria-hidden="true" className="text-brass" />
+                Relié
+                {etatOrdinateur.jusquau !== null && (
+                  <span className="text-cream-mute">· se renouvelle tout seul (prochaine échéance le {dateLongue(etatOrdinateur.jusquau)})</span>
+                )}
+              </p>
+            )}
+            {etatOrdinateur?.etat === "expire" && (
+              <p className="flex items-center gap-2 text-base text-red-600 mt-2">
+                <TriangleAlert size={18} aria-hidden="true" />
+                Liaison expirée depuis le {dateLongue(etatOrdinateur.depuis)} : relie-le à nouveau.
+              </p>
+            )}
+            {etatOrdinateur?.etat === "jamais" && (
+              <p className="flex items-center gap-2 text-base text-cream-mute mt-2">
+                <TriangleAlert size={18} aria-hidden="true" />
+                Pas encore relié.
+              </p>
+            )}
+          </div>
+          {!ordinateur && (
+            <button type="button" onClick={() => void ajouterOrdinateur()} disabled={createDisplay.isPending} className={SECONDAIRE}>
+              Ajouter l'ordinateur des enfants
+            </button>
+          )}
+          {ordinateur && etatOrdinateur && (
+            <>
+              <div className="flex flex-wrap gap-3">
+                <button
+                  type="button"
+                  onClick={() => setAppairage({ id: ordinateur.id, nom: ordinateur.nom, cible: "ordinateur" })}
+                  className={etatOrdinateur.etat === "appaire" ? SECONDAIRE : PRINCIPAL}
+                >
+                  Relier l'ordinateur
+                </button>
+                <button type="button" onClick={mettreAJour} className={SECONDAIRE}>
+                  <RefreshCw size={18} aria-hidden="true" />
+                  Mettre à jour
+                </button>
+                {!ordinateurAJour && (
+                  <button
+                    type="button"
+                    onClick={() => void preparerEcran(ordinateur.id, layoutOrdinateur)}
+                    disabled={preparation !== null}
+                    className={PRINCIPAL}
+                  >
+                    <Wand2 size={18} aria-hidden="true" />
+                    {preparation === ordinateur.id ? "Préparation…" : "Préparer cet écran"}
+                  </button>
+                )}
+                <button
+                  type="button"
+                  onClick={() => supprimer(ordinateur.id, ordinateur.nom)}
+                  disabled={deleteDisplay.isPending && deleteDisplay.variables?.displayId === ordinateur.id}
+                  className={SECONDAIRE}
+                >
+                  <Trash2 size={18} aria-hidden="true" />
+                  Retirer cet écran
+                </button>
+              </div>
+              <p className="text-[15px] text-cream-mute">
+                « Relier » donne un code à 6 caractères à ouvrir dans Chrome sur l'ordinateur de l'enfant, et nulle part ailleurs.
+              </p>
+            </>
+          )}
         </section>
       )}
 
@@ -261,13 +380,14 @@ export default function IpadCuisine() {
         </section>
       )}
 
-      {appairageOuvert && ipad && (
+      {appairage && (
         <SetupTokenModal
           householdId={householdId}
-          displayId={ipad.id}
-          displayNom={ipad.nom}
+          displayId={appairage.id}
+          displayNom={appairage.nom}
+          cible={appairage.cible}
           onClose={() => {
-            setAppairageOuvert(false);
+            setAppairage(null);
             void refetch();
           }}
         />

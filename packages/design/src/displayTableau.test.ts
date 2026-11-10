@@ -61,6 +61,7 @@ interface ApiTableau {
   };
   meteoResume(data: unknown, config: unknown): null | { temp: string; ciel: string; ville: string };
   titrePc(foyer: unknown): string;
+  montrerCartePc(ecran: unknown): boolean;
   resumeBatch(data: unknown, now: Date): null | {
     titre: string;
     duree: string;
@@ -363,5 +364,18 @@ describe("titrePc (nom de la carte du PC des enfants)", () => {
   });
   it("coupé à 30 caractères, comme le hub", () => {
     expect(t.titrePc({ parametres: { nomPcEnfants: "x".repeat(50) } })).toHaveLength(30);
+  });
+});
+
+describe("montrerCartePc (la carte du PC n'a pas sa place sur l'écran d'un enfant)", () => {
+  it("cachée sur un écran de type ordinateur", () => {
+    expect(t.montrerCartePc({ type: "desktop" })).toBe(false);
+  });
+  it("montrée sur l'iPad, sur un écran sans type et sans document d'écran (ancien core.js)", () => {
+    expect(t.montrerCartePc({ type: "ipad-mini-1" })).toBe(true);
+    expect(t.montrerCartePc({ type: "modern-tablet" })).toBe(true);
+    expect(t.montrerCartePc({})).toBe(true);
+    expect(t.montrerCartePc(undefined)).toBe(true);
+    expect(t.montrerCartePc(null)).toBe(true);
   });
 });

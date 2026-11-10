@@ -2,11 +2,14 @@ import { useEffect, useId, useRef, useState } from "react";
 import QRCode from "react-qr-code";
 import { Copy, Check, X } from "lucide-react";
 import { useCreateDisplayToken } from "../lib/mutations";
+import { phrasesAppairage, type CibleAppairage } from "../lib/appairage";
 
 interface SetupTokenModalProps {
   householdId: string;
   displayId: string;
   displayNom: string;
+  /** Appareil visé : l'iPad de cuisine (défaut) ou l'ordinateur des enfants. */
+  cible?: CibleAppairage;
   onClose: () => void;
 }
 
@@ -14,8 +17,10 @@ export default function SetupTokenModal({
   householdId,
   displayId,
   displayNom,
+  cible = "ipad",
   onClose,
 }: SetupTokenModalProps) {
+  const phrases = phrasesAppairage(cible);
   const create = useCreateDisplayToken();
   const [shortUrl, setShortUrl] = useState<string | null>(null);
   const [longUrl, setLongUrl] = useState<string | null>(null);
@@ -111,13 +116,9 @@ export default function SetupTokenModal({
 
         <div>
           <h2 id={titleId} className="text-xl">Configurer « {displayNom} »</h2>
-          <p className="text-text-secondaire text-sm mt-1">
-            Trois façons de transférer la config sur ton iPad. Le code est valide 30 minutes.
-          </p>
+          <p className="text-text-secondaire text-sm mt-1">{phrases.intro}</p>
           <p className="text-sm mt-3 p-3 rounded-md border border-accent-chaud bg-accent-chaud/10">
-            <strong className="text-accent-chaud">À ouvrir uniquement sur l'iPad.</strong>{" "}
-            Le code ne sert qu'une fois : l'appareil qui ouvre le lien devient l'écran. N'ouvre
-            jamais ce lien sur ton téléphone ou ton ordinateur.
+            <strong className="text-accent-chaud">{phrases.avertissement}</strong>
           </p>
         </div>
 
@@ -125,12 +126,12 @@ export default function SetupTokenModal({
         {error && <p className="text-accent-chaud text-sm">{error}</p>}
 
         {shortUrl && shortId && (
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+          <div className={`grid grid-cols-1 gap-6 ${phrases.qr ? "md:grid-cols-2" : ""}`}>
             <div className="space-y-3">
               <div>
-                <p className="text-sm font-semibold mb-1">Option 1 — Code à 6 chiffres</p>
+                <p className="text-sm font-semibold mb-1">Option 1 — Code à 6 caractères</p>
                 <p className="text-text-secondaire text-xs">
-                  Tape sur l'iPad dans Safari : <code className="bg-bg-principal px-1.5 py-0.5 rounded">{shortHost.split("/")[0]}/d/{shortId}</code>
+                  {phrases.code} <code className="bg-bg-principal px-1.5 py-0.5 rounded">{shortHost.split("/")[0]}/d/{shortId}</code>
                 </p>
               </div>
               <div className="bg-bg-principal rounded-md p-4 text-center">
@@ -157,25 +158,24 @@ export default function SetupTokenModal({
                     {copied === "short" ? "Copié" : "Copier"}
                   </button>
                 </div>
-                <p className="text-text-secondaire text-xs mt-2">
-                  À taper ou coller dans Safari <strong>sur l'iPad</strong>. Tu peux l'envoyer à
-                  l'iPad par AirDrop / iMessage, mais ne l'ouvre nulle part ailleurs.
-                </p>
+                <p className="text-text-secondaire text-xs mt-2">{phrases.lien}</p>
               </div>
             </div>
 
-            <div className="space-y-2">
-              <p className="text-sm font-semibold">Option 3 — QR code</p>
-              <p className="text-text-secondaire text-xs">
-                Scanne-le <strong>directement avec l'appareil photo de l'iPad</strong> (iOS 11 ou
-                plus). Un vieil iPad qui ne scanne pas : utilise plutôt le code ou le lien court.
-                Ne le scanne jamais avec ton téléphone : le lien s'ouvrirait sur le téléphone et
-                c'est lui qui deviendrait l'écran.
-              </p>
-              <div className="bg-white p-4 rounded-md flex items-center justify-center">
-                <QRCode value={shortUrl} size={200} />
+            {phrases.qr && (
+              <div className="space-y-2">
+                <p className="text-sm font-semibold">Option 3 — QR code</p>
+                <p className="text-text-secondaire text-xs">
+                  Scanne-le <strong>directement avec l'appareil photo de {phrases.appareil}</strong> (iOS 11 ou
+                  plus). Un vieil iPad qui ne scanne pas : utilise plutôt le code ou le lien court.
+                  Ne le scanne jamais avec ton téléphone : le lien s'ouvrirait sur le téléphone et
+                  c'est lui qui deviendrait l'écran.
+                </p>
+                <div className="bg-white p-4 rounded-md flex items-center justify-center">
+                  <QRCode value={shortUrl} size={200} />
+                </div>
               </div>
-            </div>
+            )}
           </div>
         )}
 

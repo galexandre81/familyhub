@@ -1,6 +1,6 @@
 # État du projet
 
-Mis à jour le 03.11.2026. Seul document d'état du dépôt : le tenir à jour dans le même commit que tout changement de comportement.
+Mis à jour le 10.11.2026. Seul document d'état du dépôt : le tenir à jour dans le même commit que tout changement de comportement.
 
 ## En service
 
@@ -21,6 +21,7 @@ Déployé sur le projet Firebase du propriétaire, utilisé par le foyer : un iP
 | 27.10.2026 | Notifications des demandes : interrupteur « Me prévenir des demandes » par téléphone ou navigateur, fonction `notifierDemandePc` | PR #33, [BILAN](controle-parental/BILAN.md) phase 9 |
 | 27.10.2026 | iPad de cuisine : carte « PC des enfants » et rapport de la journée, en lecture seule (aucune décision sur l'iPad) | [BILAN](controle-parental/BILAN.md) phase 10 |
 | 01.11.2026 | Livre de recettes : desserts et gestes de base (types de repas « dessert » et « technique »), parcours « Je cuisine seule » sur l'iPad (tag `ado`, niveaux, gestes liés depuis la fiche), import qui enrichit un lot déjà importé (`--maj-source`). Choix techniques : un tag plutôt qu'un filtre de difficulté (la difficulté mesure la technique, pas la sécurité) ; gestes reliés par nom pour rester importables depuis un JSON. Rien à déployer côté fonctions ni règles. | branche `feat/repas-dessert` |
+| 10.11.2026 | Écran « Ordinateur des enfants » : la page « iPad de cuisine » gère un second écran de cuisine, en lecture seule, pour l'ordinateur d'un enfant (ajouter, relier avec son propre code, mettre à jour, retirer), sans toucher à l'appairage de l'iPad. Même tableau que l'iPad ; la carte « PC des enfants » et son rapport n'y apparaissent pas (le module du PC n'y démarre pas). Choix : un écran de type ordinateur plutôt qu'un compte ou un rôle « enfant », parce que les règles Firestore donnent tout le foyer à tout membre et qu'un écran est déjà en lecture seule par construction ; aucune règle ni fonction modifiée. Vérifié : tests hub et iPad, parcours dans Chromium sur émulateurs (deux écrans, tuiles partagées sans doublon, pas d'« anciens écrans »), banc DOM du tableau (0 carte PC sur un écran ordinateur, 1 sur l'iPad) ; l'appairage lui-même n'est pas exécutable dans l'émulateur (fonction `createDisplayToken` préexistante y échoue), à vérifier en prod. | branche `ecran-ordinateur-enfant`, [spec](archive/2026/superpowers/specs/2026-11-10-ecran-ordinateur-enfant-design.md) |
 
 ## En cours
 
@@ -39,7 +40,8 @@ Rien.
 
 ## Prochaines étapes
 
-- **PC des enfants** : suite dans [BILAN.md « Ce qui reste »](controle-parental/BILAN.md#ce-qui-reste-dans-lordre) (bascule de l'agent du PC, déploiement des notifications, essai réel).
+- **PC des enfants** : suite dans [BILAN.md « Ce qui reste »](controle-parental/BILAN.md#ce-qui-reste-dans-lordre) : le filtre NextDNS ne reçoit rien (constat du 10.11), rapport du script de diagnostic à lire avant tout correctif.
+- **Écran « Ordinateur des enfants », côté propriétaire après déploiement** : (1) réglages du PC des enfants, liste du mode devoirs : ajouter le domaine du site (`<projet>.web.app`) et `cloudfunctions.net` (renouvellement du jeton d'écran ; `googleapis.com` et `gstatic.com` y sont déjà) ; (2) page « iPad de cuisine » : « Ajouter l'ordinateur des enfants », puis « Relier » et ouvrir le lien `/d/<code>` dans Chrome sur l'ordinateur (si la section montre déjà un écran relié, c'est un ordinateur appairé avant la refonte : « Retirer cet écran » d'abord, puis « Ajouter ») ; (3) icône de son bureau vers `https://<projet>.web.app/display/`.
 - **Mises à jour de dépendances** proposées par Dependabot, en attente : PR #11 à #13, #15 à #18 et #20 (dont des montées de version majeures : Firebase 12, React Router 7, React, actions GitHub). À traiter une par une, CI verte et vérification sur l'iPad.
 - **Amendements proposés au guide [ONBOARDING.md](../ONBOARDING.md)** (26.10.2026, document canonique non modifié par le rangement) : « ~14 fonctions » (§ 7.4) devient « ~22 » (nombre exporté par `functions/src/index.ts`) ; `npm install` (§ 6.3, § 11, § 12.5) pourrait devenir `npm ci`, qui respecte le lockfile (sans gravité pour un foyer qui installe une fois).
 - **Connexion depuis l'application installée sur iPhone** : réglage à faire par le propriétaire (`VITE_FIREBASE_AUTH_DOMAIN` sur le domaine du site), voir [DESIGN.md § Téléphone](DESIGN.md#téléphone-application-installable). Fait ou non : inconnu.

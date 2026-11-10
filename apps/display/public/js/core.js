@@ -657,8 +657,11 @@
       if (window.FamilyHubTimers) {
         window.FamilyHubTimers.init(state.db, hid);
       }
-      /* PC des enfants (lecture seule) : la carte du tableau suit ses changements. */
-      if (window.FamilyHubPc) {
+      /* PC des enfants (lecture seule) : la carte du tableau suit ses changements.
+         Pas sur l'écran d'un enfant : rien n'y est lu ni affiché. */
+      var T = window.FamilyHubTableau;
+      var avecPc = !(T && typeof T.montrerCartePc === 'function') || T.montrerCartePc(state.displayConfig);
+      if (window.FamilyHubPc && avecPc) {
         window.FamilyHubPc.demarrer(state.db, state.functions, hid, function () {
           if (state.tableau) state.tableau.actualiser();
         });
@@ -897,7 +900,10 @@
     state.tableau = window.FamilyHubTableau.monter(hote, {
       sources: sourcesParType,
       /* Document du foyer (nom de la carte « PC des enfants »…). */
-      foyer: function () { return state.householdConfig; }
+      foyer: function () { return state.householdConfig; },
+      /* Document de cet écran (son type : pas de carte « PC des enfants »
+         sur l'ordinateur d'un enfant). */
+      ecran: function () { return state.displayConfig; }
     });
     showGrid();
   }

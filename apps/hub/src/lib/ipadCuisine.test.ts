@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { autresEcrans, choisirIpad, etatAppairage } from "./ipadCuisine";
+import { autresEcrans, choisirIpad, choisirOrdinateur, etatAppairage } from "./ipadCuisine";
 
 const NOW = Date.UTC(2026, 9, 25, 18, 0);
 
@@ -18,6 +18,29 @@ describe("choisirIpad", () => {
     const ecrans = [{ id: "tel", type: "mobile" }];
     expect(choisirIpad(ecrans)).toBeNull();
     expect(autresEcrans(ecrans, null)).toHaveLength(1);
+  });
+});
+
+describe("choisirOrdinateur", () => {
+  it("prend l'ordinateur modifié le plus récemment, jamais une tablette ni un téléphone", () => {
+    const ecrans = [
+      { id: "ipad", type: "ipad-mini-1", updatedAt: new Date(NOW) },
+      { id: "vieux-pc", type: "desktop", updatedAt: new Date(NOW - 10_000) },
+      { id: "pc", type: "desktop", updatedAt: new Date(NOW - 1_000) },
+      { id: "tel", type: "mobile", updatedAt: new Date(NOW) },
+      { id: "sans-type", type: "" },
+    ];
+    expect(choisirOrdinateur(ecrans)?.id).toBe("pc");
+    expect(choisirIpad(ecrans)?.id).toBe("ipad");
+    expect(autresEcrans(ecrans, choisirIpad(ecrans), choisirOrdinateur(ecrans)).map((e) => e.id)).toEqual([
+      "vieux-pc",
+      "tel",
+      "sans-type",
+    ]);
+  });
+  it("aucun ordinateur : null ; autresEcrans sans troisième argument inchangé", () => {
+    expect(choisirOrdinateur([{ id: "ipad", type: "ipad-mini-1" }])).toBeNull();
+    expect(autresEcrans([{ id: "pc", type: "desktop" }], null).map((e) => e.id)).toEqual(["pc"]);
   });
 });
 
