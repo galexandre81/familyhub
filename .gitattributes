@@ -1,3 +1,4 @@
 apps/hub/src/styles/ambiance.css text eol=lf
 apps/display/public/css/ambiance.css text eol=lf
 apps/display/public/fonts/*.woff binary
+scripts/*.sh text eol=lf
