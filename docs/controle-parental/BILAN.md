@@ -23,6 +23,13 @@ prompt de l'agent, contrat) restent hors du dépôt : `sources/`, ignoré.
 
 ## Décisions d'écran (27.10)
 
+- **L'enfant voit les menus sur son ordinateur par un second écran de cuisine**
+  (10.11) : pas de compte ni de rôle « enfant » dans Family Hub (les règles
+  donnent tout le foyer à tout membre, les invitations ne créent que des
+  parents, l'inscription Firebase est fermée) ; son PC est relié comme écran
+  de type ordinateur, en lecture seule par construction, et la carte « PC des
+  enfants » n'y est pas montée. Spec archivée :
+  `docs/archive/2026/superpowers/specs/2026-11-10-ecran-ordinateur-enfant-design.md`.
 - **Une seule décision à la fois** : choisir un mode, verrouiller, débloquer ou
   couper internet REMPLACE la décision en cours ; la feuille « Jusqu'à quand ? »
   le dit (« Remplace : … »). Accepter « plus de temps » garde le mode en cours.
